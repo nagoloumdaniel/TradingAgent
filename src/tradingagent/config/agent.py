@@ -1,4 +1,4 @@
-from collections.abc import Collection, Iterator
+from collections.abc import Collection, Iterator, Mapping
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any, Self
@@ -7,7 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from tradingagent.config._yaml import Problem, read_yaml, render, validation_problems
 from tradingagent.config.errors import ConfigError
-from tradingagent.core.timeframe import Timeframe
+from tradingagent.core.mode import TradingMode, mode_rank
+from tradingagent.strategies.manifest import StrategyManifest, parse_ref
 
 LIVE_RISK_PER_TRADE_CAP = Decimal(5)
 
@@ -19,16 +20,16 @@ class _Strict(BaseModel):
 
 
 class MarketConfig(_Strict):
+    """Timeframes are not declared here: they come from the strategy's manifest."""
+
     symbol: str = Field(pattern=r"^[A-Za-z0-9_]+$")
     enabled: bool = True
-    strategy: str = Field(min_length=1)
-    timeframes: tuple[Timeframe, ...] = Field(min_length=1)
+    strategy: str
 
-    @field_validator("timeframes")
+    @field_validator("strategy")
     @classmethod
-    def _unique_timeframes(cls, value: tuple[Timeframe, ...]) -> tuple[Timeframe, ...]:
-        if len(set(value)) != len(value):
-            raise ValueError("timeframes must be unique")
+    def _pinned_reference(cls, value: str) -> str:
+        parse_ref(value)
         return value
 
 
@@ -82,10 +83,14 @@ class AgentConfig(_Strict):
 
 
 def load_agent_config(
-    path: Path, *, known_symbols: Collection[str], known_strategies: Collection[str]
+    path: Path,
+    *,
+    known_symbols: Collection[str],
+    strategies: Mapping[str, StrategyManifest],
+    mode: TradingMode,
 ) -> AgentConfig:
     document = read_yaml(path)
-    problems = list(_reference_problems(document.data, known_symbols, known_strategies))
+    problems = list(_reference_problems(document.data, known_symbols, strategies, mode))
     config: AgentConfig | None = None
     try:
         config = AgentConfig.model_validate(document.data)
@@ -97,7 +102,10 @@ def load_agent_config(
 
 
 def _reference_problems(
-    data: Any, known_symbols: Collection[str], known_strategies: Collection[str]
+    data: Any,
+    known_symbols: Collection[str],
+    strategies: Mapping[str, StrategyManifest],
+    mode: TradingMode,
 ) -> Iterator[Problem]:
     # Runs on the raw document so these problems surface even when schema validation fails.
     markets = data.get("markets") if isinstance(data, dict) else None
@@ -117,6 +125,28 @@ def _reference_problems(
                     ("markets", index, "symbol"),
                     f"unknown symbol {symbol!r}: not offered by the broker for this account",
                 )
-        strategy = market.get("strategy")
-        if isinstance(strategy, str) and strategy not in known_strategies:
-            yield ("markets", index, "strategy"), f"unknown strategy {strategy!r}"
+        reference = market.get("strategy")
+        if not isinstance(reference, str) or not _well_formed(reference):
+            continue  # malformed references are reported by schema validation
+        location = ("markets", index, "strategy")
+        manifest = strategies.get(reference)
+        if manifest is None:
+            yield location, f"unknown strategy {reference!r}: no such manifest"
+            continue
+        if isinstance(symbol, str) and symbol not in manifest.allowed_symbols:
+            yield location, f"{reference} does not allow symbol {symbol!r} (RM-003)"
+        # Checked even for disabled markets: one can be re-enabled from Telegram later.
+        if mode_rank(manifest.max_mode) < mode_rank(mode):
+            yield (
+                location,
+                f"{reference} is capped at max_mode {manifest.max_mode}, the agent runs in "
+                f"{mode}: publish a new manifest version to promote it (RM-016)",
+            )
+
+
+def _well_formed(reference: str) -> bool:
+    try:
+        parse_ref(reference)
+    except ValueError:
+        return False
+    return True
