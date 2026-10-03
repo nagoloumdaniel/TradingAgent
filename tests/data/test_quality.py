@@ -6,7 +6,7 @@ import pytest
 from tradingagent.core.market import Candle
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.market_calendar import MarketCalendar, learn_calendar
-from tradingagent.data.quality import SeriesHealth, SeriesStatus, assess_series
+from tradingagent.data.quality import SeriesHealth, SeriesStatus, assess_series, missing_bars
 
 FRIDAY, SATURDAY, SUNDAY = 4, 5, 6
 LEARNED_AT = datetime(2026, 10, 5, tzinfo=UTC)  # a Monday
@@ -183,6 +183,30 @@ def test_a_market_open_around_the_clock_has_no_closed_hours() -> None:
 )
 def test_only_real_defects_are_anomalies(status: SeriesStatus, anomaly: bool) -> None:
     assert status.is_anomaly is anomaly
+
+
+def test_missing_bars_lists_every_hole_in_open_hours() -> None:
+    holes = {datetime(2026, 10, 6, 9, 0, tzinfo=UTC), datetime(2026, 10, 6, 10, 30, tzinfo=UTC)}
+    candles = series_until(LAST_CLOSED_TUESDAY, 40, lambda t: t not in holes)
+    start, end = candles[0].open_time, LAST_CLOSED_TUESDAY + STEP
+    assert missing_bars(candles, Timeframe.M15, GOLD, start, end) == sorted(holes)
+
+
+def test_missing_bars_covers_the_edges_of_the_window() -> None:
+    candles = series_until(LAST_CLOSED_TUESDAY - STEP * 2, 4)
+    start = candles[0].open_time - STEP
+    end = LAST_CLOSED_TUESDAY + STEP
+    assert missing_bars(candles, Timeframe.M15, GOLD, start, end) == [
+        start,
+        LAST_CLOSED_TUESDAY - STEP,
+        LAST_CLOSED_TUESDAY,
+    ]
+
+
+def test_missing_bars_ignores_closed_hours() -> None:
+    last = datetime(2026, 10, 7, 0, 45, tzinfo=UTC)
+    candles = series_until(last, 60, gold_open)
+    assert missing_bars(candles, Timeframe.M15, GOLD, candles[0].open_time, last + STEP) == []
 
 
 def test_friday_quote_stop_at_20_45_is_closed_not_stale() -> None:

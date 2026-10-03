@@ -313,7 +313,20 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
 
 ### TASK-013 — Persistance et historique
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-04** (PostgreSQL à confirmer). 19 tests ; toutes les mutations sont attrapées sauf la branche d'insertion PostgreSQL, qui ne sera couverte qu'une fois `TEST_DATABASE_URL` pointé vers Supabase.
+- **Livré :**
+  - `storage/candles.py` (`CandleStore`) : les doublons sont refusés par la contrainte unique de la base, avec `ON CONFLICT DO NOTHING` sur SQLite comme sur PostgreSQL. La première version stockée d'une bougie fait foi.
+  - `data/history.py` (`HistorySync`) : au démarrage et après une reconnexion, l'agent demande le préchauffage, ou tout ce qui manque depuis la dernière bougie stockée si c'est plus long. Une bougie de recouvrement prouve la jointure. `missing()` recense chaque trou pendant les heures ouvertes ; la bougie en formation n'est jamais comptée.
+  - `quality.missing_bars` : le recensement complet, réutilisé par `assess_series`.
+- **Validation réelle :** compte démo, base SQLite jetable, le 2026-10-04.
+  - Rapatriement : 500 bougies M15 pour l'or, 499 pour le BTC (la bougie en formation est écartée).
+  - Seconde synchronisation : 0 insertion.
+  - Coupure simulée de 40 bougies : exactement 40 réinsérées, total inchangé.
+  - Contrôle de continuité sur 24 h : 0 trou sur les deux symboles.
+- **Écart, ticks :** aucun tick n'est persisté. L'agent interroge les bougies (C-010) et ne garde que le dernier tick en mémoire, pour le verrou de fraîcheur. La table `ticks` et sa purge à 30 jours du cahier des charges sont sans objet tant qu'aucune agrégation locale n'est requise.
+- **Reste à faire :**
+  - action 4, la collecte continue, se branche dans la boucle de l'agent (TASK-034) ;
+  - les tests PostgreSQL et la migration en production attendent l'URL Supabase.
 - **Priorité :** P1 · **Complexité :** M · **Dépendances :** TASK-005, TASK-011
 - **Actions :**
   1. persister les bougies avec gestion des doublons par contrainte de base ;

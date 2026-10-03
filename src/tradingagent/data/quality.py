@@ -89,13 +89,34 @@ def assess_series(
         return SeriesHealth(
             SeriesStatus.STALE, f"no candle at {_hm(behind)} while the market was open"
         )
-    for earlier, later in pairwise(candles):
-        missing = _first_expected_missing(earlier.open_time + step, later.open_time, step, calendar)
-        if missing is not None:
-            return SeriesHealth(
-                SeriesStatus.GAP, f"no candle at {_hm(missing)} while the market was open"
-            )
+    holes = missing_bars(candles, timeframe, calendar, candles[0].open_time, candles[-1].open_time)
+    if holes:
+        return SeriesHealth(
+            SeriesStatus.GAP,
+            f"{len(holes)} candle(s) missing while the market was open, first at {_hm(holes[0])}",
+        )
     return SeriesHealth(SeriesStatus.HEALTHY)
+
+
+def missing_bars(
+    candles: Sequence[Candle],
+    timeframe: Timeframe,
+    calendar: MarketCalendar,
+    start: datetime,
+    end: datetime,
+) -> list[datetime]:
+    """Every bar time in [start, end), aligned on the timeframe, that the calendar marks open
+    and the series lacks. This is the explicit census of holes TASK-013 asks for."""
+    step = timedelta(seconds=timeframe.seconds)
+    present = {candle.open_time for candle in candles}
+    first = _floor(start, step)
+    if first < start:
+        first += step
+    return [
+        at
+        for at in _times(first, end, step)
+        if at not in present and calendar.status_at(at) is SlotStatus.OPEN
+    ]
 
 
 def _first_expected_missing(
