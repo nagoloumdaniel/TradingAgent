@@ -36,7 +36,7 @@ Chaîne de décision : `data` → `strategies` → `ai` → `risk` → (`notify`
 **Invariant architectural :** `risk` est la seule frontière entre une intention et un engagement de capital. Aucun module autre que `risk` n'a le droit d'importer `execution`. Cet invariant est vérifié par un test automatisé, pas par la discipline.
 
 ### Base de données
-SQLAlchemy et Alembic dès le début. SQLite en mode WAL jusqu'à la phase 8, PostgreSQL ensuite. Entités et contraintes en section 11 du cahier.
+SQLAlchemy et Alembic. **PostgreSQL hébergé sur Supabase dès le 2026-10-04** (projet `tradingagent`, Francfort), par décision de l'opérateur : pas de base locale pour l'agent, `DATABASE_URL` obligatoire. SQLite ne sert qu'aux tests automatisés, sur des bases temporaires. Sécurité au niveau des lignes activée sur toutes les tables, contre l'API web publique de Supabase. Entités et contraintes en section 11 du cahier.
 
 ### Sécurité
 Aucun secret dans le dépôt. Jeton Deriv limité à la lecture et à la négociation. Liste blanche Telegram. Vérification du compte avant chaque ordre (RM-017).

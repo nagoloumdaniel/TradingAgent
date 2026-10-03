@@ -8,7 +8,10 @@ MT5_SECRET = "Zq8wR3tY6uI9oP2"  # pragma: allowlist secret
 TELEGRAM_TOKEN = "9876543210:BBHdqTcvCH1vGWJxfSeofSAs0K5PALDsawZ"  # pragma: allowlist secret
 ANTHROPIC_KEY = "sk-ant-api03-Xk9pQ2rT7vLm4nB8wZ1cY6hJ3dF5gS0aE"  # pragma: allowlist secret
 
+BASE_DB_PASSWORD = "Bas3Passw0rd99"  # pragma: allowlist secret
+
 VALID_ENV = {
+    "DATABASE_URL": f"postgresql://postgres.abcdefgh:{BASE_DB_PASSWORD}@db.example.com:5432/postgres",
     "MT5_LOGIN": "40123456",
     "MT5_SERVER": "Deriv-Demo",
     "MT5_PASSWORD": MT5_SECRET,
@@ -19,7 +22,6 @@ VALID_ENV = {
 MANAGED = (
     *VALID_ENV,
     "MT5_TERMINAL_PATH",
-    "DATABASE_URL",
     "TRADING_MODE",
     "LIVE_TRADING_ENABLED",
 )
@@ -124,7 +126,12 @@ def test_settings_repr_never_contains_a_secret(env: pytest.MonkeyPatch) -> None:
 
 
 def test_secret_values_exposes_every_secret_for_redaction(env: pytest.MonkeyPatch) -> None:
-    assert set(load_settings().secret_values()) == {MT5_SECRET, TELEGRAM_TOKEN, ANTHROPIC_KEY}
+    assert set(load_settings().secret_values()) == {
+        MT5_SECRET,
+        TELEGRAM_TOKEN,
+        ANTHROPIC_KEY,
+        BASE_DB_PASSWORD,
+    }
 
 
 DB_PASSWORD = "Pg5ecretValue42"  # pragma: allowlist secret
@@ -132,6 +139,17 @@ SUPABASE_URL = (
     f"postgresql://postgres.abcdefgh:{DB_PASSWORD}"  # pragma: allowlist secret
     "@aws-0-eu-central-1.pooler.supabase.com:5432/postgres"
 )
+
+
+@pytest.mark.parametrize("value", [None, "", "   "])
+def test_missing_database_url_blocks_startup_instead_of_writing_locally(
+    env: pytest.MonkeyPatch, value: str | None
+) -> None:
+    if value is None:
+        env.delenv("DATABASE_URL")
+    else:
+        env.setenv("DATABASE_URL", value)
+    assert "DATABASE_URL" in error_of(env)
 
 
 def test_database_url_never_shows_its_password(env: pytest.MonkeyPatch) -> None:

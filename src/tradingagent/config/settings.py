@@ -20,12 +20,13 @@ class Settings(BaseSettings):
     telegram_bot_token: SecretStr
     telegram_allowed_user_ids: Annotated[tuple[int, ...], NoDecode] = Field(min_length=1)
     anthropic_api_key: SecretStr
-    # A server URL carries the database password: kept secret and redacted from logs.
-    database_url: SecretStr = SecretStr("sqlite:///./data/tradingagent.db")
+    # Hosted PostgreSQL, required: no silent fallback to a local file. The URL carries the
+    # database password, so it is kept secret and redacted from logs.
+    database_url: SecretStr
     trading_mode: TradingMode = TradingMode.SIGNAL
     live_trading_enabled: bool = False
 
-    @field_validator("mt5_password", "telegram_bot_token", "anthropic_api_key")
+    @field_validator("mt5_password", "telegram_bot_token", "anthropic_api_key", "database_url")
     @classmethod
     def _secret_not_blank(cls, value: SecretStr) -> SecretStr:
         if not value.get_secret_value().strip():

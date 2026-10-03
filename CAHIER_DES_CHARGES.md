@@ -185,8 +185,8 @@ Les points suivants opposent deux informations fournies. Aucun ne doit être tra
 **Information A :** le cahier initial impose PostgreSQL.
 **Information B :** la spécification Deriv évoque « une base légère, SQLite ou Postgres ».
 **Impact :** faible si l'accès aux données est abstrait dès le départ.
-**Résolution proposée `[PROPOSITION]` :** SQLAlchemy et Alembic dès la première ligne, SQLite en mode WAL pour le développement et la phase de signaux, bascule vers PostgreSQL avant la phase d'exécution sur compte de démonstration. La bascule est alors une variable d'environnement et une exécution de migrations.
-**Décision requise de :** non bloquante, mais la bascule doit être planifiée avant TASK-080.
+**Résolution retenue le 2026-10-04 par l'opérateur `[CONFIRMÉ]` :** **PostgreSQL hébergé dès maintenant**, sur Supabase, projet `tradingagent`, région Francfort, offre gratuite. Pas de phase SQLite pour l'agent : `DATABASE_URL` est obligatoire, sans repli vers un fichier local. SQLite ne subsiste que pour les tests automatisés, sur des bases temporaires effacées après chaque test.
+**Conséquences :** l'agent dépend du réseau pour écrire ses données, et doit suspendre le trading quand la base est injoignable. Les tables sont protégées par la sécurité au niveau des lignes, parce que Supabase publie automatiquement le schéma public sur une API web. Le projet occupe la dernière place de projet actif de l'offre gratuite Supabase de l'opérateur.
 
 ### C-006 — Fréquence des rapports
 
@@ -771,7 +771,7 @@ Priorités : `P0` bloquant, `P1` essentiel, `P2` important, `P3` souhaitable. Le
 | Concurrence | `asyncio`, avec un fil dédié unique pour MT5 | Les tâches périodiques sont asynchrones ; les appels MT5, bloquants et non réentrants, passent tous par ce fil |
 | Accès courtier | Paquet Python officiel `MetaTrader5` et terminal MT5 | Seul accès disponible depuis la France (C-010). Données et exécution par la même source |
 | Données | pandas | Écosystème d'analyse, cohérence avec l'atelier de recherche |
-| Persistance | SQLAlchemy et Alembic, SQLite puis PostgreSQL | Voir C-005 |
+| Persistance | SQLAlchemy et Alembic, PostgreSQL hébergé sur Supabase | Voir C-005, révisée le 2026-10-04 |
 | Validation | pydantic | Validation des manifestes, de la configuration et des réponses du modèle |
 | Planification | APScheduler | Rapports et tâches périodiques dans le même processus |
 | Bot | Bibliothèque Telegram Bot asynchrone | Cohérence avec `asyncio` |
