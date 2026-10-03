@@ -1,8 +1,9 @@
 """Trading hours learned from the broker's own history (F-005, TASK-014).
 
 The MetaTrader5 package does not expose trading sessions (measured in TASK-003), so a
-calendar is learned from recent hourly bars and re-learned daily. A slot open in some weeks
-only, such as a reopening hour shifted by daylight saving time, is reported as uncertain.
+calendar is learned from recent M15 bars and re-learned daily. Quarter-hour slots matter:
+gold stops quoting at 20:45 UTC on Fridays, inside an hour that otherwise trades. A slot
+open in some weeks only, such as one shifted by daylight saving time, is uncertain.
 """
 
 from collections import Counter
@@ -14,8 +15,9 @@ from enum import StrEnum
 from tradingagent.core.market import Candle
 from tradingagent.core.timeframe import Timeframe
 
-Slot = tuple[int, int]  # (weekday with Monday = 0, hour), in UTC
-HOURS_PER_WEEK = 168
+Slot = tuple[int, int]  # (weekday with Monday = 0, quarter of the day 0-95), in UTC
+SLOT = timedelta(minutes=15)
+SLOTS_PER_WEEK = 7 * 96
 
 
 class SlotStatus(StrEnum):
@@ -32,7 +34,7 @@ class MarketCalendar:
 
     @property
     def always_open(self) -> bool:
-        return len(self.open_slots) == HOURS_PER_WEEK
+        return len(self.open_slots) == SLOTS_PER_WEEK
 
     def status_at(self, moment: datetime) -> SlotStatus:
         if moment.utcoffset() != timedelta(0):
@@ -47,24 +49,23 @@ class MarketCalendar:
 
 def learn_calendar(
     symbol: str,
-    hourly: Sequence[Candle],
+    quarters: Sequence[Candle],
     now: datetime,
     weeks: int = 8,
     open_ratio: float = 0.75,
 ) -> MarketCalendar:
     """A slot is open when bars exist in at least `open_ratio` of its occurrences."""
-    if any(candle.timeframe is not Timeframe.H1 for candle in hourly):
-        raise ValueError("the calendar is learned from H1 candles only")
-    end = now.replace(minute=0, second=0, microsecond=0)
+    if any(candle.timeframe is not Timeframe.M15 for candle in quarters):
+        raise ValueError("the calendar is learned from M15 candles only")
+    end = now.replace(minute=now.minute - now.minute % 15, second=0, microsecond=0)
     start = end - timedelta(weeks=weeks)
     present: Counter[Slot] = Counter(
-        _slot(candle.open_time) for candle in hourly if start <= candle.open_time < end
+        _slot(candle.open_time) for candle in quarters if start <= candle.open_time < end
     )
     if not present:
         raise ValueError(f"no {symbol} history in the last {weeks} weeks to learn hours from")
     occurrences: Counter[Slot] = Counter(
-        _slot(start + timedelta(hours=offset))
-        for offset in range(int((end - start).total_seconds()) // 3600)
+        _slot(start + SLOT * index) for index in range(int((end - start) / SLOT))
     )
     open_slots = {slot for slot, seen in present.items() if seen >= open_ratio * occurrences[slot]}
     uncertain_slots = set(present) - open_slots
@@ -73,4 +74,4 @@ def learn_calendar(
 
 def _slot(moment: datetime) -> Slot:
     utc = moment.astimezone(UTC)
-    return utc.weekday(), utc.hour
+    return utc.weekday(), (utc.hour * 60 + utc.minute) // 15
