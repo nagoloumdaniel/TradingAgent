@@ -16,7 +16,9 @@ Section de référence partagée. Les tâches y renvoient au lieu de répéter.
 Agent autonome 24/7. Aucune interface graphique. Telegram est l'unique surface d'interaction. Opérateur unique, résident français.
 
 ### Marchés
-Or `frxXAUUSD`, plus deux à quatre cryptomonnaies en contrat pour différence, à sélectionner en TASK-003 et TASK-064. Les indices synthétiques sont **hors périmètre**, indisponibles depuis la France, voir C-008 du cahier. La crypto est retenue pour sa propriété d'ouverture continue, qui garantit à l'agent au moins un marché actif le week-end.
+**`XAUUSD` (or) et `BTCUSD` (bitcoin), décision de l'opérateur du 2026-10-04 (Q-07).** Le BTC cote en continu, ce qui garantit à l'agent un marché actif le week-end. Les indices synthétiques sont **hors périmètre** : visibles sur MT5 mais refusés à l'exécution pour un résident français (C-008, ordre de test du 2026-10-04). **Avec 100 €, aucun des deux marchés n'est éligible au mode réel** (Q-22) ; la démonstration n'est pas concernée.
+
+**Suivi à faire :** le manifeste `witness@1.0.0` référence encore `frxXAUUSD`, un nom qui n'existe pas sur MT5. Il faudra publier une version qui autorise `XAUUSD` et `BTCUSD` au moment de créer `agent.yaml`.
 
 ### Capital et risque
 Capital de référence réel : 100 €. Cette contrainte impose un risque par opération de 2 à 5 % en mode réel, contre 0,5 % en démonstration, voir C-009 et RM-005 révisée.
@@ -88,7 +90,7 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 
 ### TASK-001 — Lever les décisions bloquantes
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-04, avec un écart accepté par l'opérateur.** Identifiants démo MT5 en place, mais avec le **mot de passe principal** : le mot de passe investisseur n'a pas pu être créé. Le critère « une tentative d'ordre est refusée » n'est donc pas rempli, et l'agent peut passer des ordres sur le compte démo. Risque accepté pour la démonstration uniquement. Le contrôle RM-017 du type de compte, testé dans `scripts/order_feasibility_mt5.py`, devient le seul rempart, et devra être bloquant dans TASK-010 et TASK-081.
 - **Priorité :** P0 · **Complexité :** S · **Dépendances :** aucune
 - **Objectif :** obtenir de l'opérateur une réponse écrite aux questions Q-01 à Q-08 du cahier.
 - **Avancement au 2026-10-01 :** Q-02, Q-03, Q-04, Q-06, Q-08, Q-09, Q-10 et Q-11 sont résolues et consignées dans le cahier version 1.1. Restent Q-01, tranchée en TASK-004, et Q-05, action opérateur.

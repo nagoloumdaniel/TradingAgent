@@ -130,7 +130,21 @@ Lecture d'un tick : 0,02 ms en médiane. Lecture de 300 bougies : 0,03 ms en mé
 - **R-17 confirmé :** le levier crypto de 1:2 rend BTC, ETH et XRP inaccessibles en réel avec 100 €.
 - **Indices synthétiques :** présents sur ce compte démo. Reste à savoir s'ils le seraient sur un compte réel européen. Avec 100 €, les deux mesurés sont de toute façon inéligibles au réel.
 
-## 10. Non mesuré ou à refaire
+## 10. Test d'exécution, 2026-10-04
+
+À la demande de l'opérateur, `scripts/order_feasibility_mt5.py` a ouvert la position minimale puis l'a refermée aussitôt. Le script refuse de s'exécuter si le terminal ne déclare pas un compte de démonstration.
+
+| Symbole | Vérification préalable (`order_check`) | Envoi (`order_send`) | Protections natives | Position restante |
+|---|---|---|---|---|
+| Volatility 100 Index | « Done » | **Refusé : retcode 10006, « Instruments blocked in France »** | — | aucune |
+| BTCUSD | « Done » | **Exécuté** : retcode 10009, 0,01 à 84 723,952 | stop-loss et take-profit présents sur la position | aucune, refermée à 84 705,528 |
+
+**Enseignements :**
+- **Les indices synthétiques sont visibles mais bloqués à l'exécution pour un résident français.** C-008 vaut aussi pour MT5 : ils restent hors périmètre.
+- **`order_check` ne détecte pas un blocage par juridiction.** Il répond favorablement alors que le serveur refusera l'ordre. Seul le code retour de `order_send` fait foi (TASK-081).
+- Le chemin d'exécution complet fonctionne pour le BTC : ordre au marché en remplissage « fill or kill », stop-loss et take-profit natifs, fermeture par ordre opposé lié à la position.
+
+## 11. Non mesuré ou à refaire
 
 - Spreads crypto **un jour de semaine**, avant de trancher Q-07.
 - Profondeur M1 à M15 au-delà du plafond de 100 000 bougies du terminal.
