@@ -393,7 +393,19 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-030 — Moteur d'indicateurs
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-03**. 53 tests d'indicateurs, 154 au total, neuf hooks verts.
+- **Livré :** `sma`, `ema`, `rsi` et `atr` dans `src/tradingagent/indicators/`, limités aux indicateurs cités par le manifeste d'exemple du cahier initial. Les autres seront ajoutés avec la stratégie qui en a besoin.
+- **Conventions arrêtées :**
+  - sortie alignée sur l'entrée, une valeur par bougie ; `None` signifie « pas de valeur », que ce soit par manque de données ou parce que la valeur est mathématiquement indéfinie ;
+  - le RSI d'une fenêtre parfaitement plate vaut `None`, pas 50 : renvoyer 50 fabriquerait une lecture neutre ;
+  - la première bougie n'a pas de true range, faute de clôture précédente. Lui substituer `high - low` serait une approximation ;
+  - lissage de Wilder (alpha = 1/n) pour le RSI et l'ATR, EMA standard (alpha = 2/(n+1)) amorcée sur la moyenne simple ;
+  - toute valeur non finie lève une erreur au lieu de se propager ;
+  - la moyenne simple est recalculée exactement sur chaque fenêtre, sans somme glissante, afin que sa valeur ne dépende pas du point de départ de la série.
+- **Vérification :** valeurs de référence calculées à la main, avec des périodes de 2 pour que Wilder et l'EMA standard divergent. Six erreurs classiques injectées volontairement ont toutes été attrapées par les tests.
+- **Garde-fou ajouté :** le test d'architecture interdit à `indicators` d'importer tout module d'horloge, de réseau, d'aléatoire ou d'entrée-sortie, et tout paquet du projet autre que `core`. Le critère « aucun indicateur ne lit l'heure ni n'accède au réseau » est donc vérifié automatiquement, et plus seulement à la relecture.
+- **⚠ Conséquence à reporter sur TASK-031 et TASK-061 — le préchauffage.** L'EMA, le RSI et l'ATR sont récursifs : leur valeur sur une bougie dépend de tout l'historique depuis leur point de départ. Deux calculs partant de points différents divergent sur la même bougie jusqu'à convergence, soit plusieurs fois la période. Si la production calcule sur moins d'historique que le backtest, la parité entre les deux est rompue en silence.
+- **Piège rencontré, à connaître :** lors du test par mutation, Python a exécuté un bytecode périmé. Le fichier muté et le fichier restauré avaient la même taille et la même date à la seconde près, et le cache `.pyc` ne vérifie que ces deux informations. Tout script qui réécrit des sources puis les réexécute doit tourner avec `PYTHONDONTWRITEBYTECODE=1`.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-002 · **Couvre :** F-006
 - **Skills :** `test-driven-development`
 - **Actions :**
@@ -413,7 +425,7 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 - **Skills :** `brainstorming` avant l'écriture, pour arrêter la forme de l'interface, puis `test-driven-development`
 - **Objectif :** une interface unique, et un chargeur qui refuse toute configuration douteuse.
 - **Actions :**
-  1. définir l'interface commune : entrées, sorties, données requises, quantité minimale d'historique ;
+  1. définir l'interface commune : entrées, sorties, données requises, quantité minimale d'historique. **Cette quantité doit inclure le préchauffage des indicateurs récursifs**, EMA, RSI et ATR, d'au moins plusieurs fois leur période, conformément à la note de TASK-030. Le moteur doit refuser d'évaluer une stratégie tant que cet historique n'est pas disponible, et le harnais de backtest de TASK-061 doit appliquer exactement la même règle ;
   2. définir le schéma du manifeste, couvrant les éléments listés en section 7.2 du cahier initial, augmenté du paramètre `ai_filter` issu de C-002 ;
   3. implémenter le chargeur avec validation stricte ;
   4. faire échouer le chargement si un symbole n'est pas dans les symboles autorisés du manifeste, conformément à RM-003.
@@ -1049,7 +1061,7 @@ Ces skills apportent le savoir métier que ni le cahier ni la roadmap ne peuvent
 | TASK-010 client WebSocket | `exchange-connectivity` | Gestion de session, reprise après coupure, perte de séquence, bascule |
 | TASK-012 qualité des données | `data-quality`, `data-quality-checker` | Règles de validation, détection de prix figés, seuils, gestion des exceptions |
 | TASK-013 historique | `market-data`, `data-quality` | Profondeur, conflation, cohérence des séries |
-| TASK-030 indicateurs | `statistics-fundamentals`, `volatility-modeling` | Estimateurs de volatilité, propriétés statistiques, pièges de calcul |
+| TASK-030 indicateurs | Aucun | **Corrigé à l'exécution :** `statistics-fundamentals` et `volatility-modeling` traitent de statistiques de portefeuille, de GARCH et de volatilité implicite, pas des indicateurs de Wilder. Ils restent mappés sur TASK-063, où ils sont utiles |
 | TASK-031 interface stratégie | `edge-strategy-designer` | Forme d'une stratégie exploitable et paramétrable |
 | TASK-035 moteur de risque | `position-sizer`, `bet-sizing`, `drawdown-circuit-breaker`, `pre-trade-discipline-gate`, `pre-trade-compliance`, `margin-operations`, `forward-risk` | Sizing par distance de stop, Kelly fractionnaire, coupe-circuit de drawdown, portes de contrôle avant ordre, budget de risque |
 | TASK-036 arrêt d'urgence | `drawdown-circuit-breaker`, `operational-risk` | Logique de coupe-circuit, classification d'incident |

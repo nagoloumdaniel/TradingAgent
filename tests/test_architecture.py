@@ -25,6 +25,26 @@ OFFLINE_ONLY = {"backtest", "research"}
 EXECUTION_GATEKEEPERS = {"risk", "execution"}
 # The composition root wires the executor into risk; it may import execution but never call it.
 COMPOSITION_ROOT = "tradingagent.app"
+# Pure-calculation packages: no clock, no network, no randomness, no I/O, no project state.
+PURE_PACKAGES = {"indicators"}
+PURE_ALLOWED_DEPENDENCIES = {"core"}
+IMPURE_MODULES = {
+    "time",
+    "datetime",
+    "socket",
+    "ssl",
+    "http",
+    "urllib",
+    "requests",
+    "httpx",
+    "aiohttp",
+    "websockets",
+    "asyncio",
+    "random",
+    "secrets",
+    "os",
+    "subprocess",
+}
 
 
 def module_name(path: Path, src_root: Path) -> str:
@@ -66,6 +86,13 @@ def find_violations(src_root: Path) -> list[str]:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for target in sorted(imported_modules(tree, module, path.name == "__init__.py")):
             dependency = subpackage(target)
+            if importer in PURE_PACKAGES:
+                if target.split(".")[0] in IMPURE_MODULES:
+                    violations.append(f"{module} imports {target}: {importer} must stay pure")
+                if dependency not in {None, importer, *PURE_ALLOWED_DEPENDENCIES}:
+                    violations.append(
+                        f"{module} imports {target}: {importer} may depend on core only"
+                    )
             if dependency is None or dependency == importer:
                 continue
             if (
@@ -117,6 +144,12 @@ def build_tree(root: Path, files: dict[str, str]) -> Path:
         ("reporting/daily.py", "from tradingagent.backtest import harness\n"),
         ("app.py", "import tradingagent.research.explore\n"),
         ("analytics/__init__.py", "from ..backtest import harness\n"),
+        ("indicators/rsi.py", "import time\n"),
+        ("indicators/rsi.py", "from datetime import datetime\n"),
+        ("indicators/rsi.py", "import urllib.request\n"),
+        ("indicators/rsi.py", "import random\n"),
+        ("indicators/rsi.py", "from tradingagent.storage import repository\n"),
+        ("indicators/rsi.py", "from ..data import feed\n"),
     ],
 )
 def test_forbidden_import_is_detected(tmp_path: Path, relative: str, source: str) -> None:
@@ -134,6 +167,10 @@ def test_forbidden_import_is_detected(tmp_path: Path, relative: str, source: str
         ("backtest/harness.py", "from ..analytics import metrics\n"),
         ("research/explore.py", "from tradingagent.backtest import harness\n"),
         ("execution/deriv.py", "from tradingagent.core import types\n"),
+        ("indicators/rsi.py", "import math\nfrom collections.abc import Sequence\n"),
+        ("indicators/rsi.py", "from tradingagent.core import timeframe\n"),
+        ("indicators/rsi.py", "from ._checks import require_period\n"),
+        ("data/feed.py", "import asyncio\nimport time\n"),
     ],
 )
 def test_allowed_import_passes(tmp_path: Path, relative: str, source: str) -> None:
