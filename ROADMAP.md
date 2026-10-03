@@ -115,6 +115,7 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
   - Les deux défauts ont été mis au jour par le critère d'acceptation « un faux secret doit être bloqué » : sans ce test, la chaîne aurait été verte et n'aurait rien protégé.
   - Sous Windows, les motifs d'exclusion de `detect-secrets` écrits avec `/` ne correspondent pas aux chemins en `\`. La baseline est donc générée à partir de `git ls-files --cached --others --exclude-standard`, ce qui respecte `.gitignore`. **Régénérer la baseline uniquement de cette façon**, jamais avec un scan récursif du dossier.
   - Les répertoires de tests par paquet ne sont pas créés à vide : chacun sera créé avec son premier test.
+  - **⚠ Défaut découvert le 2026-10-04, en TASK-010 :** la règle `data/` du `.gitignore`, destinée au dossier local de la base, n'était pas ancrée à la racine. Elle masquait aussi `src/tradingagent/data` et `tests/data`. Le paquet `data` n'avait **jamais été commité** depuis cette tâche, et **ruff, qui respecte le `.gitignore`, ne l'avait jamais analysé**, ce que mes « All checks passed » ne laissaient pas voir. Corrigé par `/data/`. Leçon : vérifier la liste des fichiers indexés à chaque commit, pas seulement le résultat des outils.
   - Le fichier de contexte `CLAUDE.md` a été rédigé directement plutôt qu'avec le skill `init`, inadapté à un dépôt sans code.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-001 (Q-02, Q-03)
 - **Skills :** `init` pour produire le fichier de contexte projet
