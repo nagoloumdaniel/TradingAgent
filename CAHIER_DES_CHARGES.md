@@ -852,12 +852,14 @@ Aucun jeton n'est partagé entre environnements. `[CONFIRMÉ]`
 | Moindre privilège | **Mot de passe investisseur**, en lecture seule, pour toutes les phases sans exécution ; mot de passe principal uniquement à partir de la phase 8 | `[PROPOSITION]` |
 | Entité du compte | Entité européenne, résidence française | `[CONFIRMÉ]`, voir C-008 et C-010 |
 | Indices synthétiques | Indisponibles sur ce compte | `[CONFIRMÉ]` le 2026-10-01, voir C-008 |
-| Nom du symbole de l'or | Propre au serveur MT5 de Deriv | `[À CONFIRMER]` en TASK-003 |
+| Nom du symbole de l'or | `XAUUSD` (profit en dollars) et `XAUEUR` (profit en euros) | `[CONFIRMÉ]` le 2026-10-03, rapport TASK-003 |
+| Indices synthétiques sur MT5 | **Présents sur le compte démo**, contrairement au constat de C-008 | `[CONFIRMÉ]` en démonstration, `[À CONFIRMER]` sur un compte réel européen |
 | Symboles crypto | Deux à quatre, à sélectionner | `[À CONFIRMER]` — liste établie à partir des symboles réellement visibles sur le compte, et non d'une documentation générale. Critères en Q-07 |
-| Spécifications de contrat | Taille de contrat, lot minimal, pas de lot, valeur et taille du tick, devise de marge, levier | `[À CONFIRMER]`, **bloquant pour la formule de taille (TASK-004) et pour RM-019** |
-| Historique | Bougies et ticks lus depuis le serveur du courtier | Profondeur par unité de temps `[À CONFIRMER]`, déterminante pour le backtest |
+| Spécifications de contrat | Taille de contrat, lot minimal, pas de lot, marge, risque minimal | `[CONFIRMÉ]` en démonstration le 2026-10-03, voir `docs/reports/2026-10-03-mt5-capabilities.md`. **La valeur du tick fournie par MT5 n'est fiable que pour l'or** : le risque se calcule avec le calculateur de profit du terminal |
+| Historique | Bougies et ticks lus depuis le serveur du courtier | `[CONFIRMÉ]` : H1 depuis 2011 pour l'or et le BTC ; M15 au-delà du plafond de 100 000 bougies du terminal ; ticks crypto depuis janvier 2025 seulement |
+| Plafond de bougies du terminal | Toute demande de 100 000 bougies ou plus est refusée en bloc | `[CONTRAINTE]` mesurée : demander au plus le plafond moins un, paginer au-delà |
 | Horaires de négociation | Sessions par symbole, fournies par le terminal | `[DÉDUIT]` de l'exigence EF-020 |
-| Heure serveur | Le terminal date les bougies à l'heure du serveur du courtier | Décalage avec l'heure universelle `[À CONFIRMER]`, **bloquant pour l'invariant UTC** |
+| Heure serveur | Le terminal date les bougies à l'heure du serveur du courtier | **Serveur de démonstration à l'heure universelle, sans heure d'été** `[CONFIRMÉ]` le 2026-10-03 par mesure directe et par le calendrier de l'or. Serveur réel `[À CONFIRMER]` avant la phase 9 |
 | Flux temps réel | Interrogation périodique, pas d'abonnement poussé | `[CONTRAINTE]` |
 | Type de compte | Démonstration ou réel, lisible depuis le terminal | `[CONFIRMÉ]`, base du contrôle RM-017 |
 
@@ -1018,7 +1020,7 @@ Les backtests intensifs sont exécutés sur une machine distincte afin de ne pas
 | R-13 | Capital insuffisant pour la taille minimale négociable | **Élevée** | Moyen | Élevé | Règle RM-019 : un instrument dont le risque minimal dépasse le plafond autorisé est déclaré inéligible au mode réel, sans bloquer les autres modes. Mesure des tailles minimales en TASK-003 |
 | R-14 | Confusion entre validation de la mécanique et validation de la performance | **Élevée** | Élevé | **Critique** | À 100 €, le mode réel ne peut pas produire de statistiques interprétables (C-009). Les rapports doivent séparer explicitement les chiffres de démonstration et de réel, et ne jamais les agréger. Aucune décision de stratégie ne doit s'appuyer sur les résultats réels à ce niveau de capital |
 | R-15 | Dépendance à Windows et au terminal MT5 : terminal fermé, déconnecté, mis à jour ou bloqué par une fenêtre | **Élevée** | Élevé | Élevé | Contrôle de santé du terminal à chaque cycle, suspension du trading dès qu'il ne répond plus, redémarrage automatique de l'agent et du terminal, alerte Telegram. Introduit par C-010 |
-| R-16 | Heure du serveur du courtier prise pour l'heure universelle | Moyenne | **Très élevé** | **Critique** | Bougies décalées de plusieurs heures, horaires de marché faux, rapports quotidiens coupés au mauvais moment, et parité avec l'historique rompue. Mesure du décalage en TASK-003, conversion à l'entrée unique des données, test dédié, et suivi des changements d'heure d'été du serveur |
+| R-16 | Heure du serveur du courtier prise pour l'heure universelle | ~~Moyenne~~ **Faible** — serveur démo mesuré à l'heure universelle le 2026-10-03 | **Très élevé** | Moyen, jusqu'à vérification du serveur réel | Bougies décalées de plusieurs heures, horaires de marché faux, rapports quotidiens coupés au mauvais moment, et parité avec l'historique rompue. Mesure du décalage en TASK-003, conversion à l'entrée unique des données, test dédié, et suivi des changements d'heure d'été du serveur |
 | R-17 | Levier crypto plafonné à 1:2 dans l'Union : marge minimale supérieure au capital réel | **Élevée** | Moyen | Élevé | Traité par RM-019 : la crypto peut être déclarée inéligible au mode réel tout en restant pleinement active en démonstration. Mesure des tailles minimales en TASK-003 |
 | R-12 | Dérive de performance d'une stratégie en production | Élevée | Moyen | Élevé | Comparaison mensuelle backtest contre réel, seuils d'alerte, procédure de suspension |
 
@@ -1046,7 +1048,7 @@ Ces décisions conditionnent le démarrage ou la poursuite du développement.
 | Q-06 | ~~Type de compte et pays de résidence~~ | — | **Résolue :** résidence française, entité européenne. Indices synthétiques indisponibles, voir C-008 |
 | Q-07 | Liste exacte des deux à quatre cryptomonnaies | Aucune collecte ciblée possible | À établir après TASK-003. Critères : liquidité et spread acceptables, historique suffisant pour le backtest, taille minimale compatible avec RM-019, et faible corrélation entre les paires retenues afin de ne pas surveiller quatre fois le même risque |
 | Q-08 | ~~Capital de référence~~ | — | **Résolue :** 100 €, avec les conséquences documentées en C-009 |
-| Q-21 | Taille minimale négociable et distance de stop typique, par symbole | Impossible de déterminer l'éligibilité d'un instrument au mode réel | À mesurer en TASK-003. **Nouveau bloquant introduit en 1.1**, conditionne RM-019 |
+| Q-21 | ~~Taille minimale et distance de stop, par symbole~~ | — | **Résolue le 2026-10-03 par TASK-003.** Or inéligible au réel avec 100 € (marge 183,93 €) ; BTC, ETH et XRP inéligibles (marge) ; SOL, LTC et ADA éligibles, mais LTC et ADA ont un spread de 77 % et 86 % de l'ATR M15 |
 
 ### 20.2 Décisions non bloquantes
 

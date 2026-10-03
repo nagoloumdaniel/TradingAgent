@@ -131,7 +131,10 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 
 ### TASK-003 — Vérification des capacités réelles de Deriv MT5
 
-- [ ] Statut : TODO · **réécrite le 2026-10-03 pour MT5 (C-010)**
+- [x] Statut : **DONE le 2026-10-04** · **Rapport :** `docs/reports/2026-10-03-mt5-capabilities.md`, relevé brut `.json` et script `scripts/explore_mt5.py`, en lecture seule.
+- **Résultats décisifs :** or inéligible au réel avec 100 € (marge 183,93 €) ; seul SOL est à la fois éligible au réel et raisonnablement coûteux en spread ; serveur démo à l'heure universelle, sans heure d'été ; valeur du tick MT5 fiable seulement pour l'or ; indices synthétiques présents sur le compte démo ; historique suffisant (H1 depuis 2011).
+- **Erreurs de mesure rencontrées, corrigées avant publication :** un historique faussement vide, causé par le refus en bloc de MT5 au-delà du plafond de bougies du terminal ; une relance qui n'a jamais exécuté le script, parce qu'un contrôle de style l'enchaînait en `&&` alors que le code retour affiché était celui d'un `echo` final ; une absence de cotation XRP et LTC qui s'est révélée passagère.
+- **Restent à faire :** mesure des spreads crypto un jour de semaine (préalable à Q-07) ; vérification du refus d'ordre avec le mot de passe investisseur (TASK-001), **le mot de passe actuellement configuré autorisant le trading**.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-001 (Q-05), TASK-002
 - **Skills :** `market-data` pour la qualité de flux et la profondeur d'historique, `commodities` et `currencies-and-fx` pour lire les spécifications de l'or
 - **Objectif :** remplacer par des faits mesurés les points marqués à confirmer en section 12.1 du cahier. C'est la tâche la plus importante de la phase 0 : elle conditionne la formule de taille et l'éligibilité au mode réel.

@@ -1,0 +1,991 @@
+{
+  "measured_at_utc": "2026-10-03T22:01:12.010962+00:00",
+  "account": {
+    "login_masked": "...70",
+    "mode": "DEMO",
+    "currency": "EUR",
+    "leverage": 30,
+    "trade_allowed": true,
+    "company": "Deriv.com Limited",
+    "server": "Deriv-Demo",
+    "margin_mode": 2
+  },
+  "terminal": {
+    "build": 6235,
+    "connected": true,
+    "max_bars_setting": 100000
+  },
+  "symbol_groups": {
+    "Forex Minor": 24,
+    "Forex Major": 14,
+    "Volatility Indices": 6,
+    "Metals": 6,
+    "Crypto": 46,
+    "Crash Boom Indices": 2,
+    "Equities": 68,
+    "Conversions": 8,
+    "Jump Indices": 3,
+    "ETFs": 31,
+    "Energies": 3,
+    "DEX Indices": 6,
+    "Drift Switching Indices": 3,
+    "Stock Indices": 16,
+    "Step Indices": 3,
+    "Soft Commodities": 5
+  },
+  "gold_measured": [
+    "XAUUSD",
+    "XAUEUR"
+  ],
+  "crypto_measured": [
+    "BTCUSD",
+    "ETHUSD",
+    "SOLUSD",
+    "XRPUSD",
+    "LTCUSD",
+    "ADAUSD"
+  ],
+  "crypto_available": [
+    "AAVUSD",
+    "ADAUSD",
+    "ALGUSD",
+    "APEUSD",
+    "APTUSD",
+    "ATMUSD",
+    "AVAUSD",
+    "BATUSD",
+    "BCHUSD",
+    "BNBUSD",
+    "BTCETH",
+    "BTCLTC",
+    "BTCUSD",
+    "COMUSD",
+    "DOGUSD",
+    "DOTUSD",
+    "DSHUSD",
+    "ENJUSD",
+    "ETCUSD",
+    "ETHUSD",
+    "FILUSD",
+    "FTTUSD",
+    "GMTUSD",
+    "IMXUSD",
+    "IOTUSD",
+    "KNCUSD",
+    "LNKUSD",
+    "LPTUSD",
+    "LRCUSD",
+    "LTCUSD",
+    "MANUSD",
+    "MLNUSD",
+    "NEOUSD",
+    "NERUSD",
+    "SANUSD",
+    "SHBUSD",
+    "SOLUSD",
+    "TRUUSD",
+    "TRXUSD",
+    "UNIUSD",
+    "VECUSD",
+    "XLMUSD",
+    "XMRUSD",
+    "XRPUSD",
+    "XTZUSD",
+    "ZECUSD"
+  ],
+  "synthetic_available": {
+    "Volatility Indices": [
+      "Volatility 100 (1s) Index",
+      "Volatility 100 Index",
+      "Volatility 50 (1s) Index",
+      "Volatility 50 Index",
+      "Volatility 75 (1s) Index",
+      "Volatility 75 Index"
+    ],
+    "Crash Boom Indices": [
+      "Boom 500 Index",
+      "Crash 500 Index"
+    ],
+    "Jump Indices": [
+      "Jump 100 Index",
+      "Jump 50 Index",
+      "Jump 75 Index"
+    ],
+    "DEX Indices": [
+      "DEX 1500 DOWN Index",
+      "DEX 1500 UP Index",
+      "DEX 600 DOWN Index",
+      "DEX 600 UP Index",
+      "DEX 900 DOWN Index",
+      "DEX 900 UP Index"
+    ],
+    "Drift Switching Indices": [
+      "Drift Switch Index 10",
+      "Drift Switch Index 20",
+      "Drift Switch Index 30"
+    ],
+    "Step Indices": [
+      "Step Index 300",
+      "Step Index 400",
+      "Step Index 500"
+    ]
+  },
+  "synthetic_measured_specification_only": [
+    "Volatility 100 (1s) Index",
+    "Volatility 100 Index",
+    "Step Index 300",
+    "Step Index 400"
+  ],
+  "symbols": {
+    "XAUUSD": {
+      "specification": {
+        "name": "XAUUSD",
+        "path": "Metals\\XAUUSD",
+        "description": "Gold vs US Dollar",
+        "currency_base": "XAU",
+        "currency_profit": "USD",
+        "currency_margin": "XAU",
+        "digits": 2,
+        "point": 0.01,
+        "trade_contract_size": 100.0,
+        "volume_min": 0.01,
+        "volume_step": 0.01,
+        "volume_max": 10.0,
+        "trade_tick_size": 0.01,
+        "trade_tick_value": 0.8887861847075449,
+        "trade_stops_level": 20,
+        "trade_freeze_level": 3,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 0,
+        "swap_long": -75.0,
+        "swap_short": 0.0,
+        "spread": 74,
+        "spread_float": true
+      },
+      "last_tick_server_time": "2026-10-02T20:44:59+00:00",
+      "bid": 4138.27,
+      "ask": 4139.01,
+      "has_current_quote": true,
+      "atr14_m15": 8.204873727759852,
+      "median_spread_m15": 0.15,
+      "margin_min_lot": 183.93,
+      "typical_stop_distance": 12.307310591639776,
+      "risk_min_lot_formula": 10.938567624754274,
+      "risk_min_lot_terminal": 10.94,
+      "live_eligible": false,
+      "live_eligibility_reason": "risk 10.94 EUR vs cap 5.00; margin 183.93 vs capital 100.0",
+      "history": {
+        "M1": {
+          "bars": 99999,
+          "first": "2026-06-23T13:13:00+00:00",
+          "last": "2026-10-02T20:44:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M5": {
+          "bars": 99999,
+          "first": "2025-05-06T11:30:00+00:00",
+          "last": "2026-10-02T20:40:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M15": {
+          "bars": 99999,
+          "first": "2022-07-07T18:45:00+00:00",
+          "last": "2026-10-02T20:30:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "H1": {
+          "bars": 92339,
+          "first": "2011-01-02T22:00:00+00:00",
+          "last": "2026-10-02T20:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "H4": {
+          "bars": 24950,
+          "first": "2011-01-02T20:00:00+00:00",
+          "last": "2026-10-02T20:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "D1": {
+          "bars": 4862,
+          "first": "2011-01-02T00:00:00+00:00",
+          "last": "2026-10-02T00:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        }
+      },
+      "first_tick_server_time": "2019-01-02T00:00:09+00:00"
+    },
+    "XAUEUR": {
+      "specification": {
+        "name": "XAUEUR",
+        "path": "Metals\\XAUEUR",
+        "description": "Gold vs Euro",
+        "currency_base": "XAU",
+        "currency_profit": "EUR",
+        "currency_margin": "XAU",
+        "digits": 2,
+        "point": 0.01,
+        "trade_contract_size": 100.0,
+        "volume_min": 0.01,
+        "volume_step": 0.01,
+        "volume_max": 10.0,
+        "trade_tick_size": 0.01,
+        "trade_tick_value": 1.0,
+        "trade_stops_level": 20,
+        "trade_freeze_level": 3,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 0,
+        "swap_long": -42.15,
+        "swap_short": 22.76,
+        "spread": 48,
+        "spread_float": true
+      },
+      "last_tick_server_time": "2026-10-02T20:44:59+00:00",
+      "bid": 3678.06,
+      "ask": 3678.54,
+      "has_current_quote": true,
+      "atr14_m15": 6.390303288357872,
+      "median_spread_m15": 0.21,
+      "margin_min_lot": 183.93,
+      "typical_stop_distance": 9.585454932536809,
+      "risk_min_lot_formula": 9.585454932536809,
+      "risk_min_lot_terminal": 9.59,
+      "live_eligible": false,
+      "live_eligibility_reason": "risk 9.59 EUR vs cap 5.00; margin 183.93 vs capital 100.0",
+      "history": {
+        "M1": {
+          "bars": 99999,
+          "first": "2026-06-23T13:13:00+00:00",
+          "last": "2026-10-02T20:44:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M5": {
+          "bars": 99999,
+          "first": "2025-05-06T07:55:00+00:00",
+          "last": "2026-10-02T20:40:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M15": {
+          "bars": 99999,
+          "first": "2022-07-07T19:30:00+00:00",
+          "last": "2026-10-02T20:30:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "H1": {
+          "bars": 39953,
+          "first": "2020-01-01T23:00:00+00:00",
+          "last": "2026-10-02T20:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "H4": {
+          "bars": 10801,
+          "first": "2020-01-01T20:00:00+00:00",
+          "last": "2026-10-02T20:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "D1": {
+          "bars": 2099,
+          "first": "2020-01-01T00:00:00+00:00",
+          "last": "2026-10-02T00:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        }
+      },
+      "first_tick_server_time": "2025-01-01T23:00:18+00:00"
+    },
+    "BTCUSD": {
+      "specification": {
+        "name": "BTCUSD",
+        "path": "Crypto\\BTCUSD",
+        "description": "Bitcoin vs US Dollar",
+        "currency_base": "USD",
+        "currency_profit": "USD",
+        "currency_margin": "USD",
+        "digits": 3,
+        "point": 0.001,
+        "trade_contract_size": 1.0,
+        "volume_min": 0.01,
+        "volume_step": 0.01,
+        "volume_max": 5.0,
+        "trade_tick_size": 0.001,
+        "trade_tick_value": 0.001,
+        "trade_stops_level": 20000,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 2,
+        "swap_long": -20.0,
+        "swap_short": -20.0,
+        "spread": 18424,
+        "spread_float": true
+      },
+      "last_tick_server_time": "2026-10-03T22:00:15+00:00",
+      "bid": 84660.961,
+      "ask": 84679.385,
+      "has_current_quote": true,
+      "atr14_m15": 69.41745725933778,
+      "median_spread_m15": 2.424,
+      "margin_min_lot": 376.34,
+      "typical_stop_distance": 104.12618588900668,
+      "risk_min_lot_formula": 1.0412618588900668,
+      "risk_min_lot_terminal": 0.92,
+      "live_eligible": false,
+      "live_eligibility_reason": "risk 0.92 EUR vs cap 5.00; margin 376.34 vs capital 100.0",
+      "history": {
+        "M1": {
+          "bars": 99999,
+          "first": "2026-07-26T01:21:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M5": {
+          "bars": 99999,
+          "first": "2025-10-20T02:15:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M15": {
+          "bars": 99999,
+          "first": "2023-11-26T16:15:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "H1": {
+          "bars": 87573,
+          "first": "2011-03-23T22:00:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "H4": {
+          "bars": 23445,
+          "first": "2011-03-23T20:00:00+00:00",
+          "last": "2026-10-03T20:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "D1": {
+          "bars": 5599,
+          "first": "2011-03-23T00:00:00+00:00",
+          "last": "2026-10-03T00:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        }
+      },
+      "first_tick_server_time": "2025-01-01T00:00:01+00:00"
+    },
+    "ETHUSD": {
+      "specification": {
+        "name": "ETHUSD",
+        "path": "Crypto\\ETHUSD",
+        "description": "Ethereum vs US Dollar",
+        "currency_base": "USD",
+        "currency_profit": "USD",
+        "currency_margin": "USD",
+        "digits": 5,
+        "point": 1e-05,
+        "trade_contract_size": 1.0,
+        "volume_min": 0.1,
+        "volume_step": 0.01,
+        "volume_max": 80.0,
+        "trade_tick_size": 1e-05,
+        "trade_tick_value": 1e-05,
+        "trade_stops_level": 100000,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 2,
+        "swap_long": -15.0,
+        "swap_short": -15.0,
+        "spread": 240631,
+        "spread_float": true
+      },
+      "last_tick_server_time": "2026-10-03T22:00:10+00:00",
+      "bid": 2682.54184,
+      "ask": 2684.94815,
+      "has_current_quote": true,
+      "atr14_m15": 2.6157764373940684,
+      "median_spread_m15": 0.5800000000000001,
+      "margin_min_lot": 119.33,
+      "typical_stop_distance": 3.923664656091103,
+      "risk_min_lot_formula": 0.39236646560911026,
+      "risk_min_lot_terminal": 0.35,
+      "live_eligible": false,
+      "live_eligibility_reason": "risk 0.35 EUR vs cap 5.00; margin 119.33 vs capital 100.0",
+      "history": {
+        "M1": {
+          "bars": 99999,
+          "first": "2026-07-26T01:20:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M5": {
+          "bars": 99999,
+          "first": "2025-10-20T02:15:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M15": {
+          "bars": 99999,
+          "first": "2023-11-26T16:45:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "H1": {
+          "bars": 85980,
+          "first": "2015-08-07T22:00:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "H4": {
+          "bars": 21847,
+          "first": "2015-08-07T20:00:00+00:00",
+          "last": "2026-10-03T20:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "D1": {
+          "bars": 3999,
+          "first": "2015-08-07T00:00:00+00:00",
+          "last": "2026-10-03T00:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        }
+      },
+      "first_tick_server_time": "2025-01-01T00:00:01+00:00"
+    },
+    "SOLUSD": {
+      "specification": {
+        "name": "SOLUSD",
+        "path": "Crypto\\SOLUSD",
+        "description": "Solana vs US Dollar",
+        "currency_base": "USD",
+        "currency_profit": "USD",
+        "currency_margin": "USD",
+        "digits": 3,
+        "point": 0.001,
+        "trade_contract_size": 1.0,
+        "volume_min": 0.5,
+        "volume_step": 0.01,
+        "volume_max": 600.0,
+        "trade_tick_size": 0.001,
+        "trade_tick_value": 0.001,
+        "trade_stops_level": 100,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 2,
+        "swap_long": -15.0,
+        "swap_short": -15.0,
+        "spread": 140,
+        "spread_float": true
+      },
+      "last_tick_server_time": "2026-10-03T22:00:29+00:00",
+      "bid": 119.485,
+      "ask": 119.625,
+      "has_current_quote": true,
+      "atr14_m15": 0.19856526563625862,
+      "median_spread_m15": 0.03,
+      "margin_min_lot": 26.58,
+      "typical_stop_distance": 0.2978478984543879,
+      "risk_min_lot_formula": 0.14892394922719396,
+      "risk_min_lot_terminal": 0.13,
+      "live_eligible": true,
+      "live_eligibility_reason": "risk 0.13 EUR vs cap 5.00; margin 26.58 vs capital 100.0",
+      "history": {
+        "M1": {
+          "bars": 99999,
+          "first": "2026-07-26T01:20:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M5": {
+          "bars": 99999,
+          "first": "2025-10-20T02:00:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M15": {
+          "bars": 99999,
+          "first": "2023-11-26T17:00:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "H1": {
+          "bars": 43598,
+          "first": "2021-10-12T17:00:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "H4": {
+          "bars": 10903,
+          "first": "2021-10-12T16:00:00+00:00",
+          "last": "2026-10-03T20:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "D1": {
+          "bars": 1818,
+          "first": "2021-10-12T00:00:00+00:00",
+          "last": "2026-10-03T00:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        }
+      },
+      "first_tick_server_time": "2025-01-01T00:00:01+00:00"
+    },
+    "XRPUSD": {
+      "specification": {
+        "name": "XRPUSD",
+        "path": "Crypto\\XRPUSD",
+        "description": "Ripple vs US Dollar",
+        "currency_base": "USD",
+        "currency_profit": "USD",
+        "currency_margin": "USD",
+        "digits": 4,
+        "point": 0.0001,
+        "trade_contract_size": 1.0,
+        "volume_min": 500.0,
+        "volume_step": 100.0,
+        "volume_max": 90000.0,
+        "trade_tick_size": 0.0001,
+        "trade_tick_value": 0.0001,
+        "trade_stops_level": 10,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 2,
+        "swap_long": -15.0,
+        "swap_short": -15.0,
+        "spread": 18,
+        "spread_float": true
+      },
+      "last_tick_server_time": "2026-10-03T22:00:25+00:00",
+      "bid": 1.4852,
+      "ask": 1.487,
+      "has_current_quote": true,
+      "atr14_m15": 0.0025619923503796757,
+      "median_spread_m15": 0.0001,
+      "margin_min_lot": 330.44,
+      "typical_stop_distance": 0.0038429885255695136,
+      "risk_min_lot_formula": 1.9214942627847567,
+      "risk_min_lot_terminal": 1.71,
+      "live_eligible": false,
+      "live_eligibility_reason": "risk 1.71 EUR vs cap 5.00; margin 330.44 vs capital 100.0",
+      "history": {
+        "M1": {
+          "bars": 99999,
+          "first": "2026-07-26T01:19:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M5": {
+          "bars": 99999,
+          "first": "2025-10-20T02:05:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M15": {
+          "bars": 99999,
+          "first": "2023-11-26T17:00:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "H1": {
+          "bars": 81805,
+          "first": "2015-02-19T22:00:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "H4": {
+          "bars": 20959,
+          "first": "2015-02-19T20:00:00+00:00",
+          "last": "2026-10-03T20:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "D1": {
+          "bars": 4013,
+          "first": "2015-02-19T00:00:00+00:00",
+          "last": "2026-10-03T00:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        }
+      },
+      "first_tick_server_time": "2025-01-01T00:00:00+00:00"
+    },
+    "LTCUSD": {
+      "specification": {
+        "name": "LTCUSD",
+        "path": "Crypto\\LTCUSD",
+        "description": "Litecoin vs US Dollar",
+        "currency_base": "USD",
+        "currency_profit": "USD",
+        "currency_margin": "USD",
+        "digits": 5,
+        "point": 1e-05,
+        "trade_contract_size": 1.0,
+        "volume_min": 1.0,
+        "volume_step": 0.01,
+        "volume_max": 1200.0,
+        "trade_tick_size": 1e-05,
+        "trade_tick_value": 1e-05,
+        "trade_stops_level": 20000,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 2,
+        "swap_long": -20.0,
+        "swap_short": -20.0,
+        "spread": 18738,
+        "spread_float": true
+      },
+      "last_tick_server_time": "2026-10-03T22:00:36+00:00",
+      "bid": 69.12131,
+      "ask": 69.30869,
+      "has_current_quote": true,
+      "atr14_m15": 0.19558369267827372,
+      "median_spread_m15": 0.15000000000000002,
+      "margin_min_lot": 30.8,
+      "typical_stop_distance": 0.2933755390174106,
+      "risk_min_lot_formula": 0.2933755390174106,
+      "risk_min_lot_terminal": 0.26,
+      "live_eligible": true,
+      "live_eligibility_reason": "risk 0.26 EUR vs cap 5.00; margin 30.8 vs capital 100.0",
+      "history": {
+        "M1": {
+          "bars": 99999,
+          "first": "2026-07-26T01:18:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M5": {
+          "bars": 99999,
+          "first": "2025-10-20T02:10:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M15": {
+          "bars": 99999,
+          "first": "2023-11-26T12:30:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "H1": {
+          "bars": 87373,
+          "first": "2011-10-24T22:00:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "H4": {
+          "bars": 23241,
+          "first": "2011-10-24T20:00:00+00:00",
+          "last": "2026-10-03T20:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "D1": {
+          "bars": 5384,
+          "first": "2011-10-24T00:00:00+00:00",
+          "last": "2026-10-03T00:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        }
+      },
+      "first_tick_server_time": "2025-01-01T00:00:00+00:00"
+    },
+    "ADAUSD": {
+      "specification": {
+        "name": "ADAUSD",
+        "path": "Crypto\\ADAUSD",
+        "description": "Cardano vs US Dollar",
+        "currency_base": "USD",
+        "currency_profit": "USD",
+        "currency_margin": "USD",
+        "digits": 5,
+        "point": 1e-05,
+        "trade_contract_size": 1.0,
+        "volume_min": 200.0,
+        "volume_step": 1.0,
+        "volume_max": 30000.0,
+        "trade_tick_size": 1e-05,
+        "trade_tick_value": 1e-05,
+        "trade_stops_level": 50,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 2,
+        "swap_long": -15.0,
+        "swap_short": -15.0,
+        "spread": 103,
+        "spread_float": true
+      },
+      "last_tick_server_time": "2026-10-03T22:01:00+00:00",
+      "bid": 0.24409,
+      "ask": 0.24512,
+      "has_current_quote": true,
+      "atr14_m15": 0.0006721624934283039,
+      "median_spread_m15": 0.00058,
+      "margin_min_lot": 21.79,
+      "typical_stop_distance": 0.0010082437401424558,
+      "risk_min_lot_formula": 0.2016487480284912,
+      "risk_min_lot_terminal": 0.18,
+      "live_eligible": true,
+      "live_eligibility_reason": "risk 0.18 EUR vs cap 5.00; margin 21.79 vs capital 100.0",
+      "history": {
+        "M1": {
+          "bars": 99999,
+          "first": "2026-07-26T01:21:00+00:00",
+          "last": "2026-10-03T22:01:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M5": {
+          "bars": 99999,
+          "first": "2025-10-20T02:05:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "M15": {
+          "bars": 99999,
+          "first": "2023-11-26T17:00:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": true
+        },
+        "H1": {
+          "bars": 43599,
+          "first": "2021-10-12T17:00:00+00:00",
+          "last": "2026-10-03T22:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "H4": {
+          "bars": 10903,
+          "first": "2021-10-12T16:00:00+00:00",
+          "last": "2026-10-03T20:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        },
+        "D1": {
+          "bars": 1818,
+          "first": "2021-10-12T00:00:00+00:00",
+          "last": "2026-10-03T00:00:00+00:00",
+          "capped_by_max_bars_setting": false
+        }
+      },
+      "first_tick_server_time": "2025-01-01T00:00:01+00:00"
+    },
+    "Volatility 100 (1s) Index": {
+      "specification": {
+        "name": "Volatility 100 (1s) Index",
+        "path": "Volatility Indices\\Volatility 100 (1s) Index",
+        "description": "Constant Volatility of 100% with a tick every 1 second",
+        "currency_base": "USD",
+        "currency_profit": "USD",
+        "currency_margin": "USD",
+        "digits": 2,
+        "point": 0.01,
+        "trade_contract_size": 1.0,
+        "volume_min": 1.0,
+        "volume_step": 0.01,
+        "volume_max": 5.0,
+        "trade_tick_size": 0.01,
+        "trade_tick_value": 0.01,
+        "trade_stops_level": 72,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 4,
+        "swap_long": -20.0,
+        "swap_short": -20.0,
+        "spread": 39,
+        "spread_float": false
+      },
+      "last_tick_server_time": "2026-10-03T22:01:12+00:00",
+      "bid": 1038.72,
+      "ask": 1039.47,
+      "has_current_quote": true,
+      "atr14_m15": 8.676530179484365,
+      "median_spread_m15": 0.39,
+      "margin_min_lot": 184.79,
+      "typical_stop_distance": 13.014795269226546,
+      "risk_min_lot_formula": 13.014795269226548,
+      "risk_min_lot_terminal": 11.56,
+      "live_eligible": false,
+      "live_eligibility_reason": "risk 11.56 EUR vs cap 5.00; margin 184.79 vs capital 100.0"
+    },
+    "Volatility 100 Index": {
+      "specification": {
+        "name": "Volatility 100 Index",
+        "path": "Volatility Indices\\Volatility 100 Index",
+        "description": "Constant Volatility of 100% with a tick every 2 seconds",
+        "currency_base": "USD",
+        "currency_profit": "USD",
+        "currency_margin": "USD",
+        "digits": 2,
+        "point": 0.01,
+        "trade_contract_size": 1.0,
+        "volume_min": 1.0,
+        "volume_step": 0.01,
+        "volume_max": 5.0,
+        "trade_tick_size": 0.01,
+        "trade_tick_value": 0.01,
+        "trade_stops_level": 138,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 4,
+        "swap_long": -20.0,
+        "swap_short": -20.0,
+        "spread": 27,
+        "spread_float": false
+      },
+      "last_tick_server_time": "2026-10-03T22:01:12+00:00",
+      "bid": 668.86,
+      "ask": 669.38,
+      "has_current_quote": true,
+      "atr14_m15": 5.270491318753159,
+      "median_spread_m15": 0.27,
+      "margin_min_lot": 119.0,
+      "typical_stop_distance": 7.905736978129738,
+      "risk_min_lot_formula": 7.905736978129738,
+      "risk_min_lot_terminal": 7.03,
+      "live_eligible": false,
+      "live_eligibility_reason": "risk 7.03 EUR vs cap 5.00; margin 119.0 vs capital 100.0"
+    },
+    "Step Index 300": {
+      "specification": {
+        "name": "Step Index 300",
+        "path": "Step Indices\\Step Index 300",
+        "description": "Equal probability of up/down with fixed step size of 0.3",
+        "currency_base": "USD",
+        "currency_profit": "USD",
+        "currency_margin": "USD",
+        "digits": 1,
+        "point": 0.1,
+        "trade_contract_size": 10.0,
+        "volume_min": 0.1,
+        "volume_step": 0.01,
+        "volume_max": 3.0,
+        "trade_tick_size": 0.1,
+        "trade_tick_value": 0.1,
+        "trade_stops_level": 12,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 4,
+        "swap_long": -3.0,
+        "swap_short": -3.0,
+        "spread": 3,
+        "spread_float": false
+      },
+      "last_tick_server_time": "2026-10-03T22:01:12+00:00",
+      "bid": 13628.1,
+      "ask": 13628.4,
+      "has_current_quote": true,
+      "atr14_m15": 12.237198713309128,
+      "median_spread_m15": 0.30000000000000004,
+      "margin_min_lot": 2422.76,
+      "typical_stop_distance": 18.355798069963694,
+      "risk_min_lot_formula": 1.8355798069963694,
+      "risk_min_lot_terminal": 16.32,
+      "live_eligible": false,
+      "live_eligibility_reason": "risk 16.32 EUR vs cap 5.00; margin 2422.76 vs capital 100.0"
+    },
+    "Step Index 400": {
+      "specification": {
+        "name": "Step Index 400",
+        "path": "Step Indices\\Step Index 400",
+        "description": "Equal probability of up/down with fixed step size of 0.4",
+        "currency_base": "USD",
+        "currency_profit": "USD",
+        "currency_margin": "USD",
+        "digits": 1,
+        "point": 0.1,
+        "trade_contract_size": 10.0,
+        "volume_min": 0.1,
+        "volume_step": 0.01,
+        "volume_max": 3.0,
+        "trade_tick_size": 0.1,
+        "trade_tick_value": 0.1,
+        "trade_stops_level": 16,
+        "trade_freeze_level": 0,
+        "trade_mode": 4,
+        "trade_exemode": 2,
+        "filling_mode": 1,
+        "trade_calc_mode": 4,
+        "swap_long": -4.0,
+        "swap_short": -4.0,
+        "spread": 4,
+        "spread_float": false
+      },
+      "last_tick_server_time": "2026-10-03T22:01:12+00:00",
+      "bid": 8455.0,
+      "ask": 8455.4,
+      "has_current_quote": true,
+      "atr14_m15": 19.033741273429406,
+      "median_spread_m15": 0.4,
+      "margin_min_lot": 1503.14,
+      "typical_stop_distance": 28.55061191014411,
+      "risk_min_lot_formula": 2.855061191014411,
+      "risk_min_lot_terminal": 25.38,
+      "live_eligible": false,
+      "live_eligibility_reason": "risk 25.38 EUR vs cap 5.00; margin 1503.14 vs capital 100.0"
+    }
+  },
+  "server_clock": {
+    "symbol": "BTCUSD",
+    "raw_seconds": 0,
+    "offset_hours": 0.0,
+    "tick_age_seconds": -0.0
+  },
+  "session_inference": {
+    "symbol": "XAUUSD",
+    "weekly_open_hour_by_month": {
+      "1": {
+        "23": 10
+      },
+      "2": {
+        "23": 8
+      },
+      "3": {
+        "23": 2,
+        "22": 8
+      },
+      "4": {
+        "22": 8
+      },
+      "5": {
+        "22": 9
+      },
+      "6": {
+        "22": 9
+      },
+      "7": {
+        "22": 8
+      },
+      "8": {
+        "22": 14
+      },
+      "9": {
+        "22": 13
+      },
+      "10": {
+        "22": 8
+      },
+      "11": {
+        "23": 9
+      },
+      "12": {
+        "23": 11
+      }
+    },
+    "daily_break_start_hour_counts": {
+      "21": 304,
+      "22": 130
+    }
+  },
+  "latency": {
+    "tick_median_ms": 0.017999999727180693,
+    "tick_max_ms": 0.033599999369471334,
+    "rates300_median_ms": 0.025899998945533298,
+    "rates300_max_ms": 0.048800000513438135
+  }
+}
