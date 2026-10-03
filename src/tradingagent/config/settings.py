@@ -1,4 +1,3 @@
-from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -6,14 +5,7 @@ from pydantic import Field, SecretStr, ValidationError, field_validator, model_v
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from tradingagent.config.errors import ConfigError
-
-
-class TradingMode(StrEnum):
-    OBSERVATION = "OBSERVATION"
-    SIGNAL = "SIGNAL"
-    PAPER = "PAPER"
-    DEMO = "DEMO"
-    LIVE = "LIVE"
+from tradingagent.core.mode import TradingMode
 
 
 class Settings(BaseSettings):

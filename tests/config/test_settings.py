@@ -1,7 +1,8 @@
 import pytest
 
 from tradingagent.config.errors import ConfigError
-from tradingagent.config.settings import Settings, TradingMode, load_settings
+from tradingagent.config.settings import Settings, load_settings
+from tradingagent.core.mode import TradingMode
 
 DERIV_TOKEN = "Zq8wR3tY6uI9oP2"  # pragma: allowlist secret
 TELEGRAM_TOKEN = "9876543210:BBHdqTcvCH1vGWJxfSeofSAs0K5PALDsawZ"  # pragma: allowlist secret

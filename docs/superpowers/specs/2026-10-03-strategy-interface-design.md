@@ -53,7 +53,7 @@ Ne figurent **pas** dans `SignalCandidate`, car ajoutés par le moteur : identif
 ### 3.1 `strategies/base.py`
 
 ```python
-class Strategy(ABC, Generic[P]):            # P lié à pydantic.BaseModel
+class Strategy(ABC, Generic[P]):  # P lié à pydantic.BaseModel
     strategy_id: ClassVar[str]
     parameters_model: ClassVar[type[BaseModel]]
 
@@ -172,9 +172,10 @@ class LoadedStrategy:
     manifest: StrategyManifest
     strategy: Strategy[Any]
 
+
 def load_strategy_catalog(
     directory: Path, registry: Mapping[str, type[Strategy[Any]]]
-) -> dict[str, LoadedStrategy]: ...   # clé : manifest.ref
+) -> dict[str, LoadedStrategy]: ...  # clé : manifest.ref
 ```
 
 Le registre est **passé en paramètre** : `config` ne l'importe pas, c'est la racine de composition qui le fournit.
