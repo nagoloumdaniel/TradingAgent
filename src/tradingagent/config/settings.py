@@ -3,6 +3,7 @@ from typing import Annotated, Any
 
 from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from sqlalchemy import make_url
 
 from tradingagent.config.errors import ConfigError
 from tradingagent.core.mode import TradingMode
@@ -19,7 +20,8 @@ class Settings(BaseSettings):
     telegram_bot_token: SecretStr
     telegram_allowed_user_ids: Annotated[tuple[int, ...], NoDecode] = Field(min_length=1)
     anthropic_api_key: SecretStr
-    database_url: str = "sqlite:///./data/tradingagent.db"
+    # A server URL carries the database password: kept secret and redacted from logs.
+    database_url: SecretStr = SecretStr("sqlite:///./data/tradingagent.db")
     trading_mode: TradingMode = TradingMode.SIGNAL
     live_trading_enabled: bool = False
 
@@ -58,10 +60,14 @@ class Settings(BaseSettings):
         return self
 
     def secret_values(self) -> tuple[str, ...]:
-        return tuple(
+        secrets = [
             secret.get_secret_value()
             for secret in (self.mt5_password, self.telegram_bot_token, self.anthropic_api_key)
-        )
+        ]
+        database_password = make_url(self.database_url.get_secret_value()).password
+        if database_password:
+            secrets.append(str(database_password))
+        return tuple(secrets)
 
 
 def load_settings(env_file: Path | None = None) -> Settings:

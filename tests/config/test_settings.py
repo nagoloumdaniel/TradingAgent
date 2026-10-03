@@ -127,6 +127,31 @@ def test_secret_values_exposes_every_secret_for_redaction(env: pytest.MonkeyPatc
     assert set(load_settings().secret_values()) == {MT5_SECRET, TELEGRAM_TOKEN, ANTHROPIC_KEY}
 
 
+DB_PASSWORD = "Pg5ecretValue42"  # pragma: allowlist secret
+SUPABASE_URL = (
+    f"postgresql://postgres.abcdefgh:{DB_PASSWORD}"  # pragma: allowlist secret
+    "@aws-0-eu-central-1.pooler.supabase.com:5432/postgres"
+)
+
+
+def test_database_url_never_shows_its_password(env: pytest.MonkeyPatch) -> None:
+    env.setenv("DATABASE_URL", SUPABASE_URL)
+    settings = load_settings()
+    assert DB_PASSWORD not in f"{settings!r} {settings!s}"
+    assert settings.database_url.get_secret_value() == SUPABASE_URL
+
+
+def test_database_password_is_redacted_from_logs(env: pytest.MonkeyPatch) -> None:
+    env.setenv("DATABASE_URL", SUPABASE_URL)
+    assert DB_PASSWORD in load_settings().secret_values()
+
+
+def test_database_password_never_appears_in_an_error(env: pytest.MonkeyPatch) -> None:
+    env.setenv("DATABASE_URL", SUPABASE_URL)
+    env.setenv("MT5_LOGIN", "not-a-number")
+    assert DB_PASSWORD not in error_of(env)
+
+
 def test_settings_are_immutable(env: pytest.MonkeyPatch) -> None:
     settings: Settings = load_settings()
     with pytest.raises(ValueError, match="frozen"):

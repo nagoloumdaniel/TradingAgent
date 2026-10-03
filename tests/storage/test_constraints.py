@@ -248,3 +248,13 @@ def test_mutable_tables_can_still_be_updated(engine: Engine) -> None:
         connection.execute(text("UPDATE orders SET state = 'filled'"))
         connection.execute(text("UPDATE positions SET state = 'closed'"))
         connection.execute(text("UPDATE signals SET state = 'closed'"))
+
+
+@pytest.mark.parametrize("table", APPEND_ONLY)
+def test_append_only_table_refuses_truncation_on_postgres(engine: Engine, table: str) -> None:
+    if engine.dialect.name != "postgresql":
+        pytest.skip("SQLite has no TRUNCATE")
+    with Session(engine) as session:
+        full_chain(session)
+    with engine.begin() as connection, pytest.raises(DBAPIError, match="append-only"):
+        connection.execute(text(f"TRUNCATE {table} CASCADE"))

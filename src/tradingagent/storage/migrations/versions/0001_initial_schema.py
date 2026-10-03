@@ -552,30 +552,69 @@ def upgrade() -> None:
 
 
 APPEND_ONLY_TABLES = ("signal_events", "executions", "trades", "audit_log")
+ALL_TABLES = (
+    "audit_log",
+    "candles",
+    "reports",
+    "strategy_versions",
+    "system_events",
+    "signals",
+    "ai_calls",
+    "orders",
+    "risk_decisions",
+    "signal_events",
+    "executions",
+    "positions",
+    "trades",
+)
 
 
-def _require_sqlite() -> None:
-    # Fail loudly rather than silently skip immutability on another database.
+def _dialect() -> str:
     dialect = op.get_bind().dialect.name
-    if dialect != "sqlite":
-        raise NotImplementedError(f"append-only triggers not written for {dialect} yet (TASK-080)")
+    if dialect not in ("sqlite", "postgresql"):
+        # Fail loudly rather than silently skip immutability on another database.
+        raise NotImplementedError(f"append-only triggers not written for {dialect}")
+    return dialect
 
 
 def _create_append_only_triggers() -> None:
-    _require_sqlite()
+    if _dialect() == "sqlite":
+        for table in APPEND_ONLY_TABLES:
+            for event in ("UPDATE", "DELETE"):
+                op.execute(
+                    f"CREATE TRIGGER {table}_no_{event.lower()} BEFORE {event} ON {table} "
+                    f"BEGIN SELECT RAISE(ABORT, '{table} is append-only'); END"
+                )
+        return
+    op.execute(
+        "CREATE FUNCTION forbid_append_only_change() RETURNS trigger LANGUAGE plpgsql AS $$ "
+        "BEGIN RAISE EXCEPTION '% is append-only', TG_TABLE_NAME; END $$"
+    )
     for table in APPEND_ONLY_TABLES:
-        for event in ("UPDATE", "DELETE"):
-            op.execute(
-                f"CREATE TRIGGER {table}_no_{event.lower()} BEFORE {event} ON {table} "
-                f"BEGIN SELECT RAISE(ABORT, '{table} is append-only'); END"
-            )
+        op.execute(
+            f"CREATE TRIGGER {table}_no_change BEFORE UPDATE OR DELETE ON {table} "
+            "FOR EACH ROW EXECUTE FUNCTION forbid_append_only_change()"
+        )
+        op.execute(
+            f"CREATE TRIGGER {table}_no_truncate BEFORE TRUNCATE ON {table} "
+            "FOR EACH STATEMENT EXECUTE FUNCTION forbid_append_only_change()"
+        )
+    # Supabase serves the public schema over a web API keyed by a public key. RLS with no
+    # policy denies that API everything; the agent connects as table owner and bypasses it.
+    for table in (*ALL_TABLES, "alembic_version"):
+        op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
 
 
 def _drop_append_only_triggers() -> None:
-    _require_sqlite()
+    if _dialect() == "sqlite":
+        for table in APPEND_ONLY_TABLES:
+            for event in ("update", "delete"):
+                op.execute(f"DROP TRIGGER IF EXISTS {table}_no_{event}")
+        return
     for table in APPEND_ONLY_TABLES:
-        for event in ("update", "delete"):
-            op.execute(f"DROP TRIGGER IF EXISTS {table}_no_{event}")
+        op.execute(f"DROP TRIGGER IF EXISTS {table}_no_change ON {table}")
+        op.execute(f"DROP TRIGGER IF EXISTS {table}_no_truncate ON {table}")
+    op.execute("DROP FUNCTION IF EXISTS forbid_append_only_change()")
 
 
 def downgrade() -> None:

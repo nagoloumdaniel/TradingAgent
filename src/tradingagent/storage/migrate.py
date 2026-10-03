@@ -9,7 +9,9 @@ MIGRATIONS = Path(__file__).resolve().parent / "migrations"
 def alembic_config(url: str) -> Config:
     config = Config()
     config.set_main_option("script_location", str(MIGRATIONS))
-    config.set_main_option("sqlalchemy.url", url)
+    # Alembic stores options through configparser, which treats "%" as interpolation:
+    # URL-encoded passwords contain it.
+    config.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     return config
 
 
