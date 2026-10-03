@@ -161,7 +161,10 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 
 ### TASK-004 — Décision d'architecture sur le type de contrat
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-04, en attente d'approbation de l'opérateur.** La formule et les règles RM-004, RM-008 et RM-012 sont écrites dans le cahier, section 9, avec trois exemples calculés à partir du relevé de TASK-003, dont un refus pour taille inférieure au lot minimal.
+- **Choix structurants :** perte par lot calculée par le terminal sur 1 lot entier ; **recoupée par un calcul indépendant, refus au-delà de 2 % d'écart** ; arrondi toujours vers le bas en décimal exact ; volume borné par la moitié de la marge libre ; `trade_tick_value` interdit ; stop jamais élargi automatiquement ; stop relu sur la position après exécution.
+- **Constat à retenir :** sur le BTC, la marge limite le volume bien avant le risque. Le risque réel sera d'environ 0,1 % par opération en démonstration, au lieu de 0,5 %.
+- **Transmis à TASK-035 :** les trois exemples deviennent des cas de test, et les paramètres `f = 0,5` et seuil de recoupement de 2 % entrent dans la configuration du risque.
 - **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-003
 - **Objectif :** en déduire la sémantique exacte du risque pour des positions MT5.
 - **Décision déjà prise le 2026-10-03 :** option C, Deriv MT5, imposée par C-010. Il ne reste que la partie quantitative, qui attend les spécifications de contrat de TASK-003.

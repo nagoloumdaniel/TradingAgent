@@ -629,10 +629,57 @@ Priorités : `P0` bloquant, `P1` essentiel, `P2` important, `P3` souhaitable. Le
 **Comportement attendu :** l'association n'est acceptée que si le symbole figure dans les symboles autorisés du manifeste de la stratégie.
 **Exception :** aucune. Une extension à un nouveau marché exige une modification explicite du manifeste et une nouvelle validation.
 
-### RM-004 — Stop-loss obligatoire
+### RM-004 — Stop-loss obligatoire `[définitive en 1.2, TASK-004]`
 **Condition :** un ordre est envisagé en mode `DEMO` ou `LIVE`.
-**Comportement attendu :** l'ordre est refusé si aucun stop-loss valide n'est défini et transmissible au courtier.
-**Exception :** si le type de contrat retenu ne supporte pas nativement le stop-loss, la règle est remplacée par une perte maximale connue d'avance et bornée par la mise, et ce remplacement doit être explicitement décidé et documenté. Voir C-003.
+**Comportement attendu :**
+- l'ordre est refusé si aucun stop-loss n'est défini ;
+- l'ordre est refusé si la distance entre le prix d'entrée et le stop est inférieure à la distance minimale du courtier, soit `trade_stops_level × point`. **Le stop n'est jamais élargi automatiquement** : l'élargir changerait le risque décidé par la stratégie ;
+- le stop-loss et le take-profit sont transmis **dans l'ordre lui-même**, nativement ;
+- après exécution, le stop présent sur la position est relu. S'il est absent ou s'écarte de plus d'un tick de la valeur demandée, la position est fermée immédiatement et une alerte est émise (F-016).
+
+**Exception :** aucune. Le stop-loss natif a été vérifié en conditions réelles sur le compte démo le 2026-10-04.
+
+### Formule de taille de position `[définitive en 1.2, TASK-004]`
+
+**Entrées :**
+
+| Symbole | Sens | Unité | Source |
+|---|---|---|---|
+| `E` | Capital de calcul | EUR | Fonds propres du compte en `PAPER` et `DEMO` ; en `LIVE`, le **plus petit** des fonds propres et du capital de référence de 100 €, pour ne jamais dimensionner sur plus que le capital déclaré `[PROPOSITION]` |
+| `r` | Risque par opération | fraction | RM-005, selon le mode |
+| `L1` | Perte pour **1 lot entier** si le stop est touché | EUR | Calculateur de profit du terminal (`order_calc_profit`), appelé sur 1 lot pour éviter l'arrondi au centime d'un petit volume |
+| `L1'` | Même perte, calcul indépendant | EUR | `taille_de_contrat × |entrée − stop| × taux`, où `taux` convertit la devise de profit en euros, lu sur le symbole `EURUSD` du terminal ; 1 si le profit est déjà en euros |
+| `M1` | Marge pour 1 lot | EUR | Calculateur de marge du terminal (`order_calc_margin`) |
+| `F` | Marge libre du compte | EUR | Terminal |
+| `f` | Part maximale de la marge libre engagée par une position | fraction | 0,5 `[PROPOSITION]` |
+| `vmin`, `pas`, `vmax` | Lot minimal, pas de lot, lot maximal | lot | Spécification du symbole |
+
+**Calcul :**
+1. **Contrôle croisé :** si `|L1 − L1'| / L1'` dépasse **2 %**, l'ordre est refusé. Deux calculs indépendants qui divergent signalent une conversion faussée ou une donnée périmée, et une erreur de calcul doit bloquer l'ordre (section 13.2 du cahier initial).
+2. Volume permis par le risque : `V_risque = E × r / L1`.
+3. Volume permis par la marge : `V_marge = F × f / M1`.
+4. `V_brut = min(V_risque, V_marge, vmax, taille maximale configurée)`.
+5. **Arrondi toujours vers le bas** au pas de lot, en arithmétique décimale exacte : `V = plancher(V_brut / pas) × pas`.
+6. Si `V < vmin`, l'ordre est refusé, avec le motif « taille inférieure au lot minimal ».
+
+**Propriété garantie :** le risque réalisé `V × L1` ne dépasse jamais `E × r`, puisque l'arrondi se fait vers le bas.
+
+**Ce qui est interdit :** utiliser `trade_tick_value` pour calculer un risque. Mesuré le 2026-10-03, il n'est exact que pour l'or, faux de 11 à 15 % sur la crypto, et faux de 89 % sur certains indices.
+
+**Exemples de référence**, tirés du relevé de TASK-003 (1 USD = 0,888786 EUR). Ils serviront de cas de test à TASK-035.
+
+| | Exemple 1 — or, démonstration | Exemple 2 — or, réel | Exemple 3 — BTC, démonstration |
+|---|---|---|---|
+| `E`, `r` | 5 497,74 €, 0,5 % → 27,49 € | 100 €, 2 % → 2,00 € | 5 497,74 €, 0,5 % → 27,49 € |
+| Distance du stop | 12,3073 $ | 12,3073 $ | 104,1262 $ |
+| `L1'` / `L1` | 1 093,86 € / 1 094,00 € (écart 0,01 %) | idem | 92,55 € / 92,00 € (écart 0,59 %) |
+| `M1` | 18 393 € | 18 393 € | 37 634 € |
+| `V_risque` / `V_marge` | 0,02513 / 0,14945 | 0,00183 / 0,00272 | 0,29703 / **0,07304** |
+| Volume final | **0,02 lot** | 0,00 < 0,01 → **refus** | **0,07 lot**, limité par la marge |
+| Risque réalisé | 21,88 € (0,40 %) | — | 6,48 € (0,12 %) |
+| Marge engagée | 367,86 € | — | 2 634,38 € |
+
+**Lecture de l'exemple 3 :** avec un levier de 1:2, une position BTC est bornée par la marge bien avant le risque. Même en démonstration avec plus de 5 000 €, le risque réel par opération sur le BTC sera d'environ 0,1 % au lieu de 0,5 %. C'est mécanique et voulu ; les rapports devront l'indiquer pour ne pas sous-interpréter les résultats du BTC.
 
 ### RM-005 — Risque par opération `[révisée en 1.1, voir C-009]`
 **Condition :** calcul de la taille de position.
@@ -667,7 +714,7 @@ Priorités : `P0` bloquant, `P1` essentiel, `P2` important, `P3` souhaitable. Le
 
 ### RM-008 — Nombre et taille des positions
 **Condition :** un ordre est envisagé.
-**Comportement attendu :** l'ordre est refusé si le nombre maximal de positions ouvertes, le nombre maximal d'opérations quotidiennes, la taille maximale d'une position ou l'exposition totale seraient dépassés. Valeurs par défaut proposées : deux positions simultanées, une position par marché `[PROPOSITION]`.
+**Comportement attendu :** l'ordre est refusé si le nombre maximal de positions ouvertes, le nombre maximal d'opérations quotidiennes, la taille maximale d'une position ou l'exposition totale seraient dépassés. Valeurs par défaut proposées : deux positions simultanées, une position par marché `[PROPOSITION]`. La taille d'une position est en outre plafonnée par la formule de taille, qui borne la marge engagée à la moitié de la marge libre. Le compte autorisant la couverture, plusieurs positions sur un même symbole seraient techniquement possibles : **une position par marché** reste la règle.
 
 ### RM-009 — Unicité par bougie
 **Condition :** un signal candidat est produit.
@@ -684,7 +731,7 @@ Priorités : `P0` bloquant, `P1` essentiel, `P2` important, `P3` souhaitable. Le
 
 ### RM-012 — Qualité d'exécution
 **Condition :** un ordre est envisagé.
-**Comportement attendu :** l'ordre est refusé si le spread observé dépasse le maximum configuré, si la marge est insuffisante, ou si le prix proposé s'écarte du prix attendu au-delà du slippage maximal accepté.
+**Comportement attendu :** l'ordre est refusé si le spread observé dépasse le maximum configuré, si la marge est insuffisante, ou si le prix proposé s'écarte du prix attendu au-delà du slippage maximal accepté. **La vérification préalable de l'ordre par le terminal ne suffit pas** : elle a approuvé un ordre que le serveur a ensuite refusé pour raison de juridiction. Seul le code retour de l'envoi fait foi.
 
 ### RM-013 — Perte de connexion
 **Condition :** la connexion au fournisseur est perdue au-delà du seuil configuré.
