@@ -27,7 +27,7 @@ TIMES = [START + STEP * (index + 1) for index in range(2, len(CLOSES))]
 
 
 class NoParameters(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class Conforming(Strategy[NoParameters]):

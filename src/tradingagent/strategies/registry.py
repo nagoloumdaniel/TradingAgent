@@ -20,8 +20,14 @@ def build_registry(*classes: StrategyClass) -> Mapping[str, StrategyClass]:
         strategy_id = strategy_class.strategy_id
         if not re.match(STRATEGY_ID_PATTERN, strategy_id):
             raise ValueError(f"{strategy_class.__name__}: malformed strategy_id {strategy_id!r}")
-        if strategy_class.parameters_model.model_config.get("frozen") is not True:
+        model_config = strategy_class.parameters_model.model_config
+        if model_config.get("frozen") is not True:
             raise ValueError(f"{strategy_class.__name__}: parameters_model must be frozen")
+        if model_config.get("extra") != "forbid":
+            raise ValueError(
+                f"{strategy_class.__name__}: parameters_model must reject unknown keys "
+                "(extra='forbid'), or a misspelled parameter silently falls back to its default"
+            )
         if strategy_id in registry:
             raise ValueError(f"duplicate strategy_id {strategy_id!r}")
         registry[strategy_id] = strategy_class

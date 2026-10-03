@@ -107,7 +107,7 @@ parameters:
 
 ### 3.3 `strategies/registry.py`
 
-- `build_registry(*classes) -> Mapping[str, type[Strategy]]` : registre explicite. Lève `ValueError` en cas d'identifiant en double ou si `parameters_model` n'est pas gelé.
+- `build_registry(*classes) -> Mapping[str, type[Strategy]]` : registre explicite. Lève `ValueError` en cas d'identifiant en double, si `parameters_model` n'est pas gelé, ou **s'il ne refuse pas les clés inconnues** (`extra="forbid"`). Sans ce dernier contrôle, ajouté à l'implémentation, un paramètre mal orthographié dans un manifeste serait ignoré en silence et la valeur par défaut utilisée à sa place.
 - `REGISTRY` : registre de production, **vide jusqu'à TASK-033**.
 - Aucun chargement dynamique d'une classe désignée par un fichier de configuration : un YAML ne doit jamais décider quel code s'exécute.
 

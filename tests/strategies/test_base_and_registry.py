@@ -13,11 +13,17 @@ START = datetime(2026, 10, 3, tzinfo=UTC)
 
 
 class FrozenParameters(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
     threshold: float = 1.0
 
 
 class MutableParameters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    threshold: float = 1.0
+
+
+class TolerantParameters(BaseModel):
+    model_config = ConfigDict(frozen=True)
     threshold: float = 1.0
 
 
@@ -47,6 +53,14 @@ class Mutable(Strategy[MutableParameters]):
 
 class BadId(Quiet):
     strategy_id = "Bad-Id"
+
+
+class Tolerant(Strategy[TolerantParameters]):
+    strategy_id = "tolerant"
+    parameters_model = TolerantParameters
+
+    def evaluate(self, context: StrategyContext) -> SignalCandidate | None:
+        return None
 
 
 def candles(count: int) -> tuple[Candle, ...]:
@@ -105,6 +119,12 @@ def test_registry_rejects_duplicate_ids() -> None:
 def test_registry_rejects_mutable_parameters() -> None:
     with pytest.raises(ValueError, match="frozen"):
         build_registry(Mutable)
+
+
+def test_registry_rejects_parameters_that_ignore_unknown_keys() -> None:
+    # A misspelled parameter would otherwise be dropped silently and the default used.
+    with pytest.raises(ValueError, match="unknown keys"):
+        build_registry(Tolerant)
 
 
 def test_registry_rejects_malformed_id() -> None:

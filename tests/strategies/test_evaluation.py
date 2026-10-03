@@ -17,7 +17,7 @@ GOLD = "frxXAUUSD"
 
 
 class NoParameters(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class Spy(Strategy[NoParameters]):
