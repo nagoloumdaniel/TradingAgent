@@ -78,7 +78,15 @@ warn_return_any = true
 strict_equality = true
 implicit_reexport = false
 
+# MetaTrader5 ships no type information and installs on Windows only.
+[[tool.mypy.overrides]]
+module = ["MetaTrader5"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra --strict-markers --import-mode=importlib"
+markers = [
+    "mt5_live: needs a running MT5 terminal logged into the demo account; set RUN_MT5_LIVE=1",
+]

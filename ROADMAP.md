@@ -248,7 +248,12 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
 
 ### TASK-010 — Client MT5
 
-- [ ] Statut : TODO · **réécrite le 2026-10-03 pour MT5 (C-010)**
+- [x] Statut : **DONE le 2026-10-04**. 32 tests sur terminal simulé, un test de fumée réel (`RUN_MT5_LIVE=1 uv run pytest -m mt5_live`) vert sur le compte démo, 390 tests au total.
+- **Livré :** `data/terminal.py` (interface), `data/mt5_terminal.py` (seul importateur de `MetaTrader5`, vérifié par le test d'architecture), `data/server_clock.py` (unique point de conversion en UTC), `data/market_data.py` (client asynchrone).
+- **Garanties, prouvées par huit mutations toutes attrapées :** contrôle bloquant du compte au démarrage (numéro et type face au mode, RM-017) ; décalage horaire du serveur vérifié au démarrage et sur demande ; **bougie en formation toujours écartée** ; jamais plus de 99 999 bougies par demande ; chaque bougie publiée une seule fois, rattrapage dans l'ordre après une absence ; tous les appels MT5 sur un fil unique ; un symbole en erreur n'arrête pas les autres ; reprise avec délai croissant plafonné à 60 s, pause seulement entre deux tentatives, et rétablissement de la sélection de symboles.
+- **⚠ Défaut réel découvert par le test de fumée :** juste après la sélection d'un symbole, **le terminal peut renvoyer un historique en cache périmé mais complet** en nombre de bougies. Le premier lancement réel a échoué sur ce point, le second est passé une fois le terminal synchronisé. Défense ajoutée : la dernière bougie doit contenir l'heure du dernier tick, sinon le client relit, puis refuse. Un marché fermé, comme l'or le week-end, n'est pas confondu avec un historique en retard.
+- **Choix à connaître :** le premier appel à `poll_new` fixe une référence sans rien publier ; le chargement de l'historique au démarrage relève de TASK-013. Le symbole de référence pour l'horloge doit coter en continu : c'est le BTC.
+- **Pour l'appelant (TASK-012, TASK-034) :** vérifier l'horloge régulièrement avec `verify_clock`, et traiter `ClockMismatchError` et `AccountMismatchError` comme des arrêts, pas comme des erreurs passagères.
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-003, TASK-006 · **Couvre :** F-001, F-003, RM-017
 - **Skills :** `test-driven-development`, `market-data`
 - **Objectif :** un accès au terminal authentifié, résilient, limité à la liste blanche, qui ne livre que des données en temps universel.

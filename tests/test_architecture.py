@@ -33,6 +33,9 @@ PURE_PACKAGES = {
 }
 # datetime stays importable: strategies handle candle times. Reading the clock is what's banned.
 CLOCK_READS = {"now", "utcnow", "today"}
+# The broker SDK may be imported by one adapter only, so the rest stays testable without it.
+BROKER_SDK = "MetaTrader5"
+BROKER_ADAPTER = "tradingagent.data.mt5_terminal"
 IMPURE_MODULES = {
     "time",
     "socket",
@@ -106,6 +109,8 @@ def find_violations(src_root: Path) -> list[str]:
             )
         for target in sorted(imported_modules(tree, module, path.name == "__init__.py")):
             dependency = subpackage(target)
+            if target.split(".")[0] == BROKER_SDK and module != BROKER_ADAPTER:
+                violations.append(f"{module} imports {target}: only {BROKER_ADAPTER} may")
             if allowed is not None:
                 if target.split(".")[0] in IMPURE_MODULES:
                     violations.append(f"{module} imports {target}: {importer} must stay pure")
@@ -178,6 +183,9 @@ def build_tree(root: Path, files: dict[str, str]) -> Path:
         ("strategies/trend.py", "from tradingagent.config import settings\n"),
         ("strategies/trend.py", "from tradingagent.data import feed\n"),
         ("strategies/trend.py", "from ..storage import repository\n"),
+        ("data/market_data.py", "import MetaTrader5 as mt5\n"),
+        ("execution/deriv.py", "import MetaTrader5\n"),
+        ("risk/gate.py", "from MetaTrader5 import order_send\n"),
     ],
 )
 def test_forbidden_import_is_detected(tmp_path: Path, relative: str, source: str) -> None:
@@ -205,6 +213,7 @@ def test_forbidden_import_is_detected(tmp_path: Path, relative: str, source: str
         ("strategies/trend.py", "from tradingagent.indicators.momentum import rsi\n"),
         ("strategies/trend.py", "from tradingagent.core.market import Candle\n"),
         ("strategies/trend.py", "from pydantic import BaseModel\n"),
+        ("data/mt5_terminal.py", "import MetaTrader5 as mt5\n"),
     ],
 )
 def test_allowed_import_passes(tmp_path: Path, relative: str, source: str) -> None:

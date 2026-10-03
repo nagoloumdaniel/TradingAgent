@@ -18,8 +18,9 @@ dist/
 .coverage
 htmlcov/
 
-# Local data: market history and databases are never versioned
-data/
+# Local data: market history and databases are never versioned.
+# Anchored to the root: an unanchored "data/" also hid the src/tradingagent/data package.
+/data/
 *.db
 *.sqlite
 *.sqlite3
