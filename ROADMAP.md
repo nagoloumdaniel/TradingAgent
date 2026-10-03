@@ -323,7 +323,11 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
 
 ### TASK-014 — Horaires de marché
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-04**. 14 tests, plus une validation sur les données réelles du compte démo.
+- **Approche validée par l'opérateur :** le paquet MT5 ne fournit pas les horaires, donc `data/market_calendar.py` les **apprend sur les 8 dernières semaines de bougies H1** du courtier. Un créneau horaire est ouvert s'il a coté dans au moins 75 % de ses occurrences, incertain s'il n'a coté que certaines semaines, fermé sinon. Le calendrier doit être réappris chaque jour, ce qui absorbe les changements d'heure d'été américains en quelques semaines, l'heure concernée restant incertaine dans l'intervalle.
+- **Résultat sur données réelles :** BTC ouvert 168 heures sur 168. Or ouvert 115 heures sur 168 : pause quotidienne à 21 h UTC du lundi au jeudi, fermeture le vendredi à 21 h, réouverture le dimanche à 22 h UTC.
+- **Critère « réouverture détectée sans redémarrage » :** couvert par le verrou de fraîcheur du tick (TASK-012) et le réapprentissage quotidien, à brancher dans la boucle de l'agent (TASK-034).
+- **Observation réelle sur un week-end complet :** pas encore faite. Les données apprises en couvrent huit, ce qui la rend largement redondante ; elle reste à consigner une fois l'agent en marche continue.
 - **Priorité :** P1 · **Complexité :** S · **Dépendances :** TASK-010 · **Couvre :** F-005, EF-020
 - **Actions :** interroger périodiquement les horaires par symbole, les mettre en cache, exposer l'état de marché, et gérer les jours fériés tels que retournés par l'API.
 - **Critères d'acceptation :**
