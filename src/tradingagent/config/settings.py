@@ -1,0 +1,73 @@
+from enum import StrEnum
+from pathlib import Path
+from typing import Annotated, Any
+
+from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+from tradingagent.config.errors import ConfigError
+
+
+class TradingMode(StrEnum):
+    OBSERVATION = "OBSERVATION"
+    SIGNAL = "SIGNAL"
+    PAPER = "PAPER"
+    DEMO = "DEMO"
+    LIVE = "LIVE"
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(frozen=True, extra="ignore")
+
+    deriv_app_id: int = Field(gt=0)
+    deriv_api_token: SecretStr
+    telegram_bot_token: SecretStr
+    telegram_allowed_user_ids: Annotated[tuple[int, ...], NoDecode] = Field(min_length=1)
+    anthropic_api_key: SecretStr
+    database_url: str = "sqlite:///./data/tradingagent.db"
+    trading_mode: TradingMode = TradingMode.SIGNAL
+    live_trading_enabled: bool = False
+
+    @field_validator("deriv_api_token", "telegram_bot_token", "anthropic_api_key")
+    @classmethod
+    def _secret_not_blank(cls, value: SecretStr) -> SecretStr:
+        if not value.get_secret_value().strip():
+            raise ValueError("must not be blank")
+        return value
+
+    @field_validator("telegram_allowed_user_ids", mode="before")
+    @classmethod
+    def _split_user_ids(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return tuple(part.strip() for part in value.split(",") if part.strip())
+        return value
+
+    @model_validator(mode="after")
+    def _live_requires_server_flag(self) -> "Settings":
+        if self.trading_mode is TradingMode.LIVE and not self.live_trading_enabled:
+            raise ValueError(
+                "TRADING_MODE=LIVE requires LIVE_TRADING_ENABLED=true on the server (RM-000)"
+            )
+        return self
+
+    def secret_values(self) -> tuple[str, ...]:
+        return tuple(
+            secret.get_secret_value()
+            for secret in (self.deriv_api_token, self.telegram_bot_token, self.anthropic_api_key)
+        )
+
+
+def load_settings(env_file: Path | None = None) -> Settings:
+    try:
+        return Settings(_env_file=env_file)
+    except ValidationError as error:
+        raise ConfigError(_describe(error)) from None
+
+
+def _describe(error: ValidationError) -> str:
+    # Only locations and messages, never the offending input: it may be a secret.
+    lines = []
+    for detail in error.errors(include_input=False, include_url=False):
+        location = str(detail["loc"][0]).upper() if detail["loc"] else "SETTINGS"
+        lines.append(f"  {location}: {detail['msg']}")
+    return "Invalid environment configuration:\n" + "\n".join(lines)

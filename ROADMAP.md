@@ -189,7 +189,16 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 
 ### TASK-006 — Configuration et secrets
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-03**. 91 tests verts, neuf hooks verts.
+- **Livré :** `config/settings.py` (environnement et secrets), `config/agent.py` (marchés et profils de risque, fichier YAML), `config/redaction.py` (masquage des secrets dans tous les journaux), `core/timeframe.py`.
+- **Choix à connaître :**
+  - les symboles et stratégies connus sont **passés en paramètre** au chargeur. Le contrôle existe dès maintenant ; la liste réelle des symboles viendra de l'API Deriv (TASK-003, TASK-010), celle des stratégies du registre (TASK-031) ;
+  - un marché désactivé dont le symbole est inconnu bloque quand même le démarrage : une faute de frappe reste une faute de frappe ;
+  - le masquage s'accroche à la fabrique d'enregistrements de `logging`, pas à un filtre de handler ou de logger. Un filtre de logger ignore les enregistrements des loggers enfants, un filtre de handler rate les handlers ajoutés plus tard par des bibliothèques tierces. Testé avec un logger tiers et une trace d'exception ;
+  - les messages d'erreur de configuration ne contiennent jamais la valeur fautive, seulement l'emplacement et la cause, puisque cette valeur peut être un secret ;
+  - `TRADING_MODE=LIVE` sans `LIVE_TRADING_ENABLED=true` empêche le démarrage, première moitié de la double condition RM-000 ;
+  - les profils de risque imposent `risque par opération ≤ perte quotidienne ≤ perte hebdomadaire ≤ drawdown`, et le plafond absolu de 5 % en réel (RM-005). Les montants sont en `Decimal`, jamais en flottant ;
+  - tous les problèmes d'un fichier sont signalés en une seule fois, chacun avec sa ligne.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-002
 - **Objectif :** charger et valider la configuration, sans jamais exposer de secret.
 - **Actions :**
