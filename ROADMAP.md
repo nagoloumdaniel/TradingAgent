@@ -24,7 +24,7 @@ Capital de référence réel : 100 €. Cette contrainte impose un risque par op
 **Conséquence à retenir par tout exécutant :** à ce niveau de capital, le mode réel valide la mécanique d'exécution, **jamais la performance d'une stratégie**. Les chiffres réels et de démonstration ne sont jamais agrégés. La règle RM-019 déclare inéligible au mode réel tout instrument dont la taille minimale impose un risque supérieur au plafond.
 
 ### Stack
-Python 3.12, `asyncio`, client WebSocket Deriv écrit sur mesure, pandas, SQLAlchemy et Alembic, pydantic, APScheduler, bibliothèque Telegram asynchrone, API Claude, Docker, systemd ou PM2, ruff, mypy, pytest.
+Python 3.12, `asyncio`, **paquet officiel `MetaTrader5` et terminal Deriv MT5** (données et exécution, appels bloquants confinés dans un fil dédié), pandas, SQLAlchemy et Alembic, pydantic, APScheduler, bibliothèque Telegram asynchrone, API Claude, ruff, mypy, pytest. **Windows obligatoire** pour l'agent : poste de l'opérateur jusqu'à la phase 7, serveur Windows ensuite (C-010).
 
 ### Architecture
 Quatorze paquets, décrits en section 10.2 du cahier. Deux d'entre eux, `backtest` et `research`, ne sont jamais chargés par le processus de production.
@@ -93,16 +93,16 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 - **Objectif :** obtenir de l'opérateur une réponse écrite aux questions Q-01 à Q-08 du cahier.
 - **Avancement au 2026-10-01 :** Q-02, Q-03, Q-04, Q-06, Q-08, Q-09, Q-10 et Q-11 sont résolues et consignées dans le cahier version 1.1. Restent Q-01, tranchée en TASK-004, et Q-05, action opérateur.
 - **Actions restantes :**
-  1. **Action opérateur, bloquante :** enregistrer une application sur le portail développeur Deriv pour obtenir un identifiant d'application, puis créer un jeton d'API **limité aux portées lecture et négociation**, sans droit de paiement ni d'administration. Le compte de trading seul ne suffit pas ;
+  1. **Action opérateur, bloquante, révisée le 2026-10-03 :** ouvrir un **compte démo Deriv MT5** donnant accès à l'or et à la crypto, installer le terminal MetaTrader 5 sur le poste Windows, puis renseigner dans `.env` `MT5_LOGIN`, `MT5_SERVER` et `MT5_PASSWORD` avec le **mot de passe investisseur**, en lecture seule. L'identifiant d'application et le jeton d'API Deriv ne sont plus nécessaires (C-010) ;
   2. créer deux jeux de secrets distincts, l'un pour la démonstration, l'autre pour le réel, et ne jamais les mélanger ;
   3. reporter les décisions déjà closes dans le dossier de décisions d'architecture du dépôt.
 - **Critères d'acceptation :**
-  - [ ] l'identifiant d'application et le jeton sont disponibles en variables d'environnement, jamais dans le dépôt
-  - [ ] la portée du jeton est vérifiée : une tentative d'opération de paiement échoue
+  - [ ] les identifiants MT5 de démonstration sont disponibles en variables d'environnement, jamais dans le dépôt
+  - [ ] le mot de passe utilisé est l'investisseur : une tentative d'ordre est refusée par le terminal
   - [ ] aucune décision n'est laissée implicite
-- **Validation :** relecture par l'opérateur, plus test effectif de la portée du jeton.
+- **Validation :** relecture par l'opérateur, plus tentative d'ordre effectivement refusée.
 
-> **Décisions closes le 2026-10-01, ne plus rouvrir :** Python 3.12 partout (C-004) · `backtest` en paquet séparé jamais chargé en production, mais partageant `strategies` et `analytics` (C-001) · IA en veto asymétrique, mode `shadow` par défaut (C-002) · périmètre or et crypto, capital 100 € (C-008, C-009). **Seule décision encore ouverte : Q-01, le type de contrat, tranchée en TASK-004.**
+> **Décisions closes le 2026-10-01, ne plus rouvrir :** Python 3.12 partout (C-004) · `backtest` en paquet séparé jamais chargé en production, mais partageant `strategies` et `analytics` (C-001) · IA en veto asymétrique, mode `shadow` par défaut (C-002) · périmètre or et crypto, capital 100 € (C-008, C-009) · **accès au courtier par Deriv MT5, Windows obligatoire (C-003, C-010, tranchés le 2026-10-03)**. Plus aucune décision d'architecture ouverte ; reste à mesurer les spécifications de contrat (TASK-003) pour écrire la formule de taille (TASK-004).
 
 ### TASK-002 — Dépôt, outillage et structure
 
@@ -129,25 +129,27 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
   - [ ] la détection de secrets bloque un commit contenant une fausse clé
 - **Validation :** exécution locale de la chaîne, puis capture du résultat.
 
-### TASK-003 — Vérification des capacités réelles de l'API Deriv
+### TASK-003 — Vérification des capacités réelles de Deriv MT5
 
-- [ ] Statut : TODO
-- **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-001 (Q-05, Q-06), TASK-002
-- **Objectif :** remplacer par des faits mesurés les points marqués à confirmer en section 12.1 du cahier. C'est la tâche la plus importante de la phase 0 : elle conditionne la faisabilité du moteur de risque.
+- [ ] Statut : TODO · **réécrite le 2026-10-03 pour MT5 (C-010)**
+- **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-001 (Q-05), TASK-002
+- **Skills :** `market-data` pour la qualité de flux et la profondeur d'historique, `commodities` et `currencies-and-fx` pour lire les spécifications de l'or
+- **Objectif :** remplacer par des faits mesurés les points marqués à confirmer en section 12.1 du cahier. C'est la tâche la plus importante de la phase 0 : elle conditionne la formule de taille et l'éligibilité au mode réel.
 - **Actions :**
-  1. écrire un script d'exploration jetable, hors des paquets de production ;
-  2. relever la liste réelle des symboles disponibles pour le compte détenu, confirmer la présence de `frxXAUUSD`, et établir la liste des cryptomonnaies accessibles ;
-  3. pour chaque symbole candidat, relever les types de contrats disponibles et, pour chacun, la présence ou l'absence de paramètres de stop-loss et de take-profit ;
-  3 bis. **mesurer la taille minimale négociable de chaque symbole**, et en déduire le risque minimal incompressible en euros, afin d'appliquer RM-019. Comparer ce montant au plafond de 5 % du capital réel, soit 5 €. Tout symbole dépassant ce plafond est marqué inéligible au mode réel dès le rapport ;
-  4. mesurer la profondeur d'historique réellement accessible, en ticks et en bougies, par symbole ;
-  5. relever les horaires de négociation, en particulier pour l'or ;
-  6. mesurer les quotas de requêtes et le nombre d'abonnements simultanés tolérés ;
-  7. mesurer l'écart entre l'heure serveur et l'heure locale.
+  1. écrire un script d'exploration jetable, hors des paquets de production, qui se connecte au terminal avec le **mot de passe investisseur** ;
+  2. relever le type de compte, la devise, le levier, et vérifier que le compte est bien un compte de démonstration ;
+  3. relever les symboles visibles : nom exact de l'or, liste des cryptomonnaies disponibles ;
+  4. pour chaque symbole candidat, relever les spécifications de contrat : taille de contrat, lot minimal, pas de lot, lot maximal, taille et valeur du tick, devise de marge et de profit, marge requise pour le lot minimal, distance minimale du stop au prix, mode d'exécution, spread observé ;
+  5. **calculer le risque minimal incompressible en euros** pour le lot minimal et une distance de stop typique, et le comparer au plafond de 5 % du capital réel, soit 5 €, pour appliquer RM-019 ; vérifier aussi que la **marge** du lot minimal tient dans 100 € (R-17) ;
+  6. mesurer la profondeur d'historique disponible par unité de temps, en bougies et en ticks ;
+  7. relever les sessions de négociation, en particulier la fermeture de l'or le week-end ;
+  8. **mesurer le décalage entre l'heure du serveur du courtier et l'heure universelle**, et déterminer s'il change avec l'heure d'été (R-16) ;
+  9. mesurer la latence d'un aller-retour de lecture, pour dimensionner la fréquence d'interrogation.
 - **Résultat attendu :** un rapport écrit, versionné dans le dépôt, contenant des relevés et non des suppositions.
 - **Critères d'acceptation :**
-  - [ ] chaque point à confirmer de la section 12.1 a une réponse factuelle, datée, avec la réponse brute de l'API en annexe
-  - [ ] la faisabilité ou l'infaisabilité du stop-loss natif est tranchée symbole par symbole
-  - [ ] **la taille minimale et le risque minimal en euros sont chiffrés pour chaque symbole, et l'éligibilité au mode réel est tranchée** (RM-019, Q-21)
+  - [ ] chaque point à confirmer de la section 12.1 a une réponse factuelle, datée, avec les valeurs brutes renvoyées par le terminal en annexe
+  - [ ] **le lot minimal, le risque minimal et la marge minimale sont chiffrés en euros pour chaque symbole, et l'éligibilité au mode réel est tranchée** (RM-019, Q-21, R-17)
+  - [ ] le décalage horaire du serveur est mesuré et sa règle d'évolution établie
   - [ ] la liste des cryptomonnaies candidates est établie, avec spread observé et profondeur d'historique
   - [ ] si la profondeur d'historique est insuffisante pour un backtest significatif, le risque R-03 est remonté immédiatement
 - **Validation :** relecture du rapport par l'opérateur.
@@ -156,17 +158,15 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 
 - [ ] Statut : TODO
 - **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-003
-- **Objectif :** trancher C-003 sur la base du rapport, et en déduire la sémantique exacte du risque.
-- **Note :** l'option B, contrats à durée fixe de type hausse ou baisse, est **écartée d'office** par C-008, les options binaires étant interdites aux particuliers dans l'Union européenne. L'arbitrage porte donc sur A contre C.
+- **Objectif :** en déduire la sémantique exacte du risque pour des positions MT5.
+- **Décision déjà prise le 2026-10-03 :** option C, Deriv MT5, imposée par C-010. Il ne reste que la partie quantitative, qui attend les spécifications de contrat de TASK-003.
 - **Actions :**
-  1. confronter les options A et C du cahier aux relevés ;
-  2. décider, et consigner la décision ;
-  3. réécrire les règles RM-004 à RM-008 dans leur forme définitive, adaptée au contrat retenu ;
-  4. définir précisément la formule de taille de position applicable, avec ses unités.
+  1. réécrire les règles RM-004 à RM-008 dans leur forme définitive pour des lots MT5 ;
+  2. définir la formule de taille : à partir du capital, du pourcentage de risque, de la distance du stop en prix, de la taille et de la valeur du tick, du lot minimal et du pas de lot, en arrondissant **toujours vers le bas** au pas de lot, et en refusant si le résultat est inférieur au lot minimal ;
+  3. traiter la conversion de devise : les profits de l'or et de la crypto sont en dollars, le capital en euros.
 - **Critères d'acceptation :**
-  - [ ] la décision est écrite et justifiée par les relevés de TASK-003
-  - [ ] la formule de taille est exprimée sans ambiguïté d'unité et validée par un calcul manuel sur trois exemples
-  - [ ] si l'option B est retenue, les règles devenues sans objet sont explicitement marquées comme telles dans le cahier
+  - [ ] la formule de taille est exprimée sans ambiguïté d'unité et validée par un calcul manuel sur trois exemples, dont un où l'arrondi au pas de lot fait tomber sous le lot minimal
+  - [ ] la conversion euro-dollar est explicite, avec sa source de taux
 - **Validation :** approbation de l'opérateur. **Bloque toute la phase 3 côté risque et toute la phase 8.**
 
 ### TASK-005 — Modèle de données et migrations
@@ -226,22 +226,26 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 
 Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucune décision ne sera prise à l'aveugle.
 
-### TASK-010 — Client WebSocket Deriv
+### TASK-010 — Client MT5
 
-- [ ] Statut : TODO
-- **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-003, TASK-006 · **Couvre :** F-001, F-003
-- **Skills :** `test-driven-development`
-- **Objectif :** une connexion authentifiée, résiliente, limitée à la liste blanche.
+- [ ] Statut : TODO · **réécrite le 2026-10-03 pour MT5 (C-010)**
+- **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-003, TASK-006 · **Couvre :** F-001, F-003, RM-017
+- **Skills :** `test-driven-development`, `market-data`
+- **Objectif :** un accès au terminal authentifié, résilient, limité à la liste blanche, qui ne livre que des données en temps universel.
 - **Actions :**
-  1. implémenter la connexion, l'authentification et la lecture de l'heure serveur ;
-  2. implémenter l'abonnement, strictement restreint aux symboles de la liste blanche ;
-  3. implémenter la détection de coupure par battement de cœur et par absence de données ;
-  4. implémenter la reconnexion à délai progressif plafonné, puis la restauration des abonnements ;
-  5. implémenter le respect des quotas relevés en TASK-003 ;
-  6. écrire un serveur WebSocket simulé pour les tests, capable de couper, de ralentir et de renvoyer des erreurs.
+  1. définir une **interface de terminal** étroite (initialiser, compte, symbole, bougies, ticks, santé), et y confiner l'unique import du paquet `MetaTrader5`. Le reste du code ne dépend que de l'interface ;
+  2. exécuter tous les appels au terminal dans **un fil dédié unique**, les appels étant bloquants et non réentrants, et les exposer en asynchrone ;
+  3. à l'initialisation : vérifier le numéro et le type de compte contre la configuration et le mode (RM-017), et mesurer le décalage horaire du serveur ;
+  4. **convertir en UTC toute date reçue**, en un seul endroit, selon la règle de décalage établie en TASK-003 (R-16) ;
+  5. sélectionner strictement les symboles de la liste blanche, et lire les nouvelles bougies par interrogation périodique ;
+  6. détecter un terminal fermé, déconnecté ou figé, suspendre la lecture, puis réinitialiser avec un délai progressif plafonné (R-15) ;
+  7. écrire un **terminal simulé** implémentant la même interface, capable de couper, de figer, de renvoyer des erreurs et de décaler son heure, pour que les tests tournent sans MT5 et sous tout système.
 - **Critères d'acceptation :**
-  - [ ] aucun abonnement hors liste blanche, vérifié par test
-  - [ ] une coupure simulée est détectée et la reconnexion restaure les mêmes abonnements
+  - [ ] aucun symbole hors liste blanche n'est sélectionné, vérifié par test
+  - [ ] le paquet `MetaTrader5` n'est importé que par l'adaptateur réel, vérifié par le test d'architecture
+  - [ ] une bougie datée à l'heure serveur ressort en UTC exacte, y compris de part et d'autre d'un changement d'heure, vérifié par test
+  - [ ] un compte réel détecté en mode démonstration provoque l'arrêt, vérifié par test
+  - [ ] une coupure du terminal simulé est détectée et la reprise rétablit la même sélection de symboles
   - [ ] un symbole refusé n'interrompt pas les autres
   - [ ] l'écart d'horloge est mesuré et journalisé
 - **Validation :** tests d'intégration contre le simulateur, puis une session réelle de trente minutes.
@@ -661,24 +665,27 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 Cette phase précède volontairement la recherche et le paper trading : une campagne de mesure sur un service instable ne vaut rien, et la collecte de données doit démarrer tôt.
 
-### TASK-050 — Conteneurisation
+### TASK-050 — Installation reproductible sous Windows
 
-- [ ] Statut : TODO
+- [ ] Statut : TODO · **remplace la conteneurisation le 2026-10-03** : le terminal MT5 exige une session Windows, incompatible avec un conteneur (C-010)
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-042
+- **Actions :** script d'installation de l'agent par `uv` à partir de `uv.lock`, procédure d'installation et de connexion du terminal MT5, chargement des secrets depuis l'environnement.
 - **Critères d'acceptation :**
-  - [ ] l'image démarre avec les seules variables d'environnement, sans fichier de secret embarqué
-  - [ ] l'empreinte mémoire au repos est compatible avec le serveur cible
+  - [ ] une machine Windows vierge reçoit l'agent et le terminal en suivant le script et la procédure seuls
+  - [ ] aucun fichier de secret n'est embarqué dans le dépôt ni dans le script
+  - [ ] l'empreinte mémoire au repos, terminal compris, est compatible avec le serveur cible
 
-### TASK-051 — Mise en service sur le serveur
+### TASK-051 — Mise en service sur un serveur Windows
 
-- [ ] Statut : TODO
-- **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-050 · **Couvre :** EF-001
-- **Actions :** provisionner le serveur, durcir l'accès conformément à la section 15.4 du cahier, installer la supervision du processus avec redémarrage automatique, configurer la rotation des journaux.
+- [ ] Statut : TODO · **révisée le 2026-10-03 (C-010)**
+- **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-050 · **Couvre :** EF-001, R-15
+- **Actions :** choisir et provisionner un serveur privé virtuel Windows, durcir l'accès conformément à la section 15.4 du cahier, installer l'agent en service Windows avec redémarrage automatique, configurer le **démarrage et la reconnexion automatiques du terminal MT5**, désactiver les mises à jour automatiques intempestives du terminal et du système pendant les heures de marché, configurer la rotation des journaux.
 - **Critères d'acceptation :**
-  - [ ] le service redémarre seul après un arrêt brutal du processus et après un redémarrage du serveur
+  - [ ] le service **et le terminal** redémarrent seuls après un arrêt brutal et après un redémarrage du serveur, et le terminal se reconnecte au compte
   - [ ] la base n'est pas accessible depuis l'extérieur
-  - [ ] l'accès par mot de passe est désactivé
-- **Validation :** arrêt brutal provoqué, redémarrage serveur provoqué.
+  - [ ] le bureau à distance n'est pas exposé sans protection
+  - [ ] le coût mensuel réel est consigné dans le cahier
+- **Validation :** arrêt brutal provoqué, redémarrage serveur provoqué, terminal tué volontairement.
 
 ### TASK-052 — Intégration continue
 
@@ -1077,7 +1084,7 @@ Ces skills apportent le savoir métier que ni le cahier ni la roadmap ne peuvent
 |---|---|---|
 | TASK-003 vérification API | `market-data`, `exchange-connectivity` | Architecture de flux, qualité de feed, entitlements, diagnostic de ticks manquants |
 | TASK-004 type de contrat | `commodities`, `currencies-and-fx`, `margin-operations` | Mécanique de l'or et du change, calcul de marge, effet du levier sur la taille |
-| TASK-010 client WebSocket | `exchange-connectivity` | Gestion de session, reprise après coupure, perte de séquence, bascule |
+| TASK-010 client MT5 | `market-data`, `exchange-connectivity` | Qualité de flux, données figées, reprise après coupure, bascule |
 | TASK-012 qualité des données | `data-quality`, `data-quality-checker` | Règles de validation, détection de prix figés, seuils, gestion des exceptions |
 | TASK-013 historique | `market-data`, `data-quality` | Profondeur, conflation, cohérence des séries |
 | TASK-030 indicateurs | Aucun | **Corrigé à l'exécution :** `statistics-fundamentals` et `volatility-modeling` traitent de statistiques de portefeuille, de GARCH et de volatilité implicite, pas des indicateurs de Wilder. Ils restent mappés sur TASK-063, où ils sont utiles |
@@ -1101,7 +1108,7 @@ Ces skills apportent le savoir métier que ni le cahier ni la roadmap ne peuvent
 | TASK-093 backtest contre réel | `signal-postmortem`, `residual-edge-analyzer`, `performance-attribution` | Post-mortem de signal, attribution de l'écart, détection de désalignement de régime |
 | Transversal, posture marché | `exposure-coach`, `macro-regime-detector` | Plafond d'exposition nette, détection de changement de régime |
 
-**Skills installés mais non mappés, et pourquoi.** `mt5-robot-tester` n'est pertinent que si l'option C de C-003 est retenue, c'est-à-dire une exécution via MetaTrader 5 ; il exige Windows et MetaTrader installé, ce qui est incompatible avec un serveur Linux et ne serait utilisable que sur le poste local en phase de recherche.
+**Skills installés mais non mappés, et pourquoi.** `mt5-robot-tester` : l'option C, MetaTrader 5, est désormais retenue, mais ce skill teste en lot des robots écrits en MQL5 via le testeur de stratégies du terminal. Nos stratégies sont en Python et passent par `evaluate()`. Il ne s'applique pas, sauf si l'on décidait un jour de comparer nos résultats à ceux du testeur MT5.
 
 **Avertissement d'usage.** Ces skills proviennent de dépôts publics orientés actions américaines et courtiers américains. Leurs exemples, leurs seuils chiffrés et leurs références réglementaires ne s'appliquent pas tels quels à un compte Deriv européen négociant de l'or et de la crypto avec 100 €. **Ils apportent la méthode, jamais les valeurs.** Toute valeur numérique issue d'un de ces skills doit être revalidée contre le cahier des charges avant d'entrer dans le code.
 

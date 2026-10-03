@@ -1,6 +1,6 @@
 # Cahier des charges — Agent de signaux de trading Deriv
 
-**Version :** 1.1
+**Version :** 1.2
 **Date :** 2026-10-01
 **Statut :** Spécification de référence — stratégies non définies, en attente des backtests
 **Propriétaire :** Daniel (opérateur unique), résident fiscal France
@@ -11,6 +11,7 @@
 | Version | Changement | Motif |
 |---|---|---|
 | 1.0 | Version initiale | — |
+| 1.2 | **Accès au courtier modifié : MetaTrader 5 au lieu de l'API WebSocket Deriv.** C-003 et Q-01 tranchées en faveur de l'option C. Ajout de C-010. Hébergement Windows au lieu de Linux. Sections 10.1, 12.1 et 17, F-001, F-016 et RM-017 réécrites | L'API Deriv n'est pas accessible à un résident français : la création de jeton renvoie « indisponible dans votre pays », et la liste des pays de l'API ne cite la France que pour MT5. Constat du 2026-10-03 |
 | 1.1 | **Périmètre marchés modifié :** les indices synthétiques Deriv sont retirés, remplacés par deux à quatre cryptomonnaies en contrat pour différence. Capital de référence fixé à 100 €. Règles de risque RM-005 à RM-007 recalibrées. Ajout de la contrainte C-008 et de la règle RM-019 | Vérification du compte réel : les indices synthétiques ne sont pas accessibles à un résident français, l'entité européenne de Deriv ne les proposant pas. Le risque R-11 du présent document s'est matérialisé avant tout développement |
 
 ---
@@ -81,7 +82,7 @@ La sélection d'une stratégie ne se fait pas sur le profit historique le plus �
 |---|---|
 | Or, symbole Deriv `frxXAUUSD` | `[CONFIRMÉ]` |
 | Deux à quatre cryptomonnaies en contrat pour différence, à sélectionner | `[CONFIRMÉ]` / sélection `[À CONFIRMER]`, voir Q-07 |
-| Connexion temps réel unique à l'API Deriv (WebSocket) | `[CONFIRMÉ]` |
+| Connexion unique au terminal MetaTrader 5 de Deriv, source des données et de l'exécution | `[CONFIRMÉ]` en version 1.2, voir C-010 |
 | Génération de signaux et notification Telegram | `[CONFIRMÉ]` |
 | Commandes de pilotage et d'arrêt d'urgence via Telegram | `[CONFIRMÉ]` |
 | Couche de gestion du risque indépendante et prioritaire | `[CONFIRMÉ]` |
@@ -165,9 +166,9 @@ Les points suivants opposent deux informations fournies. Aucun ne doit être tra
 |---|---|---|---|
 | A — Contrats à multiplicateur | Position directionnelle avec effet de levier, mise en devise du compte | Stop-loss et take-profit natifs, transmis à l'ordre | Sémantique la plus proche du cahier. Option recommandée, sous réserve de disponibilité sur les symboles retenus |
 | B — Contrats à durée fixe (hausse/baisse) | Pari binaire sur une durée | Aucun stop-loss ; le risque est la mise, connue d'avance | Le ratio risque/rendement, le trailing stop et les sorties partielles perdent leur sens. Exigerait la réécriture des règles RM-004 à RM-008 |
-| C — Compte Deriv MT5 | CFD classique, lots, stop-loss et take-profit | Natifs | Sémantique idéale, mais l'exécution ne passe pas par la même connexion WebSocket que les données, ce qui contredit le principe de source unique |
+| C — Compte Deriv MT5 | CFD classique, lots, stop-loss et take-profit | Natifs | **Retenue en version 1.2.** Sémantique idéale. L'objection de la version 1.0, selon laquelle les données et l'exécution passeraient par deux canaux, tombe : sans l'API WebSocket, données et ordres passent tous deux par le terminal MT5 |
 
-**Décision requise de :** l'opérateur, après vérification technique. **Seule contradiction encore ouverte au 2026-10-01.** Bloquante pour TASK-004, TASK-035 moteur de risque, TASK-061 harnais de backtest et TASK-081 exécuteur Deriv. L'option B étant écartée par C-008, l'arbitrage se réduit à A contre C.
+**Décision retenue le 2026-10-03 `[CONFIRMÉ]` : option C, compte Deriv MT5.** L'option A est indisponible pour un résident français (C-010) et l'option B interdite aux particuliers de l'Union (C-008). Reste à mesurer en TASK-003 les spécifications de contrat de chaque symbole (taille de contrat, lot minimal, pas de lot, valeur du point, marge), indispensables à la formule de taille de position de TASK-004.
 **Vérification préalable obligatoire :** interroger l'API Deriv (`active_symbols`, `contracts_for`) pour établir, symbole par symbole et pour le type de compte réellement détenu, quels types de contrats sont disponibles et lesquels acceptent des paramètres de stop-loss et de take-profit. Cette vérification est l'objet de TASK-003.
 
 ### C-004 — Langage d'implémentation
@@ -231,6 +232,26 @@ Les points suivants opposent deux informations fournies. Aucun ne doit être tra
 
 **Règle nouvelle introduite :** RM-019, éligibilité d'un instrument au mode réel.
 
+### C-010 — API Deriv inaccessible depuis la France `[CONTRAINTE]` — **résolue en version 1.2**
+
+**Information A :** l'architecture des versions 1.0 et 1.1 repose sur l'API WebSocket de Deriv, qui fournirait à la fois les données et l'exécution.
+**Information B :** constat du 2026-10-03 — la création d'un jeton d'API depuis le compte de l'opérateur renvoie « indisponible dans votre pays ». La liste des pays publiée par Deriv pour son API ne cite la France que dans la section MetaTrader 5. La nouvelle API Deriv ne documente par ailleurs que des options, interdites aux particuliers de l'Union. `[CONFIRMÉ]` pour le message, `[DÉDUIT]` pour la cause, vérification auprès du support Deriv recommandée.
+**Résolution retenue `[CONFIRMÉ]` :** accès au courtier par **MetaTrader 5**, au moyen du paquet Python officiel `MetaTrader5` piloté par un terminal MT5 connecté au compte.
+
+**Conséquences :**
+
+| Domaine | Avant | Après |
+|---|---|---|
+| Données et exécution | API WebSocket | Terminal MT5, **une seule source pour les deux** |
+| Sémantique d'ordre | Contrat à déterminer (C-003) | Lots, stop-loss et take-profit natifs, conformes aux règles RM-004 à RM-008 |
+| Hébergement | Serveur Linux, environ 5 € par mois | **Windows obligatoire** : le paquet `MetaTrader5` et le terminal ne fonctionnent que sous Windows. Développement et démonstration sur le poste de l'opérateur, serveur Windows en production. Coût `[À CONFIRMER]` |
+| Flux temps réel | Abonnement poussé | **Interrogation périodique** : le paquet n'offre pas d'abonnement. Suffisant pour des stratégies évaluées à la clôture de bougie |
+| Concurrence | `asyncio` natif | Appels MT5 **bloquants et non réentrants**, exécutés dans un fil dédié unique |
+| Horodatage | Temps universel | **Le terminal date les bougies à l'heure du serveur du courtier**, qui n'est en général pas UTC. Le décalage doit être mesuré en TASK-003 et converti à l'entrée, faute de quoi l'invariant « tout en UTC » serait violé en silence |
+| Noms de symboles | `frxXAUUSD` et similaires | Noms propres au serveur MT5 de Deriv, `[À CONFIRMER]` en TASK-003 |
+
+**Ce qui ne change pas :** indicateurs, interface de stratégie, point d'entrée `evaluate()`, configuration, contrôle du risque, Telegram, rapports. Seuls les connecteurs `data` et `execution` sont concernés, ce qui confirme l'intérêt de leur isolement.
+
 ---
 
 ## 5. Acteurs, rôles et permissions
@@ -276,11 +297,11 @@ Les fonctionnalités critiques sont spécifiées intégralement. Les autres sont
 
 ### F-001 — Ingestion des données de marché en temps réel
 
-**Description :** maintenir une connexion WebSocket unique vers l'API Deriv et recevoir les ticks et bougies des symboles autorisés.
+**Description :** maintenir une connexion unique au terminal MetaTrader 5 et en lire les ticks et bougies des symboles autorisés. `[révisé en 1.2, voir C-010]`
 **Acteurs :** système, API Deriv.
 **Préconditions :** jeton d'API valide en variable d'environnement, liste blanche de symboles chargée.
 **Déclencheur :** démarrage du processus, ou reconnexion.
-**Fonctionnement :** le client ouvre la connexion vers `wss://ws.derivws.com` `[CONFIRMÉ]` avec l'identifiant d'application enregistré, s'authentifie, interroge l'heure serveur, puis s'abonne uniquement aux symboles de la liste blanche. Chaque message reçu est horodaté à la réception, associé à sa source, et transmis au module de normalisation.
+**Fonctionnement :** le client initialise le terminal MT5 avec le compte, le serveur et le mot de passe configurés, vérifie le type de compte, mesure le décalage entre l'heure du serveur du courtier et l'heure universelle, puis sélectionne uniquement les symboles de la liste blanche. Les bougies et ticks sont lus par interrogation périodique, depuis un fil dédié, car les appels du paquet `MetaTrader5` sont bloquants. Chaque donnée est convertie en temps universel à l'entrée, associée à sa source, et transmise au module de normalisation.
 **Données utilisées :** ticks, bougies, heure serveur, état des symboles.
 **Règles métier :** RM-001, RM-002.
 **Cas nominal :** les ticks arrivent, les bougies sont construites, l'horodatage de dernière donnée par symbole est mis à jour.
@@ -446,7 +467,7 @@ Les fonctionnalités critiques sont spécifiées intégralement. Les autres sont
 
 **Description :** placer des ordres réels sur un compte de démonstration Deriv. `[CONFIRMÉ]`
 **Préconditions :** l'ensemble des conditions de la section 10.1 est rempli.
-**Fonctionnement :** après validation par la couche risque, obtention d'une proposition de prix, envoi de l'ordre avec les paramètres de protection, vérification de l'acceptation, puis enregistrement de l'identifiant retourné par le courtier.
+**Fonctionnement :** après validation par la couche risque, vérification préalable de l'ordre auprès du terminal, envoi de l'ordre au marché avec stop-loss et take-profit natifs, vérification du code de retour, puis enregistrement du ticket MT5. La clé d'idempotence est transmise dans le commentaire de l'ordre, afin de pouvoir retrouver un ordre dont la réponse aurait été perdue. `[révisé en 1.2]`
 **Règles métier :** RM-004, RM-012, RM-014, RM-017.
 **Cas d'erreur :** proposition expirée, prix indisponible, marge insuffisante, rejet par le courtier, réponse perdue.
 **Critères d'acceptation :**
@@ -685,7 +706,7 @@ Priorités : `P0` bloquant, `P1` essentiel, `P2` important, `P3` souhaitable. Le
 
 ### RM-017 — Cohérence du compte et du mode
 **Condition :** un ordre est envisagé.
-**Comportement attendu :** l'identifiant de compte retourné par l'authentification est comparé au mode en vigueur. Toute incohérence, notamment un compte réel alors que le mode est `DEMO`, provoque un arrêt immédiat du composant d'exécution et une alerte de gravité maximale.
+**Comportement attendu :** le type de compte déclaré par le terminal MT5 (démonstration ou réel) est comparé au mode en vigueur, de même que le numéro de compte, comparé à celui de la configuration. Toute incohérence, notamment un compte réel alors que le mode est `DEMO`, provoque un arrêt immédiat du composant d'exécution et une alerte de gravité maximale. `[révisé en 1.2]`
 
 ### RM-018 — Cycle de vie d'un signal
 **Condition :** un signal existe.
@@ -700,16 +721,16 @@ Priorités : `P0` bloquant, `P1` essentiel, `P2` important, `P3` souhaitable. Le
 | Couche | Choix | Justification |
 |---|---|---|
 | Langage | Python 3.12 | Partage du code de stratégie et d'indicateurs entre recherche et production, voir C-004 |
-| Concurrence | `asyncio` | Une connexion WebSocket persistante et plusieurs tâches périodiques |
-| Client Deriv | Client WebSocket asynchrone, écrit sur mesure | Contrôle explicite de la reconnexion, de l'idempotence et des quotas |
+| Concurrence | `asyncio`, avec un fil dédié unique pour MT5 | Les tâches périodiques sont asynchrones ; les appels MT5, bloquants et non réentrants, passent tous par ce fil |
+| Accès courtier | Paquet Python officiel `MetaTrader5` et terminal MT5 | Seul accès disponible depuis la France (C-010). Données et exécution par la même source |
 | Données | pandas | Écosystème d'analyse, cohérence avec l'atelier de recherche |
 | Persistance | SQLAlchemy et Alembic, SQLite puis PostgreSQL | Voir C-005 |
 | Validation | pydantic | Validation des manifestes, de la configuration et des réponses du modèle |
 | Planification | APScheduler | Rapports et tâches périodiques dans le même processus |
 | Bot | Bibliothèque Telegram Bot asynchrone | Cohérence avec `asyncio` |
 | Modèle de langage | API Claude | `[CONFIRMÉ]` |
-| Exécution | Supervision par systemd ou PM2 sur le serveur | `[CONFIRMÉ]` |
-| Conteneurisation | Docker et Docker Compose | Reproductibilité des environnements |
+| Exécution | Service Windows ou tâche planifiée, avec redémarrage automatique de l'agent et du terminal MT5 | `[révisé en 1.2]` : systemd et PM2 sont propres à Linux |
+| Conteneurisation | Aucune pour l'agent de production | `[révisé en 1.2]` : le terminal MT5 exige une session Windows, incompatible avec un conteneur. Reproductibilité assurée par `uv.lock` |
 | Qualité | ruff, mypy, pytest | Déterminisme et maintenabilité du moteur de risque |
 
 ### 10.2 Découpage en paquets
@@ -736,8 +757,8 @@ Le découpage sépare ce qui doit tourner en production de ce qui ne doit pas y 
 ### 10.3 Flux de décision
 
 ```
-Deriv WebSocket
-   │  ticks / bougies
+Terminal MT5 (interrogé depuis un fil dédié)
+   │  ticks / bougies, convertis en UTC
    ▼
 data  ── contrôle qualité ──► série dégradée ──► aucun signal (RM-001, RM-002)
    │  série saine, bougie close
@@ -821,23 +842,24 @@ Aucun jeton n'est partagé entre environnements. `[CONFIRMÉ]`
 
 ## 12. Intégrations
 
-### 12.1 API Deriv `[CONTRAINTE]`
+### 12.1 Deriv MetaTrader 5 `[CONTRAINTE]` — réécrite en version 1.2
 
 | Point | Élément | Statut |
 |---|---|---|
-| Transport | WebSocket, `wss://ws.derivws.com` | `[CONFIRMÉ]` |
-| Identifiant d'application | Enregistrement requis auprès du fournisseur | `[À CONFIRMER]`, bloquant |
-| Authentification | Jeton d'API, portée restreinte | `[PROPOSITION]` : accorder uniquement la lecture et la négociation, jamais les paiements ni l'administration |
-| Entité du compte | Entité européenne, résidence française | `[CONFIRMÉ]` — détermine l'univers de produits accessible, voir C-008 |
-| Symbole de l'or | `frxXAUUSD` | `[CONFIRMÉ]` |
-| Indices synthétiques | Indisponibles sur ce compte | `[CONFIRMÉ]` le 2026-10-01 — hors périmètre, voir C-008 |
-| Symboles crypto | Deux à quatre, à sélectionner | `[À CONFIRMER]` — la liste doit être établie à partir de la réponse réelle de l'API pour le compte détenu, et non depuis une documentation générale. Critères de sélection en Q-07 |
-| Taille minimale négociable par symbole | À mesurer | `[À CONFIRMER]`, **bloquant pour le mode réel** — conditionne RM-019 et l'éligibilité de chaque instrument |
-| Historique | Requête d'historique de ticks et de bougies | Profondeur disponible `[À CONFIRMER]`, déterminante pour la faisabilité du backtest |
-| Types de contrats | À établir par symbole | `[À CONFIRMER]`, bloquant, voir C-003 |
-| Horaires de négociation | Interrogation des horaires par symbole | `[DÉDUIT]` de l'exigence EF-020 |
-| Quotas | Limites de requêtes et d'abonnements | `[À CONFIRMER]`, conditionne le nombre de symboles simultanés |
-| Heure serveur | Synchronisation de l'horloge | `[DÉDUIT]` |
+| Accès | Paquet Python officiel `MetaTrader5`, terminal MT5 installé et connecté | `[CONFIRMÉ]`, voir C-010 |
+| Système | Windows uniquement, pour le paquet comme pour le terminal | `[CONTRAINTE]` |
+| Authentification | Numéro de compte, nom du serveur MT5, mot de passe | `[CONFIRMÉ]` |
+| Moindre privilège | **Mot de passe investisseur**, en lecture seule, pour toutes les phases sans exécution ; mot de passe principal uniquement à partir de la phase 8 | `[PROPOSITION]` |
+| Entité du compte | Entité européenne, résidence française | `[CONFIRMÉ]`, voir C-008 et C-010 |
+| Indices synthétiques | Indisponibles sur ce compte | `[CONFIRMÉ]` le 2026-10-01, voir C-008 |
+| Nom du symbole de l'or | Propre au serveur MT5 de Deriv | `[À CONFIRMER]` en TASK-003 |
+| Symboles crypto | Deux à quatre, à sélectionner | `[À CONFIRMER]` — liste établie à partir des symboles réellement visibles sur le compte, et non d'une documentation générale. Critères en Q-07 |
+| Spécifications de contrat | Taille de contrat, lot minimal, pas de lot, valeur et taille du tick, devise de marge, levier | `[À CONFIRMER]`, **bloquant pour la formule de taille (TASK-004) et pour RM-019** |
+| Historique | Bougies et ticks lus depuis le serveur du courtier | Profondeur par unité de temps `[À CONFIRMER]`, déterminante pour le backtest |
+| Horaires de négociation | Sessions par symbole, fournies par le terminal | `[DÉDUIT]` de l'exigence EF-020 |
+| Heure serveur | Le terminal date les bougies à l'heure du serveur du courtier | Décalage avec l'heure universelle `[À CONFIRMER]`, **bloquant pour l'invariant UTC** |
+| Flux temps réel | Interrogation périodique, pas d'abonnement poussé | `[CONTRAINTE]` |
+| Type de compte | Démonstration ou réel, lisible depuis le terminal | `[CONFIRMÉ]`, base du contrôle RM-017 |
 
 **Vérification obligatoire avant tout développement d'exécution :** l'ensemble des points marqués à confirmer ci-dessus fait l'objet d'une tâche de vérification dédiée dont le livrable est un rapport écrit, et non une supposition.
 
@@ -921,7 +943,11 @@ Jeton Telegram, jeton d'API Deriv, identifiants de base de données et clé d'AP
 
 ### 15.2 Portée du compte de trading
 
-Créer un jeton limité à la lecture et à la négociation, sans droit de paiement ni d'administration. Restreindre les adresses sources lorsque la plateforme le permet. Séparer strictement les jetons de démonstration et réels. Prévoir une procédure de révocation immédiate. `[CONFIRMÉ]`
+Le principe reste le moindre privilège `[CONFIRMÉ]` ; sa mise en œuvre est révisée en version 1.2 pour MT5 :
+- **mot de passe investisseur**, en lecture seule, tant que l'agent n'exécute pas d'ordre, c'est-à-dire jusqu'à la phase 8 ;
+- mot de passe principal uniquement pour l'exécution, et jamais celui de l'espace client Deriv, qui permet les retraits ;
+- identifiants de démonstration et réels strictement séparés, dans des fichiers d'environnement distincts ;
+- procédure de changement immédiat du mot de passe MT5 en cas de fuite.
 
 ### 15.3 Telegram
 
@@ -959,7 +985,12 @@ Accès par clé uniquement, pare-feu, mises à jour régulières, services inuti
 
 ## 17. Déploiement et exploitation
 
-Serveur Linux, distribution à support long terme, l'exemple retenu étant un serveur de type Hetzner CX22 pour environ 4 à 5 euros par mois. `[CONFIRMÉ]` Processus supervisé par systemd ou PM2, avec redémarrage automatique. `[CONFIRMÉ]` Conteneurisation par Docker et Docker Compose. `[PROPOSITION]`
+**Révisé en version 1.2.** Le terminal MT5 et le paquet `MetaTrader5` imposent Windows (C-010). Le serveur Linux d'environ 5 € par mois initialement retenu ne convient plus.
+
+- **Développement, exploration et démonstration :** poste Windows de l'opérateur. Aucun coût, mais pas de fonctionnement continu quand le poste est éteint, ce qui reste acceptable jusqu'à la phase 7. `[PROPOSITION]`
+- **Fonctionnement continu, à partir de la campagne de paper trading :** serveur privé virtuel Windows. Coût `[À CONFIRMER]`, sensiblement supérieur à celui d'un serveur Linux.
+- Supervision par service Windows ou tâche planifiée, avec redémarrage automatique de l'agent **et du terminal MT5**, et reconnexion du terminal au compte après redémarrage. `[PROPOSITION]`
+- Pas de conteneurisation de l'agent : le terminal exige une session Windows. `[PROPOSITION]`
 
 Chaîne d'intégration continue : analyse statique, typage, tests, détection de secrets, construction de l'image. `[PROPOSITION]`
 
@@ -986,6 +1017,9 @@ Les backtests intensifs sont exécutés sur une machine distincte afin de ne pas
 | R-11 | Contrainte réglementaire ou contractuelle non vérifiée | ~~Moyenne~~ **Réalisé** | Très élevé | **Matérialisé le 2026-10-01** | Indices synthétiques indisponibles pour un résident français. Périmètre rebâti sur l'or et la crypto, voir C-008. **Risque résiduel :** l'autorisation du trading automatisé sur le compte et les obligations fiscales françaises restent à vérifier avant tout passage en réel, en TASK-090 |
 | R-13 | Capital insuffisant pour la taille minimale négociable | **Élevée** | Moyen | Élevé | Règle RM-019 : un instrument dont le risque minimal dépasse le plafond autorisé est déclaré inéligible au mode réel, sans bloquer les autres modes. Mesure des tailles minimales en TASK-003 |
 | R-14 | Confusion entre validation de la mécanique et validation de la performance | **Élevée** | Élevé | **Critique** | À 100 €, le mode réel ne peut pas produire de statistiques interprétables (C-009). Les rapports doivent séparer explicitement les chiffres de démonstration et de réel, et ne jamais les agréger. Aucune décision de stratégie ne doit s'appuyer sur les résultats réels à ce niveau de capital |
+| R-15 | Dépendance à Windows et au terminal MT5 : terminal fermé, déconnecté, mis à jour ou bloqué par une fenêtre | **Élevée** | Élevé | Élevé | Contrôle de santé du terminal à chaque cycle, suspension du trading dès qu'il ne répond plus, redémarrage automatique de l'agent et du terminal, alerte Telegram. Introduit par C-010 |
+| R-16 | Heure du serveur du courtier prise pour l'heure universelle | Moyenne | **Très élevé** | **Critique** | Bougies décalées de plusieurs heures, horaires de marché faux, rapports quotidiens coupés au mauvais moment, et parité avec l'historique rompue. Mesure du décalage en TASK-003, conversion à l'entrée unique des données, test dédié, et suivi des changements d'heure d'été du serveur |
+| R-17 | Levier crypto plafonné à 1:2 dans l'Union : marge minimale supérieure au capital réel | **Élevée** | Moyen | Élevé | Traité par RM-019 : la crypto peut être déclarée inéligible au mode réel tout en restant pleinement active en démonstration. Mesure des tailles minimales en TASK-003 |
 | R-12 | Dérive de performance d'une stratégie en production | Élevée | Moyen | Élevé | Comparaison mensuelle backtest contre réel, seuils d'alerte, procédure de suspension |
 
 ---
@@ -1004,11 +1038,11 @@ Ces décisions conditionnent le démarrage ou la poursuite du développement.
 
 | ID | Question | Impact si non tranchée | Valeur par défaut proposée |
 |---|---|---|---|
-| Q-01 | Résolution de C-003, type de contrat Deriv | Le moteur de risque et le backtest ne peuvent pas être spécifiés | **Seule question encore ouverte.** Arbitrage entre option A, contrats à multiplicateur, et option C, MetaTrader 5. Tranchée en TASK-004 à partir des relevés de TASK-003, l'option B étant écartée par C-008 |
+| Q-01 | ~~Résolution de C-003, type de contrat Deriv~~ | — | **Résolue le 2026-10-03 :** option C, Deriv MT5, imposée par C-010. Reste la formule de taille, en TASK-004, à partir des spécifications de contrat mesurées en TASK-003 |
 | Q-02 | ~~Résolution de C-004, langage~~ | — | **Résolue le 2026-10-01 :** Python 3.12 partout |
 | Q-03 | ~~Résolution de C-001, place du backtest~~ | — | **Résolue le 2026-10-01 :** code partagé, processus séparés. `backtest` n'est jamais chargé en production, et le test d'architecture le vérifie |
 | Q-04 | ~~Résolution de C-002, pouvoir de l'IA~~ | — | **Résolue le 2026-10-01 :** veto asymétrique, et mode `shadow` par défaut à tout nouveau déploiement. Promotion du filtre conditionnée à une mesure, voir C-002 |
-| Q-05 | Identifiant d'application Deriv et jeton d'API | Aucune connexion possible | **Action opérateur.** Le compte de trading ne suffit pas : il faut enregistrer une application sur le portail développeur pour obtenir un identifiant d'application, puis créer un jeton d'API **limité aux portées lecture et négociation**, sans droit de paiement ni d'administration |
+| Q-05 | Identifiants du compte démo MT5 | Aucune connexion possible | **Action opérateur, révisée en 1.2.** Ouvrir un compte démo Deriv MT5 donnant accès à l'or et à la crypto, installer le terminal MetaTrader 5, puis renseigner dans `.env` le numéro de compte, le nom du serveur et le **mot de passe investisseur**, en lecture seule. L'ancien besoin d'identifiant d'application et de jeton d'API disparaît avec C-010 |
 | Q-06 | ~~Type de compte et pays de résidence~~ | — | **Résolue :** résidence française, entité européenne. Indices synthétiques indisponibles, voir C-008 |
 | Q-07 | Liste exacte des deux à quatre cryptomonnaies | Aucune collecte ciblée possible | À établir après TASK-003. Critères : liquidité et spread acceptables, historique suffisant pour le backtest, taille minimale compatible avec RM-019, et faible corrélation entre les paires retenues afin de ne pas surveiller quatre fois le même risque |
 | Q-08 | ~~Capital de référence~~ | — | **Résolue :** 100 €, avec les conséquences documentées en C-009 |
