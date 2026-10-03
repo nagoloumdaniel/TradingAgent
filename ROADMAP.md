@@ -293,7 +293,11 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
 
 ### TASK-012 — Contrôle qualité et état de santé des séries
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-04**. 24 tests, sept mutations toutes attrapées, deux rejeux sur l'historique réel de l'or.
+- **Livré :** `data/quality.py`, fonction `assess_series`. Statuts : `HEALTHY`, `MARKET_CLOSED`, et six anomalies : `EMPTY`, `STALE`, `GAP`, `DUPLICATE`, `UNORDERED`, `INVALID`. Seul `HEALTHY` autorise un signal.
+- **Distinction essentielle :** `MARKET_CLOSED` bloque les signaux **sans être une anomalie**, pour que la fermeture de l'or ne déclenche pas d'alerte chaque week-end. Un trou ne compte que pendant un quart d'heure que le calendrier marque ouvert ; un quart d'heure incertain est toléré.
+- **Verrou en temps réel :** sans tick de moins de 2 minutes, pas de signal. Pendant une heure ouverte, c'est une anomalie `STALE` ; pendant une heure incertaine, c'est considéré comme fermé.
+- **Rejeux réels :** jeudi en séance, série saine sans faux trou sur 300 bougies traversant plusieurs pauses ; vendredi 20 h 52 après l'arrêt des cotations, « marché fermé » sans anomalie.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-011 · **Couvre :** F-002, RM-001, RM-002
 - **Skills :** `test-driven-development`
 - **Objectif :** rendre impossible une décision sur des données douteuses. Exigence EF-014.
@@ -324,7 +328,8 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
 ### TASK-014 — Horaires de marché
 
 - [x] Statut : **DONE le 2026-10-04**. 14 tests, plus une validation sur les données réelles du compte démo.
-- **Approche validée par l'opérateur :** le paquet MT5 ne fournit pas les horaires, donc `data/market_calendar.py` les **apprend sur les 8 dernières semaines de bougies H1** du courtier. Un créneau horaire est ouvert s'il a coté dans au moins 75 % de ses occurrences, incertain s'il n'a coté que certaines semaines, fermé sinon. Le calendrier doit être réappris chaque jour, ce qui absorbe les changements d'heure d'été américains en quelques semaines, l'heure concernée restant incertaine dans l'intervalle.
+- **Corrigé le jour même : granularité au quart d'heure, apprise sur les bougies M15.** La version horaire aurait produit une fausse alerte chaque vendredi : l'or cesse de coter à 20 h 45 UTC, à l'intérieur d'une heure qui cote par ailleurs. Résultat réel : or ouvert 459 quarts d'heure sur 672, BTC 672 sur 672.
+- **Approche validée par l'opérateur :** le paquet MT5 ne fournit pas les horaires, donc `data/market_calendar.py` les **apprend sur les 8 dernières semaines de bougies** du courtier. Un créneau horaire est ouvert s'il a coté dans au moins 75 % de ses occurrences, incertain s'il n'a coté que certaines semaines, fermé sinon. Le calendrier doit être réappris chaque jour, ce qui absorbe les changements d'heure d'été américains en quelques semaines, l'heure concernée restant incertaine dans l'intervalle.
 - **Résultat sur données réelles :** BTC ouvert 168 heures sur 168. Or ouvert 115 heures sur 168 : pause quotidienne à 21 h UTC du lundi au jeudi, fermeture le vendredi à 21 h, réouverture le dimanche à 22 h UTC.
 - **Critère « réouverture détectée sans redémarrage » :** couvert par le verrou de fraîcheur du tick (TASK-012) et le réapprentissage quotidien, à brancher dans la boucle de l'agent (TASK-034).
 - **Observation réelle sur un week-end complet :** pas encore faite. Les données apprises en couvrent huit, ce qui la rend largement redondante ; elle reste à consigner une fois l'agent en marche continue.
