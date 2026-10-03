@@ -420,7 +420,20 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-031 — Interface de stratégie et chargeur
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-03**. 293 tests verts, neuf hooks verts.
+- **Conception validée :** `docs/superpowers/specs/2026-10-03-strategy-interface-design.md` · **Plan :** `docs/superpowers/plans/2026-10-03-strategy-interface.md`.
+- **Livré :** types `Candle`, `Direction`, `SignalCandidate`, `TradingMode`, `AiFilter` dans `core` ; `StrategyManifest`, `Strategy`, `StrategyContext`, registre, `evaluate()` et `check_strategy_contract()` dans `strategies` ; `load_strategy_catalog()` et les contrôles marché ↔ stratégie dans `config`.
+- **À retenir pour la suite :**
+  - **`strategies.evaluation.evaluate()` est la seule voie d'évaluation d'une stratégie.** TASK-034 et TASK-061 doivent l'appeler, et rien d'autre. C'est ce qui garantit la parité entre backtest et production ;
+  - **toute nouvelle stratégie doit passer `check_strategy_contract()`** dans ses tests ;
+  - **le test `test_production_registry_is_empty_until_a_strategy_is_validated` devra être mis à jour en TASK-033**, quand la stratégie témoin entrera au registre ;
+  - le critère « l'ancienne configuration reste active si la nouvelle est invalide » relève du rechargement à chaud et passe en **TASK-032**. Le chargement actuel est tout ou rien.
+- **Écarts par rapport à la conception, découverts à l'implémentation :**
+  - **le registre exige aussi que le modèle de paramètres refuse les clés inconnues.** Par défaut, pydantic les ignore : un `ema_fsat: 20` mal orthographié serait passé en silence, et la stratégie aurait tourné avec la valeur par défaut d'`ema_fast`. La spec est mise à jour ;
+  - la règle de pureté autorise désormais l'import de `datetime`, et détecte à la place tout appel à `now()`, `utcnow()` ou `today()` dans un paquet pur ;
+  - `TradingMode` est déplacé de `config` vers `core`, sans alias de compatibilité ;
+  - `agent.yaml` ne déclare plus d'unités de temps par marché : elles viennent du manifeste de la stratégie. Le format de TASK-006 change en conséquence, et la référence de stratégie doit être épinglée en `id@version`.
+- **Défauts de mes propres tests, corrigés avant implémentation :** une stratégie de test qui ne pouvait jamais émettre de signal, ce qui rendait vide le test de non-interférence entre deux marchés ; un test d'état caché qui ne pouvait rien détecter ; une définition du déterminisme qui laissait passer une stratégie à réponses alternées.
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-030, TASK-006 · **Couvre :** F-007, EF-003
 - **Skills :** `brainstorming` avant l'écriture, pour arrêter la forme de l'interface, puis `test-driven-development`
 - **Objectif :** une interface unique, et un chargeur qui refuse toute configuration douteuse.
