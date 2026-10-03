@@ -179,7 +179,19 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 
 ### TASK-005 — Modèle de données et migrations
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-04**. 36 tests de stockage, 354 au total, neuf hooks verts.
+- **Livré :** `storage/models.py` (13 tables), `storage/types.py`, `storage/engine.py`, `storage/migrate.py`, migration initiale `0001`, et les états métier dans `core/states.py`.
+- **Écarts validés par l'opérateur par rapport à la section 11 du cahier :** 13 tables au lieu de 19. Pas de tables utilisateurs, comptes et marchés, dont la source de vérité est `.env` ou `agent.yaml`. Pas de table de ticks, inutile avec MT5. Les valeurs d'indicateurs sont stockées dans le signal lui-même.
+- **Garanties tenues par la base, et prouvées par mutation :**
+  - unicité des clés d'idempotence des signaux et des ordres, et des bougies ;
+  - clés étrangères **activées**, SQLite les désactivant par défaut ;
+  - énumérations protégées par contrainte `CHECK` ;
+  - **tables d'historique réellement immuables** : déclencheurs refusant toute modification ou suppression sur `signal_events`, `executions`, `trades` et `audit_log` ;
+  - dates sans fuseau refusées et relues en UTC ;
+  - montants en décimal exact, flottants refusés ;
+  - **test de divergence entre modèles et migration** : il a détecté une unicité retirée du seul modèle, que le test de doublon ne voyait pas.
+- **À savoir :** les montants sont stockés en texte sous SQLite pour rester exacts. **Aucun calcul ni tri SQL sur ces colonnes sous SQLite** : agréger en Python.
+- **Piège rencontré :** la génération automatique d'Alembic produisait deux contraintes `CHECK` identiques par énumération. Les doublons ont été retirés de la migration.
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-002, TASK-004
 - **Skills :** `test-driven-development`
 - **Objectif :** le schéma complet de la section 11 du cahier, avec ses contraintes.
@@ -858,6 +870,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 - **Priorité :** P1 · **Complexité :** M · **Dépendances :** TASK-071 · **Couvre :** C-005
 - **Skills :** `migration`
 - **Critères d'acceptation :** les migrations s'appliquent, les données sont transférées sans perte, et les contraintes d'unicité d'idempotence sont vérifiées après bascule.
+- **⚠ Prérequis laissé par TASK-005 :** la migration `0001` **refuse volontairement de s'exécuter hors SQLite**, faute de déclencheurs d'immuabilité écrits pour PostgreSQL. Il faut écrire leur équivalent PostgreSQL (fonction et déclencheurs) avant la bascule. Les tests d'immuabilité de `tests/storage/test_constraints.py` doivent passer à l'identique sur PostgreSQL.
 
 ### TASK-081 — Exécuteur Deriv
 
