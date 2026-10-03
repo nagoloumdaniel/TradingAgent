@@ -81,8 +81,19 @@ def context() -> StrategyContext:
     return StrategyContext(
         symbol="frxXAUUSD",
         evaluated_at=START + timedelta(minutes=45),
+        primary_timeframe=Timeframe.M15,
         candles={Timeframe.M15: candles(3)},
     )
+
+
+def test_context_requires_the_primary_series() -> None:
+    with pytest.raises(ValueError, match="primary"):
+        StrategyContext(
+            symbol="frxXAUUSD",
+            evaluated_at=START,
+            primary_timeframe=Timeframe.H1,
+            candles={Timeframe.M15: candles(3)},
+        )
 
 
 def test_context_price_accessors_are_ordered_oldest_first() -> None:
@@ -138,5 +149,5 @@ def test_registry_cannot_be_modified() -> None:
         registry["other"] = Other  # type: ignore[index]
 
 
-def test_production_registry_is_empty_until_a_strategy_is_validated() -> None:
-    assert dict(REGISTRY) == {}
+def test_production_registry_lists_only_reviewed_strategies() -> None:
+    assert set(REGISTRY) == {"witness"}

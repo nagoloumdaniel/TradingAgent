@@ -68,6 +68,7 @@ class Strategy(ABC, Generic[P]):  # P lié à pydantic.BaseModel
 `StrategyContext`, dataclass gelée :
 - `symbol: str` ;
 - `evaluated_at: datetime` : heure de clôture de la bougie déclenchante, **jamais l'heure murale** ;
+- `primary_timeframe: Timeframe` : unité de temps déclenchante, recopiée du manifeste par `evaluate()`. **Ajouté en TASK-033** : sans ce champ, une stratégie devait coder son unité en dur, et changer le manifeste l'aurait fait planter. Le constructeur refuse une unité principale absente de `candles` ;
 - `candles: Mapping[Timeframe, tuple[Candle, ...]]` : bougies closes, de la plus ancienne à la plus récente, exactement `history_bars` par unité de temps déclarée ;
 - `series(timeframe)` : lève une `KeyError` explicite si l'unité n'est pas déclarée ;
 - `opens(timeframe)`, `highs(timeframe)`, `lows(timeframe)`, `closes(timeframe)` : listes de `float`, prêtes pour le paquet `indicators`.

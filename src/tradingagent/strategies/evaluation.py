@@ -72,7 +72,12 @@ def evaluate(
             "evaluate only on receipt of the triggering candle"
         )
 
-    context = StrategyContext(symbol=symbol, evaluated_at=evaluated_at, candles=windows)
+    context = StrategyContext(
+        symbol=symbol,
+        evaluated_at=evaluated_at,
+        primary_timeframe=manifest.primary_timeframe,
+        candles=windows,
+    )
     try:
         result = strategy.evaluate(context)
     except InvalidSignalError as error:

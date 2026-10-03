@@ -21,9 +21,12 @@ class StrategyContext:
 
     symbol: str
     evaluated_at: datetime
+    primary_timeframe: Timeframe
     candles: Mapping[Timeframe, tuple[Candle, ...]]
 
     def __post_init__(self) -> None:
+        if self.primary_timeframe not in self.candles:
+            raise ValueError(f"primary timeframe {self.primary_timeframe} has no series")
         object.__setattr__(self, "candles", MappingProxyType(dict(self.candles)))
 
     def series(self, timeframe: Timeframe) -> tuple[Candle, ...]:

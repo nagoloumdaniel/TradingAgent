@@ -426,7 +426,7 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 - **À retenir pour la suite :**
   - **`strategies.evaluation.evaluate()` est la seule voie d'évaluation d'une stratégie.** TASK-034 et TASK-061 doivent l'appeler, et rien d'autre. C'est ce qui garantit la parité entre backtest et production ;
   - **toute nouvelle stratégie doit passer `check_strategy_contract()`** dans ses tests ;
-  - **le test `test_production_registry_is_empty_until_a_strategy_is_validated` devra être mis à jour en TASK-033**, quand la stratégie témoin entrera au registre ;
+  - ~~le test du registre vide devra être mis à jour en TASK-033~~ — fait : il vérifie désormais que le registre contient exactement les stratégies relues, aujourd'hui `witness` seule ;
   - le critère « l'ancienne configuration reste active si la nouvelle est invalide » relève du rechargement à chaud et passe en **TASK-032**. Le chargement actuel est tout ou rien.
 - **Écarts par rapport à la conception, découverts à l'implémentation :**
   - **le registre exige aussi que le modèle de paramètres refuse les clés inconnues.** Par défaut, pydantic les ignore : un `ema_fsat: 20` mal orthographié serait passé en silence, et la stratégie aurait tourné avec la valeur par défaut d'`ema_fast`. La spec est mise à jour ;
@@ -465,7 +465,13 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-033 — Stratégie témoin
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-03**. 311 tests verts, neuf hooks verts.
+- **Livré :** `strategies/library/witness.py` (croisement d'EMA, stop et objectif en multiples d'ATR), manifeste `config/strategies/witness@1.0.0.yaml` plafonné à `SIGNAL`, inscription au registre de production.
+- **Garde-fous testés :** le manifeste livré ne dépasse jamais `SIGNAL` ; son historique couvre au moins 5 fois la plus longue période récursive (préchauffage) ; paramètres incohérents refusés (EMA lente plus courte que la rapide, stop à l'intérieur de la zone d'entrée, objectif à l'intérieur de la zone) ; contrat de stratégie respecté.
+- **Vérification :** le signal tombe exactement sur le croisement, contrôlé par un oracle indépendant qui recalcule les EMA sur la même fenêtre. Cinq erreurs injectées : quatre attrapées d'emblée. **La cinquième a survécu** — un ratio d'objectif codé en dur à 2 passait parce que tous les tests utilisaient justement 2,0. Le test utilise désormais 2,5.
+- **⚠ Limite :** le rejeu sur historique de la roadmap a été fait sur une **marche aléatoire synthétique à graine fixe** (2 000 bougies, achats et ventes valides, aucune erreur de stratégie). Aucun historique Deriv n'est encore disponible. Le rejeu sur données réelles revient à TASK-060 et TASK-061.
+- **Écart par rapport à TASK-031 :** ajout de `StrategyContext.primary_timeframe`. Sans lui, la stratégie devait coder `M15` en dur, et passer le manifeste en `H1` l'aurait fait planter. La spec est mise à jour.
+- **Rappel :** cette stratégie n'est **pas** une stratégie de trading. Elle prouve la mécanique.
 - **Priorité :** P1 · **Complexité :** S · **Dépendances :** TASK-031
 - **Objectif :** une stratégie simple et documentée, destinée à valider la mécanique de bout en bout. Elle n'est pas une recommandation de trading et ne doit jamais être promue au-delà du mode signal.
 - **Critères d'acceptation :**

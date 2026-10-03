@@ -179,6 +179,7 @@ def test_window_holds_exactly_history_bars_closed_candles() -> None:
     assert window == tuple(M15[3:6])
     assert window[-1].close_time == close_of(Timeframe.M15, 5)
     assert spy.contexts[0].evaluated_at == close_of(Timeframe.M15, 5)
+    assert spy.contexts[0].primary_timeframe is Timeframe.M15
 
 
 def test_open_higher_timeframe_candle_is_never_passed() -> None:
