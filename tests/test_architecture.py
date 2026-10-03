@@ -25,12 +25,16 @@ OFFLINE_ONLY = {"backtest", "research"}
 EXECUTION_GATEKEEPERS = {"risk", "execution"}
 # The composition root wires the executor into risk; it may import execution but never call it.
 COMPOSITION_ROOT = "tradingagent.app"
-# Pure-calculation packages: no clock, no network, no randomness, no I/O, no project state.
-PURE_PACKAGES = {"indicators"}
-PURE_ALLOWED_DEPENDENCIES = {"core"}
+# Pure-calculation packages and the project packages each may depend on.
+# Pure means: no clock read, no network, no randomness, no I/O, no project state.
+PURE_PACKAGES = {
+    "indicators": {"core"},
+    "strategies": {"core", "indicators"},
+}
+# datetime stays importable: strategies handle candle times. Reading the clock is what's banned.
+CLOCK_READS = {"now", "utcnow", "today"}
 IMPURE_MODULES = {
     "time",
-    "datetime",
     "socket",
     "ssl",
     "http",
@@ -78,20 +82,37 @@ def imported_modules(tree: ast.Module, module: str, is_package: bool) -> set[str
     return found
 
 
+def clock_reads(tree: ast.Module) -> list[str]:
+    return [
+        node.func.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in CLOCK_READS
+    ]
+
+
 def find_violations(src_root: Path) -> list[str]:
     violations: list[str] = []
     for path in sorted(src_root.rglob("*.py")):
         module = module_name(path, src_root)
         importer = subpackage(module)
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        allowed = PURE_PACKAGES.get(importer or "")
+        if allowed is not None:
+            violations.extend(
+                f"{module} calls .{call}(): {importer} must not read the clock"
+                for call in clock_reads(tree)
+            )
         for target in sorted(imported_modules(tree, module, path.name == "__init__.py")):
             dependency = subpackage(target)
-            if importer in PURE_PACKAGES:
+            if allowed is not None:
                 if target.split(".")[0] in IMPURE_MODULES:
                     violations.append(f"{module} imports {target}: {importer} must stay pure")
-                if dependency not in {None, importer, *PURE_ALLOWED_DEPENDENCIES}:
+                if dependency not in {None, importer, *allowed}:
                     violations.append(
-                        f"{module} imports {target}: {importer} may depend on core only"
+                        f"{module} imports {target}: {importer} may only depend on "
+                        f"{', '.join(sorted(allowed))}"
                     )
             if dependency is None or dependency == importer:
                 continue
@@ -145,11 +166,18 @@ def build_tree(root: Path, files: dict[str, str]) -> Path:
         ("app.py", "import tradingagent.research.explore\n"),
         ("analytics/__init__.py", "from ..backtest import harness\n"),
         ("indicators/rsi.py", "import time\n"),
-        ("indicators/rsi.py", "from datetime import datetime\n"),
         ("indicators/rsi.py", "import urllib.request\n"),
         ("indicators/rsi.py", "import random\n"),
         ("indicators/rsi.py", "from tradingagent.storage import repository\n"),
         ("indicators/rsi.py", "from ..data import feed\n"),
+        ("indicators/rsi.py", "from tradingagent.strategies import base\n"),
+        ("indicators/rsi.py", "from datetime import date\nx = date.today()\n"),
+        ("strategies/trend.py", "from datetime import UTC, datetime\nx = datetime.now(UTC)\n"),
+        ("strategies/trend.py", "import datetime\nx = datetime.datetime.utcnow()\n"),
+        ("strategies/trend.py", "import time\n"),
+        ("strategies/trend.py", "from tradingagent.config import settings\n"),
+        ("strategies/trend.py", "from tradingagent.data import feed\n"),
+        ("strategies/trend.py", "from ..storage import repository\n"),
     ],
 )
 def test_forbidden_import_is_detected(tmp_path: Path, relative: str, source: str) -> None:
@@ -170,7 +198,13 @@ def test_forbidden_import_is_detected(tmp_path: Path, relative: str, source: str
         ("indicators/rsi.py", "import math\nfrom collections.abc import Sequence\n"),
         ("indicators/rsi.py", "from tradingagent.core import timeframe\n"),
         ("indicators/rsi.py", "from ._checks import require_period\n"),
+        ("indicators/rsi.py", "from datetime import datetime\n"),
         ("data/feed.py", "import asyncio\nimport time\n"),
+        ("data/feed.py", "from datetime import UTC, datetime\nx = datetime.now(UTC)\n"),
+        ("strategies/trend.py", "from datetime import datetime, timedelta\n"),
+        ("strategies/trend.py", "from tradingagent.indicators.momentum import rsi\n"),
+        ("strategies/trend.py", "from tradingagent.core.market import Candle\n"),
+        ("strategies/trend.py", "from pydantic import BaseModel\n"),
     ],
 )
 def test_allowed_import_passes(tmp_path: Path, relative: str, source: str) -> None:
