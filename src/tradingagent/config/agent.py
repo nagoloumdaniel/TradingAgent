@@ -3,16 +3,14 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any, Self
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from tradingagent.config._yaml import Problem, read_yaml, render, validation_problems
 from tradingagent.config.errors import ConfigError
 from tradingagent.core.timeframe import Timeframe
 
 LIVE_RISK_PER_TRADE_CAP = Decimal(5)
 
-Location = tuple[int | str, ...]
-Problem = tuple[Location, str]
 Percent = Annotated[Decimal, Field(gt=0, le=100)]
 
 
@@ -86,32 +84,15 @@ class AgentConfig(_Strict):
 def load_agent_config(
     path: Path, *, known_symbols: Collection[str], known_strategies: Collection[str]
 ) -> AgentConfig:
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError as error:
-        raise ConfigError(f"{path}: cannot read configuration ({error.strerror})") from None
-
-    try:
-        root = yaml.compose(text, Loader=yaml.SafeLoader)
-        data = yaml.safe_load(text)
-    except yaml.YAMLError as error:
-        mark = getattr(error, "problem_mark", None)
-        line = mark.line + 1 if mark is not None else "?"
-        raise ConfigError(f"{path}:{line}: invalid YAML: {error}") from None
-    if root is None:
-        raise ConfigError(f"{path}: configuration is empty")
-
-    problems = list(_reference_problems(data, known_symbols, known_strategies))
+    document = read_yaml(path)
+    problems = list(_reference_problems(document.data, known_symbols, known_strategies))
     config: AgentConfig | None = None
     try:
-        config = AgentConfig.model_validate(data)
+        config = AgentConfig.model_validate(document.data)
     except ValidationError as error:
-        problems.extend(
-            (tuple(detail["loc"]), detail["msg"])
-            for detail in error.errors(include_input=False, include_url=False)
-        )
+        problems.extend(validation_problems(error))
     if problems or config is None:
-        raise ConfigError(_render(path, root, problems))
+        raise ConfigError(render("Invalid agent configuration", document.locate(problems)))
     return config
 
 
@@ -139,43 +120,3 @@ def _reference_problems(
         strategy = market.get("strategy")
         if isinstance(strategy, str) and strategy not in known_strategies:
             yield ("markets", index, "strategy"), f"unknown strategy {strategy!r}"
-
-
-def _render(path: Path, root: yaml.Node, problems: list[Problem]) -> str:
-    located = sorted(
-        {(_line_of(root, location), _dotted(location), message) for location, message in problems}
-    )
-    body = "\n".join(f"  {path}:{line}: {where}: {message}" for line, where, message in located)
-    return "Invalid agent configuration:\n" + body
-
-
-def _line_of(root: yaml.Node, location: Location) -> int:
-    node = root
-    for key in location:
-        child: yaml.Node | None = None
-        if isinstance(node, yaml.MappingNode):
-            child = next(
-                (
-                    value
-                    for name, value in node.value
-                    if isinstance(name, yaml.ScalarNode) and name.value == str(key)
-                ),
-                None,
-            )
-        elif (
-            isinstance(node, yaml.SequenceNode)
-            and isinstance(key, int)
-            and 0 <= key < len(node.value)
-        ):
-            child = node.value[key]
-        if child is None:
-            break
-        node = child
-    return int(node.start_mark.line) + 1
-
-
-def _dotted(location: Location) -> str:
-    rendered = ""
-    for key in location:
-        rendered += f"[{key}]" if isinstance(key, int) else (f".{key}" if rendered else key)
-    return rendered or "(root)"
