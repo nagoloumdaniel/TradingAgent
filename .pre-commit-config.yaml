@@ -1,0 +1,55 @@
+# Every hook runs through uv so versions come from uv.lock, not from pinned remote revs.
+repos:
+  - repo: local
+    hooks:
+      # --no-verify: stock plugins otherwise send every candidate secret to its provider's API
+      # and silently drop the ones that fail, making the hook network-dependent.
+      - id: detect-secrets
+        name: detect-secrets
+        entry: >-
+          uv run detect-secrets-hook --no-verify
+          --plugin tools/detect_secrets_plugins/project_tokens.py
+          --baseline .secrets.baseline
+        language: system
+        exclude: ^uv\.lock$
+      - id: detect-private-key
+        name: detect-private-key
+        entry: uv run detect-private-key
+        language: system
+        types: [text]
+      - id: check-added-large-files
+        name: check-added-large-files
+        entry: uv run check-added-large-files --maxkb=500
+        language: system
+      - id: end-of-file-fixer
+        name: end-of-file-fixer
+        entry: uv run end-of-file-fixer
+        language: system
+        types: [text]
+      - id: trailing-whitespace
+        name: trailing-whitespace
+        entry: uv run trailing-whitespace-fixer
+        language: system
+        types: [text]
+      - id: ruff
+        name: ruff
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff-format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: architecture
+        name: architecture boundaries
+        entry: uv run pytest -q tests/test_architecture.py
+        language: system
+        types: [python]
+        pass_filenames: false

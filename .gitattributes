@@ -1,0 +1,2 @@
+# The production target is Linux: keep LF in the repository whatever the local OS.
+* text=auto eol=lf

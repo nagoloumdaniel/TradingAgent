@@ -1,0 +1,33 @@
+# Secrets: only the template is versioned
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local data: market history and databases are never versioned
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
