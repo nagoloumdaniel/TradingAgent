@@ -11,8 +11,11 @@ from tradingagent.core.mode import TradingMode
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(frozen=True, extra="ignore")
 
-    deriv_app_id: int = Field(gt=0)
-    deriv_api_token: SecretStr
+    mt5_login: int = Field(gt=0)
+    mt5_server: str
+    # Investor (read-only) password until execution starts in phase 8.
+    mt5_password: SecretStr
+    mt5_terminal_path: Path | None = None
     telegram_bot_token: SecretStr
     telegram_allowed_user_ids: Annotated[tuple[int, ...], NoDecode] = Field(min_length=1)
     anthropic_api_key: SecretStr
@@ -20,12 +23,24 @@ class Settings(BaseSettings):
     trading_mode: TradingMode = TradingMode.SIGNAL
     live_trading_enabled: bool = False
 
-    @field_validator("deriv_api_token", "telegram_bot_token", "anthropic_api_key")
+    @field_validator("mt5_password", "telegram_bot_token", "anthropic_api_key")
     @classmethod
     def _secret_not_blank(cls, value: SecretStr) -> SecretStr:
         if not value.get_secret_value().strip():
             raise ValueError("must not be blank")
         return value
+
+    @field_validator("mt5_server")
+    @classmethod
+    def _server_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value.strip()
+
+    @field_validator("mt5_terminal_path", mode="before")
+    @classmethod
+    def _blank_path_is_unset(cls, value: Any) -> Any:
+        return None if isinstance(value, str) and not value.strip() else value
 
     @field_validator("telegram_allowed_user_ids", mode="before")
     @classmethod
@@ -45,7 +60,7 @@ class Settings(BaseSettings):
     def secret_values(self) -> tuple[str, ...]:
         return tuple(
             secret.get_secret_value()
-            for secret in (self.deriv_api_token, self.telegram_bot_token, self.anthropic_api_key)
+            for secret in (self.mt5_password, self.telegram_bot_token, self.anthropic_api_key)
         )
 
 

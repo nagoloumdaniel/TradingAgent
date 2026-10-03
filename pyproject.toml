@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Agent de signaux de trading Deriv - or et crypto"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "metatrader5>=5.0.6231 ; sys_platform == 'win32'",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "pyyaml>=6.0.3",
