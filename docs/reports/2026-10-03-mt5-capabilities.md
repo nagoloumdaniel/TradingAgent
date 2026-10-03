@@ -42,16 +42,18 @@ Stop typique retenu : 1,5 × ATR(14) M15, relevé au moment de la mesure, et jam
 |---|---|---|---|---|---|---|
 | XAUUSD | 0,01 | 0,01 | 100 oz | 183,93 € | 10,94 € | **Non** (marge et risque) |
 | XAUEUR | 0,01 | 0,01 | 100 oz | 183,93 € | 9,59 € | **Non** (marge et risque) |
-| BTCUSD | 0,01 | 0,01 | 1 | 376,37 € | 1,00 € | **Non** (marge) |
-| ETHUSD | 0,1 | 0,01 | 1 | 119,34 € | 0,37 € | **Non** (marge) |
-| SOLUSD | 0,5 | 0,01 | 1 | 26,59 € | 0,14 € | Oui |
-| XRPUSD | 500 | 100 | 1 | 330,50 € | 1,83 € | **Non** (marge) |
-| LTCUSD | 1 | 0,01 | 1 | 30,79 € | 0,28 € | Oui |
-| ADAUSD | 200 | 1 | 1 | 21,80 € | 0,19 € | Oui |
-| Volatility 100 (1s) | 1 | 0,01 | 1 | 184,66 € | 12,24 € | **Non** |
-| Volatility 100 | 1 | 0,01 | 1 | 118,93 € | 7,32 € | **Non** |
-| Step Index 300 | 0,1 | 0,01 | 10 | 2 423,46 € | 17,01 € | **Non** |
-| Step Index 400 | 0,1 | 0,01 | 10 | 1 503,14 € | 26,61 € | **Non** |
+| BTCUSD | 0,01 | 0,01 | 1 | 376,34 € | 0,92 € | **Non** (marge) |
+| ETHUSD | 0,1 | 0,01 | 1 | 119,33 € | 0,35 € | **Non** (marge) |
+| SOLUSD | 0,5 | 0,01 | 1 | 26,58 € | 0,13 € | Oui |
+| XRPUSD | 500 | 100 | 1 | 330,44 € | 1,71 € | **Non** (marge) |
+| LTCUSD | 1 | 0,01 | 1 | 30,80 € | 0,26 € | Oui |
+| ADAUSD | 200 | 1 | 1 | 21,79 € | 0,18 € | Oui |
+| Volatility 100 (1s) | 1 | 0,01 | 1 | 184,79 € | 11,56 € | **Non** |
+| Volatility 100 | 1 | 0,01 | 1 | 119,00 € | 7,03 € | **Non** |
+| Step Index 300 | 0,1 | 0,01 | 10 | 2 422,76 € | 16,32 € | **Non** |
+| Step Index 400 | 0,1 | 0,01 | 10 | 1 503,14 € | 25,38 € | **Non** |
+
+Valeurs du relevé final de 22:01 UTC. Les marges et risques varient légèrement d'un relevé à l'autre avec les prix et la volatilité.
 
 Autres caractéristiques communes aux symboles mesurés : trading complet autorisé, **exécution au marché**, remplissage **« fill or kill » uniquement**, stop-loss et take-profit natifs acceptés. Les distances minimales de stop vont de 0,20 $ pour l'or à 20 $ pour le BTC. Les swaps sont négatifs dans les deux sens pour la crypto : **conserver une position d'un jour sur l'autre coûte**.
 
@@ -115,7 +117,7 @@ Lecture d'un tick : 0,02 ms en médiane. Lecture de 300 bougies : 0,03 ms en mé
 | Piège | Effet constaté | Règle à appliquer |
 |---|---|---|
 | **Plafond de bougies du terminal** | Toute demande de 100 000 bougies ou plus, par nombre ou par plage de dates, est refusée en bloc avec `(-2, 'Terminal: Invalid params')`, sans réponse partielle. Deux premières mesures de ce rapport ont ainsi affiché un historique vide | Ne jamais demander plus que le plafond moins un. Paginer par fenêtres pour remonter plus loin (TASK-010, TASK-013, TASK-060) |
-| **Valeur du tick non fiable** | Risque calculé avec `trade_tick_value` : exact pour l'or, **faux de 12 à 15 %** pour la crypto et les indices Volatility (valeur en dollars au lieu d'euros), **faux de 89 %** pour les Step Index (taille de contrat ignorée) | Calculer le risque avec le calculateur de profit du terminal, ou, à défaut, avec taille de contrat × écart de prix × taux de conversion (TASK-004) |
+| **Valeur du tick non fiable** | Risque calculé avec `trade_tick_value` : exact pour l'or, **faux de 11 à 15 %** pour la crypto et les indices Volatility (valeur en dollars au lieu d'euros), **faux de 89 %** pour les Step Index (taille de contrat ignorée) | Calculer le risque avec le calculateur de profit du terminal, ou, à défaut, avec taille de contrat × écart de prix × taux de conversion (TASK-004) |
 | **Remplissage** | Seul le mode « fill or kill » est accepté | Envoyer les ordres en remplissage « fill or kill » (TASK-081) |
 | **Cotations intermittentes** | Lors d'une mesure précédente, XRP et LTC n'avaient aucune cotation ; elles sont revenues lors de la mesure finale | Traiter l'absence de cotation comme une série dégradée (RM-002, TASK-012) |
 | **Historique téléchargé à la demande** | La première lecture d'un symbole renvoie moins de bougies le temps du téléchargement | Relire jusqu'à stabilisation avant de considérer une série complète |
