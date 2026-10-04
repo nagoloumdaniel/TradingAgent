@@ -278,7 +278,11 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
 
 ### TASK-011 — Normalisation et agrégation
 
-- [ ] Statut : TODO
+- [x] Statut : **CLOSE le 2026-10-04, sur décision de l'opérateur.**
+- **Déjà couvert :**
+  - la normalisation vers les types communs (`Candle` en UTC) dans `MarketDataClient` ;
+  - la règle de clôture : la bougie en formation est toujours écartée, ce qui est testé dans TASK-010.
+- **Sans objet depuis C-010 :** l'agrégation locale des ticks et le recoupement avec les bougies du courtier. L'agent lit directement les bougies du courtier. À rouvrir seulement si un contrôle croisé devient nécessaire.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-010 · **Couvre :** F-002
 - **Skills :** `test-driven-development`
 - **Actions :**
@@ -533,7 +537,34 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-034 — Génération de signal et idempotence
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-04.**
+  - Tests : 31 (18 pour le générateur, 13 pour le stockage).
+  - Mutations : 12 sur 12 attrapées.
+- **Livré :**
+  - `storage/signals.py` (`SignalRepository`).
+    - Clé `ref:symbole:unité:clôture` (par exemple `witness@1.0.0:XAUUSD:M15:2026-10-06T12:00Z`), unique en base.
+    - Le signal, la copie du manifeste (`strategy_versions`) et le premier événement `CANDIDATE` sont écrits dans une seule transaction.
+    - Un manifeste modifié sans changement de version est refusé (`ManifestChangedError`).
+  - `signals/generator.py` (`SignalGenerator.on_candle_closed`).
+    - Seules les stratégies du marché et de l'unité principale sont évaluées.
+    - La fenêtre est relue en base sans les barres postérieures au déclencheur.
+    - Chaque série est contrôlée par `assess_series` ; un refus est enregistré dans `system_events` : INFO pour un marché fermé, WARNING pour une anomalie.
+    - Le mode du signal est plafonné au `max_mode` de la stratégie (RM-016).
+- **Isolement :** chaque paire (stratégie, marché) est isolée.
+  - 3 erreurs consécutives entraînent une quarantaine, avec un événement CRITICAL, jusqu'au réarmement par `rearm`.
+  - Une évaluation réussie remet le compteur à zéro.
+  - Une panne d'infrastructure donne le statut `FAILED` sans bloquer les autres paires.
+- **Prouvé par les tests :**
+  - 8 fils enregistrant la même bougie donnent 1 signal ;
+  - un redémarrage ne crée pas de doublon ;
+  - une coupure entre le signal et l'événement ne laisse rien en base ;
+  - une vieille bougie rejouée après un redémarrage est refusée comme périmée ;
+  - les indicateurs restent consultables en base.
+- **Écart :** la clé inclut la version de la stratégie, en plus des champs prévus par F-012. Une nouvelle version peut donc réévaluer la même bougie.
+- **Reste à faire, au branchement de la boucle :**
+  - `poll_new` renvoie des bougies sans leur symbole et doit les étiqueter ;
+  - la quarantaine est en mémoire : sa persistance après redémarrage relève de l'état global (TASK-036) ;
+  - le réarmement par commande relève de TASK-023.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-012, TASK-031, TASK-005 · **Couvre :** F-009, F-012, RM-009, EF-006
 - **Skills :** `test-driven-development`
 - **Actions :**
