@@ -15,6 +15,7 @@ PACKAGES = {
     "risk",
     "execution",
     "notify",
+    "signals",
     "storage",
     "analytics",
     "reporting",

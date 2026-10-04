@@ -6,13 +6,13 @@ first stored version of a bar wins: a closed bar never changes.
 """
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from sqlalchemy import Engine, Insert, Select, select
-from sqlalchemy.dialects import postgresql, sqlite
+from sqlalchemy import Engine, Select, select
 
 from tradingagent.core.market import Candle
 from tradingagent.core.timeframe import Timeframe
+from tradingagent.storage._conflicts import insert_ignoring_duplicates
 from tradingagent.storage.models import CandleRow
 
 UNIQUE_KEY = ("symbol", "timeframe", "open_time")
@@ -41,21 +41,25 @@ class CandleStore:
             }
             for candle in candles
         ]
-        statement = self._insert_ignoring_duplicates().returning(CandleRow.id)
+        statement = insert_ignoring_duplicates(self._engine, CandleRow, UNIQUE_KEY)
         with self._engine.begin() as connection:
-            return len(connection.execute(statement, rows).all())
+            return len(connection.execute(statement.returning(CandleRow.id), rows).all())
 
-    def _insert_ignoring_duplicates(self) -> Insert:
-        dialect = self._engine.dialect.name
-        if dialect == "postgresql":
-            return postgresql.insert(CandleRow).on_conflict_do_nothing(index_elements=UNIQUE_KEY)
-        if dialect == "sqlite":
-            return sqlite.insert(CandleRow).on_conflict_do_nothing(index_elements=UNIQUE_KEY)
-        raise NotImplementedError(f"no duplicate-safe insert for {dialect}")
-
-    def latest(self, symbol: str, timeframe: Timeframe, count: int) -> list[Candle]:
-        """The `count` most recent candles, oldest first."""
-        query = _series(symbol, timeframe).order_by(CandleRow.open_time.desc()).limit(count)
+    def latest(
+        self,
+        symbol: str,
+        timeframe: Timeframe,
+        count: int,
+        closed_by: datetime | None = None,
+    ) -> list[Candle]:
+        """The `count` most recent candles, oldest first, optionally only those closed by
+        `closed_by`: re-evaluating an old candle must not see the bars that followed it."""
+        query = _series(symbol, timeframe)
+        if closed_by is not None:
+            query = query.where(
+                CandleRow.open_time <= closed_by - timedelta(seconds=timeframe.seconds)
+            )
+        query = query.order_by(CandleRow.open_time.desc()).limit(count)
         return list(reversed(self._candles(query)))
 
     def between(

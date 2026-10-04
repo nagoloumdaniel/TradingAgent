@@ -69,6 +69,13 @@ def test_latest_returns_the_most_recent_candles_oldest_first(engine: Engine) -> 
     assert store.latest("XAUUSD", Timeframe.M15, 3) == m15(17, 3)
 
 
+def test_latest_can_stop_at_the_candles_closed_by_a_moment(engine: Engine) -> None:
+    store = CandleStore(engine)
+    store.save("XAUUSD", m15(0, 20), INGESTED)
+    closed_by = START + STEP * 10  # the candle opened at 9 closes exactly then
+    assert store.latest("XAUUSD", Timeframe.M15, 3, closed_by=closed_by) == m15(7, 3)
+
+
 def test_between_is_half_open(engine: Engine) -> None:
     store = CandleStore(engine)
     store.save("XAUUSD", m15(0, 20), INGESTED)
