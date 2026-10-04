@@ -317,7 +317,7 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
 
 ### TASK-013 — Persistance et historique
 
-- [x] Statut : **DONE le 2026-10-04** (PostgreSQL à confirmer). 19 tests ; toutes les mutations sont attrapées sauf la branche d'insertion PostgreSQL, qui ne sera couverte qu'une fois `TEST_DATABASE_URL` pointé vers Supabase.
+- [x] Statut : **DONE le 2026-10-04**, confirmé sur PostgreSQL (Supabase) le même jour. 19 tests ; toutes les mutations sont attrapées sauf la branche d'insertion PostgreSQL, qui ne sera couverte qu'une fois `TEST_DATABASE_URL` pointé vers Supabase.
 - **Livré :**
   - `storage/candles.py` (`CandleStore`) : les doublons sont refusés par la contrainte unique de la base, avec `ON CONFLICT DO NOTHING` sur SQLite comme sur PostgreSQL. La première version stockée d'une bougie fait foi.
   - `data/history.py` (`HistorySync`) : au démarrage et après une reconnexion, l'agent demande le préchauffage, ou tout ce qui manque depuis la dernière bougie stockée si c'est plus long. Une bougie de recouvrement prouve la jointure. `missing()` recense chaque trou pendant les heures ouvertes ; la bougie en formation n'est jamais comptée.
@@ -632,7 +632,7 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-036 — Arrêt d'urgence et état global
 
-- [x] Statut : **DONE le 2026-10-04** (procédure à rejouer sur Supabase).
+- [x] Statut : **DONE le 2026-10-04**, procédure rejouée sur Supabase le même jour.
   - Environ 50 tests ajoutés.
   - Mutations : 12 sur 12 attrapées.
   - Procédure exécutée et consignée dans `docs/procedures/2026-10-04-emergency-stop.md`. Elle a révélé un défaut, corrigé depuis.
@@ -973,6 +973,12 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 ## Phase 8 — Exécution sur compte de démonstration
 
 ### TASK-080 — Bascule vers PostgreSQL
+
+- **Mise en service le 2026-10-04 :**
+  - schéma `0003` appliqué sur Supabase, RLS active sur les 15 tables ;
+  - 87 tests de stockage verts sur la base `tradingagent_test` ;
+  - contrôle de sécurité Supabase : seules restent 15 infos « RLS sans politique », voulues (l'API publique n'a accès à rien) ; l'avertissement `search_path` est corrigé par la migration `0003` ;
+  - connexion directe (IPv6) pour l'instant, à remplacer par le Session pooler sur le serveur Windows.
 
 - [ ] Statut : TODO
 - **Priorité :** P1 · **Complexité :** M · **Dépendances :** TASK-071 · **Couvre :** C-005

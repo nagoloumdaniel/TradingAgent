@@ -19,3 +19,7 @@ La base utilisée était une base SQLite jetable, migrée avec le schéma réel.
 - **L'état d'arrêt survit au redémarrage :** vérifié à l'étape 3, et par les tests `test_the_halt_survives_a_restart` et `test_a_quarantine_survives_a_restart`.
 - **Aucune clôture de position sans activation explicite :** vérifié aux étapes 2 et 5. Un arrêt automatique ne demande jamais de fermeture (test `test_reaching_the_weekly_loss_halts_the_agent`).
 - **Un état illisible ou corrompu conduit au refus :** vérifié à l'étape 6, et par les tests `test_an_unreadable_state_halts_trading` et `test_an_unreadable_quarantine_keeps_the_pair_stopped`.
+
+## Rejouée sur Supabase (production), le 2026-10-04 à 19 h 24 UTC
+
+Étapes 1 à 4 rejouées sur la base de production : `status`, `halt`, `status` dans un nouveau processus, puis `resume`. Le résultat est identique à celui de la base jetable : l'arrêt survit au redémarrage et la reprise le lève. Les deux commandes restent dans `halt_commands`, qui conserve tout l'historique.
