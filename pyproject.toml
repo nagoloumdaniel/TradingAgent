@@ -9,12 +9,15 @@ dependencies = [
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "python-telegram-bot>=22",
     "pyyaml>=6.0.3",
     "sqlalchemy>=2.1.3",
+    "truststore>=0.10.4",
 ]
 
 [project.scripts]
 tradingagent = "tradingagent.control.cli:main"
+tradingagent-bot = "tradingagent.notify.telegram_app:main"
 
 [dependency-groups]
 dev = [

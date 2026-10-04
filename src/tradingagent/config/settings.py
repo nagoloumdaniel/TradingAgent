@@ -86,6 +86,35 @@ class DatabaseSettings(BaseSettings):
         return value
 
 
+class BotSettings(DatabaseSettings):
+    """What the Telegram bot needs, and nothing else: it can start before the AI key exists."""
+
+    telegram_bot_token: SecretStr
+    telegram_allowed_user_ids: Annotated[tuple[int, ...], NoDecode] = Field(min_length=1)
+    trading_mode: TradingMode = TradingMode.SIGNAL
+
+    @field_validator("telegram_bot_token")
+    @classmethod
+    def _token_not_blank(cls, value: SecretStr) -> SecretStr:
+        if not value.get_secret_value().strip():
+            raise ValueError("must not be blank")
+        return value
+
+    @field_validator("telegram_allowed_user_ids", mode="before")
+    @classmethod
+    def _split_ids(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return tuple(part.strip() for part in value.split(",") if part.strip())
+        return value
+
+
+def load_bot_settings(env_file: Path | None = None) -> BotSettings:
+    try:
+        return BotSettings(_env_file=env_file)
+    except ValidationError as error:
+        raise ConfigError(_describe(error)) from None
+
+
 def load_database_settings(env_file: Path | None = None) -> DatabaseSettings:
     try:
         return DatabaseSettings(_env_file=env_file)
