@@ -132,3 +132,17 @@ def test_realized_risk_never_exceeds_the_budget(capital: D, stop: D) -> None:
 def test_no_capital_refuses() -> None:
     with pytest.raises(SizingError, match="capital"):
         gold(capital=D(0))
+
+
+@pytest.mark.parametrize("field", ["contract_size", "volume_step", "volume_min", "volume_max"])
+def test_a_malformed_instrument_refuses_instead_of_crashing(field: str) -> None:
+    with pytest.raises(SizingError, match="XAUUSD"):
+        gold(spec=replace(GOLD, **{field: D(0)}))  # type: ignore[arg-type]
+
+
+def test_a_cap_that_only_trims_the_rounded_away_fraction_is_not_a_reduction() -> None:
+    # Risk allows 0.0255, margin 0.0251: both round down to 0.02, so risk decides.
+    capital = D("0.0255") * D("1094.00") / D("0.005")
+    free = D("0.0251") * D(18393) / D("0.5")
+    sizing = gold(capital=capital, free=free)
+    assert (sizing.volume, sizing.limited_by) == (D("0.02"), "risk")

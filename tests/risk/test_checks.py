@@ -38,7 +38,8 @@ def test_every_check_passes_on_a_sound_trade(name: str) -> None:
 REFUSALS = {
     "stop_loss/missing": context(intent=replace(GOLD_BUY, stop_loss=None)),
     "stop_loss/wrong_side": context(intent=replace(GOLD_BUY, stop_loss=D(2410))),
-    "stop_loss/too_close": context(intent=replace(GOLD_BUY, stop_loss=D("2400.15"))),
+    "stop_loss/between_bid_and_ask": context(intent=replace(GOLD_BUY, stop_loss=D("2400.1"))),
+    "stop_loss/too_close_to_bid": context(intent=replace(GOLD_BUY, stop_loss=D("2399.95"))),
     "stop_loss/sell_wrong_side": context(
         intent=replace(GOLD_BUY, direction=Direction.SELL, stop_loss=D(2390))
     ),
@@ -56,6 +57,7 @@ REFUSALS = {
     "spread/no_stop": context(intent=replace(GOLD_BUY, stop_loss=None)),
     "margin/insufficient": context(account=replace(context().account, free_margin=D(300))),
     "margin/unknown": context(quote=replace(GOLD_QUOTE, margin_one_lot=None)),
+    "account_currency/usd": context(account=replace(context().account, currency="USD")),
     "trading_hours/closed": context(market=SlotStatus.CLOSED),
     "trading_hours/uncertain": context(market=SlotStatus.UNCERTAIN),
     "cooldown/paused": portfolio(consecutive_losses=3, last_loss_at=NOW - timedelta(hours=3)),
@@ -82,8 +84,33 @@ def test_a_sell_with_a_stop_above_is_accepted() -> None:
     assert run("stop_loss", context(intent=sell)).passed
 
 
-def test_losses_just_below_the_limit_pass() -> None:
-    assert run("daily_loss", portfolio(day_pnl=-EQUITY * D("0.02") + D("0.01"))).passed
+def test_a_loss_leaving_room_for_one_more_full_risk_passes() -> None:
+    room = EQUITY * D("0.02") - EQUITY * D("0.005")  # limit minus this trade's budget
+    assert run("daily_loss", portfolio(day_pnl=-room)).passed
+    assert not run("daily_loss", portfolio(day_pnl=-room - D("0.01"))).passed
+
+
+def test_a_trade_whose_stop_would_breach_the_daily_limit_is_refused() -> None:
+    # Live, 100 EUR: 4.90 EUR lost, 2 EUR at stake would end the day at -6.90, over 5.
+    live = context(TradingMode.LIVE)
+    ctx = replace(
+        live,
+        account=replace(live.account, equity=D(100)),
+        portfolio=replace(live.portfolio, day_start_equity=D(100), day_pnl=D("-4.90")),
+    )
+    assert not run("daily_loss", ctx).passed
+
+
+def test_a_losing_streak_without_its_time_pauses_by_default() -> None:
+    assert not run("cooldown", portfolio(consecutive_losses=3, last_loss_at=None)).passed
+
+
+def test_a_stop_valid_from_the_ask_but_too_close_to_the_bid_is_refused() -> None:
+    # Minimum 0.10: 0.25 from the ask, but MT5 measures 0.05 from the bid.
+    assert (
+        "broker minimum"
+        in run("stop_loss", context(intent=replace(GOLD_BUY, stop_loss=D("2399.95")))).reason
+    )
 
 
 def test_gains_never_trip_a_loss_limit() -> None:

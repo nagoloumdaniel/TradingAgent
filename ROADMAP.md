@@ -581,7 +581,18 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-035 — Moteur de risque
 
-- [x] Statut : **DONE le 2026-10-04, revue de code dédiée encore à mener** (exigée avant toute tâche d'exécution).
+- [x] Statut : **DONE le 2026-10-04, revue de code dédiée faite le jour même.**
+- **Revue :** 10 points relevés, 9 corrigés.
+  - Le stop est désormais mesuré depuis le prix qui le déclenche (bid pour un achat), comme le fait MT5.
+  - Un compte dans une autre devise que l'euro est refusé.
+  - Une série de pertes sans horodatage vaut pause.
+  - Un instrument mal décrit (pas de lot nul, taille de contrat nulle) produit un refus, pas un plantage.
+  - « Réduit » n'est plus attribué après arrondi quand le risque seul aurait donné le même volume.
+  - Les refus en cascade (`blocked_by`) ne sont plus comptés comme des causes distinctes.
+  - Les pertes du jour et de la semaine incluent le risque complet de l'opération envisagée : une opération dont le stop ferait franchir la limite est refusée d'avance.
+  - La règle RM-017 n'existe plus qu'en un seul endroit, `core/account.py`.
+  - La double vérification du stop a été supprimée.
+- **Non retenu pour l'instant :** le plafond d'exposition totale de RM-008. Les plafonds de positions (2 au total, 1 par marché) et de risque par opération bornent déjà l'exposition. À réévaluer si le nombre de marchés augmente.
   - Tests : 96 (91 pour le risque, 4 pour l'enregistrement des décisions, 1 pour la distance de stop typique).
   - Couverture du paquet `risk` : 99 % ; seul manque un garde-fou inatteignable.
   - Mutations : 22 sur 22 attrapées.

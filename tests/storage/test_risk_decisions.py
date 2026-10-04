@@ -109,3 +109,13 @@ def test_refusals_are_counted_by_reason_for_the_daily_report(engine: Engine) -> 
 def test_a_decision_for_an_unknown_signal_is_refused_by_the_database(engine: Engine) -> None:
     with pytest.raises(Exception):  # noqa: B017 - any integrity error will do
         RiskDecisionStore(engine).record(999, decide(context(), LOGIN), DAY)
+
+
+def test_a_missing_stop_counts_as_one_root_cause(engine: Engine) -> None:
+    store = RiskDecisionStore(engine)
+    live = context(TradingMode.LIVE)
+    no_stop = replace(live, intent=replace(live.intent, stop_loss=None))
+    store.record(new_signal(engine, 0), decide(no_stop, LOGIN), DAY + timedelta(hours=12))
+    summary = store.refusals(DAY, DAY + timedelta(days=1))
+    assert "stop_loss" in summary.by_check
+    assert not {"sizing", "spread", "live_eligibility"} & set(summary.by_check)

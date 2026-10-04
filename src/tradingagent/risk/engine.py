@@ -7,26 +7,12 @@ execution component must stop. Everything else is a decision with every reason a
 from dataclasses import dataclass
 from typing import Any
 
-from tradingagent.core.mode import TradingMode
+from tradingagent.core.account import AccountModeMismatchError, verify_account_mode
 from tradingagent.core.states import RiskOutcome
-from tradingagent.risk.checks import CHECKS, CheckResult, RiskContext, check_stop_loss
-from tradingagent.risk.model import AccountState
+from tradingagent.risk.checks import CHECKS, CheckResult, RiskContext
 from tradingagent.risk.sizing import Sizing, SizingError, size_position
 
-
-class AccountModeMismatchError(Exception):
-    """RM-017: the terminal's account contradicts the configured account or mode."""
-
-
-def verify_account(account: AccountState, expected_login: int, mode: TradingMode) -> None:
-    if account.login != expected_login:
-        raise AccountModeMismatchError(
-            f"terminal account {account.login} is not the configured {expected_login}"
-        )
-    if mode is TradingMode.LIVE and account.is_demo:
-        raise AccountModeMismatchError("LIVE mode on a demo account")
-    if mode is not TradingMode.LIVE and not account.is_demo:
-        raise AccountModeMismatchError(f"real account detected in {mode} mode")
+__all__ = ["AccountModeMismatchError", "RiskDecision", "decide"]
 
 
 @dataclass(frozen=True)
@@ -42,15 +28,22 @@ class RiskDecision:
 
     def checks_record(self) -> dict[str, Any]:
         return {
-            check.name: {"passed": check.passed, "reason": check.reason} for check in self.checks
+            check.name: {
+                "passed": check.passed,
+                "reason": check.reason,
+                "blocked_by": check.blocked_by,
+            }
+            for check in self.checks
         }
 
 
 def decide(ctx: RiskContext, expected_login: int) -> RiskDecision:
     """Run every check, size the position, and decide. Raises only on RM-017."""
-    verify_account(ctx.account, expected_login, ctx.limits.mode)
+    account = ctx.account
+    verify_account_mode(account.login, account.is_demo, expected_login, ctx.limits.mode)
     results = [check(ctx) for check in CHECKS]
-    sizing, sizing_check = _size(ctx)
+    stop_check = next(check for check in results if check.name == "stop_loss")
+    sizing, sizing_check = _size(ctx, stop_check)
     results.append(sizing_check)
     checks = tuple(results)
 
@@ -76,10 +69,12 @@ def decide(ctx: RiskContext, expected_login: int) -> RiskDecision:
     )
 
 
-def _size(ctx: RiskContext) -> tuple[Sizing | None, CheckResult]:
+def _size(ctx: RiskContext, stop_check: CheckResult) -> tuple[Sizing | None, CheckResult]:
     distance = ctx.stop_distance
-    if distance is None or not check_stop_loss(ctx).passed:
-        return None, CheckResult("sizing", False, "not computed without a valid stop")
+    if distance is None or not stop_check.passed:
+        return None, CheckResult(
+            "sizing", False, "not computed without a valid stop", blocked_by="stop_loss"
+        )
     limits = ctx.limits
     try:
         sizing = size_position(

@@ -39,6 +39,13 @@ def size_position(
         raise SizingError(f"stop distance must be positive, got {stop_distance}")
     if capital <= 0 or free_margin <= 0:
         raise SizingError("no capital or free margin to size against")
+    for label, value in (
+        ("contract size", spec.contract_size),
+        ("volume step", spec.volume_step),
+        ("minimum volume", spec.volume_min),
+        ("maximum volume", spec.volume_max),
+    ):
+        _positive(value, f"{spec.symbol} {label}")
     broker_loss = _positive(quote.loss_one_lot, "loss for one lot (order_calc_profit)")
     margin_one_lot = _positive(quote.margin_one_lot, "margin for one lot (order_calc_margin)")
     rate = _positive(quote.profit_to_eur, "profit currency to EUR rate")
@@ -60,9 +67,10 @@ def size_position(
     }
     if max_volume is not None:
         caps["max_volume"] = max_volume
-    limited_by = min(caps, key=lambda name: caps[name])
-    steps = (caps[limited_by] / spec.volume_step).to_integral_value(rounding=ROUND_FLOOR)
-    volume = steps * spec.volume_step
+    tightest = min(caps, key=lambda name: caps[name])
+    volume = _round_down(caps[tightest], spec.volume_step)
+    # Judged after rounding: a cap that only trims the discarded fraction reduces nothing.
+    limited_by = "risk" if volume == _round_down(caps["risk"], spec.volume_step) else tightest
     if volume < spec.volume_min:
         raise SizingError(
             f"size {volume} is below the minimum lot {spec.volume_min} "
@@ -76,6 +84,10 @@ def size_position(
         margin_volume=caps["margin"],
         limited_by=limited_by,
     )
+
+
+def _round_down(volume: Decimal, step: Decimal) -> Decimal:
+    return (volume / step).to_integral_value(rounding=ROUND_FLOOR) * step
 
 
 def _positive(value: Decimal | None, label: str) -> Decimal:

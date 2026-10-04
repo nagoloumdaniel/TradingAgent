@@ -69,5 +69,10 @@ class RiskDecisionStore:
             if outcome is not RiskOutcome.REFUSED:
                 continue
             refused += 1
-            by_check.update(name for name, verdict in checks.items() if not verdict["passed"])
+            # Root causes only: a check blocked by another failure is not a second cause.
+            by_check.update(
+                name
+                for name, verdict in checks.items()
+                if not verdict["passed"] and not verdict.get("blocked_by")
+            )
         return RefusalSummary(len(rows), refused, dict(by_check))

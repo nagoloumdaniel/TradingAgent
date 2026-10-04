@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import TypeVar
 
+from tradingagent.core.account import AccountModeMismatchError, verify_account_mode
 from tradingagent.core.market import Candle
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.timeframe import Timeframe
@@ -36,8 +37,7 @@ class HistoryNotSyncedError(TerminalError):
     """The terminal serves bars older than its own live tick: its history is not synced yet."""
 
 
-class AccountMismatchError(Exception):
-    """The terminal is logged into an account that does not match the configuration (RM-017)."""
+AccountMismatchError = AccountModeMismatchError  # RM-017, one rule shared with risk
 
 
 class ClockMismatchError(Exception):
@@ -93,16 +93,7 @@ class MarketDataClient:
         return account
 
     def _check_account(self, account: AccountSnapshot) -> None:
-        if account.login != self._credentials.login:
-            raise AccountMismatchError("terminal is logged into another account than configured")
-        if self._mode is TradingMode.LIVE and account.is_demo:
-            raise AccountMismatchError(
-                "LIVE mode requires a real account, the terminal reports a demo"
-            )
-        if self._mode is not TradingMode.LIVE and not account.is_demo:
-            raise AccountMismatchError(
-                f"{self._mode} mode requires a demo account, the terminal reports a real one"
-            )
+        verify_account_mode(account.login, account.is_demo, self._credentials.login, self._mode)
 
     async def verify_clock(self) -> None:
         tick = await self._call(self._terminal.last_tick, self._probe)
