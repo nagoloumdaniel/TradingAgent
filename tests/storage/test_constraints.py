@@ -8,12 +8,20 @@ from sqlalchemy.orm import Session
 
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
-from tradingagent.core.states import OrderState, PositionState, Severity, SignalState
+from tradingagent.core.states import (
+    HaltAction,
+    HaltSource,
+    OrderState,
+    PositionState,
+    Severity,
+    SignalState,
+)
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.storage.models import (
     AuditLogRow,
     CandleRow,
     ExecutionRow,
+    HaltCommandRow,
     OrderRow,
     PositionRow,
     SignalEventRow,
@@ -129,7 +137,19 @@ def full_chain(session: Session) -> TradeRow:
         exit_reason="stop_loss",
     )
     session.add_all(
-        [trade, AuditLogRow(actor="operator", action="pause", detail={}, occurred_at=NOW)]
+        [
+            trade,
+            AuditLogRow(actor="operator", action="pause", detail={}, occurred_at=NOW),
+            HaltCommandRow(
+                scope="global",
+                action=HaltAction.HALT,
+                close_positions=False,
+                source=HaltSource.SERVER,
+                reason="test",
+                actor="operator",
+                occurred_at=NOW,
+            ),
+        ]
     )
     session.commit()
     return trade
@@ -222,7 +242,7 @@ def test_naive_datetime_never_reaches_the_database(engine: Engine) -> None:
             session.commit()
 
 
-APPEND_ONLY = ["signal_events", "executions", "trades", "audit_log"]
+APPEND_ONLY = ["signal_events", "executions", "trades", "audit_log", "halt_commands"]
 
 
 @pytest.mark.parametrize("table", APPEND_ONLY)

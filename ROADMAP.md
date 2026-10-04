@@ -632,7 +632,28 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-036 — Arrêt d'urgence et état global
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-04** (procédure à rejouer sur Supabase).
+  - Environ 50 tests ajoutés.
+  - Mutations : 12 sur 12 attrapées.
+  - Procédure exécutée et consignée dans `docs/procedures/2026-10-04-emergency-stop.md`. Elle a révélé un défaut, corrigé depuis.
+- **Livré :**
+  - Migration `0002`, table `halt_commands` : en ajout seul, protégée par trigger, avec RLS sur PostgreSQL. L'état d'un périmètre est sa dernière commande. Les périmètres sont `global`, `connection` et `pair:<stratégie>:<symbole>`.
+  - `storage/halts.py` (`HaltStore`).
+    - Lecture en défaut fermé : un état illisible vaut « arrêté ».
+    - Seul un opérateur peut lever un arrêt global (`OperatorRequiredError`).
+    - La fermeture des positions n'est portée que par un arrêt qui la demande explicitement.
+  - `core/halt.py` : `HaltStatus` et les périmètres. Le moteur de risque gagne un 15ᵉ contrôle, `not_halted`, et l'état d'arrêt est obligatoire dans la photo de la situation.
+  - `control/guardian.py` (`Guardian`), arrêts automatiques :
+    - perte hebdomadaire ou drawdown atteints (RM-007) : arrêt global ;
+    - compte incohérent avec le mode (RM-017) et divergence d'état (RM-014) : arrêt global ;
+    - coupure de connexion prolongée (RM-013) : suspension, levée automatiquement quand les données redeviennent saines, sans jamais lever un arrêt posé par l'opérateur.
+  - `control/quarantine.py` (`PersistentQuarantine`) : la quarantaine des stratégies est persistée et survit au redémarrage du générateur.
+  - `control/cli.py` : commandes `uv run tradingagent status | halt [--close-positions] | resume | rearm`. Elles écrivent directement en base, indépendamment de Telegram et de l'agent.
+- **Reste à faire, au branchement :**
+  - appeler le gardien depuis la boucle, avec le seuil de coupure de connexion à fixer ;
+  - fermer effectivement les positions (exécuteurs, TASK-070 et TASK-081) ;
+  - notifier sur Telegram (TASK-024) ;
+  - commandes d'arrêt et de reprise par Telegram (TASK-023).
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-005, TASK-035 · **Couvre :** F-019, RM-015, EF-013
 - **Actions :**
   1. persister l'état d'arrêt en base, et l'évaluer avant toute action engageant du capital ;

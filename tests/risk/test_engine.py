@@ -53,7 +53,7 @@ def test_without_a_stop_sizing_is_not_attempted() -> None:
 
 def test_the_checks_record_keeps_every_verdict() -> None:
     record = decide(context(), LOGIN).checks_record()
-    assert len(record) == 15
+    assert len(record) == 16
     assert all(entry["passed"] for entry in record.values())
 
 

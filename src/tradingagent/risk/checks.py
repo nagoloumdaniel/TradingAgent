@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from tradingagent.core.halt import HaltStatus
 from tradingagent.core.market import Direction
 from tradingagent.data.market_calendar import SlotStatus
 from tradingagent.risk.eligibility import Eligibility, live_eligibility
@@ -34,6 +35,7 @@ class RiskContext:
     market: SlotStatus
     limits: RiskLimits
     now: datetime
+    halt: HaltStatus  # no default: forgetting the halt state must not mean "trading"
 
     @property
     def entry_price(self) -> Decimal:
@@ -64,6 +66,14 @@ class CheckResult:
 
 def _verdict(name: str, passed: bool, reason: str) -> CheckResult:
     return CheckResult(name, passed, reason)
+
+
+def check_not_halted(ctx: RiskContext) -> CheckResult:
+    """RM-015: no new order while a halt is active, whatever asked for it."""
+    halt = ctx.halt
+    if not halt.halted:
+        return _verdict("not_halted", True, "no halt active")
+    return _verdict("not_halted", False, "; ".join(halt.reasons) or "halt active")
 
 
 def check_stop_loss(ctx: RiskContext) -> CheckResult:
@@ -236,6 +246,7 @@ def check_live_eligibility(ctx: RiskContext) -> CheckResult:
 
 
 CHECKS: tuple[Callable[[RiskContext], CheckResult], ...] = (
+    check_not_halted,
     check_stop_loss,
     check_entry_zone,
     check_daily_loss,

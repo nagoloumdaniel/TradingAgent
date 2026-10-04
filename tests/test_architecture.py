@@ -8,6 +8,7 @@ ROOT_PACKAGE = "tradingagent"
 PACKAGES = {
     "core",
     "config",
+    "control",
     "data",
     "indicators",
     "strategies",

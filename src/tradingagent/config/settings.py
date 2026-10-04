@@ -71,6 +71,28 @@ class Settings(BaseSettings):
         return tuple(secrets)
 
 
+class DatabaseSettings(BaseSettings):
+    """Only the database, for operator tools that must work while the agent is down."""
+
+    model_config = SettingsConfigDict(frozen=True, extra="ignore")
+
+    database_url: SecretStr
+
+    @field_validator("database_url")
+    @classmethod
+    def _not_blank(cls, value: SecretStr) -> SecretStr:
+        if not value.get_secret_value().strip():
+            raise ValueError("must not be blank")
+        return value
+
+
+def load_database_settings(env_file: Path | None = None) -> DatabaseSettings:
+    try:
+        return DatabaseSettings(_env_file=env_file)
+    except ValidationError as error:
+        raise ConfigError(_describe(error)) from None
+
+
 def load_settings(env_file: Path | None = None) -> Settings:
     try:
         return Settings(_env_file=env_file)

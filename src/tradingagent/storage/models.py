@@ -24,7 +24,15 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import AiFilter, TradingMode
-from tradingagent.core.states import OrderState, PositionState, RiskOutcome, Severity, SignalState
+from tradingagent.core.states import (
+    HaltAction,
+    HaltSource,
+    OrderState,
+    PositionState,
+    RiskOutcome,
+    Severity,
+    SignalState,
+)
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.storage.types import ExactDecimal, UtcDateTime
 
@@ -273,3 +281,19 @@ class AuditLogRow(Base):
     action: Mapped[str] = mapped_column(String(64))
     detail: Mapped[dict[str, Any]] = mapped_column(JSON)
     occurred_at: Mapped[datetime] = mapped_column(index=True)
+
+
+class HaltCommandRow(Base):
+    """Append-only halt and resume commands (F-019, RM-015). The current state of a scope
+    is its latest command, so the full history of who stopped what, and why, is kept."""
+
+    __tablename__ = "halt_commands"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scope: Mapped[str] = mapped_column(String(128), index=True)
+    action: Mapped[HaltAction] = mapped_column(enum_type(HaltAction))
+    close_positions: Mapped[bool]
+    source: Mapped[HaltSource] = mapped_column(enum_type(HaltSource))
+    reason: Mapped[str] = mapped_column(Text)
+    actor: Mapped[str] = mapped_column(String(64))
+    occurred_at: Mapped[datetime]

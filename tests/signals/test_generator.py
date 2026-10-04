@@ -335,3 +335,25 @@ def test_a_success_resets_the_crash_count(engine: Engine) -> None:
         GenerationStatus.STRATEGY_ERROR,
     ]
     assert gen.quarantined == set()
+
+
+def test_a_quarantine_recorded_in_the_database_survives_a_restart(engine: Engine) -> None:
+    from tradingagent.control.quarantine import PersistentQuarantine
+    from tradingagent.storage.halts import HaltStore
+
+    def persistent_generator() -> SignalGenerator:
+        return SignalGenerator(
+            [loaded(Flaky)],
+            CandleStore(engine),
+            SignalRepository(engine),
+            agent_mode=TradingMode.SIGNAL,
+            quarantine=PersistentQuarantine(HaltStore(engine)),
+        )
+
+    replay(persistent_generator(), engine, 3)
+    restarted = persistent_generator()
+    assert restarted.quarantined == {("flaky@1.0.0", "XAUUSD")}
+    Flaky.failing = False
+    assert close(restarted, stored(engine)) == {"flaky@1.0.0": GenerationStatus.QUARANTINED}
+    restarted.rearm("flaky@1.0.0", "XAUUSD", actor="me")
+    assert close(restarted, stored(engine)) == {"flaky@1.0.0": GenerationStatus.RECORDED}

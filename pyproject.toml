@@ -13,6 +13,9 @@ dependencies = [
     "sqlalchemy>=2.1.3",
 ]
 
+[project.scripts]
+tradingagent = "tradingagent.control.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8",

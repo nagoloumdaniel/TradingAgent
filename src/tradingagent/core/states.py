@@ -45,3 +45,16 @@ class Severity(StrEnum):
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
+
+
+class HaltAction(StrEnum):
+    HALT = "halt"
+    RESUME = "resume"
+
+
+class HaltSource(StrEnum):
+    """Who issued a halt command. Only an operator source may lift a global halt."""
+
+    AUTOMATIC = "automatic"
+    TELEGRAM = "telegram"
+    SERVER = "server"

@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from tests.risk.builders import EQUITY, GOLD, GOLD_BUY, GOLD_QUOTE, NOW, context
 
+from tradingagent.core.halt import HaltStatus
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.data.market_calendar import SlotStatus
@@ -36,6 +37,7 @@ def test_every_check_passes_on_a_sound_trade(name: str) -> None:
 
 
 REFUSALS = {
+    "not_halted/operator_halt": context(halt=HaltStatus(True, False, ("global: stop (server)",))),
     "stop_loss/missing": context(intent=replace(GOLD_BUY, stop_loss=None)),
     "stop_loss/wrong_side": context(intent=replace(GOLD_BUY, stop_loss=D(2410))),
     "stop_loss/between_bid_and_ask": context(intent=replace(GOLD_BUY, stop_loss=D("2400.1"))),
@@ -170,3 +172,8 @@ def test_a_stop_at_the_entry_price_is_refused_even_without_broker_minimum() -> N
 def test_live_eligibility_without_a_loss_per_lot_is_unknown_and_refused() -> None:
     live = context(TradingMode.LIVE, quote=replace(GOLD_QUOTE, loss_one_lot=None))
     assert not run("live_eligibility", live).passed
+
+
+def test_a_halt_refusal_names_who_stopped_and_why() -> None:
+    halt = HaltStatus(True, False, ("global: weekly loss reached (automatic, agent)",))
+    assert "weekly loss reached" in run("not_halted", context(halt=halt)).reason

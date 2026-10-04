@@ -11,6 +11,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Protocol
 
 from tradingagent.config.strategy_catalog import LoadedStrategy
 from tradingagent.core.market import Candle
@@ -50,6 +51,33 @@ class Generation:
 Pair = tuple[str, str]  # (strategy reference, symbol)
 
 
+class QuarantineBook(Protocol):
+    """Where quarantines live. The agent uses the database-backed one, so a restart does
+    not silently re-arm a faulty strategy."""
+
+    def is_quarantined(self, ref: str, symbol: str) -> bool: ...
+    def quarantined(self) -> set[Pair]: ...
+    def quarantine(self, ref: str, symbol: str, reason: str, at: datetime) -> None: ...
+    def rearm(self, ref: str, symbol: str, actor: str) -> None: ...
+
+
+class InMemoryQuarantine:
+    def __init__(self) -> None:
+        self._pairs: set[Pair] = set()
+
+    def is_quarantined(self, ref: str, symbol: str) -> bool:
+        return (ref, symbol) in self._pairs
+
+    def quarantined(self) -> set[Pair]:
+        return set(self._pairs)
+
+    def quarantine(self, ref: str, symbol: str, reason: str, at: datetime) -> None:
+        self._pairs.add((ref, symbol))
+
+    def rearm(self, ref: str, symbol: str, actor: str) -> None:
+        self._pairs.discard((ref, symbol))
+
+
 class SignalGenerator:
     def __init__(
         self,
@@ -58,6 +86,7 @@ class SignalGenerator:
         signals: SignalRepository,
         agent_mode: TradingMode,
         quarantine_after: int = DEFAULT_QUARANTINE_AFTER,
+        quarantine: QuarantineBook | None = None,
     ) -> None:
         self._strategies = tuple(strategies)
         self._candles = candles
@@ -65,14 +94,14 @@ class SignalGenerator:
         self._agent_mode = agent_mode
         self._quarantine_after = quarantine_after
         self._failures: dict[Pair, int] = {}
-        self._quarantined: set[Pair] = set()
+        self._quarantine = quarantine if quarantine is not None else InMemoryQuarantine()
 
     @property
     def quarantined(self) -> set[Pair]:
-        return set(self._quarantined)
+        return self._quarantine.quarantined()
 
-    def rearm(self, ref: str, symbol: str) -> None:
-        self._quarantined.discard((ref, symbol))
+    def rearm(self, ref: str, symbol: str, actor: str = "operator") -> None:
+        self._quarantine.rearm(ref, symbol, actor)
         self._failures.pop((ref, symbol), None)
         log.info("%s re-armed on %s", ref, symbol)
 
@@ -123,7 +152,7 @@ class SignalGenerator:
     ) -> Generation:
         manifest = loaded.manifest
         ref = manifest.ref
-        if (ref, symbol) in self._quarantined:
+        if self._quarantine.is_quarantined(ref, symbol):
             return Generation(ref, symbol, GenerationStatus.QUARANTINED)
 
         evaluated_at = trigger.close_time
@@ -193,15 +222,10 @@ class SignalGenerator:
         self._failures[pair] = self._failures.get(pair, 0) + 1
         self._event("strategy_error", Severity.WARNING, ref, symbol, trigger, now, detail)
         if self._failures[pair] >= self._quarantine_after:
-            self._quarantined.add(pair)
+            reason = f"{self._failures[pair]} consecutive failures, last: {detail}"
+            self._quarantine.quarantine(ref, symbol, reason, now)
             self._event(
-                "strategy_quarantined",
-                Severity.CRITICAL,
-                ref,
-                symbol,
-                trigger,
-                now,
-                f"{self._failures[pair]} consecutive failures, last: {detail}",
+                "strategy_quarantined", Severity.CRITICAL, ref, symbol, trigger, now, reason
             )
             log.error("%s quarantined on %s: %s", ref, symbol, detail)
         return Generation(ref, symbol, GenerationStatus.STRATEGY_ERROR, detail=detail)

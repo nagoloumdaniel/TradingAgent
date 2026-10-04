@@ -21,6 +21,7 @@ TABLES = {
     "reports",
     "system_events",
     "audit_log",
+    "halt_commands",
 }
 
 

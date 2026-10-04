@@ -4,6 +4,7 @@ from decimal import Decimal as D
 from typing import Any
 
 from tradingagent.config.agent import LiveRiskProfile, RiskConfig, RiskProfile
+from tradingagent.core.halt import TRADING
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.data.market_calendar import SlotStatus
@@ -70,6 +71,7 @@ def context(mode: TradingMode = TradingMode.DEMO, **changes: Any) -> RiskContext
         market=SlotStatus.OPEN,
         limits=limits_for(mode, RISK),
         now=NOW,
+        halt=TRADING,
     )
     return replace(base, **changes)
 
