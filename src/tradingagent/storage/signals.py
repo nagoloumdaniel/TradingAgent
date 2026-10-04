@@ -8,9 +8,11 @@ leaves a signal without its history.
 
 import hashlib
 import json
+import statistics
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Connection, Engine, insert, select
@@ -128,6 +130,25 @@ class SignalRepository:
                 signal_id=signal_id, state=SignalState.CANDIDATE, occurred_at=at, detail=None
             )
         )
+
+    def typical_stop_distance(self, ref: str, symbol: str, recent: int = 20) -> Decimal | None:
+        """Median stop distance of the strategy's last signals on this market (RM-019 at
+        start-up), from the middle of the entry zone. None without any signal yet."""
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                select(SignalRow.entry_low, SignalRow.entry_high, SignalRow.stop_loss)
+                .join(StrategyVersionRow)
+                .where(StrategyVersionRow.ref == ref, SignalRow.symbol == symbol)
+                .order_by(SignalRow.generated_at.desc())
+                .limit(recent)
+            ).all()
+        if not rows:
+            return None
+        distances = [
+            abs((Decimal(str(low)) + Decimal(str(high))) / 2 - Decimal(str(stop)))
+            for low, high, stop in rows
+        ]
+        return Decimal(str(statistics.median(distances)))
 
     def record_system_event(
         self, kind: str, severity: Severity, detail: Mapping[str, Any], at: datetime

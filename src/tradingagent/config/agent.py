@@ -40,6 +40,13 @@ class RiskProfile(_Strict):
     max_drawdown_pct: Percent
     max_open_positions: int = Field(ge=1)
     max_positions_per_market: int = Field(ge=1)
+    # Defaults chosen by the operator on 2026-10-04, to revisit after market analysis.
+    max_trades_per_day: int = Field(default=4, ge=1)
+    cooldown_after_losses: int = Field(default=3, ge=1)
+    cooldown_hours: Decimal = Field(default=Decimal(4), ge=0)
+    max_spread_stop_pct: Percent = Decimal(10)
+    margin_usage_pct: Percent = Decimal(50)
+    max_volume: Decimal | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def _coherent_limits(self) -> Self:

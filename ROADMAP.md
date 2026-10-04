@@ -581,7 +581,24 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-035 — Moteur de risque
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-04, revue de code dédiée encore à mener** (exigée avant toute tâche d'exécution).
+  - Tests : 96 (91 pour le risque, 4 pour l'enregistrement des décisions, 1 pour la distance de stop typique).
+  - Couverture du paquet `risk` : 99 % ; seul manque un garde-fou inatteignable.
+  - Mutations : 22 sur 22 attrapées.
+- **Livré :**
+  - `risk/model.py` : la photo immuable de la situation, en décimal exact, et `limits_for(mode, config)`. Le mode LIVE utilise le profil réel ; tous les autres modes utilisent le profil simulé, signaux notifiés compris.
+  - `risk/checks.py` : un contrôle par fonction, 13 au total : stop-loss, zone d'entrée, perte du jour, perte de la semaine, drawdown, positions ouvertes, positions sur le marché, opérations du jour, spread, marge, horaires, refroidissement, éligibilité au réel.
+  - `risk/sizing.py` : la formule de TASK-004. Les trois exemples du cahier sont reproduits au centime près.
+  - `risk/eligibility.py` : RM-019. Le motif d'inéligibilité donne le capital qui lèverait le refus ; une éligibilité inconnue vaut refus.
+  - `risk/engine.py` : `decide` exécute tous les contrôles et rend « autorisé », « réduit » ou « refusé », avec tous les motifs. Un compte qui contredit le mode lève une erreur fatale (`AccountModeMismatchError`, RM-017).
+  - `storage/risk_decisions.py` : la décision, le nouvel état du signal (`VALIDATED` ou `RISK_REJECTED`) et l'événement de cycle de vie sont écrits dans une seule transaction. `refusals(start, end)` compte les refus par contrôle, pour le rapport quotidien.
+  - `SignalRepository.typical_stop_distance` : la distance de stop médiane des 20 derniers signaux, pour le bilan RM-019 au démarrage.
+- **Valeurs par défaut choisies le 2026-10-04 :** spread au plus 10 % de la distance du stop, 4 h de refroidissement après 3 pertes, 4 opérations par jour, marge engagée au plus 50 % de la marge libre. Elles sont réglables dans `agent.yaml` et seront revues après l'analyse du marché.
+- **Écart :** la taille est calculée sur la **plus grande** des deux estimations de perte (courtier et calcul indépendant), et non sur celle du courtier seule. C'est le choix prudent, et il correspond aux chiffres des exemples du cahier.
+- **Reste à faire :**
+  - remplir la photo de la situation : l'exécuteur simulé (TASK-070) fournira positions et pertes ;
+  - l'arrêt effectif du composant d'exécution sur `AccountModeMismatchError` se fera au branchement ;
+  - empêcher deux décisions pour un même signal relève du cycle de vie (TASK-040) et de la clé d'ordre unique (TASK-081).
 - **Priorité :** P0 · **Complexité :** XL · **Dépendances :** TASK-004, TASK-034 · **Couvre :** F-011, RM-004 à RM-014, EF-015, EF-016
 - **Skills :** `test-driven-development`, obligatoire sur cette tâche
 - **Objectif :** la couche qui décide en dernier ressort. Chaque contrôle du cahier est une fonction testée séparément.

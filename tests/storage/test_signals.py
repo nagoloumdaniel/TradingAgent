@@ -1,6 +1,7 @@
 import threading
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import Engine, func, select
@@ -181,3 +182,21 @@ def test_system_events_keep_the_reason(engine: Engine) -> None:
         Severity.INFO,
         "market_closed",
     )
+
+
+def test_typical_stop_distance_is_the_median_of_recent_signals(engine: Engine) -> None:
+    repository = SignalRepository(engine)
+    assert repository.typical_stop_distance("witness@1.0.0", "XAUUSD") is None
+    # Entry zone middle 2400.5; stops 10.5, 12.5 and 30.5 away.
+    for index, stop in enumerate((2390.0, 2388.0, 2370.0)):
+        at = CLOSE + timedelta(minutes=15 * index)
+        repository.record(
+            record(
+                idempotency_key=idempotency_key(MANIFEST.ref, "XAUUSD", Timeframe.M15, at),
+                generated_at=at,
+                stop_loss=stop,
+            )
+        )
+    assert repository.typical_stop_distance("witness@1.0.0", "XAUUSD") == Decimal("12.5")
+    assert repository.typical_stop_distance("witness@1.0.0", "BTCUSD") is None
+    assert repository.typical_stop_distance("witness@1.0.0", "XAUUSD", recent=1) == Decimal("30.5")
