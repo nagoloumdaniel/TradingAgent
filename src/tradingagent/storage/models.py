@@ -297,3 +297,15 @@ class HaltCommandRow(Base):
     reason: Mapped[str] = mapped_column(Text)
     actor: Mapped[str] = mapped_column(String(64))
     occurred_at: Mapped[datetime]
+
+
+class AccountSnapshotRow(Base):
+    """Periodic equity records: anchors of the reports' balances and equity curve."""
+
+    __tablename__ = "account_snapshots"
+    __table_args__ = (Index("ix_account_snapshots_at", "at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    equity: Mapped[Decimal]
+    balance: Mapped[Decimal]
+    at: Mapped[datetime]

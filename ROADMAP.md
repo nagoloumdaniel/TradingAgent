@@ -776,8 +776,14 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-042 — Rapports périodiques
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** 7 tests de reporting, 754 au total.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-041, TASK-021 · **Couvre :** F-022, EF-009, EF-023
+- **Livré :**
+  - `reporting/schedule.py` : un seul type `Window` et l'arithmétique des trois périodes (C-006) ; `missed_windows` ne rattrape jamais l'historique au premier démarrage (seule la dernière fenêtre écoulée est due).
+  - `reporting/generator.py` (`ReportGenerator`) : contenu quotidien, hebdomadaire et mensuel de la section 14.3 — soldes d'ouverture/clôture depuis les instantanés de compte, résultat, réussite, drawdown, **pertes évitées par les refus du risque** (somme du `risk_eur` des décisions REFUSED), anomalies, marchés actifs ; décompositions par marché et par stratégie, comparaison avec la période précédente, et avis de maintien/surveillance/suspension par facteur de profit — un avis documenté, jamais une décision (RM-016).
+  - `reporting/service.py` (`ReportService.run(now)`) : rattrapage de toutes les fenêtres manquées après un arrêt, persistance idempotente (`reports`, clé unique période+début), envoi par un sender injecté. Le narrateur (modèle) ne peut qu'**ajouter un commentaire après coup** : sa panne coûte zéro rapport, et aucun chiffre ne traverse son chemin de données (structurel : les chiffres sont composés avant lui).
+  - `storage/account.py` : instantanés de compte (`account_snapshots`, migration 0004) et `ReportData` (trades rejoints à leur signal, refus du risque, décomptes de signaux, anomalies). `storage/reports.py` (`ReportStore`).
+- **Validation restante :** génération sur un mois de données réelles et contrôle croisé de trois chiffres à la main, quand le compte de démonstration aura tourné (TASK-081).
 - **Skills :** `claude-api` pour la partie narrative uniquement
 - **Actions :**
   1. implémenter un générateur unique paramétré par une fenêtre temporelle, conformément à la résolution de C-006 ;
