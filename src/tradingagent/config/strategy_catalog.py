@@ -66,3 +66,36 @@ def load_strategy_catalog(
     if lines:
         raise ConfigError(render("Invalid strategy manifests", lines))
     return catalog
+
+
+class StrategyCatalog:
+    """The live set of strategy manifests, reloadable without a restart (TASK-032).
+
+    Construction validates: the process never starts on an invalid catalog. `reload()`
+    re-reads the directory all or nothing; an invalid candidate raises and leaves the
+    current snapshot untouched, so a broken deployment never interrupts a running agent.
+    Readers grab `current()` once per evaluation — the swap is a single reference
+    assignment, and an already-loaded strategy is never rebuilt behind their back.
+    """
+
+    def __init__(self, directory: Path, registry: Mapping[str, type[Strategy[Any]]]) -> None:
+        self._directory = directory
+        self._registry = registry
+        self._catalog = load_strategy_catalog(directory, registry)
+
+    def current(self) -> dict[str, LoadedStrategy]:
+        return self._catalog
+
+    def reload(self) -> dict[str, LoadedStrategy]:
+        candidate = load_strategy_catalog(self._directory, self._registry)
+        merged: dict[str, LoadedStrategy] = {}
+        for ref, loaded in candidate.items():
+            previous = self._catalog.get(ref)
+            if previous is not None and previous.manifest == loaded.manifest:
+                # A manifest that did not change keeps its loaded strategy: no rebuild
+                # behind the back of an evaluation in flight.
+                merged[ref] = previous
+            else:
+                merged[ref] = loaded
+        self._catalog = merged
+        return self._catalog

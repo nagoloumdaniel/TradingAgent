@@ -529,8 +529,13 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-032 — Versionnement et rechargement
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-06.** 5 tests de rechargement, 711 au total.
 - **Priorité :** P1 · **Complexité :** M · **Dépendances :** TASK-031, TASK-005 · **Couvre :** F-008, EF-021, EF-022
+- **Livré :**
+  - Action 1 (versions sans écrasement) et action 3 (signal rattaché à sa version exacte) étaient déjà portées par `strategy_versions` et `SignalRepository` (TASK-034) : le manifeste est figé à sa première utilisation, un manifeste modifié sans changement de version est refusé, et le snapshot prouve qu'un trade ancien retrouve ses paramètres exacts.
+  - Action 2 (rechargement à chaud) : `config/strategy_catalog.py` gagne `StrategyCatalog` — construction validante, `reload()` tout-ou-rien qui **conserve le snapshot courant si un fichier est invalide** (l'opérateur corrige puis recharge), bascule par simple affectation de référence, et réutilise l'objet chargé d'un manifeste inchangé (aucune reconstruction derrière une évaluation en cours).
+  - Action 4 (RM-016) : rien dans le code ne promeut un état — le catalogue ne fait que refléter les fichiers ; les manifestes plafonnent le mode (`max_mode`), prouvé par test.
+- **Reste à faire au branchement (TASK-034) :** brancher le déclencheur de `reload()` sur une action explicite de l'opérateur, et la validation manuelle « rechargement observé en fonctionnement, restitution d'un trade ancien ».
 - **Actions :**
   1. enregistrer chaque version de paramètres sans jamais écraser la précédente ;
   2. implémenter le rechargement à chaud d'une configuration validée, sans redéploiement ;
