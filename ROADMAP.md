@@ -374,8 +374,14 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 
 ### TASK-020 — Bot, liste blanche et journal des commandes
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-06.** 24 tests (9 d'accès, 15 de service).
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-005, TASK-006 · **Couvre :** F-014, EF-011
+- **Livré :**
+  - `notify/access.py` (`AccessGate`) : liste blanche d'identifiants, un inconnu ne reçoit aucune réponse ni confirmation d'existence ; limites de tentatives par identifiant (fenêtre glissante puis refroidissement), réarmées à l'expiration ; les refus d'inconnus sont journalisés avec un plafond horaire pour qu'un flood ne remplisse pas la base ; refus des discussions de groupe.
+  - `notify/service.py` (`CommandService`) : chaque commande autorisée est journalisée **avant** exécution ; si le journal est indisponible, rien ne s'exécute (fail-closed) ; un opérateur limité est averti une fois, un inconnu garde le silence.
+  - `notify/commands.py` (`CommandRouter`) : routage, `/help` auto-générée, `/status` (mode non ambigu, arrêt actif avec motifs, quarantaines).
+  - `notify/telegram_app.py` : adaptateur de polling long, point d'entrée `uv run tradingagent-bot`, SecretsFilter sur les journaux, TLS via le magasin de certificats Windows.
+- **Reste à faire lors du branchement :** l'essai manuel avec un second compte Telegram non autorisé (l'adaptateur n'est pas encore branché au moteur).
 - **Skills :** `test-driven-development`
 - **Actions :**
   1. connecter le bot et router les commandes ;

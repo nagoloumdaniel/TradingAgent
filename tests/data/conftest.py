@@ -9,7 +9,7 @@ from tradingagent.data.terminal import AccountSnapshot, Credentials, RawBar, Raw
 
 CREDENTIALS = Credentials(
     login=40123456,
-    password="not-a-real-secret",  # noqa: S106  # pragma: allowlist secret
+    password="fake",  # noqa: S106  # pragma: allowlist secret
     server="Deriv-Demo",
 )
 

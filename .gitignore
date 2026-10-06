@@ -32,3 +32,8 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Assistant plugin workspace state (scan ledgers, session baselines) is local only.
+.mimosa/
+.v2c/
+.video_agent/

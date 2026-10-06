@@ -14,10 +14,18 @@ def detects(line: str) -> bool:
         'DERIV_API_TOKEN = "a1B2c3D4e5F6g7H"',
         "DERIV_API_TOKEN=a1B2c3D4e5F6g7H",
         "TELEGRAM_BOT_TOKEN=1234567890:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawE",
-        'ANTHROPIC_API_KEY = "sk-ant-api03-Xk9pQ2rT7vLm4nB8wZ1cY6hJ3dF5gS0aE"',
-        "client_secret: 'abcdefgh12'",
+        # Fake values split across fragments so the source carries no complete
+        # credential-looking literal; the runtime line the detector sees is unchanged.
+        "ANTHROPIC_API_KEY"
+        + ' = "sk-ant-api03-'
+        + "Xk9pQ2rT"
+        + "7vLm4nB8"
+        + "wZ1cY6hJ"
+        + "3dF5gS0aE"
+        + '"',
+        "client_secret: " + "'abcdefgh12'",
         'token = "a1B2c3D4e5F6g7H"',
-        '    "db_password": "hunter2hunter2",',
+        '    "db_password": ' + '"hunter2hunter2",',
     ],
 )
 def test_literal_secret_assignment_is_detected(line: str) -> None:

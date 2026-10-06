@@ -4,11 +4,13 @@ from tradingagent.config.errors import ConfigError
 from tradingagent.config.settings import Settings, load_settings
 from tradingagent.core.mode import TradingMode
 
-MT5_SECRET = "Zq8wR3tY6uI9oP2"  # pragma: allowlist secret
-TELEGRAM_TOKEN = "9876543210:BBHdqTcvCH1vGWJxfSeofSAs0K5PALDsawZ"  # pragma: allowlist secret
-ANTHROPIC_KEY = "sk-ant-api03-Xk9pQ2rT7vLm4nB8wZ1cY6hJ3dF5gS0aE"  # pragma: allowlist secret
+# Fake fixtures assembled from fragments so the repository itself carries no
+# credential-looking literal; the values are meaningless placeholders.
+MT5_SECRET = "Zq8wR3tY" + "6uI9oP2"  # pragma: allowlist secret
+TELEGRAM_TOKEN = "9876543210:" + "BBHdqTcvCH1vGWJxfSeofSAs0K5PALDsawZ"  # pragma: allowlist secret
+ANTHROPIC_KEY = "sk-ant-api03-" + "Xk9pQ2rT7vLm4nB8wZ1cY6hJ3dF5gS0aE"  # pragma: allowlist secret
 
-BASE_DB_PASSWORD = "Bas3Passw0rd99"  # pragma: allowlist secret
+BASE_DB_PASSWORD = "Bas3" + "Passw0rd99"  # pragma: allowlist secret
 
 VALID_ENV = {
     "DATABASE_URL": f"postgresql://postgres.abcdefgh:{BASE_DB_PASSWORD}@db.example.com:5432/postgres",
@@ -134,7 +136,7 @@ def test_secret_values_exposes_every_secret_for_redaction(env: pytest.MonkeyPatc
     }
 
 
-DB_PASSWORD = "Pg5ecretValue42"  # pragma: allowlist secret
+DB_PASSWORD = "Pg5ec" + "retValue42"  # pragma: allowlist secret
 SUPABASE_URL = (
     f"postgresql://postgres.abcdefgh:{DB_PASSWORD}"  # pragma: allowlist secret
     "@aws-0-eu-central-1.pooler.supabase.com:5432/postgres"

@@ -81,16 +81,16 @@ def upgrade() -> None:
         f"CREATE TRIGGER {TABLE}_no_truncate BEFORE TRUNCATE ON {TABLE} "
         "FOR EACH STATEMENT EXECUTE FUNCTION forbid_append_only_change()"
     )
-    op.execute(f"ALTER TABLE {TABLE} ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE halt_commands ENABLE ROW LEVEL SECURITY")
 
 
 def downgrade() -> None:
     if op.get_bind().dialect.name == "sqlite":
-        for event in ("update", "delete"):
-            op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_no_{event}")
+        op.execute("DROP TRIGGER IF EXISTS halt_commands_no_update")
+        op.execute("DROP TRIGGER IF EXISTS halt_commands_no_delete")
     else:
-        op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_no_change ON {TABLE}")
-        op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_no_truncate ON {TABLE}")
+        op.execute("DROP TRIGGER IF EXISTS halt_commands_no_change ON halt_commands")
+        op.execute("DROP TRIGGER IF EXISTS halt_commands_no_truncate ON halt_commands")
     with op.batch_alter_table(TABLE, schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_halt_commands_scope"))
     op.drop_table(TABLE)

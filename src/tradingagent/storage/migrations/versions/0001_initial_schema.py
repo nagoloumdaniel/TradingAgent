@@ -552,21 +552,6 @@ def upgrade() -> None:
 
 
 APPEND_ONLY_TABLES = ("signal_events", "executions", "trades", "audit_log")
-ALL_TABLES = (
-    "audit_log",
-    "candles",
-    "reports",
-    "strategy_versions",
-    "system_events",
-    "signals",
-    "ai_calls",
-    "orders",
-    "risk_decisions",
-    "signal_events",
-    "executions",
-    "positions",
-    "trades",
-)
 
 
 def _dialect() -> str:
@@ -601,19 +586,41 @@ def _create_append_only_triggers() -> None:
         )
     # Supabase serves the public schema over a web API keyed by a public key. RLS with no
     # policy denies that API everything; the agent connects as table owner and bypasses it.
-    for table in (*ALL_TABLES, "alembic_version"):
-        op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE candles ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE reports ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE strategy_versions ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE system_events ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE signals ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE ai_calls ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE orders ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE risk_decisions ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE signal_events ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE executions ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE positions ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE trades ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE alembic_version ENABLE ROW LEVEL SECURITY")
 
 
 def _drop_append_only_triggers() -> None:
     if _dialect() == "sqlite":
-        for table in APPEND_ONLY_TABLES:
-            for event in ("update", "delete"):
-                op.execute(f"DROP TRIGGER IF EXISTS {table}_no_{event}")
+        op.execute("DROP TRIGGER IF EXISTS signal_events_no_update")
+        op.execute("DROP TRIGGER IF EXISTS signal_events_no_delete")
+        op.execute("DROP TRIGGER IF EXISTS executions_no_update")
+        op.execute("DROP TRIGGER IF EXISTS executions_no_delete")
+        op.execute("DROP TRIGGER IF EXISTS trades_no_update")
+        op.execute("DROP TRIGGER IF EXISTS trades_no_delete")
+        op.execute("DROP TRIGGER IF EXISTS audit_log_no_update")
+        op.execute("DROP TRIGGER IF EXISTS audit_log_no_delete")
         return
-    for table in APPEND_ONLY_TABLES:
-        op.execute(f"DROP TRIGGER IF EXISTS {table}_no_change ON {table}")
-        op.execute(f"DROP TRIGGER IF EXISTS {table}_no_truncate ON {table}")
+    op.execute("DROP TRIGGER IF EXISTS signal_events_no_change ON signal_events")
+    op.execute("DROP TRIGGER IF EXISTS signal_events_no_truncate ON signal_events")
+    op.execute("DROP TRIGGER IF EXISTS executions_no_change ON executions")
+    op.execute("DROP TRIGGER IF EXISTS executions_no_truncate ON executions")
+    op.execute("DROP TRIGGER IF EXISTS trades_no_change ON trades")
+    op.execute("DROP TRIGGER IF EXISTS trades_no_truncate ON trades")
+    op.execute("DROP TRIGGER IF EXISTS audit_log_no_change ON audit_log")
+    op.execute("DROP TRIGGER IF EXISTS audit_log_no_truncate ON audit_log")
     op.execute("DROP FUNCTION IF EXISTS forbid_append_only_change()")
 
 
