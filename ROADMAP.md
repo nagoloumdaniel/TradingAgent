@@ -395,8 +395,10 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 
 ### TASK-021 — Gabarit de message de signal
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-06.** 16 tests de gabarit.
 - **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-020 · **Couvre :** F-013, EF-005
+- **Livré :** `notify/signal_template.py`. `SignalNotice` porte tous les champs de F-013 ; `render_signal_message` produit un message **HTML** (mode d'envoi `parse_mode="HTML"`) où chaque champ issu des données est échappé par `html.escape` — aucun contenu de stratégie ne peut casser le formatage. Le ratio risque/rendement est estimé du milieu de la zone d'entrée au premier objectif. Le mode reprend les libellés non ambigus de `commands.py` (« RÉEL » n'apparaît jamais dans un message DÉMO et réciproquement, prouvé par test). La confiance n'est affichée que lorsqu'elle existe ; les heures sont explicitement en UTC.
+- **Reste à faire lors du branchement :** l'envoi réel de contrôle sur Telegram, quand le sender sera relié au cycle de vie du signal (TASK-040).
 - **Actions :** implémenter le gabarit contenant l'ensemble des champs de F-013, avec affichage non ambigu du mode en cours, et échappement correct du formatage.
 - **Critères d'acceptation :**
   - [ ] un test vérifie la présence de chacun des champs requis
