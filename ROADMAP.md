@@ -799,8 +799,9 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-043 — Exports et visualisation
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** 4 tests d'export, 758 au total.
 - **Priorité :** P2 · **Complexité :** M · **Dépendances :** TASK-041 · **Couvre :** F-023, EF-028
+- **Livré :** `reporting/exports.py` — export CSV et JSON des opérations, JSON de la `Performance`, et `equity_and_drawdown_svg` : courbe de capital plus zone de drawdown en **SVG pur** (aucune dépendance de rendu, fichier inférieur à 8 Ko, net sur un écran de téléphone, défense en profondeur testée : taille bornée, pas de DTD ni d'entité, parsing via defusedxml). Les exports reprennent exactement les chiffres du paquet analytique — une seule source. L'envoi des images dans Telegram se branche avec le rapport mensuel (TASK-042) ; l'export PDF reste hors périmètre (Q-17).
 - **Skills :** `dataviz` pour la courbe de capital et les graphiques de drawdown
 - **Actions :** exporter les opérations et les rapports en CSV et JSON, produire la courbe de capital et le graphique de drawdown pour le rapport mensuel. L'export PDF reste hors périmètre en version 1, conformément à Q-17.
 - **Critères d'acceptation :**
