@@ -76,11 +76,8 @@ class ReportData:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
 
-    def trades_between(self, start: datetime, end: datetime) -> list[Trade]:
-        """Closed trades in [start, end), joined back to their signal's metadata.
-
-        The joins are plain SQLAlchemy column comparisons on integer keys — no string
-        is ever interpolated into a statement."""
+    def trades_between(self, start: datetime, end: datetime) -> list[tuple[int, Trade]]:
+        """Closed trades in [start, end), each keeping its producing signal id."""
         statement = (
             select(TradeRow, PositionRow, SignalRow, StrategyVersionRow)
             .join(PositionRow, TradeRow.position_id == PositionRow.id)
@@ -92,19 +89,22 @@ class ReportData:
         )
         with Session(self._engine) as session:
             rows = session.execute(statement).all()
-        trades: list[Trade] = []
+        trades: list[tuple[int, Trade]] = []
         for trade, position, signal, version in rows:
             trades.append(
-                Trade(
-                    symbol=position.symbol,
-                    strategy_ref=version.ref,
-                    direction=position.direction,
-                    timeframe=signal.timeframe,
-                    mode=trade.mode,
-                    opened_at=position.opened_at,
-                    closed_at=trade.closed_at,
-                    pnl_eur=trade.pnl_eur,
-                    risk_eur=trade.risk_eur,
+                (
+                    signal.id,
+                    Trade(
+                        symbol=position.symbol,
+                        strategy_ref=version.ref,
+                        direction=position.direction,
+                        timeframe=signal.timeframe,
+                        mode=trade.mode,
+                        opened_at=position.opened_at,
+                        closed_at=trade.closed_at,
+                        pnl_eur=trade.pnl_eur,
+                        risk_eur=trade.risk_eur,
+                    ),
                 )
             )
         return trades

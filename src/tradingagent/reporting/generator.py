@@ -45,7 +45,7 @@ class ReportGenerator:
         self._account = account
 
     def build(self, window: Window) -> str:
-        trades = self._data.trades_between(window.start, window.end)
+        trades = [trade for _, trade in self._data.trades_between(window.start, window.end)]
         performance = compute_performance(trades)
         refused = self._data.refused_risk_between(window.start, window.end)
         counts = self._data.signal_counts_between(window.start, window.end)
@@ -97,7 +97,9 @@ class ReportGenerator:
 
     def _previous_comparison(self, window: Window, performance: Performance) -> list[str]:
         length = window.end - window.start
-        previous = self._data.trades_between(window.start - length, window.start)
+        previous = [
+            trade for _, trade in self._data.trades_between(window.start - length, window.start)
+        ]
         previous_net = compute_performance(previous).net_profit
         direction = (
             "en hausse"

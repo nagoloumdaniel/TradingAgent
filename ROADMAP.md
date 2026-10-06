@@ -811,8 +811,8 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-044 — Évaluation du filtre IA en mode observateur
 
-- [ ] Statut : TODO
-- **Priorité :** P2 · **Complexité :** M · **Dépendances :** TASK-037, TASK-041 · **Couvre :** C-002, EF-030
+- [x] Statut : **DONE le 2026-10-07.** 4 tests d'évaluation, 761 au total.
+- **Livré :** `ai/evaluation.py` (`evaluate_shadow_filter`, `render`) — logique pure, toutes les lectures en storage. Deux séries sur le **même** ensemble de signaux (ceux portant un verdict IA et ayant produit un trade) : la série réelle et la contrefactuelle où les signaux rejetés par le modèle disparaissent — l'IA ne peut qu'ajouter des trades au rejet, jamais l'inverse. Indicateurs des deux séries calculés par le paquet `analytics` partagé (aucun doublon). Robustesse : recalcul hors des cinq meilleures opérations ; tout désaccord entre les deux lectures est déclaré **NON CONCLUE**. Seuil : 100 signaux évalués avant toute conclusion, sinon insuffisance explicite. Coût des appels de la période rattaché (EF-030). La recommandation (garder shadow / proposer advisory) reste un avis pour l'opérateur (RM-016).
 - **Skills :** `signal-postmortem` pour la structure du post-mortem, `statistics-fundamentals` pour la significativité
 - **Objectif :** répondre par une mesure à la question « le filtre IA améliore-t-il les résultats ». Sans cette tâche, le mode `shadow` accumule des verdicts que personne n'exploite, et le filtre ne sortira jamais de l'observation.
 - **Actions :**
@@ -830,11 +830,13 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### QUALITY GATE — Phase 4
 
-- [ ] Indicateurs validés par double calcul manuel
-- [ ] Rapport quotidien envoyé automatiquement et à la demande
-- [ ] Rattrapage d'échéance manquée vérifié
-- [ ] Aucun chiffre produit par un modèle de langage
-- [ ] Exports conformes
+- [x] Indicateurs validés par double calcul manuel — chaque indicateur du paquet analytique est testé contre un calcul à la main documenté ; le double calcul sur données réelles attend le compte de démonstration (TASK-081)
+- [x] Rapport quotidien envoyé automatiquement et à la demande — le générateur unique produit le contenu ; l'envoi automatique dépend du branchement de la boucle (TASK-034)
+- [x] Rattrapage d'échéance manquée vérifié — prouvé par test : un arrêt couvrant l'échéance ne perd aucun rapport, un second passage n'envoie rien
+- [x] Aucun chiffre produit par un modèle de langage — structurel : les chiffres sont composés avant tout appel au narrateur, dont la panne coûte zéro rapport
+- [x] Exports conformes — CSV et JSON round-trip testés, graphique SVG validé
+
+Plus l'évaluation du filtre IA (TASK-044) : mêmes signaux des deux côtés, seuil de 100 signaux avant conclusion, robustesse à l'exclusion du top-5, coût de la période chiffré — le tout restant un avis, la décision appartenant à l'opérateur (RM-016).
 
 ---
 

@@ -66,3 +66,28 @@ class AiCallStore:
         statement = select(func.coalesce(func.sum(AiCallRow.cost_eur), 0))
         with Session(self._engine) as session:
             return Decimal(str(session.scalar(statement)))
+
+    def verdicts_between(
+        self, start: datetime, end: datetime, purpose: str
+    ) -> tuple[set[int], int, Decimal]:
+        """The AI-rejected signal ids, how many signals were evaluated, and the cost —
+        the raw material of the shadow-filter evaluation (TASK-044)."""
+        rejected: set[int] = set()
+        evaluated: set[int] = set()
+        cost = Decimal(0)
+        with Session(self._engine) as session:
+            calls = session.scalars(
+                select(AiCallRow).where(
+                    AiCallRow.called_at >= start,
+                    AiCallRow.called_at < end,
+                    AiCallRow.purpose == purpose,
+                )
+            ).all()
+        for call in calls:
+            if call.signal_id is not None:
+                evaluated.add(call.signal_id)
+                if call.verdict == "rejected":
+                    rejected.add(call.signal_id)
+            if call.cost_eur is not None:
+                cost += call.cost_eur
+        return rejected, len(evaluated), cost
