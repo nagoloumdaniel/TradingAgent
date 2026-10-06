@@ -697,8 +697,13 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-037 — Couche d'analyse par intelligence artificielle
 
-- [ ] Statut : TODO
-- **Priorité :** P1 · **Complexité :** L · **Dépendances :** TASK-001 (Q-04), TASK-034 · **Couvre :** F-010, RM-010, RM-011, EF-018, EF-030
+- [x] Statut : **DONE le 2026-10-07.** 12 tests de la couche IA, 723 au total.
+- **Livré :**
+  - `ai/layer.py` (`AiFilterLayer`) : un seul point d'entrée, `review`, appelé uniquement à la production d'un candidat. Contexte strictement borné (`ReviewContext` : marché, stratégie, niveaux, indicateurs, état du marché — rien sur le compte ni le capital). Réponse contrainte par schéma JSON (`decision`/`reason`/`text`) ; **tout champ hors périmètre est ignoré et journalisé comme tentative de dépassement** (`ai_overrun` dans `system_events`) — le test décisif soumet une réponse qui tente création de signal, modification de stop, de taille et de mode : aucun effet, prouvé structurellement (le verdict ne transporte aucun niveau).
+  - Les trois états C-002 : `shadow` (verdict enregistré, `blocks_signal` toujours faux — un rejet est enregistré et le signal part, vérifié par test), `advisory` (rejet appliqué et marqué `applied`), `required` (rejet et panne bloquent, défaut fermé). Panne, dépassement de délai et réponse non conforme suivent la même table : repli local en shadow/advisory (`degraded`), refus en required.
+  - Délai maximal (`asyncio.wait_for`, testé avec un modèle lent) ; coût mesuré depuis les tokens au tarif du modèle (table `PRICES_EUR_PER_MTOK`), persisté sur `ai_calls`, cumul consultable via `AiCallStore.total_cost_eur`, **plafond** qui bloque tout appel une fois atteint (vérifié par compteur d'appels).
+  - `storage/ai_calls.py` (`AiCallStore`) : requête et réponse persistées intégralement (F-020). `ai/anthropic_client.py` : adaptateur réel, SDK bloquant confiné en thread, clé jamais journalisée ; dépendance `anthropic` ajoutée.
+- **Validation restante :** la session réelle avec relevé de coût se fera au branchement de la boucle (TASK-034), où `review` sera appelée sur chaque candidat avec le `ai_filter` du manifeste.
 - **Skills :** `claude-api` en premier, pour le choix de modèle, la structure d'appel, la mise en cache et le calcul de coût
 - **Objectif :** un composant utile mais incapable de nuire.
 - **Actions :**

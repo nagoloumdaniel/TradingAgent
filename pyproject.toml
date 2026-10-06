@@ -5,6 +5,7 @@ description = "Agent de signaux de trading Deriv - or et crypto"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.20.0",
+    "anthropic>=1.11.0",
     "metatrader5>=5.0.6231 ; sys_platform == 'win32'",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.13.5",
