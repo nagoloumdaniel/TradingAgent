@@ -753,8 +753,14 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-041 — Paquet analytique partagé
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** 12 tests d'analyse, 747 au total, profil mypy strict respecté.
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-040 · **Couvre :** F-021, EF-008, EF-024
+- **Livré :**
+  - `analytics/model.py` : `Trade` (une opération clôturée, quelle que soit sa source) et `Performance` (les indicateurs de la section 14.2).
+  - `analytics/performance.py` (`compute_performance`) : fonctions pures, aucun horloge ni réseau. Chaque indicateur est validé contre un calcul à la main documenté en tête du test (profit net, facteur de profit, espérance, drawdown maximal **et sa durée**, séries maximales, R/R réalisé, slippage/spread moyens quand présents). Sharpe et Sortino sur les multiples de risque réalisés, **non annualisés** (le rythme est celui de la stratégie), et retournent `None` avec `insufficient_sample=True` en dessous de 30 opérations — la non-significativité est explicite, jamais masquée.
+  - `analytics/axes.py` : les axes de la section 14.1 (`group(trades, axis)`) — global, marché, stratégie, sens, unité de temps, jour de semaine, heure, mois, mode. Le régime de marché (P3, à confirmer) est volontairement absent.
+  - Le même jeu d'opérations produit les mêmes chiffres en backtest et en production par construction : une seule fonction (C-001).
+- **Validation restante :** le double calcul manuel sur un échantillon réel se fera sur les premiers trades du compte de démonstration (TASK-081).
 - **Skills :** `test-driven-development`
 - **Objectif :** le code qui produira les chiffres du backtest comme ceux de la production. C'est la mise en œuvre concrète de la résolution de C-001.
 - **Actions :**
