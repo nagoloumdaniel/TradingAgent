@@ -423,8 +423,15 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 
 ### TASK-023 — Commandes sensibles avec confirmation
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-06.** 10 tests de commandes sensibles, 698 au total.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-020, TASK-036 · **Couvre :** F-014, F-019, EF-029
+- **Livré :**
+  - `notify/sensitive_commands.py` : convention de confirmation uniforme — une commande nue répond avec **l'effet exact** qu'elle aura et demande `/commande confirmer` ; rien n'est persisté avant ce mot, et la journalisation par CommandService conserve l'auteur (`telegram:<id>`) et les arguments.
+  - Sémantique conforme au tableau 13.2 et à RM-015 : `/pause` et `/emergency_stop` interdisent les nouveaux ordres **sans** clôture implicite (le message le dit) ; `/close_all` annonce explicitement que « les positions seront réellement clôturées » et écrit l'arrêt avec `close_positions=True` ; `/resume` lève l'arrêt global.
+  - `/disable <symbole>` / `/enable <symbole>` : nouvelle portée `market:<symbole>` (`core/halt.py`, `HaltStore.halted_markets`), persistée dans `halt_commands` — survit au redémarrage, prouvé par test avec une instance de store reconstruite.
+  - `/mode` : LIVE refusé avec l'explication de la double condition serveur (RM-000) ; un mode valide est enregistré dans `system_events` (`storage/events.py`, `SystemEventStore`) avec son auteur.
+- **Écart assumé :** `/mode` enregistre la demande ; son application par l'agent suppose la boucle en marche (lecture du dernier `mode_command` au démarrage), au branchement (TASK-034).
+- **Reste à faire au branchement :** les essais manuels sur chaque commande, avec redémarrage intercalé.
 - **Objectif :** `/pause`, `/resume`, `/enable`, `/disable`, `/mode`, `/close_all`, `/emergency_stop`.
 - **Actions :**
   1. exiger une confirmation explicite décrivant précisément l'effet, en particulier la distinction entre suspension des ordres et clôture des positions ;

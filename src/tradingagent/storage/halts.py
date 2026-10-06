@@ -13,7 +13,14 @@ from datetime import datetime
 from sqlalchemy import Engine, Select, func, insert, select
 from sqlalchemy.orm import Session
 
-from tradingagent.core.halt import GLOBAL, PAIR_PREFIX, TRADING_SCOPES, HaltStatus, parse_pair_scope
+from tradingagent.core.halt import (
+    GLOBAL,
+    MARKET_PREFIX,
+    PAIR_PREFIX,
+    TRADING_SCOPES,
+    HaltStatus,
+    parse_pair_scope,
+)
 from tradingagent.core.states import HaltAction, HaltSource
 from tradingagent.storage.models import HaltCommandRow
 
@@ -97,6 +104,18 @@ class HaltStore:
         )
         latest = self._rows(select(HaltCommandRow).where(HaltCommandRow.id.in_(newest)))
         return {parse_pair_scope(row.scope) for row in latest if row.action is HaltAction.HALT}
+
+    def halted_markets(self) -> set[str]:
+        """Markets disabled by the operator (TASK-023)."""
+        newest = (
+            select(func.max(HaltCommandRow.id))
+            .where(HaltCommandRow.scope.startswith(MARKET_PREFIX))
+            .group_by(HaltCommandRow.scope)
+        )
+        latest = self._rows(select(HaltCommandRow).where(HaltCommandRow.id.in_(newest)))
+        return {
+            row.scope.removeprefix(MARKET_PREFIX) for row in latest if row.action is HaltAction.HALT
+        }
 
     def history(self, scope: str, limit: int = 20) -> list[HaltCommandRow]:
         return self._rows(

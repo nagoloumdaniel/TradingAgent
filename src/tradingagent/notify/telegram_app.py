@@ -24,6 +24,15 @@ from tradingagent.notify.read_commands import (
     positions_handler,
     signals_handler,
 )
+from tradingagent.notify.sensitive_commands import (
+    close_all_handler,
+    disable_handler,
+    emergency_stop_handler,
+    enable_handler,
+    mode_handler,
+    pause_handler,
+    resume_handler,
+)
 from tradingagent.notify.service import CommandService
 from tradingagent.storage.audit import AuditStore
 from tradingagent.storage.candles import CandleStore
@@ -64,6 +73,7 @@ def main() -> int:
     install_secret_redaction([token, make_url(database_url).password or token])
     engine = create_database_engine(database_url)
     candles = CandleStore(engine)
+    halts = HaltStore(engine)
     # The market list comes from the agent configuration when the loop is wired (TASK-034);
     # until then the read commands answer from the database alone.
     markets: tuple[tuple[str, bool], ...] = ()
@@ -71,7 +81,7 @@ def main() -> int:
     router.register(
         "status",
         "mode, arrêt d'urgence et quarantaines",
-        status_handler(HaltStore(engine), settings.trading_mode, markets, candles),
+        status_handler(halts, settings.trading_mode, markets, candles),
     )
     router.register(
         "markets", "marchés suivis et fraîcheur des données", markets_handler(markets, candles)
@@ -79,6 +89,13 @@ def main() -> int:
     router.register("signals", "derniers signaux", signals_handler(engine))
     router.register("positions", "positions ouvertes", positions_handler(engine))
     router.register("performance", "trades clôturés", performance_handler(engine))
+    router.register("pause", "suspend les ordres", pause_handler(halts))
+    router.register("resume", "reprend les ordres", resume_handler(halts))
+    router.register("close_all", "ferme les positions", close_all_handler(halts))
+    router.register("emergency_stop", "arrêt d'urgence", emergency_stop_handler(halts))
+    router.register("disable", "désactive un marché", disable_handler(halts))
+    router.register("enable", "réactive un marché", enable_handler(halts))
+    router.register("mode", "change le mode", mode_handler(engine))
     service = CommandService(
         AccessGate(settings.telegram_allowed_user_ids), router, AuditStore(engine)
     )

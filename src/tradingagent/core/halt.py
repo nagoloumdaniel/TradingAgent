@@ -1,7 +1,8 @@
 """Halt state shared by the risk engine, the executors and the operator tools (F-019).
 
 Scopes: `global` (operator decisions and hard limits), `connection` (lifted automatically
-once data is healthy again, RM-013) and one scope per (strategy, market) quarantine.
+once data is healthy again, RM-013), `market:<symbol>` (operator-enabled or disabled
+markets, TASK-023) and one scope per (strategy, market) quarantine.
 """
 
 from dataclasses import dataclass
@@ -10,10 +11,15 @@ GLOBAL = "global"
 CONNECTION = "connection"
 TRADING_SCOPES = (GLOBAL, CONNECTION)
 PAIR_PREFIX = "pair:"
+MARKET_PREFIX = "market:"
 
 
 def pair_scope(ref: str, symbol: str) -> str:
     return f"{PAIR_PREFIX}{ref}:{symbol}"
+
+
+def market_scope(symbol: str) -> str:
+    return f"{MARKET_PREFIX}{symbol}"
 
 
 def parse_pair_scope(scope: str) -> tuple[str, str]:
