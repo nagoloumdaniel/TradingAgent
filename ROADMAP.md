@@ -446,8 +446,10 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 
 ### TASK-024 — Alertes de santé système
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-06.** 8 tests d'alertes, 706 au total.
 - **Priorité :** P1 · **Complexité :** S · **Dépendances :** TASK-012, TASK-020 · **Couvre :** F-024
+- **Livré :** `notify/health_alerts.py` (`HealthAlerter`). Le runtime déclare ce qu'il observe et l'alerter décide : démarrage (avec le mode) et arrêt du processus, coupure (`connection_lost`) et rétablissement, échecs répétés d'un composant (seuil franchi puis rappel seulement après le cooldown), série dégradée persistante (les statuts `HEALTHY` et `MARKET_CLOSED` ne comptent pas ; un rétablissement ouvre un nouvel épisode), saturation disque. Chaque alerte est envoyée via un sender injecté **et** écrite dans `system_events` ; une même condition ne déclenche qu'un message par épisode, rappel après `repeat_after` — une coupure provoquée n'alerte qu'une fois, prouvé par test.
+- **Reste à faire au branchement (TASK-034) :** brancher le sender Telegram, appeler `process_started`/`process_stopping` aux bornes du processus, `series_check` à chaque contrôle de série, `disk_pressure` périodiquement (mesure via `shutil.disk_usage` côté appelant, pour rester testable), et provoquer les incidents de validation.
 - **Actions :** émettre une alerte en cas de coupure prolongée, de série dégradée persistante, d'échec répété d'un composant, de saturation disque, et au démarrage comme à l'arrêt du processus. Limiter la répétition d'une même alerte.
 - **Critères d'acceptation :**
   - [ ] une coupure provoquée déclenche une alerte unique, non répétée en boucle
@@ -456,11 +458,11 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 
 ### QUALITY GATE — Phase 2
 
-- [ ] Un identifiant non autorisé ne peut rien obtenir ni déclencher
-- [ ] Toutes les commandes sensibles exigent confirmation et sont journalisées
-- [ ] Le mode réel est inaccessible depuis Telegram seul
-- [ ] Les alertes système parviennent réellement
-- [ ] Chaîne qualité verte
+- [x] Un identifiant non autorisé ne peut rien obtenir ni déclencher — prouvé par les tests d'accès et de service ; l'essai manuel avec un second compte reste à faire au branchement
+- [x] Toutes les commandes sensibles exigent confirmation et sont journalisées — prouvé par tests (l'effet exact est énoncé avant confirmation, l'auteur et les arguments sont en base)
+- [x] Le mode réel est inaccessible depuis Telegram seul — `/mode LIVE` refusé avec l'explication (RM-000), plus le validateur de démarrage de TASK-006
+- [ ] Les alertes système parviennent réellement — composant livré (`HealthAlerter`) ; l'envoi réel et les incidents provoqués dépendent du branchement (TASK-034)
+- [x] Chaîne qualité verte — 706 tests, 9 hooks de pré-commit verts, mypy et ruff propres
 
 ---
 
