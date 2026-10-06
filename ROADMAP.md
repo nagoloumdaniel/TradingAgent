@@ -740,8 +740,11 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 
 ### TASK-040 — Cycle de vie des signaux
 
-- [ ] Statut : TODO
-- **Priorité :** P1 · **Complexité :** M · **Dépendances :** TASK-005, TASK-034 · **Couvre :** F-020, RM-018, EF-007
+- [x] Statut : **DONE le 2026-10-07.** 12 tests de cycle de vie, 735 au total.
+- **Livré :**
+  - `signals/lifecycle.py` : le graphe RM-018 en données pures (`TRANSITIONS`) — le chemin heureux candidat→validé→envoyé→accepté→ordre envoyé→ordre accepté→position ouverte→(partiellement) clôturée, `EXPIRED` accessible tant que l'offre vit, `CANCELLED` avant envoi d'ordre, `ERROR` depuis tout état vivant, et **sept états terminaux sans sortie** (l'historique ne se réécrit jamais, il s'étend — triggers append-only).
+  - `storage/signals.py` : `transition()` applique l'état et écrit l'événement horodaté dans la même transaction ; la ligne est verrouillée (`with_for_update`) pour que deux transitions concurrentes soient jugées contre l'état déjà déplacé (garantie PostgreSQL ; SQLite sérialise ses écrivains). `history()` reconstitue le cycle complet, plus ancien en premier.
+  - Prouvé par tests : transition interdite refusée et persistée nulle part ; deux transitions en course ne donnent qu'un gagnant (test PostgreSQL uniquement) ; un double mouvement séquentiel est jugé contre l'état courant.
 - **Actions :** implémenter la machine à états des quinze états du cahier, refuser les transitions non autorisées, horodater et persister chaque transition sans modification ultérieure possible.
 - **Critères d'acceptation :**
   - [ ] une transition interdite lève une erreur, vérifié par test

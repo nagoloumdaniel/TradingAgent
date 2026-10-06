@@ -22,6 +22,7 @@ from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.states import Severity, SignalState
 from tradingagent.core.timeframe import Timeframe
+from tradingagent.signals.lifecycle import validate_transition
 from tradingagent.storage._conflicts import insert_ignoring_duplicates
 from tradingagent.storage.models import (
     SignalEventRow,
@@ -192,3 +193,44 @@ def read_recent_signals(engine: Engine, limit: int = 10) -> list[RecentSignal]:
         )
         for row in rows
     ]
+
+
+def transition(
+    engine: Engine,
+    signal_id: int,
+    target: SignalState,
+    occurred_at: datetime,
+    detail: str | None = None,
+) -> int:
+    """Apply one RM-018 transition and persist its event in the same transaction.
+
+    The row is locked for the duration of the transaction: two racing transitions are
+    serialized, so the second one is validated against the already-moved state and
+    refused when it is no longer legal. On SQLite the single-writer core gives the same
+    guarantee.
+    """
+    with Session(engine) as session:
+        signal = session.scalars(
+            select(SignalRow).where(SignalRow.id == signal_id).with_for_update()
+        ).first()
+        if signal is None:
+            raise ValueError(f"unknown signal {signal_id}")
+        validate_transition(signal.state, target)
+        signal.state = target
+        event = SignalEventRow(
+            signal_id=signal_id, state=target, occurred_at=occurred_at, detail=detail
+        )
+        session.add(event)
+        session.commit()
+        return int(event.id)
+
+
+def history(engine: Engine, signal_id: int) -> list[SignalEventRow]:
+    """The signal's full lifecycle, oldest first — nothing can be lost or rewritten."""
+    statement = (
+        select(SignalEventRow)
+        .where(SignalEventRow.signal_id == signal_id)
+        .order_by(SignalEventRow.id)
+    )
+    with Session(engine) as session:
+        return list(session.scalars(statement).all())
