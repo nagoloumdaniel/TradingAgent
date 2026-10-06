@@ -16,6 +16,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Connection, Engine, insert, select
+from sqlalchemy.orm import Session
 
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
@@ -159,3 +160,35 @@ class SignalRepository:
                     kind=kind, severity=severity, detail=dict(detail), occurred_at=at
                 )
             )
+
+
+@dataclass(frozen=True)
+class RecentSignal:
+    """One row of the operator's /signals listing (TASK-022)."""
+
+    idempotency_key: str
+    symbol: str
+    timeframe: Timeframe
+    direction: Direction
+    mode: TradingMode
+    state: SignalState
+    generated_at: datetime
+
+
+def read_recent_signals(engine: Engine, limit: int = 10) -> list[RecentSignal]:
+    """The most recent signals, newest first. Read-only, used by the Telegram listing."""
+    statement = select(SignalRow).order_by(SignalRow.generated_at.desc()).limit(limit)
+    with Session(engine) as session:
+        rows = session.scalars(statement).all()
+    return [
+        RecentSignal(
+            idempotency_key=row.idempotency_key,
+            symbol=row.symbol,
+            timeframe=row.timeframe,
+            direction=row.direction,
+            mode=row.mode,
+            state=row.state,
+            generated_at=row.generated_at,
+        )
+        for row in rows
+    ]

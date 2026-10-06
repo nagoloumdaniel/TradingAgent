@@ -4,11 +4,13 @@ Replies are plain text: no Markdown, so nothing coming from data can break the f
 """
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from tradingagent.core.mode import TradingMode
+from tradingagent.core.timeframe import Timeframe
+from tradingagent.storage.candles import CandleStore
 from tradingagent.storage.halts import HaltStore
 
 
@@ -59,8 +61,38 @@ class CommandRouter:
         return "\n".join(lines)
 
 
-def status_handler(halts: HaltStore, mode: TradingMode) -> Handler:
-    async def status(_: CommandRequest) -> str:
+def _age(at: datetime, since: datetime) -> str:
+    minutes = int((at - since).total_seconds() // 60)
+    return "à l'instant" if minutes <= 0 else f"il y a {minutes} min"
+
+
+async def market_line(
+    symbol: str,
+    enabled: bool,
+    candles: CandleStore,
+    timeframe: Timeframe,
+    at: datetime,
+) -> str:
+    """One line of /markets and of /status: configured state plus data freshness."""
+    state = "activé" if enabled else "désactivé"
+    last_open = await asyncio.to_thread(candles.last_open_time, symbol, timeframe)
+    if last_open is None:
+        return f"  {symbol} : {state}, aucune bougie stockée"
+    closed_at = last_open + timedelta(seconds=timeframe.seconds)
+    return (
+        f"  {symbol} : {state}, dernière bougie {last_open:%Y-%m-%d %H:%M} UTC "
+        f"(clôturée {_age(at, closed_at)})"
+    )
+
+
+def status_handler(
+    halts: HaltStore,
+    mode: TradingMode,
+    markets: Sequence[tuple[str, bool]] = (),
+    candles: CandleStore | None = None,
+    timeframe: Timeframe = Timeframe.M15,
+) -> Handler:
+    async def status(request: CommandRequest) -> str:
         halt = await asyncio.to_thread(halts.status)
         try:
             pairs = await asyncio.to_thread(halts.halted_pairs)
@@ -78,6 +110,10 @@ def status_handler(halts: HaltStore, mode: TradingMode) -> Handler:
         if quarantine_lines:
             lines.append("Stratégies en quarantaine :")
             lines += quarantine_lines
+        if markets and candles is not None:
+            lines.append("Marchés :")
+            for symbol, enabled in markets:
+                lines.append(await market_line(symbol, enabled, candles, timeframe, request.at))
         return "\n".join(lines)
 
     return status

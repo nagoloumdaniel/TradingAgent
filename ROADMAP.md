@@ -407,8 +407,14 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 
 ### TASK-022 — Commandes de lecture
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-06.** 8 tests de commandes de lecture, 688 au total.
 - **Priorité :** P1 · **Complexité :** M · **Dépendances :** TASK-020
+- **Livré :**
+  - `notify/read_commands.py` : `/markets`, `/signals`, `/positions`, `/performance` (et `/help` auto-générée de TASK-020). Chaque factory ferme un handle de base et renvoie un handler ; tous les appels base passent par `asyncio.to_thread`.
+  - `storage/positions.py` (`PositionReader.open_positions`) et `storage/performance.py` (`PerformanceReader.summary`, calculé sur `trades` append-only, décompte par mode) ; `storage/signals.py` gagne `read_recent_signals` (les 10 derniers, plus récents d'abord).
+  - `/status` (TASK-020) est étendue : mode, arrêt actif et quarantaines, puis section marchés avec fraîcheur de la dernière bougie via le helper partagé `market_line`.
+- **Écart assumé :** la liste des marchés suivis viendra de la configuration de l'agent au branchement de la boucle (TASK-034) ; le bot autonome répond donc « aucun marché configuré » et `/status` n'affiche pas encore l'état des connexions MT5 (il n'en a pas).
+- **Reste à faire au branchement :** les essais manuels consignés, avec une base d'un mois pour le critère « moins de deux secondes » ; les requêtes sont déjà indexées (`ix_signals_symbol_generated_at`, PK sur toutes les lectures).
 - **Objectif :** `/status`, `/markets`, `/signals`, `/positions`, `/performance`, `/help`. Regroupées car elles partagent le même module, le même contrôle d'accès et le même contrôle qualité.
 - **Critères d'acceptation :**
   - [ ] chaque commande répond en moins de deux secondes sur une base contenant un mois de données
