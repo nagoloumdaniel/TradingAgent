@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/tradingagent/web/static/nexagold.png" alt="NexaGold" width="88" height="88">
+</p>
+
 # TradingAgent
 
 Plateforme de trading algorithmique **BTCUSD + XAUUSD** : recherche de stratégies assistée

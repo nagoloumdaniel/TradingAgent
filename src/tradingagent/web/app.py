@@ -29,6 +29,7 @@ from fastapi.responses import (
     Response,
     StreamingResponse,
 )
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -63,6 +64,9 @@ ROOT = Path(__file__).resolve().parents[3]
 ENV_FILE = ROOT / ".env"
 AGENT_CONFIG = ROOT / "config" / "agent.yaml"
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+# Served read-only. Its only file is the brand mark: a local mount means the browser fetches
+# it once and the dashboard keeps working with no CDN and no network.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8787
 # The dashboard is a reader: this flag is part of its contract, not a configuration knob.
@@ -127,6 +131,9 @@ def create_app(
         openapi_url=None,
     )
     app.state.read_only = READ_ONLY
+    # StaticFiles answers GET and HEAD only, which keeps the dashboard's "nothing but
+    # reads" promise true even for the brand mark.
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.state.engine = engine
     app.state.access_protected = access is not None
 

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
+<link rel="icon" type="image/png" href="/static/nexagold.png">
 <title>{% block title %}Tableau de bord{% endblock %} — TradingAgent</title>
 <style>
 /* ---------------------------------------------------------------------------------------
@@ -76,17 +77,22 @@ body {
   grid-area: top;
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 4px 16px;
-  padding: 14px 22px;
+  padding: 12px 22px;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
-.brand { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; margin: 0; }
+/* The mark is a white glyph on transparency, so it needs no plate of its own — the
+   warm dark surface is already the right background for it. */
+.brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 650;
+         letter-spacing: -0.01em; margin: 0; }
+.brand img { width: 26px; height: 26px; display: block; }
+.brand .name { display: flex; align-items: center; }
 .brand .tag {
   margin-left: 8px; padding: 2px 7px; border: 1px solid var(--line-strong);
   border-radius: 999px; font-size: 10.5px; font-weight: 500; letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--muted); vertical-align: 1px;
+  text-transform: uppercase; color: var(--muted);
 }
 .top .sub { margin: 0; color: var(--muted); font-size: 12.5px; max-width: 68ch; }
 
@@ -317,7 +323,10 @@ ul.alerts .when { color: var(--faint); font-family: var(--font-mono); font-size:
 </head>
 <body>
 <header class="top">
-  <h1 class="brand">TradingAgent<span class="tag">lecture seule</span></h1>
+  <h1 class="brand">
+    <img src="/static/nexagold.png" alt="" width="26" height="26">
+    <span class="name">TradingAgent<span class="tag">lecture seule</span></span>
+  </h1>
   <p class="sub">Le tableau de bord ne calcule aucun indicateur et ne peut ni écrire en base
      ni passer d'ordre (§34).</p>
 </header>

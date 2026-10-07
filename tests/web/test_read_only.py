@@ -44,6 +44,7 @@ READ_PATHS = (
     "/trades?market=XAUUSD&mode=PAPER",
     "/trades/1",
     "/trades/9999",
+    "/scalping",
     "/strategies",
     "/ai-lab",
     "/risk",
@@ -51,6 +52,7 @@ READ_PATHS = (
     "/reports",
     "/events?cycles=1",
     "/healthz",
+    "/static/nexagold.png",
     "/export/trades.csv",
     "/export/trades.json",
     "/export/performance.json",
@@ -80,6 +82,22 @@ def test_the_route_table_only_ever_accepts_get(engine: Engine) -> None:
 def test_write_verbs_are_refused(seeded_client: TestClient, method: str, path: str) -> None:
     response = getattr(seeded_client, method)(path)
     assert response.status_code == 405
+
+
+def test_the_brand_mark_is_served_but_cannot_be_written(client: TestClient) -> None:
+    """The one static asset is a read too: GET serves it, every write verb is refused."""
+    served = client.get("/static/nexagold.png")
+    assert served.status_code == 200
+    assert served.headers["content-type"].startswith("image/png")
+    assert served.content[:8] == b"\x89PNG\r\n\x1a\n"
+    for method in WRITE_METHODS:
+        assert getattr(client, method)("/static/nexagold.png").status_code == 405
+
+
+def test_every_page_shows_the_brand_mark(seeded_client: TestClient) -> None:
+    page = seeded_client.get("/")
+    assert 'src="/static/nexagold.png"' in page.text
+    assert 'rel="icon"' in page.text
 
 
 def _row_counts(engine: Engine) -> dict[str, int]:
