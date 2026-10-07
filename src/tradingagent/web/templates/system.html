@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Système{% endblock %}
+{% block content %}
+
+<h2>Santé du système</h2>
+<p class="muted">Tout ce qui suit est lu dans la base ou mesuré par le paquet
+   <code>observability</code>. Aucune sonde n'est inventée.</p>
+
+<div class="cards">
+  <div class="card"><div class="label">Base de données</div>
+    <div class="value">{% if data.database.ok %}<span class="badge ok">joignable</span>{% else %}<span class="badge bad">injoignable</span>{% endif %}</div>
+    <div class="note">moteur {{ data.database.dialect }}</div></div>
+  <div class="card"><div class="label">Arrêt en cours</div>
+    <div class="value">{% if data.halt.halted %}<span class="badge bad">oui</span>{% else %}<span class="badge ok">non</span>{% endif %}</div>
+    <div class="note">lecture pessimiste de <code>halt_commands</code></div></div>
+  <div class="card"><div class="label">Marchés connus</div><div class="value">{{ data.markets | length }}</div>
+    <div class="note">positions, bougies et télémétrie confondues</div></div>
+  <div class="card"><div class="label">Erreurs récentes</div><div class="value">{{ data.errors | length }}</div>
+    <div class="note">avertissements et critiques</div></div>
+</div>
+
+{% if not data.database.ok %}
+  <div class="banner bad">Base injoignable : {{ data.database.error }}</div>
+{% endif %}
+
+<h2>Marché, données et EA</h2>
+<h3>Gardiens EA</h3>
+<p class="muted">Rapports JSON écrits par les EA, lus par <code>tradingagent.ea.bridge</code> :
+   un rapport absent, tronqué ou illisible vaut <strong>hors ligne</strong>, jamais une exception.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Marché</th><th>État</th><th>Battement (UTC)</th><th>Âge</th><th>Version EA</th>
+             <th>Protocole</th><th>Révision appliquée</th><th>Connecté</th><th>Trading autorisé</th>
+             <th>Kill switch</th><th>Arrêt local</th><th>Motif</th><th class="num">Positions vues</th></tr></thead>
+  <tbody>
+    {% for guardian in data.ea %}
+      <tr>
+        <td>{{ guardian.symbol }}</td>
+        <td>{% if guardian.online %}<span class="badge ok">EN LIGNE</span>{% else %}<span class="badge bad">HORS LIGNE</span>{% endif %}</td>
+        <td>{{ display.precise(guardian.heartbeat_at) }}</td>
+        <td>{{ display.duration(guardian.heartbeat_age) }}</td>
+        <td>{{ guardian.ea_version or '—' }}</td>
+        <td>{{ guardian.protocol_version if guardian.readable else '—' }}</td>
+        <td>{{ guardian.applied_revision if guardian.readable else '—' }}</td>
+        <td>{{ 'oui' if guardian.connected else 'non' }}</td>
+        <td>{{ 'oui' if guardian.trade_allowed else 'non' }}</td>
+        <td>{% if guardian.kill_switch %}<span class="badge bad">actif</span>{% else %}non{% endif %}</td>
+        <td>{% if guardian.local_halt %}<span class="badge warn">actif</span>{% else %}non{% endif %}</td>
+        <td>{{ guardian.halt_reason or '—' }}</td>
+        <td class="num">{{ guardian.remote_positions }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="13" class="empty">Aucun rapport EA : le pont n'est pas configuré
+        (<code>--ea-reports-dir</code> ou <code>TRADINGAGENT_EA_REPORTS_DIR</code>).</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h3>Journal des EA (derniers événements)</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Marché</th><th>Le (UTC)</th><th>Séquence</th><th>Gravité</th><th>Type</th><th>Message</th><th>Ticket</th></tr></thead>
+  <tbody>
+    {% for guardian in data.ea %}
+      {% for event in guardian.events %}
+        <tr>
+          <td>{{ guardian.symbol }}</td>
+          <td>{{ display.precise(event.at) }}</td>
+          <td class="num">{{ event.seq }}</td>
+          <td><span class="badge">{{ event.severity or '—' }}</span></td>
+          <td>{{ event.kind }}</td>
+          <td>{{ event.message }}</td>
+          <td>{{ event.ticket if event.ticket is not none else '—' }}</td>
+        </tr>
+      {% endfor %}
+    {% else %}
+      <tr><td colspan="7" class="empty">Aucun événement EA enregistré.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h3>Données de marché</h3>
+<p class="muted">Dernière bougie stockée et dernier événement d'exécution : ce que la base
+   enregistre, pour recouper le battement de cœur de l'EA.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Marché</th><th>Dernière bougie (UTC)</th><th>Âge des données</th>
+             <th>Dernier événement d'exécution</th><th>Type</th><th>État</th></tr></thead>
+  <tbody>
+    {% for market in data.markets %}
+      <tr>
+        <td>{{ market.symbol }}</td>
+        <td>{{ display.precise(market.last_candle_at) }}</td>
+        <td>{{ display.duration(market.candle_age) }}</td>
+        <td>{{ display.precise(market.last_event_at) }}</td>
+        <td>{{ market.last_event_kind.value if market.last_event_kind else '—' }}</td>
+        <td>
+          {% if market.last_candle_at is none %}<span class="badge bad">aucune donnée</span>
+          {% elif market.candle_age is not none and market.candle_age.total_seconds() > 86400 %}<span class="badge warn">données anciennes</span>
+          {% else %}<span class="badge ok">données récentes</span>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="empty">Aucun marché connu de la base.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Latences d'exécution</h2>
+<p class="muted">Mesurées par <code>ExecutionEventStore.latency</code> entre deux sauts consécutifs
+   d'un même ordre, à partir des événements stockés (cahier v3 §20, §47).</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Saut</th><th class="num">Échantillons</th><th class="num">Médiane (ms)</th><th class="num">Pire (ms)</th></tr></thead>
+  <tbody>
+    {% for latency in data.latencies %}
+      <tr>
+        <td>{{ latency.label }}</td>
+        <td class="num">{{ latency.stats.sample }}</td>
+        <td class="num">{{ display.number(latency.stats.median_ms, 1) }}</td>
+        <td class="num">{{ display.number(latency.stats.worst_ms, 1) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">Aucune mesure disponible.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Dernières erreurs et avertissements</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Le (UTC)</th><th>Gravité</th><th>Type</th><th>Détail</th></tr></thead>
+  <tbody>
+    {% for event in data.errors %}
+      <tr>
+        <td>{{ display.precise(event.occurred_at) }}</td>
+        <td><span class="badge {{ display.severity_class(event.severity) }}">{{ display.severity_label(event.severity) }}</span></td>
+        <td>{{ event.kind }}</td>
+        <td>{{ event.detail | describe }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">Aucune erreur enregistrée.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Télémétrie d'exécution récente</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Le (UTC)</th><th>Marché</th><th>Type</th><th>Détail</th></tr></thead>
+  <tbody>
+    {% for event in data.telemetry %}
+      <tr>
+        <td>{{ display.precise(event.occurred_at) }}</td>
+        <td>{{ event.symbol }}</td>
+        <td>{{ event.kind.value }}</td>
+        <td>{{ event.detail | describe }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">Aucun événement d'exécution enregistré.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% endblock %}

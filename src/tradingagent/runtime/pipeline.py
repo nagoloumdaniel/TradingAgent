@@ -15,6 +15,7 @@ An account that contradicts the mode is never a refusal: it halts the agent (RM-
 import asyncio
 import hashlib
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -25,7 +26,7 @@ from sqlalchemy import Engine
 from tradingagent.ai.layer import ReviewContext, ReviewOutcome
 from tradingagent.config.agent import RiskConfig
 from tradingagent.core.mode import TradingMode
-from tradingagent.core.states import RiskOutcome, Severity, SignalState
+from tradingagent.core.states import ExecutionEventKind, RiskOutcome, Severity, SignalState
 from tradingagent.data.market_calendar import MarketCalendar, SlotStatus
 from tradingagent.notify.signal_template import SignalNotice, render_signal_message
 from tradingagent.notify.trade_messages import (
@@ -51,6 +52,7 @@ from tradingagent.storage.signals import (
     pending_notifications,
     transition,
 )
+from tradingagent.storage.telemetry import ExecutionEventStore
 
 log = logging.getLogger(__name__)
 
@@ -109,6 +111,7 @@ class SignalPipeline:
         self._sleep = sleep if sleep is not None else asyncio.sleep
         self._now = now
         self._decisions = RiskDecisionStore(engine)
+        self._telemetry = ExecutionEventStore(engine)
 
     @property
     def execution_enabled(self) -> bool:
@@ -282,11 +285,37 @@ class SignalPipeline:
         )
         transition(self._engine, detail.id, SignalState.ACCEPTED, now, "accepted automatically")
         transition(self._engine, detail.id, SignalState.ORDER_SENT, now, request.comment)
+        started = time.monotonic()
+        self._telemetry.record(
+            ExecutionEventKind.ORDER_SENT,
+            detail.symbol,
+            {
+                "volume": str(request.volume),
+                "stop_loss": str(request.stop_loss),
+                "take_profit": None if request.take_profit is None else str(request.take_profit),
+                "mode": detail.mode.value,
+                "comment": request.comment,
+            },
+            now,
+            signal_id=detail.id,
+        )
         # The executor owns the orders table: it records the request before reaching the
         # broker, so a lost answer is reconciled by idempotency key, never resent blindly.
         result = await self._broker.place(request)
+        elapsed_ms = int((time.monotonic() - started) * 1000)
         if not result.accepted:
             transition(self._engine, detail.id, SignalState.ORDER_REJECTED, now, result.message)
+            self._telemetry.record(
+                ExecutionEventKind.ORDER_REJECTED,
+                detail.symbol,
+                {
+                    "retcode": result.retcode,
+                    "detail": result.message,
+                    "elapsed_ms": elapsed_ms,
+                },
+                now,
+                signal_id=detail.id,
+            )
             self._event(
                 "order_rejected",
                 Severity.WARNING,
@@ -298,6 +327,21 @@ class SignalPipeline:
         transition(
             self._engine, detail.id, SignalState.ORDER_ACCEPTED, now, f"ticket {result.ticket}"
         )
+        self._telemetry.record(
+            ExecutionEventKind.FILLED,
+            detail.symbol,
+            {
+                "ticket": result.ticket,
+                "requested_price": str(result.requested_price),
+                "executed_price": (
+                    None if result.executed_price is None else str(result.executed_price)
+                ),
+                "slippage": None if result.slippage is None else str(result.slippage),
+                "elapsed_ms": elapsed_ms,
+            },
+            now,
+            signal_id=detail.id,
+        )
         if result.ticket is None or result.executed_price is None:
             transition(self._engine, detail.id, SignalState.ERROR, now, "no ticket returned")
             return ProcessOutcome(detail.id, "order_error", "accepted without a ticket")
@@ -306,6 +350,13 @@ class SignalPipeline:
             closed = await self._broker.close(result.ticket, "stop missing after execution")
             transition(
                 self._engine, detail.id, SignalState.ERROR, now, "stop missing after execution"
+            )
+            self._telemetry.record(
+                ExecutionEventKind.STOP_MISSING,
+                detail.symbol,
+                {"ticket": result.ticket, "closed": closed.closed, "elapsed_ms": elapsed_ms},
+                now,
+                signal_id=detail.id,
             )
             self._event(
                 "stop_missing",
@@ -316,6 +367,13 @@ class SignalPipeline:
             return ProcessOutcome(detail.id, "stop_missing", "position closed immediately")
 
         transition(self._engine, detail.id, SignalState.POSITION_OPEN, now, "position opened")
+        self._telemetry.record(
+            ExecutionEventKind.POSITION_OPENED,
+            detail.symbol,
+            {"ticket": result.ticket, "elapsed_ms": elapsed_ms},
+            now,
+            signal_id=detail.id,
+        )
         await self._notify_open(detail, request, result)
         return ProcessOutcome(detail.id, "executed", f"ticket {result.ticket}")
 

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Labo IA{% endblock %}
+{% block content %}
+
+<h2>Laboratoire IA</h2>
+<p class="muted">L'IA observe et propose ; elle ne décide jamais (C-002, §5, §39). Tout ce qui suit
+   est ce qu'elle a produit, ce que l'opérateur en a fait, et le verdict des portails de validation.
+   Aucun chiffre n'est recalculé ici.</p>
+
+<div class="cards">
+  <div class="card"><div class="label">Analyses</div><div class="value">{{ lab.analyses | length }}</div>
+    <div class="note">observations enregistrées</div></div>
+  <div class="card"><div class="label">Propositions</div><div class="value">{{ lab.proposals | length }}</div>
+    <div class="note">hypothèses soumises</div></div>
+  <div class="card"><div class="label">Validations</div><div class="value">{{ lab.validations | length }}</div>
+    <div class="note">portails évalués</div></div>
+  <div class="card"><div class="label">Backtests</div><div class="value">{{ lab.backtests | length }}</div>
+    <div class="note">exécutions enregistrées</div></div>
+</div>
+
+<h2>Analyses</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Le (UTC)</th><th>Type</th><th>Marché</th><th>Référence</th><th>Modèle</th>
+             <th class="num">Coût</th><th>Constats</th><th>Réponse</th></tr></thead>
+  <tbody>
+    {% for analysis in lab.analyses %}
+      <tr>
+        <td>{{ display.precise(analysis.created_at) }}</td>
+        <td>{{ analysis.kind }}</td>
+        <td>{{ analysis.market }}</td>
+        <td>{{ analysis.ref or '—' }}</td>
+        <td>{{ analysis.model }}</td>
+        <td class="num">{{ display.money(analysis.cost_eur) }}</td>
+        <td>{{ analysis.findings | describe }}</td>
+        <td>{% if analysis.response %}<details><summary>lire</summary><pre>{{ analysis.response }}</pre></details>{% else %}—{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="8" class="empty">Aucune analyse enregistrée.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Hypothèses et propositions</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Le (UTC)</th><th>Marché</th><th>Référence</th><th>Hypothèse</th>
+             <th>Changement proposé</th><th>Statut</th><th>Décidé par</th><th>Motif</th><th>Décidé le</th></tr></thead>
+  <tbody>
+    {% for proposal in lab.proposals %}
+      <tr>
+        <td>{{ display.precise(proposal.created_at) }}</td>
+        <td>{{ proposal.market }}</td>
+        <td>{{ proposal.ref or '—' }}</td>
+        <td>{{ proposal.hypothesis }}</td>
+        <td>{{ proposal.proposed_change | describe }}</td>
+        <td><span class="badge {% if proposal.status == 'promoted' %}ok{% elif proposal.status == 'rejected' %}bad{% else %}warn{% endif %}">{{ proposal.status }}</span></td>
+        <td>{{ proposal.decided_by or '—' }}</td>
+        <td>{{ proposal.decision_reason or '—' }}</td>
+        <td>{{ display.precise(proposal.decided_at) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="9" class="empty">Aucune proposition enregistrée.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Validations</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Le (UTC)</th><th>Référence</th><th>Marché</th><th>Portail</th><th>Verdict</th><th>Détail</th></tr></thead>
+  <tbody>
+    {% for validation in lab.validations %}
+      <tr>
+        <td>{{ display.precise(validation.created_at) }}</td>
+        <td>{{ validation.ref }}</td>
+        <td>{{ validation.market }}</td>
+        <td>{{ validation.stage.value }}</td>
+        <td>{% if validation.passed %}<span class="badge ok">réussi</span>{% else %}<span class="badge bad">échoué</span>{% endif %}</td>
+        <td>{{ validation.detail | describe }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="empty">Aucune validation enregistrée.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Backtests enregistrés</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Le (UTC)</th><th>Référence</th><th>Marché</th><th>Jeu de données</th>
+             <th>Fenêtre (UTC)</th><th>Empreinte</th><th>Métriques</th><th>Coûts</th><th>Rapport</th></tr></thead>
+  <tbody>
+    {% for backtest in lab.backtests %}
+      <tr>
+        <td>{{ display.precise(backtest.created_at) }}</td>
+        <td>{{ backtest.ref }}</td>
+        <td>{{ backtest.market }}</td>
+        <td>{{ backtest.dataset_id }}</td>
+        <td>{{ display.moment(backtest.window_start) }} → {{ display.moment(backtest.window_end) }}</td>
+        <td><code>{{ backtest.fingerprint[:12] }}</code></td>
+        <td>{{ backtest.metrics | describe }}</td>
+        <td>{{ backtest.costs | describe }}</td>
+        <td>{{ backtest.report_path or '—' }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="9" class="empty">Aucun backtest enregistré.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% endblock %}

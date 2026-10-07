@@ -23,6 +23,14 @@ TABLES = {
     "audit_log",
     "halt_commands",
     "account_snapshots",
+    # Cahier v3: strategy lifecycle, research evidence, AI proposals, telemetry.
+    "strategy_registry",
+    "backtest_runs",
+    "validation_runs",
+    "ai_analyses",
+    "ai_proposals",
+    "execution_events",
+    "daily_performance",
 }
 
 

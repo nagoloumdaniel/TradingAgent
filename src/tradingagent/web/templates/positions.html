@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Positions{% endblock %}
+{% block content %}
+
+<h2>Positions ouvertes — <span id="positions-count">{{ rows | length }}</span></h2>
+<p class="muted">
+  Flux en direct toutes les {{ interval }} s depuis la base.
+  État : <span id="stream-status" class="badge">connexion…</span>
+  Dernière mise à jour : <span id="positions-at">{{ display.precise(at) }}</span> UTC.
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>{% for column in columns %}<th{% if not loop.first and loop.index > 2 %} class="num"{% endif %}>{{ column }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody id="positions-body">
+    {% for row in rows %}
+      <tr>{% for cell in row %}<td{% if not loop.first and loop.index > 2 %} class="num"{% endif %}>{{ cell }}</td>{% endfor %}</tr>
+    {% else %}
+      <tr id="positions-empty"><td colspan="{{ columns | length }}" class="empty">Aucune position ouverte.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Alertes</h2>
+<p class="muted">Événements système de gravité avertissement ou critique, poussés par le flux.</p>
+<div class="table-wrap">
+  <ul class="alerts" id="alerts-list">
+    {% for alert in alerts %}
+      <li><span class="badge {{ display.severity_class(alert.severity) }}">{{ display.severity_label(alert.severity) }}</span>
+          {{ alert.kind }} — {{ alert.detail | describe }}</li>
+    {% endfor %}
+  </ul>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var columns = {{ columns | tojson }};
+  var body = document.getElementById("positions-body");
+  var alerts = document.getElementById("alerts-list");
+  var status = document.getElementById("stream-status");
+  var numericFrom = 2;
+
+  function renderPositions(payload) {
+    var rowsNodes = payload.rows.map(function (row) {
+      var tr = document.createElement("tr");
+      row.forEach(function (cell, index) {
+        var td = document.createElement("td");
+        if (index >= numericFrom) { td.className = "num"; }
+        td.textContent = cell;
+        tr.appendChild(td);
+      });
+      return tr;
+    });
+    if (rowsNodes.length === 0) {
+      var empty = document.createElement("tr");
+      var cell = document.createElement("td");
+      cell.colSpan = columns.length;
+      cell.className = "empty";
+      cell.textContent = "Aucune position ouverte.";
+      empty.appendChild(cell);
+      rowsNodes = [empty];
+    }
+    body.replaceChildren.apply(body, rowsNodes);
+    document.getElementById("positions-count").textContent = payload.rows.length;
+    document.getElementById("positions-at").textContent = payload.at;
+  }
+
+  function renderAlerts(payload) {
+    payload.rows.forEach(function (row) {
+      var item = document.createElement("li");
+      row.forEach(function (cell) { item.appendChild(document.createTextNode(cell + " ")); });
+      alerts.appendChild(item);
+    });
+  }
+
+  var source = new EventSource("/events");
+  source.addEventListener("open", function () {
+    status.textContent = "flux connecté";
+    status.className = "badge ok";
+  });
+  source.addEventListener("error", function () {
+    status.textContent = "flux interrompu — reconnexion…";
+    status.className = "badge bad";
+  });
+  source.addEventListener("positions", function (message) {
+    renderPositions(JSON.parse(message.data));
+  });
+  source.addEventListener("alerts", function (message) {
+    renderAlerts(JSON.parse(message.data));
+  });
+})();
+</script>
+
+{% endblock %}

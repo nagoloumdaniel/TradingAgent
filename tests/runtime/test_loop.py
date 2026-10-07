@@ -242,3 +242,33 @@ def test_a_closed_position_notifies_the_result_and_the_balance(engine: Engine) -
     )
     notifier = cast(FakeNotifier, loop._notifier)
     assert notifier.messages == ["❌ XAUUSD : -10.00 €\nSolde : 5 497.74 €"]
+
+
+def test_a_close_lands_in_the_daily_bucket_and_the_telemetry(engine: Engine) -> None:
+    from tests.runtime.test_pipeline import record_signal
+
+    from tradingagent.core.states import ExecutionEventKind
+    from tradingagent.storage.daily import DailyPerformanceStore
+    from tradingagent.storage.telemetry import ExecutionEventStore
+
+    loop, _, _, _ = build_loop(engine)
+    signal_id = record_signal(engine)
+    loop._record_close(
+        ClosedPosition(
+            ticket=555002,
+            symbol="XAUUSD",
+            exit_price=Decimal("2424"),
+            pnl_eur=Decimal("47.60"),
+            exit_reason="take_profit",
+            closed_at=NOW,
+            signal_id=signal_id,
+        )
+    )
+
+    buckets = DailyPerformanceStore(engine).for_day(NOW)
+    assert len(buckets) == 1
+    assert buckets[0].trades == 1
+    assert buckets[0].wins == 1
+    assert buckets[0].pnl == Decimal("47.60")
+    events = ExecutionEventStore(engine).count_by_kind()
+    assert events.get(ExecutionEventKind.POSITION_CLOSED.value) == 1

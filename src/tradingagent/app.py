@@ -38,6 +38,7 @@ from tradingagent.config.strategy_catalog import StrategyCatalog
 from tradingagent.control.guardian import Guardian
 from tradingagent.control.quarantine import PersistentQuarantine
 from tradingagent.core.mode import AiFilter, TradingMode
+from tradingagent.core.states import StrategyStatus
 from tradingagent.data.history import HistorySync
 from tradingagent.data.market_calendar import MarketCalendar
 from tradingagent.data.market_data import MarketDataClient, Subscription
@@ -64,6 +65,7 @@ from tradingagent.notify.sensitive_commands import (
 )
 from tradingagent.notify.service import CommandService
 from tradingagent.observability import Metrics, ResourceMonitor, configure_json_logging
+from tradingagent.registry.store import StrategyRegistry, UnknownStrategyRef
 from tradingagent.reporting.service import ReportService
 from tradingagent.risk.model import AccountState, InstrumentSpec
 from tradingagent.runtime.loop import AgentLoop
@@ -294,6 +296,7 @@ async def build(settings: Settings) -> Components:
     subscriptions = _subscriptions(config, catalog)
     if not subscriptions:
         raise ConfigError("no enabled market in agent.yaml: nothing to watch")
+    _register_configured_strategies(engine, config, now)
 
     tracker = PositionTracker(engine, now=now)
     broker = await _build_broker(terminal, tracker, settings, config, mode, halts)
@@ -377,6 +380,38 @@ async def build(settings: Settings) -> Components:
         resources=resources,
         alerts=alerts,
     )
+
+
+def _register_configured_strategies(engine: Engine, config: AgentConfig, now: Any) -> None:
+    """Make every configured market visible to the registry and refuse a deprecated ref.
+
+    The registry is the deployment record (cahier v3 §14). A market whose configured
+    strategy was deprecated must not silently keep trading on it: the start-up stops and
+    says which ref to replace.
+    """
+    registry = StrategyRegistry(engine, clock=now)
+    deprecated: list[str] = []
+    for market in config.markets:
+        if not market.enabled:
+            continue
+        try:
+            entry = registry.get(market.symbol, market.strategy)
+        except UnknownStrategyRef:
+            registry.register(
+                market.symbol,
+                market.strategy,
+                origin="human",
+                parameters={"source": "config/agent.yaml"},
+            )
+            continue
+        if entry.status is StrategyStatus.DEPRECATED:
+            deprecated.append(f"{market.strategy} on {market.symbol}")
+    if deprecated:
+        raise ConfigError(
+            "these configured strategies are deprecated in the registry: "
+            + ", ".join(sorted(deprecated))
+            + ". Point agent.yaml at a promoted version."
+        )
 
 
 async def _build_broker(

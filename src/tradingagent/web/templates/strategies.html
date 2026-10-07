@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Stratégies{% endblock %}
+{% block content %}
+
+<h2>Registre des stratégies</h2>
+<p class="muted">Le statut vient de <code>strategy_registry</code> ; les chiffres viennent du
+   paquet <code>analytics</code> appliqué aux trades réellement produits. Une référence absente
+   du registre est affichée quand même, avec un statut vide : c'est exactement ce qu'il faut voir.</p>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Référence</th><th>Marché</th><th>Stratégie</th><th>Version</th><th>Statut</th>
+        <th>Origine</th><th>Promue le (UTC)</th><th class="num">Trades</th>
+        <th class="num">Résultat net</th><th class="num">Réussite</th><th class="num">Facteur de profit</th>
+        <th class="num">Drawdown max</th></tr>
+  </thead>
+  <tbody>
+    {% for view in views %}
+      <tr>
+        <td>{{ view.ref }}</td>
+        <td>{{ view.market }}</td>
+        <td>{{ view.strategy_id }}</td>
+        <td>{{ view.version }}</td>
+        <td>
+          {% if view.status %}<span class="badge {% if view.status.value == 'live' %}ok{% elif view.status.value == 'deprecated' %}bad{% else %}warn{% endif %}">{{ view.status.value }}</span>
+          {% else %}<span class="badge warn">hors registre</span>{% endif %}
+        </td>
+        <td>{{ view.origin or '—' }}</td>
+        <td>{{ display.moment(view.promoted_at) }}</td>
+        <td class="num">{{ view.performance.trades }}</td>
+        <td class="num {% if view.performance.net_profit < 0 %}neg{% elif view.performance.net_profit > 0 %}pos{% endif %}">{{ display.money(view.performance.net_profit, signed=True) }}</td>
+        <td class="num">{{ display.percent(view.performance.win_rate) }}</td>
+        <td class="num">{{ display.ratio(view.performance.profit_factor) }}</td>
+        <td class="num">{{ display.money(view.performance.max_drawdown) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="12" class="empty">Aucune stratégie enregistrée.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Validation et backtests</h2>
+{% for view in views %}
+  <h3>{{ view.ref }} — {{ view.market }}</h3>
+  {% if view.promotion_reason %}<p class="muted">Motif de promotion : {{ view.promotion_reason }}</p>{% endif %}
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Portail de validation</th><th>Verdict</th><th>Détail enregistré</th><th>Le (UTC)</th></tr></thead>
+    <tbody>
+      {% for validation in view.validations %}
+        <tr>
+          <td>{{ validation.stage.value }}</td>
+          <td>{% if validation.passed %}<span class="badge ok">réussi</span>{% else %}<span class="badge bad">échoué</span>{% endif %}</td>
+          <td>{{ validation.detail | describe }}</td>
+          <td>{{ display.precise(validation.created_at) }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="empty">Aucune validation enregistrée.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {% set backtest = view.last_backtest %}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Dernier backtest</th><th>Jeu de données</th><th>Fenêtre (UTC)</th>
+               <th>Empreinte</th><th>Métriques enregistrées</th><th>Coûts</th><th>Rapport</th></tr></thead>
+    <tbody>
+      {% if backtest %}
+        <tr>
+          <td>{{ display.precise(backtest.created_at) }}</td>
+          <td>{{ backtest.dataset_id }}</td>
+          <td>{{ display.moment(backtest.window_start) }} → {{ display.moment(backtest.window_end) }}</td>
+          <td><code>{{ backtest.fingerprint[:12] }}</code></td>
+          <td>{{ backtest.metrics | describe }}</td>
+          <td>{{ backtest.costs | describe }}</td>
+          <td>{{ backtest.report_path or '—' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="empty">Aucun backtest enregistré pour cette référence.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">Les métriques sont affichées telles qu'enregistrées : le tableau de bord ne
+     relance ni ne recalcule aucun backtest (§34).</p>
+{% else %}
+  <p class="empty">Rien à détailler.</p>
+{% endfor %}
+
+{% endblock %}

@@ -25,13 +25,18 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import AiFilter, TradingMode
 from tradingagent.core.states import (
+    AnalysisKind,
+    ExecutionEventKind,
     HaltAction,
     HaltSource,
     OrderState,
     PositionState,
+    ProposalStatus,
     RiskOutcome,
     Severity,
     SignalState,
+    StrategyStatus,
+    ValidationStage,
 )
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.storage.types import ExactDecimal, UtcDateTime
@@ -309,3 +314,143 @@ class AccountSnapshotRow(Base):
     equity: Mapped[Decimal]
     balance: Mapped[Decimal]
     at: Mapped[datetime]
+
+
+# ---------------------------------------------------------------------------------------
+# Cahier v3: strategy lifecycle, research evidence, AI proposals and execution telemetry.
+# ---------------------------------------------------------------------------------------
+
+
+class StrategyRegistryRow(Base):
+    """The production registry (cahier v3 §14, §30).
+
+    One row per (market, ref). The status is the deployment state; the identity of a LIVE
+    version is immutable, so any change produces a new `ref` with its own row.
+    """
+
+    __tablename__ = "strategy_registry"
+    __table_args__ = (
+        UniqueConstraint("market", "ref"),
+        Index("ix_strategy_registry_market_status", "market", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    market: Mapped[str] = mapped_column(String(32))
+    ref: Mapped[str] = mapped_column(String(80))
+    strategy_id: Mapped[str] = mapped_column(String(64))
+    version: Mapped[str] = mapped_column(String(32))
+    status: Mapped[StrategyStatus] = mapped_column(enum_type(StrategyStatus))
+    parent_ref: Mapped[str | None] = mapped_column(String(80))
+    origin: Mapped[str] = mapped_column(String(32))  # human | ai | research
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSON)
+    results: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    dataset_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    promotion_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime]
+    promoted_at: Mapped[datetime | None]
+    updated_at: Mapped[datetime]
+
+
+class BacktestRunRow(Base):
+    """One reproducible backtest: its dataset, its window and its measured numbers."""
+
+    __tablename__ = "backtest_runs"
+    __table_args__ = (Index("ix_backtest_runs_ref_market", "ref", "market"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ref: Mapped[str] = mapped_column(String(80))
+    market: Mapped[str] = mapped_column(String(32))
+    dataset_id: Mapped[str] = mapped_column(String(120))
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    window_start: Mapped[datetime]
+    window_end: Mapped[datetime]
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSON)
+    costs: Mapped[dict[str, Any]] = mapped_column(JSON)
+    report_path: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime]
+
+
+class ValidationRunRow(Base):
+    """One gate of the validation protocol, with its verdict and its evidence."""
+
+    __tablename__ = "validation_runs"
+    __table_args__ = (Index("ix_validation_runs_ref_stage", "ref", "stage"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ref: Mapped[str] = mapped_column(String(80))
+    market: Mapped[str] = mapped_column(String(32))
+    stage: Mapped[ValidationStage] = mapped_column(enum_type(ValidationStage))
+    passed: Mapped[bool]
+    detail: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime]
+
+
+class AiAnalysisRow(Base):
+    """What the AI observed, never what it decided (cahier v3 §5, §15, §16, §39)."""
+
+    __tablename__ = "ai_analyses"
+    __table_args__ = (Index("ix_ai_analyses_kind_market", "kind", "market"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[AnalysisKind] = mapped_column(enum_type(AnalysisKind))
+    market: Mapped[str] = mapped_column(String(32))
+    ref: Mapped[str | None] = mapped_column(String(80))
+    signal_id: Mapped[int | None] = mapped_column(ForeignKey("signals.id"))
+    model: Mapped[str] = mapped_column(String(64))
+    request: Mapped[dict[str, Any]] = mapped_column(JSON)
+    response: Mapped[str | None] = mapped_column(Text)
+    findings: Mapped[dict[str, Any]] = mapped_column(JSON)
+    cost_eur: Mapped[Decimal | None]
+    created_at: Mapped[datetime]
+
+
+class AiProposalRow(Base):
+    """A hypothesis the AI proposes; it becomes production only through validation."""
+
+    __tablename__ = "ai_proposals"
+    __table_args__ = (Index("ix_ai_proposals_status_market", "status", "market"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    market: Mapped[str] = mapped_column(String(32))
+    ref: Mapped[str | None] = mapped_column(String(80))
+    analysis_id: Mapped[int | None] = mapped_column(ForeignKey("ai_analyses.id"))
+    hypothesis: Mapped[str] = mapped_column(Text)
+    proposed_change: Mapped[dict[str, Any]] = mapped_column(JSON)
+    status: Mapped[ProposalStatus] = mapped_column(enum_type(ProposalStatus))
+    decided_by: Mapped[str | None] = mapped_column(String(64))
+    decision_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime]
+    decided_at: Mapped[datetime | None]
+
+
+class ExecutionEventRow(Base):
+    """Append-only execution telemetry: every hop of the signal-to-fill path (§20, §47)."""
+
+    __tablename__ = "execution_events"
+    __table_args__ = (Index("ix_execution_events_symbol_time", "symbol", "occurred_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int | None] = mapped_column(ForeignKey("orders.id"))
+    signal_id: Mapped[int | None] = mapped_column(ForeignKey("signals.id"))
+    symbol: Mapped[str] = mapped_column(String(32))
+    kind: Mapped[ExecutionEventKind] = mapped_column(enum_type(ExecutionEventKind))
+    detail: Mapped[dict[str, Any]] = mapped_column(JSON)
+    occurred_at: Mapped[datetime]
+
+
+class DailyPerformanceRow(Base):
+    """Per day, per mode, per market and per strategy: the dashboard's fast path."""
+
+    __tablename__ = "daily_performance"
+    __table_args__ = (UniqueConstraint("day", "mode", "market", "ref"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day: Mapped[datetime]
+    mode: Mapped[TradingMode] = mapped_column(enum_type(TradingMode))
+    market: Mapped[str] = mapped_column(String(32))
+    ref: Mapped[str] = mapped_column(String(80))
+    trades: Mapped[int]
+    wins: Mapped[int]
+    pnl: Mapped[Decimal]
+    risk_eur: Mapped[Decimal]
+    created_at: Mapped[datetime]

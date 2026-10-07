@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Tableau de bord{% endblock %} — TradingAgent</title>
+<style>
+:root {
+  --bg: #12151a; --panel: #1b2027; --line: #2b323c; --text: #e7ecf2; --muted: #9aa7b5;
+  --ok: #3ddc84; --warn: #f2b134; --bad: #ff5c5c; --accent: #4aa3ff;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+header { padding: 14px 16px 0; border-bottom: 1px solid var(--line); }
+header h1 { margin: 0; font-size: 19px; letter-spacing: .3px; }
+header .sub { margin: 4px 0 10px; color: var(--muted); font-size: 12.5px; }
+nav { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 10px; }
+nav a {
+  color: var(--muted); text-decoration: none; font-size: 13px;
+  padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px;
+}
+nav a.active { color: #06121f; background: var(--accent); border-color: var(--accent); font-weight: 600; }
+main { padding: 14px 16px 40px; max-width: 1200px; margin: 0 auto; }
+footer { padding: 12px 16px 28px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); }
+h2 { font-size: 15px; margin: 22px 0 8px; color: var(--accent); text-transform: uppercase; letter-spacing: .6px; }
+h3 { font-size: 14px; margin: 16px 0 6px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.card .label { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; }
+.card .value { font-size: 21px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.card .note { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr.total { background: #20273240; font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.pos { color: var(--ok); } .neg { color: var(--bad); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; border: 1px solid var(--line); }
+.badge.ok { color: var(--ok); border-color: #245c3c; }
+.badge.warn { color: var(--warn); border-color: #6b5320; }
+.badge.bad { color: var(--bad); border-color: #6b2626; }
+.banner { padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; font-size: 13.5px; }
+.banner.bad { background: #3a1a1a; border: 1px solid #6b2626; }
+.banner.ok { background: #16301f; border: 1px solid #245c3c; }
+form.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-bottom: 12px; }
+form.filters label { display: block; color: var(--muted); font-size: 11.5px; text-transform: uppercase; }
+select, button {
+  background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 9px; font-size: 13px;
+}
+button { cursor: pointer; }
+pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+      overflow-x: auto; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+.muted { color: var(--muted); }
+.empty { padding: 14px; color: var(--muted); font-size: 13px; }
+ul.alerts { list-style: none; padding: 0; margin: 0; }
+ul.alerts li { padding: 7px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+ul.alerts li:last-child { border-bottom: none; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.actions a { color: var(--accent); font-size: 13px; text-decoration: none; border: 1px solid var(--line);
+             border-radius: 8px; padding: 6px 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>TradingAgent</h1>
+  <p class="sub">Monitoring en lecture seule — le tableau de bord ne calcule aucun indicateur
+     et ne peut ni écrire en base ni passer d'ordre (§34).</p>
+  <nav>
+    {% for path, label in pages %}
+      <a href="{{ path }}" {% if request.url.path == path %}class="active"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer>
+  Vue rendue le {{ display.precise(render_at) }} UTC — montants en EUR, dates en UTC.
+  Données : base de l'agent et paquet <code>analytics</code>.
+</footer>
+</body>
+</html>

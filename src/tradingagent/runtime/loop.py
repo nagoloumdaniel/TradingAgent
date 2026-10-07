@@ -21,7 +21,7 @@ from tradingagent.config.strategy_catalog import LoadedStrategy
 from tradingagent.control.guardian import Guardian
 from tradingagent.core.market import Candle
 from tradingagent.core.mode import TradingMode
-from tradingagent.core.states import Severity, SignalState
+from tradingagent.core.states import ExecutionEventKind, Severity, SignalState
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.history import HistorySync
 from tradingagent.data.market_calendar import MarketCalendar, learn_calendar
@@ -36,9 +36,12 @@ from tradingagent.runtime.ports import BrokerPort, MarketPort, NotifierPort
 from tradingagent.signals.generator import GenerationStatus, SignalGenerator
 from tradingagent.storage.account import AccountStore
 from tradingagent.storage.candles import CandleStore
+from tradingagent.storage.daily import DailyPerformanceStore
 from tradingagent.storage.events import SystemEventStore
 from tradingagent.storage.halts import HaltStore
-from tradingagent.storage.signals import transition
+from tradingagent.storage.risk_decisions import latest_risk_eur
+from tradingagent.storage.signals import get_signal, transition
+from tradingagent.storage.telemetry import ExecutionEventStore
 
 log = logging.getLogger(__name__)
 
@@ -115,6 +118,8 @@ class AgentLoop:
         self._calendars = calendars if calendars is not None else {}
         self._snapshots = AccountStore(engine)
         self._events = SystemEventStore(engine)
+        self._telemetry = ExecutionEventStore(engine)
+        self._daily = DailyPerformanceStore(engine)
         self._connection_loss_since: datetime | None = None
 
     @property
@@ -288,6 +293,39 @@ class AgentLoop:
             )
         except Exception as error:  # already closed, or not in a closable state
             log.warning("signal %d not moved to CLOSED: %s", closed.signal_id, error)
+        self._record_close_telemetry(closed)
+
+    def _record_close_telemetry(self, closed: ClosedPosition) -> None:
+        """Telemetry and the daily bucket the dashboard reads (cahier v3 §20, §31)."""
+        detail = get_signal(self._engine, closed.signal_id) if closed.signal_id else None
+        ref = detail.strategy_ref if detail is not None else "unknown"
+        mode = detail.mode if detail is not None else self._mode
+        risk = latest_risk_eur(self._engine, closed.signal_id) if closed.signal_id else Decimal(0)
+        try:
+            self._telemetry.record(
+                ExecutionEventKind.POSITION_CLOSED,
+                closed.symbol,
+                {
+                    "ticket": closed.ticket,
+                    "pnl_eur": str(closed.pnl_eur),
+                    "risk_eur": str(risk),
+                    "exit_reason": closed.exit_reason,
+                },
+                closed.closed_at,
+                signal_id=closed.signal_id,
+            )
+            self._daily.apply_trade(
+                day=closed.closed_at,
+                mode=mode,
+                market=closed.symbol,
+                ref=ref,
+                pnl=closed.pnl_eur,
+                risk_eur=risk,
+                won=closed.pnl_eur > 0,
+                at=closed.closed_at,
+            )
+        except Exception as error:  # telemetry must never break the close path
+            log.warning("close telemetry failed for ticket %s: %s", closed.ticket, error)
 
     async def notify_close(self, closed: ClosedPosition) -> None:
         """`+10.00 €` / `-10.00 €` and the total balance, nothing else (cahier v3, §37)."""

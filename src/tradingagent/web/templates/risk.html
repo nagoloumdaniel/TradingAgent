@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Risque{% endblock %}
+{% block content %}
+
+<h2>Arrêt actuel et interrupteur d'urgence</h2>
+{% if data.halt.halted %}
+  <div class="banner bad">
+    <strong>Trading arrêté.</strong>
+    <ul>
+      {% for reason in data.halt.reasons %}<li>{{ reason }}</li>{% endfor %}
+    </ul>
+    {% if data.halt.close_positions %}<div>Fermeture des positions demandée.</div>{% endif %}
+  </div>
+{% else %}
+  <div class="banner ok">Aucun arrêt actif : les portées de trading sont ouvertes.</div>
+{% endif %}
+<p class="muted">Lecture seule : le tableau de bord montre l'état des arrêts et l'historique,
+   il ne peut ni arrêter ni reprendre quoi que ce soit. Les commandes passent par Telegram ou la CLI.</p>
+
+<div class="cards">
+  <div class="card"><div class="label">Arrêt global</div>
+    <div class="value">{% if data.halt.halted %}<span class="badge bad">actif</span>{% else %}<span class="badge ok">inactif</span>{% endif %}</div>
+    <div class="note">lecture pessimiste : un état illisible compte comme arrêté</div></div>
+  <div class="card"><div class="label">Marchés désactivés</div>
+    <div class="value">{{ data.halted_markets | length }}</div>
+    <div class="note">{{ data.halted_markets | join(', ') or 'aucun' }}</div></div>
+  <div class="card"><div class="label">Paires en quarantaine</div>
+    <div class="value">{{ data.halted_pairs | length }}</div>
+    <div class="note">stratégie × marché suspendues</div></div>
+  <div class="card"><div class="label">Refus du risque (total)</div>
+    <div class="value">{{ data.refusals.count }}</div>
+    <div class="note">risque évité {{ display.money(data.refusals.avoided_risk_eur) }} (F-011)</div></div>
+</div>
+
+{% if data.halted_pairs %}
+<h3>Paires en quarantaine</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Stratégie</th><th>Marché</th></tr></thead>
+  <tbody>
+    {% for strategy, market in data.halted_pairs %}
+      <tr><td>{{ strategy }}</td><td>{{ market }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+<h2>Interrupteur d'urgence des EA (kill switch)</h2>
+{% if ea_halted %}
+  <div class="banner bad">
+    <strong>Un garde EA est en arrêt.</strong>
+    {% for guardian in ea_halted %}
+      <div>{{ guardian.symbol }} : kill switch {{ 'actif' if guardian.kill_switch else 'inactif' }},
+        arrêt local {{ 'actif' if guardian.local_halt else 'inactif' }}{% if guardian.halt_reason %} — {{ guardian.halt_reason }}{% endif %}.</div>
+    {% endfor %}
+  </div>
+{% endif %}
+<p class="muted">État lu dans les rapports du pont EA ; le tableau de bord ne peut pas
+   actionner cet interrupteur.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Marché</th><th>État EA</th><th>Battement (UTC)</th><th>Âge</th>
+             <th>Connecté</th><th>Trading autorisé</th><th>Kill switch</th><th>Arrêt local</th><th>Motif</th></tr></thead>
+  <tbody>
+    {% for guardian in data.ea %}
+      <tr>
+        <td>{{ guardian.symbol }}</td>
+        <td>{% if guardian.online %}<span class="badge ok">EN LIGNE</span>{% else %}<span class="badge bad">HORS LIGNE</span>{% endif %}</td>
+        <td>{{ display.precise(guardian.heartbeat_at) }}</td>
+        <td>{{ display.duration(guardian.heartbeat_age) }}</td>
+        <td>{{ 'oui' if guardian.connected else 'non' }}</td>
+        <td>{{ 'oui' if guardian.trade_allowed else 'non' }}</td>
+        <td>{% if guardian.kill_switch %}<span class="badge bad">actif</span>{% else %}non{% endif %}</td>
+        <td>{% if guardian.local_halt %}<span class="badge warn">actif</span>{% else %}non{% endif %}</td>
+        <td>{{ guardian.halt_reason or '—' }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="9" class="empty">Aucun rapport EA : le pont n'est pas configuré.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Expositions</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Marché</th><th class="num">Positions ouvertes</th><th class="num">Notionnel</th></tr></thead>
+  <tbody>
+    {% for exposure in data.exposures %}
+      <tr>
+        <td>{{ exposure.market }}</td>
+        <td class="num">{{ exposure.open_positions }}</td>
+        <td class="num">{{ display.money(exposure.notional) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="3" class="empty">Aucune position ouverte : exposition nulle.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted">Notionnel = volume × prix d'entrée, agrégé depuis la base. La taille de contrat
+   n'y est pas stockée : c'est un ordre de grandeur, pas une exposition de compte.</p>
+
+<h2>Limites configurées</h2>
+<p class="muted">Lues dans <code>config/agent.yaml</code> et validées par le schéma que l'agent
+   utilise lui-même. Le tableau de bord affiche la limite, il ne la réévalue pas.</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Profil</th><th class="num">Risque / trade</th><th class="num">Perte jour</th>
+        <th class="num">Perte semaine</th><th class="num">Drawdown max</th>
+        <th class="num">Positions max</th><th class="num">Par marché</th><th class="num">Trades / jour</th>
+        <th class="num">Refroidissement</th><th class="num">Heures</th><th class="num">Spread/stop max</th>
+        <th class="num">Marge max</th><th class="num">Volume max</th><th class="num">Capital de référence</th></tr>
+  </thead>
+  <tbody>
+    {% for limits in data.limits %}
+      <tr>
+        <td>{{ limits.profile }}</td>
+        <td class="num">{{ display.percent_points(limits.risk_per_trade_pct) }}</td>
+        <td class="num">{{ display.percent_points(limits.daily_loss_pct) }}</td>
+        <td class="num">{{ display.percent_points(limits.weekly_loss_pct) }}</td>
+        <td class="num">{{ display.percent_points(limits.max_drawdown_pct) }}</td>
+        <td class="num">{{ limits.max_open_positions }}</td>
+        <td class="num">{{ limits.max_positions_per_market }}</td>
+        <td class="num">{{ limits.max_trades_per_day }}</td>
+        <td class="num">{{ limits.cooldown_after_losses }}</td>
+        <td class="num">{{ display.number(limits.cooldown_hours, 1) }}</td>
+        <td class="num">{{ display.percent_points(limits.max_spread_stop_pct) }}</td>
+        <td class="num">{{ display.percent_points(limits.margin_usage_pct) }}</td>
+        <td class="num">{{ display.number(limits.max_volume, 2) }}</td>
+        <td class="num">{{ display.money(limits.reference_capital) }}{% if limits.currency %} {{ limits.currency }}{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="14" class="empty">Configuration de risque illisible ou absente.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Événements système</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Le (UTC)</th><th>Gravité</th><th>Type</th><th>Détail</th></tr></thead>
+  <tbody>
+    {% for event in data.events %}
+      <tr>
+        <td>{{ display.precise(event.occurred_at) }}</td>
+        <td><span class="badge {{ display.severity_class(event.severity) }}">{{ display.severity_label(event.severity) }}</span></td>
+        <td>{{ event.kind }}</td>
+        <td>{{ event.detail | describe }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">Aucun événement enregistré.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Historique des arrêts et reprises</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Le (UTC)</th><th>Portée</th><th>Action</th><th>Source</th><th>Acteur</th>
+             <th>Fermeture</th><th>Motif</th></tr></thead>
+  <tbody>
+    {% for command in data.history %}
+      <tr>
+        <td>{{ display.precise(command.occurred_at) }}</td>
+        <td>{{ command.scope }}</td>
+        <td>{% if command.action.value == 'halt' %}<span class="badge bad">{{ display.halt_action_label(command.action) }}</span>
+            {% else %}<span class="badge ok">{{ display.halt_action_label(command.action) }}</span>{% endif %}</td>
+        <td>{{ display.halt_source_label(command.source) }}</td>
+        <td>{{ command.actor }}</td>
+        <td>{{ 'oui' if command.close_positions else 'non' }}</td>
+        <td>{{ command.reason }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="empty">Aucune commande d'arrêt enregistrée.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% endblock %}

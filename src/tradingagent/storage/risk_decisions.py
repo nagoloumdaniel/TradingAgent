@@ -7,8 +7,10 @@ Refusals are counted per check for the daily report.
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import Engine, insert, select, update
+from sqlalchemy.orm import Session
 
 from tradingagent.core.states import RiskOutcome, SignalState
 from tradingagent.risk.engine import RiskDecision
@@ -76,3 +78,15 @@ class RiskDecisionStore:
                 if not verdict["passed"] and not verdict.get("blocked_by")
             )
         return RefusalSummary(len(rows), refused, dict(by_check))
+
+
+def latest_risk_eur(engine: Engine, signal_id: int) -> Decimal:
+    """The risk the engine authorized for a signal, the denominator of its R multiple."""
+    with Session(engine) as session:
+        value = session.scalars(
+            select(RiskDecisionRow.risk_eur)
+            .where(RiskDecisionRow.signal_id == signal_id)
+            .order_by(RiskDecisionRow.id.desc())
+            .limit(1)
+        ).first()
+    return Decimal(0) if value is None else Decimal(value)
