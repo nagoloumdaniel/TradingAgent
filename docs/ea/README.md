@@ -154,6 +154,13 @@ Get-ChildItem "$env:APPDATA\MetaQuotes\Terminal" -Directory |
 > sans nouvel état, l'EA déclenche son arrêt local. Republier à chaque cycle de la boucle
 > d'exécution suffit, même sans changement.
 
+**Câblage dans l'agent.** `runtime/loop.py::_sync_eas` publie l'état toutes les 20 secondes
+(positions attendues du courtier, `kill_switch` = état d'arrêt global) et lit les rapports
+pour signaler un EA `OFFLINE`. Il ne s'active que si `EA_FILES_DIR` est renseigné dans
+`.env` : sans cette variable, l'agent tourne sans EA, ce qui est un état valide. Une erreur
+du pont est journalisée et n'interrompt jamais un cycle : le terminal est un filet de
+sécurité, pas une dépendance du moteur.
+
 ## 4. Exploiter
 
 | Geste | Où |

@@ -8,7 +8,7 @@ files:
 ``<directory>/state/<SYMBOL>_state.json``
     Written by Python with :func:`publish_state`: the expected positions, the stops, the
     protective limits, the kill switch and the heartbeat, all timestamped in UTC. The EA
-    only ever acts on an order found in this file â€” never on its own initiative.
+    only ever acts on an order found in this file — never on its own initiative.
 
 ``<directory>/reports/<SYMBOL>_report.json``
     Written by the EA: heartbeat, connection state, applied revision, observed positions
@@ -100,8 +100,8 @@ class ExpectedPosition:
 class AuthorisedOrder:
     """One order the backend authorises. Its `order_id` is carried in the MT5 comment.
 
-    The EA deduplicates on `comment`: an order whose comment is already on a position â€” or
-    already recorded as applied â€” is never sent a second time (RM-012, F-012).
+    The EA deduplicates on `comment`: an order whose comment is already on a position — or
+    already recorded as applied — is never sent a second time (RM-012, F-012).
     """
 
     order_id: str
@@ -264,7 +264,7 @@ def _write_atomic(path: Path, text: str) -> None:
     """Write `text` to `path` atomically: temp file in the same directory, then replace.
 
     A reader either sees the whole previous document or the whole new one, never a
-    half-written one â€” which is what makes a torn read impossible even though two
+    half-written one — which is what makes a torn read impossible even though two
     processes share these files.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -290,7 +290,10 @@ def read_json(path: Path) -> dict[str, Any] | None:
     and neither may ever raise into the agent's loop.
     """
     try:
-        text = path.read_text(encoding="utf-8")
+        # utf-8-sig: a Windows tool that writes UTF-8 with a BOM (PowerShell's default, and
+        # what the EA's own file layer produces) must still be readable. Without it, a valid
+        # report looks corrupt and the EA is declared OFFLINE for no reason.
+        text = path.read_text(encoding="utf-8-sig")
         payload = json.loads(text)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return None
@@ -536,7 +539,7 @@ def compare_expected(
 
     This is a second pair of eyes on top of the EA's own watchdog: the EA compares what it
     sees with the last state it read, the agent compares that report with what it last
-    published. Nothing is corrected here either â€” a divergence is a halt and an alert.
+    published. Nothing is corrected here either — a divergence is a halt and an alert.
     """
     found: list[EaDivergence] = []
     if expected.symbol != report.symbol:

@@ -1,6 +1,7 @@
 """The agent loop: one cycle, no terminal, everything injected."""
 
 import asyncio
+import json
 from collections.abc import Iterable
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -94,6 +95,7 @@ def build_loop(
     market: FakeMarket | None = None,
     broker: FakeBroker | None = None,
     connection_threshold: timedelta = timedelta(0),
+    ea_directory: Path | None = None,
 ) -> tuple[AgentLoop, FakeMarket, FakeBroker, Sent]:
     market = market or FakeMarket()
     broker = broker or FakeBroker()
@@ -141,6 +143,7 @@ def build_loop(
         expected_login=LOGIN,
         subscriptions=(Subscription("XAUUSD", Timeframe.M15),),
         calendars=calendars,
+        ea_directory=ea_directory,
         connection_threshold=connection_threshold,
         now=lambda: NOW,
     )
@@ -272,3 +275,41 @@ def test_a_close_lands_in_the_daily_bucket_and_the_telemetry(engine: Engine) -> 
     assert buckets[0].pnl == Decimal("47.60")
     events = ExecutionEventStore(engine).count_by_kind()
     assert events.get(ExecutionEventKind.POSITION_CLOSED.value) == 1
+
+
+def test_the_loop_publishes_the_ea_state_every_interval(engine: Engine, tmp_path: Path) -> None:
+    from tradingagent.ea.bridge import PROTOCOL_VERSION, read_json, state_path
+
+    loop, _, _, _ = build_loop(engine, ea_directory=tmp_path)
+    asyncio.run(loop.run_once())
+
+    payload = read_json(state_path(tmp_path, "XAUUSD"))
+    assert payload is not None
+    assert payload["protocol_version"] == PROTOCOL_VERSION
+    assert payload["symbol"] == "XAUUSD"
+    assert payload["kill_switch"] is False
+    assert payload["positions"] == []
+
+
+def test_an_ea_that_stops_beating_is_reported_offline(engine: Engine, tmp_path: Path) -> None:
+    loop, _, _, _ = build_loop(engine, ea_directory=tmp_path)
+    asyncio.run(loop.run_once())  # creates the state directory
+
+    reports = tmp_path / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    (reports / "XAUUSD_report.json").write_text(
+        json.dumps(
+            {
+                "protocol_version": 1,
+                "symbol": "XAUUSD",
+                "heartbeat_at": "2026-10-06T10:00:00+00:00",
+                "connected": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    asyncio.run(loop.run_once())
+
+    assert events_of(engine, "ea_offline")
+    assert loop._ea_offline == {"XAUUSD"}

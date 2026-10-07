@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     database_url: SecretStr
     trading_mode: TradingMode = TradingMode.SIGNAL
     live_trading_enabled: bool = False
+    # Where the MQL5 Guardian EAs and the agent exchange their JSON files. Point it at
+    # `<MT5 data folder>\MQL5\Files\TradingAgent`; unset means "no EA installed".
+    ea_files_dir: Path | None = None
 
     @field_validator("mt5_password", "telegram_bot_token", "database_url")
     @classmethod
@@ -50,7 +53,7 @@ class Settings(BaseSettings):
             raise ValueError("must not be blank")
         return value.strip()
 
-    @field_validator("mt5_terminal_path", mode="before")
+    @field_validator("mt5_terminal_path", "ea_files_dir", mode="before")
     @classmethod
     def _blank_path_is_unset(cls, value: Any) -> Any:
         return None if isinstance(value, str) and not value.strip() else value

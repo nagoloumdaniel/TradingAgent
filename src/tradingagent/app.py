@@ -43,6 +43,7 @@ from tradingagent.data.history import HistorySync
 from tradingagent.data.market_calendar import MarketCalendar
 from tradingagent.data.market_data import MarketDataClient, Subscription
 from tradingagent.data.mt5_terminal import Mt5Terminal
+from tradingagent.data.terminal import MAGIC as BROKER_MAGIC
 from tradingagent.execution import MT5Broker, PaperBroker, PositionTracker, TradeLog
 from tradingagent.notify.access import AccessGate
 from tradingagent.notify.commands import CommandRouter, status_handler
@@ -367,6 +368,8 @@ async def build(settings: Settings) -> Components:
         expected_login=settings.mt5_login,
         subscriptions=subscriptions,
         calendars=calendars,
+        ea_directory=settings.ea_files_dir,
+        ea_magic=BROKER_MAGIC,
         now=now,
     )
     del account_snapshot

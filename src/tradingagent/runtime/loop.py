@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable, Iterable, MutableMapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 
 from sqlalchemy import Engine
 
@@ -26,10 +27,12 @@ from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.history import HistorySync
 from tradingagent.data.market_calendar import MarketCalendar, learn_calendar
 from tradingagent.data.market_data import ClockMismatchError, Subscription
+from tradingagent.ea.bridge import EaStatus, ExpectedPosition, publish_state
+from tradingagent.ea.health import ea_health
 from tradingagent.notify.health_alerts import HealthAlerter
 from tradingagent.notify.trade_messages import PositionClosed, render_position_closed
 from tradingagent.reporting.service import ReportService
-from tradingagent.risk.model import ClosedPosition, limits_for
+from tradingagent.risk.model import BrokerPosition, ClosedPosition, limits_for
 from tradingagent.runtime.pipeline import ProcessOutcome, SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
 from tradingagent.runtime.ports import BrokerPort, MarketPort, NotifierPort
@@ -49,6 +52,8 @@ log = logging.getLogger(__name__)
 CALENDAR_BARS = 8 * 7 * 96 + 96
 DEFAULT_POLL_SECONDS = 20.0
 DEFAULT_CONNECTION_THRESHOLD_MINUTES = 10
+# The Guardian EAs stop trading after 30 s without a heartbeat (EA_PROTOCOL §6).
+EA_PUBLISH_INTERVAL = timedelta(seconds=20)
 SNAPSHOT_EVERY_CYCLES = 15  # one account snapshot every five minutes at 20 s per cycle
 
 
@@ -86,6 +91,8 @@ class AgentLoop:
         expected_login: int,
         subscriptions: Iterable[Subscription],
         calendars: MutableMapping[str, MarketCalendar] | None = None,
+        ea_directory: Path | None = None,
+        ea_magic: int = 0,
         poll_seconds: float = DEFAULT_POLL_SECONDS,
         connection_threshold: timedelta = timedelta(minutes=DEFAULT_CONNECTION_THRESHOLD_MINUTES),
         now: Callable[[], datetime],
@@ -116,6 +123,12 @@ class AgentLoop:
         self._stop = False
         # Shared with the pipeline: the same learned calendars, updated in place.
         self._calendars = calendars if calendars is not None else {}
+        # The MQL5 Guardians stop trading on their own when the heartbeat goes quiet, so the
+        # state must be republished well inside their timeout (EA_PROTOCOL §6).
+        self._ea_directory = ea_directory
+        self._ea_magic = ea_magic
+        self._ea_last_publish: datetime | None = None
+        self._ea_offline: set[str] = set()
         self._snapshots = AccountStore(engine)
         self._events = SystemEventStore(engine)
         self._telemetry = ExecutionEventStore(engine)
@@ -196,6 +209,7 @@ class AgentLoop:
             await self._poll(subscription, now, report)
 
         await self._reconcile(now, report)
+        await self._sync_eas(now)
         await self._check_limits(now, report)
         if self._cycles % SNAPSHOT_EVERY_CYCLES == 0:
             await self._snapshot(now)
@@ -253,6 +267,73 @@ class AgentLoop:
             report.outcomes.append(outcome)
             if outcome.kind == "account_mismatch":
                 report.halted = True
+
+    async def _sync_eas(self, now: datetime) -> None:
+        """Publish the expected state to the Guardian EAs and watch their heartbeat.
+
+        The EA stops trading on its own when the backend goes quiet, so this runs well
+        inside its timeout. A bridge failure is logged and never breaks the cycle: the
+        terminal is a safety net, not a dependency of the trading engine.
+        """
+        if self._ea_directory is None:
+            return
+        directory = self._ea_directory
+        due = self._ea_last_publish is None or now - self._ea_last_publish >= EA_PUBLISH_INTERVAL
+        if due:
+            try:
+                positions = await self._broker.positions()
+                halt = self._halts.status()
+                self._publish_ea_state(directory, positions, halt.halted)
+                self._ea_last_publish = now
+            except Exception as error:
+                log.warning("cannot publish the EA state: %s", error)
+        await self._check_ea_health(directory, now)
+
+    def _publish_ea_state(
+        self,
+        directory: Path,
+        positions: tuple[BrokerPosition, ...],
+        halted: bool,
+    ) -> None:
+        for symbol in self.symbols:
+            expected = tuple(
+                ExpectedPosition(
+                    ticket=position.ticket,
+                    direction=position.direction,
+                    volume=float(position.volume),
+                    stop_loss=(
+                        float(position.stop_loss) if position.stop_loss is not None else None
+                    ),
+                    take_profit=(
+                        float(position.take_profit) if position.take_profit is not None else None
+                    ),
+                    comment="",
+                )
+                for position in positions
+                if position.symbol == symbol
+            )
+            publish_state(
+                directory,
+                symbol,
+                magic=self._ea_magic,
+                positions=expected,
+                kill_switch=halted,
+                max_positions=self._config.risk.simulated.max_positions_per_market,
+                now=self._now,
+            )
+
+    async def _check_ea_health(self, directory: Path, now: datetime) -> None:
+        health = ea_health(directory / "reports", now=self._now)
+        for symbol, status in health.items():
+            if status is EaStatus.OFFLINE and symbol not in self._ea_offline:
+                self._ea_offline.add(symbol)
+                self._events.record("ea_offline", Severity.WARNING, {"symbol": symbol}, now)
+                await self._alerts.component_failure(
+                    f"ea:{symbol}", "heartbeat older than the timeout", now
+                )
+            elif status is EaStatus.ONLINE and symbol in self._ea_offline:
+                self._ea_offline.discard(symbol)
+                await self._alerts.component_recovered(f"ea:{symbol}", now)
 
     async def _reconcile(self, now: datetime, report: CycleReport) -> None:
         """Compare the local state with the broker's, every cycle (RM-014, TASK-083).
