@@ -22,6 +22,7 @@ from tradingagent.core.market import Direction
 from tradingagent.core.mode import AiFilter, TradingMode
 from tradingagent.core.states import HaltAction, HaltSource, RiskOutcome, SignalState
 from tradingagent.core.timeframe import Timeframe
+from tradingagent.risk.model import BrokerPosition, OpenPosition
 from tradingagent.runtime.pipeline import SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
 from tradingagent.storage.account import AccountStore
@@ -286,3 +287,43 @@ def test_a_known_signal_is_never_processed_twice(engine: Engine) -> None:
 def test_an_unknown_signal_is_reported_not_crashed(engine: Engine) -> None:
     parts = Parts(engine)
     assert parts.run(999).kind == "missing"
+
+
+def test_the_open_exposure_is_measured_from_the_broker(engine: Engine) -> None:
+    """§21: volume * contract size * price, converted to the account currency."""
+    parts = Parts(engine)
+    empty = asyncio.run(parts.pipeline._open_exposure(()))
+    assert empty == Decimal(0)
+
+    one = asyncio.run(parts.pipeline._open_exposure((OpenPosition("XAUUSD", Decimal("0.02")),)))
+    expected = (Decimal("0.02") * Decimal(100) * Decimal("2400.2") * Decimal("0.888786")).quantize(
+        Decimal("0.000001")
+    )
+    assert one is not None
+    assert one.quantize(Decimal("0.000001")) == expected
+
+
+def test_an_unmeasurable_exposure_is_none_and_blocks_the_order(engine: Engine) -> None:
+    """Failing closed: the risk engine refuses what it cannot measure."""
+    parts = Parts(engine)
+    parts.broker.fail_quote_symbols = {"BTCUSD"}
+
+    measured = asyncio.run(
+        parts.pipeline._open_exposure((OpenPosition("BTCUSD", Decimal("0.01")),))
+    )
+    assert measured is None
+
+    signal_id = record_signal(engine)
+    parts.broker._positions[999] = BrokerPosition(
+        ticket=999,
+        symbol="BTCUSD",
+        direction=Direction.BUY,
+        volume=Decimal("0.01"),
+        open_price=Decimal("62000"),
+        stop_loss=Decimal("61000"),
+        take_profit=None,
+        mode=TradingMode.SIGNAL,
+    )
+    outcome = parts.run(signal_id)
+    assert outcome.kind == "refused"
+    assert "total_exposure" in outcome.detail

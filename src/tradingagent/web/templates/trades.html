@@ -75,7 +75,7 @@
         <td class="num {% if trade.pnl_eur < 0 %}neg{% elif trade.pnl_eur > 0 %}pos{% endif %}">{{ display.money(trade.pnl_eur, signed=True) }}</td>
         <td class="num">{{ display.money(trade.risk_eur) }}</td>
         <td>{{ display.duration(trade.closed_at - trade.opened_at) }}</td>
-        <td><a href="/trades?trade_id={{ entry.signal_id }}">ouvrir</a></td>
+        <td><a href="/trades/{{ entry.signal_id }}">rejouer</a></td>
       </tr>
     {% else %}
       <tr><td colspan="10" class="empty">Aucun trade clôturé pour ces filtres.</td></tr>
@@ -86,6 +86,9 @@
 
 {% if detail %}
   <h2>Détail du trade</h2>
+  <p class="muted">Aperçu condensé. Le <a href="/trades/{{ detail.signal_id }}">replay complet</a>
+     rejoue le signal, la décision de risque, les ordres, la position et la clôture dans
+     l'ordre chronologique.</p>
   <div class="cards">
     <div class="card"><div class="label">Marché</div><div class="value">{{ detail.trade.symbol }}</div>
       <div class="note">{{ detail.trade.strategy_ref }} — {{ detail.trade.timeframe.value }}</div></div>

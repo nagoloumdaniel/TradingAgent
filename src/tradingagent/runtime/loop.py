@@ -35,7 +35,7 @@ from tradingagent.reporting.service import ReportService
 from tradingagent.risk.model import BrokerPosition, ClosedPosition, limits_for
 from tradingagent.runtime.pipeline import ProcessOutcome, SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
-from tradingagent.runtime.ports import BrokerPort, MarketPort, NotifierPort
+from tradingagent.runtime.ports import BrokerPort, DailyLabPort, MarketPort, NotifierPort
 from tradingagent.signals.generator import GenerationStatus, SignalGenerator
 from tradingagent.storage.account import AccountStore
 from tradingagent.storage.candles import CandleStore
@@ -54,6 +54,8 @@ DEFAULT_POLL_SECONDS = 20.0
 DEFAULT_CONNECTION_THRESHOLD_MINUTES = 10
 # The Guardian EAs stop trading after 30 s without a heartbeat (EA_PROTOCOL §6).
 EA_PUBLISH_INTERVAL = timedelta(seconds=20)
+# The AI Lab pass is idempotent per UTC day; checking hourly is enough and keeps the loop free.
+LAB_CHECK_INTERVAL = timedelta(hours=1)
 SNAPSHOT_EVERY_CYCLES = 15  # one account snapshot every five minutes at 20 s per cycle
 
 
@@ -93,6 +95,7 @@ class AgentLoop:
         calendars: MutableMapping[str, MarketCalendar] | None = None,
         ea_directory: Path | None = None,
         ea_magic: int = 0,
+        lab: "DailyLabPort | None" = None,
         poll_seconds: float = DEFAULT_POLL_SECONDS,
         connection_threshold: timedelta = timedelta(minutes=DEFAULT_CONNECTION_THRESHOLD_MINUTES),
         now: Callable[[], datetime],
@@ -129,6 +132,9 @@ class AgentLoop:
         self._ea_magic = ea_magic
         self._ea_last_publish: datetime | None = None
         self._ea_offline: set[str] = set()
+        # The AI Lab pass is idempotent per UTC day; checking hourly keeps the loop simple.
+        self._lab = lab
+        self._lab_last_check: datetime | None = None
         self._snapshots = AccountStore(engine)
         self._events = SystemEventStore(engine)
         self._telemetry = ExecutionEventStore(engine)
@@ -210,6 +216,7 @@ class AgentLoop:
 
         await self._reconcile(now, report)
         await self._sync_eas(now)
+        await self._run_lab(now)
         await self._check_limits(now, report)
         if self._cycles % SNAPSHOT_EVERY_CYCLES == 0:
             await self._snapshot(now)
@@ -267,6 +274,24 @@ class AgentLoop:
             report.outcomes.append(outcome)
             if outcome.kind == "account_mismatch":
                 report.halted = True
+
+    async def _run_lab(self, now: datetime) -> None:
+        """One AI Lab pass a day: analysis of the closed trades, then hypotheses.
+
+        The pass writes analyses and proposals only, so it can never affect an order. Its
+        idempotence lives in the pass itself (a per-day marker), which is why a failure here
+        is only logged: the next cycle tries again.
+        """
+        if self._lab is None:
+            return
+        if self._lab_last_check is not None and now - self._lab_last_check < LAB_CHECK_INTERVAL:
+            return
+        self._lab_last_check = now
+        try:
+            await self._lab.run_once(now)
+        except Exception as error:
+            log.warning("AI Lab pass failed: %s", error)
+            self._events.record("ai_lab_failed", Severity.WARNING, {"detail": repr(error)}, now)
 
     async def _sync_eas(self, now: datetime) -> None:
         """Publish the expected state to the Guardian EAs and watch their heartbeat.

@@ -38,6 +38,7 @@ class PortfolioBuilder:
         open_positions: tuple[OpenPosition, ...],
         trades_today: int,
         at: datetime,
+        open_exposure_eur: Decimal | None = None,
     ) -> PortfolioState:
         snapshots = self._snapshots()
         start_day = day_start(at)
@@ -56,6 +57,9 @@ class PortfolioBuilder:
             equity_peak=peak,
             consecutive_losses=streak,
             last_loss_at=last_loss,
+            # §21: the notional already committed. None means "not measured", which the
+            # risk engine treats as a refusal rather than as zero.
+            open_exposure_eur=open_exposure_eur,
         )
 
     def trades_opened_since(self, start: datetime, at: datetime) -> int:

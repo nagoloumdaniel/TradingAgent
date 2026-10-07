@@ -11,7 +11,18 @@ from decimal import Decimal
 
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
-from tradingagent.core.states import HaltAction, HaltSource, Severity, SignalState
+from tradingagent.core.states import (
+    AnalysisKind,
+    ExecutionEventKind,
+    HaltAction,
+    HaltSource,
+    OrderState,
+    PositionState,
+    RiskOutcome,
+    Severity,
+    SignalState,
+    StrategyStatus,
+)
 
 NA = "n/a"
 EURO = "\N{EURO SIGN}"
@@ -34,6 +45,49 @@ _HALT_SOURCES = {
     HaltSource.AUTOMATIC: "automatique",
     HaltSource.TELEGRAM: "Telegram",
     HaltSource.SERVER: "serveur",
+}
+_ORDER_STATES = {
+    OrderState.SENT: "Envoyé",
+    OrderState.ACCEPTED: "Accepté",
+    OrderState.REJECTED: "Refusé",
+    OrderState.FILLED: "Exécuté",
+    OrderState.CANCELLED: "Annulé",
+    OrderState.ERROR: "Erreur",
+}
+_POSITION_STATES = {PositionState.OPEN: "Ouverte", PositionState.CLOSED: "Clôturée"}
+_RISK_OUTCOMES = {
+    RiskOutcome.AUTHORIZED: "Autorisé",
+    RiskOutcome.REDUCED: "Réduit",
+    RiskOutcome.REFUSED: "Refusé",
+}
+_EXECUTION_KINDS = {
+    ExecutionEventKind.SIGNAL_GENERATED: "Signal généré",
+    ExecutionEventKind.ORDER_REQUESTED: "Ordre demandé",
+    ExecutionEventKind.ORDER_SENT: "Ordre envoyé",
+    ExecutionEventKind.ORDER_ACCEPTED: "Ordre accepté",
+    ExecutionEventKind.ORDER_REJECTED: "Ordre refusé",
+    ExecutionEventKind.FILLED: "Exécuté",
+    ExecutionEventKind.POSITION_OPENED: "Position ouverte",
+    ExecutionEventKind.POSITION_CLOSED: "Position clôturée",
+    ExecutionEventKind.STOP_MISSING: "Stop manquant",
+    ExecutionEventKind.ERROR: "Erreur",
+}
+_ANALYSIS_KINDS = {
+    AnalysisKind.LOSS_ANALYSIS: "Analyse de perte",
+    AnalysisKind.DEGRADATION: "Dégradation",
+    AnalysisKind.REGIME: "Régime de marché",
+    AnalysisKind.HYPOTHESIS: "Hypothèse",
+    AnalysisKind.POSTMORTEM: "Post-mortem",
+}
+_STRATEGY_STATUSES = {
+    StrategyStatus.DISCOVERED: "Découverte",
+    StrategyStatus.EXPERIMENTAL: "Expérimentale",
+    StrategyStatus.BACKTESTING: "Backtest",
+    StrategyStatus.VALIDATING: "Validation",
+    StrategyStatus.PAPER: "Papier",
+    StrategyStatus.CANDIDATE: "Candidate",
+    StrategyStatus.LIVE: "Live",
+    StrategyStatus.DEPRECATED: "Retirée",
 }
 _SIGNAL_STATES = {
     SignalState.CANDIDATE: "Candidat",
@@ -136,25 +190,97 @@ def signal_state_label(state: SignalState) -> str:
     return _SIGNAL_STATES.get(state, str(state))
 
 
+def order_state_label(state: str) -> str:
+    """Order states arrive as their stored value; an unknown one is shown as stored."""
+    try:
+        return _ORDER_STATES.get(OrderState(state), state)
+    except ValueError:
+        return state
+
+
+def position_state_label(state: str) -> str:
+    try:
+        return _POSITION_STATES.get(PositionState(state), state)
+    except ValueError:
+        return state
+
+
+def risk_outcome_label(outcome: RiskOutcome | str) -> str:
+    try:
+        parsed = RiskOutcome(outcome)
+    except ValueError:
+        return str(outcome)
+    return _RISK_OUTCOMES.get(parsed, str(outcome))
+
+
+def execution_kind_label(kind: ExecutionEventKind | str) -> str:
+    try:
+        parsed = ExecutionEventKind(kind)
+    except ValueError:
+        return str(kind)
+    return _EXECUTION_KINDS.get(parsed, str(kind))
+
+
+def analysis_kind_label(kind: AnalysisKind | str) -> str:
+    try:
+        parsed = AnalysisKind(kind)
+    except ValueError:
+        return str(kind)
+    return _ANALYSIS_KINDS.get(parsed, str(kind))
+
+
+def strategy_status_label(status: StrategyStatus | str) -> str:
+    try:
+        parsed = StrategyStatus(status)
+    except ValueError:
+        return str(status)
+    return _STRATEGY_STATUSES.get(parsed, str(status))
+
+
+def r_multiple(value: Decimal | float | None) -> str:
+    """Realized R, written the way the storage layer defines it (profit over risk)."""
+    return NA if value is None else f"{float(value):+.2f} R"
+
+
+def milliseconds(value: int | None) -> str:
+    """A measured hop latency. Absent stays absent: no zero is invented."""
+    return NA if value is None else f"{value} ms"
+
+
+def ratio_class(value: Decimal | float | None) -> str:
+    if value is None:
+        return ""
+    return "pos" if value > 0 else ("neg" if value < 0 else "")
+
+
 def severity_class(severity: Severity) -> str:
     return {"info": "ok", "warning": "warn", "critical": "bad"}.get(str(severity), "ok")
 
 
 __all__ = [
     "NA",
+    "analysis_kind_label",
     "direction_label",
     "duration",
+    "execution_kind_label",
     "halt_action_label",
     "halt_source_label",
+    "milliseconds",
     "mode_label",
     "moment",
     "money",
     "number",
+    "order_state_label",
     "percent",
     "percent_points",
+    "position_state_label",
     "precise",
+    "r_multiple",
     "ratio",
+    "ratio_class",
+    "risk_outcome_label",
     "severity_class",
     "severity_label",
     "signal_state_label",
+    "strategy_status_label",
 ]

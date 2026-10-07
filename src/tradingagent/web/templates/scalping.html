@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Scalping{% endblock %}
+{% block content %}
+
+<h2>Statistiques de scalping (§32)</h2>
+<p class="muted">Chaque ligne vient de <code>analytics.scalping</code> : le tableau de bord ne
+   recalcule aucun indicateur, il affiche.</p>
+
+{% if view.trades == 0 %}
+  <div class="empty">Aucun trade clôturé : les découpes apparaîtront dès la première clôture.</div>
+{% else %}
+  <div class="cards">
+    <div class="card">
+      <div class="label">Trades analysés</div>
+      <div class="value">{{ view.trades }}</div>
+      <div class="note">toutes stratégies, tous marchés</div>
+    </div>
+    <div class="card">
+      <div class="label">Latence médiane</div>
+      <div class="value sm">
+        {{ display.number(view.execution.median_latency_ms, 0) if view.execution.median_latency_ms is not none else "n/a" }} ms
+      </div>
+      <div class="note">order_sent → filled, {{ view.execution.sample }} mesure(s)</div>
+    </div>
+    <div class="card">
+      <div class="label">Pire latence</div>
+      <div class="value sm">
+        {{ display.number(view.execution.worst_latency_ms, 0) if view.execution.worst_latency_ms is not none else "n/a" }} ms
+      </div>
+      <div class="note">la queue compte plus que la moyenne</div>
+    </div>
+    <div class="card">
+      <div class="label">Slippage moyen / max</div>
+      <div class="value sm">{{ display.number(view.costs.average_slippage, 4) }} / {{ display.number(view.costs.max_slippage, 4) }}</div>
+      <div class="note">{{ view.costs.slippage_sample }} trade(s) avec la donnée</div>
+    </div>
+  </div>
+{% endif %}
+
+{% macro bucket_table(title, note, buckets) %}
+<h2>{{ title }}</h2>
+<p class="muted">{{ note }}</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Découpe</th><th class="num">Trades</th><th class="num">Résultat net</th>
+      <th class="num">Réussite</th><th class="num">Espérance</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for bucket in buckets %}
+      <tr>
+        <td>{{ bucket.key }}</td>
+        <td class="num">{{ bucket.sample }}</td>
+        <td class="num {{ 'pos' if bucket.net_profit > 0 else 'neg' if bucket.net_profit < 0 else '' }}">
+          {{ display.money(bucket.net_profit, signed=True) }}
+        </td>
+        <td class="num">{{ display.percent(bucket.win_rate) }}</td>
+        <td class="num">{{ display.number(bucket.expectancy) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="empty">Aucune donnée pour cette découpe.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endmacro %}
+
+{{ bucket_table("Par heure (UTC)", "Où la stratégie gagne et où elle perd, heure par heure.", view.hours) }}
+{{ bucket_table("Par session", "Sessions conventionnelles déduites de l'heure UTC, pas les horaires du courtier.", view.sessions) }}
+{{ bucket_table("Par jour de la semaine", "Un marché crypto ouvre aussi le week-end ; l'or non.", view.weekdays) }}
+{{ bucket_table("Par spread", "Bandes de spread au moment du signal, uniquement quand la donnée existe.", view.spreads) }}
+{{ bucket_table("Par durée de position", "Bandes en secondes, du plus court au plus long (0 s, 15 min, 1 h, 4 h).", view.durations) }}
+{{ bucket_table("Par taille", "Volume de la position, lu depuis la base.", view.sizes) }}
+
+<h2>Coûts</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Mesure</th><th class="num">Valeur</th><th class="num">Échantillon</th></tr></thead>
+  <tbody>
+    <tr><td>Slippage moyen</td><td class="num">{{ display.number(view.costs.average_slippage, 4) }}</td><td class="num">{{ view.costs.slippage_sample }}</td></tr>
+    <tr><td>Slippage maximal</td><td class="num">{{ display.number(view.costs.max_slippage, 4) }}</td><td class="num">{{ view.costs.slippage_sample }}</td></tr>
+    <tr><td>Spread moyen</td><td class="num">{{ display.number(view.costs.average_spread, 4) }}</td><td class="num">{{ view.costs.spread_sample }}</td></tr>
+    <tr><td>Coût moyen par trade</td><td class="num">{{ display.money(view.costs.average_cost_eur) if view.costs.average_cost_eur is not none else "n/a" }}</td><td class="num">{{ view.costs.cost_sample }}</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="muted">Un « n/a » signifie que la donnée n'existe pas en base, jamais qu'elle vaut zéro :
+   le tableau de bord n'invente aucune mesure.</p>
+
+{% endblock %}

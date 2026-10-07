@@ -4,6 +4,8 @@ import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from tradingagent.app import (
     _build_command_service,
     _declared_symbols,
@@ -116,8 +118,8 @@ def _configured(tmp_path):
 def test_the_configured_strategies_are_registered_once(tmp_path) -> None:
     engine, config = _configured(tmp_path)
     now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
-    _register_configured_strategies(engine, config, now)
-    _register_configured_strategies(engine, config, now)  # idempotent across restarts
+    _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)
+    _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)  # idempotent
 
     registry = StrategyRegistry(engine, clock=now)
     gold = registry.get("XAUUSD", "witness@1.1.0")
@@ -131,16 +133,58 @@ def test_the_configured_strategies_are_registered_once(tmp_path) -> None:
 def test_a_deprecated_strategy_stops_the_start_up(tmp_path) -> None:
     engine, config = _configured(tmp_path)
     now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
-    _register_configured_strategies(engine, config, now)
+    _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)
     registry = StrategyRegistry(engine, clock=now)
     registry.transition(
         "XAUUSD", "witness@1.1.0", StrategyStatus.DEPRECATED, "operator", "retired", now()
     )
-    try:
-        _register_configured_strategies(engine, config, now)
-    except ConfigError as error:
-        assert "deprecated" in str(error)
-        assert "witness@1.1.0 on XAUUSD" in str(error)
-    else:  # pragma: no cover - the refusal is the point
-        raise AssertionError("a deprecated strategy must stop the start-up")
+    with pytest.raises(ConfigError) as caught:
+        _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)
+    assert "DEPRECATED" in str(caught.value)
+    assert "witness@1.1.0 on XAUUSD" in str(caught.value)
+    engine.dispose()
+
+
+def test_an_executing_mode_requires_the_matching_rung(tmp_path) -> None:
+    """§14: DEMO executes only a LIVE version, and a DISCOVERED one is refused with why."""
+    engine, config = _configured(tmp_path)
+    now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
+    with pytest.raises(ConfigError) as caught:
+        _register_configured_strategies(engine, config, TradingMode.DEMO, now)
+    message = str(caught.value)
+    assert "cannot execute in DEMO" in message
+    assert "live" in message
+    engine.dispose()
+
+
+def test_paper_mode_only_requires_the_paper_rung(tmp_path) -> None:
+    engine, config = _configured(tmp_path)
+    now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
+    registry = StrategyRegistry(engine, clock=now)
+    _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)
+    registry.transition(
+        "XAUUSD", "witness@1.1.0", StrategyStatus.EXPERIMENTAL, "operator", "candidate", now()
+    )
+    registry.transition(
+        "XAUUSD", "witness@1.1.0", StrategyStatus.BACKTESTING, "operator", "measured", now()
+    )
+    registry.transition(
+        "XAUUSD", "witness@1.1.0", StrategyStatus.VALIDATING, "operator", "gates", now()
+    )
+    registry.transition("XAUUSD", "witness@1.1.0", StrategyStatus.PAPER, "operator", "paper", now())
+    registry.transition(
+        "BTCUSD", "trend_breakout@1.0.0", StrategyStatus.EXPERIMENTAL, "operator", "x", now()
+    )
+    registry.transition(
+        "BTCUSD", "trend_breakout@1.0.0", StrategyStatus.BACKTESTING, "operator", "x", now()
+    )
+    registry.transition(
+        "BTCUSD", "trend_breakout@1.0.0", StrategyStatus.VALIDATING, "operator", "x", now()
+    )
+    registry.transition(
+        "BTCUSD", "trend_breakout@1.0.0", StrategyStatus.PAPER, "operator", "x", now()
+    )
+    with pytest.raises(ConfigError):
+        _register_configured_strategies(engine, config, TradingMode.DEMO, now)
+    _register_configured_strategies(engine, config, TradingMode.PAPER, now)  # both on the rung
     engine.dispose()

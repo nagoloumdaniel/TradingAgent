@@ -42,6 +42,8 @@ READ_PATHS = (
     "/positions",
     "/trades",
     "/trades?market=XAUUSD&mode=PAPER",
+    "/trades/1",
+    "/trades/9999",
     "/strategies",
     "/ai-lab",
     "/risk",

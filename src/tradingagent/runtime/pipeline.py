@@ -25,6 +25,7 @@ from sqlalchemy import Engine
 
 from tradingagent.ai.layer import ReviewContext, ReviewOutcome
 from tradingagent.config.agent import RiskConfig
+from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.states import ExecutionEventKind, RiskOutcome, Severity, SignalState
 from tradingagent.data.market_calendar import MarketCalendar, SlotStatus
@@ -36,6 +37,7 @@ from tradingagent.notify.trade_messages import (
 from tradingagent.risk.checks import RiskContext
 from tradingagent.risk.engine import AccountModeMismatchError, RiskDecision, decide
 from tradingagent.risk.model import (
+    OpenPosition,
     OrderRequest,
     OrderResult,
     TradeIntent,
@@ -208,7 +210,11 @@ class SignalPipeline:
             now.replace(hour=0, minute=0, second=0, microsecond=0), now
         )
         state = self._portfolio.build(
-            account=account, open_positions=positions, trades_today=today, at=now
+            account=account,
+            open_positions=positions,
+            trades_today=today,
+            at=now,
+            open_exposure_eur=await self._open_exposure(positions),
         )
         context = RiskContext(
             intent=TradeIntent(
@@ -398,6 +404,29 @@ class SignalPipeline:
             await self._notifier.send(render_position_opened(notice), parse_mode="HTML")
         except Exception as error:  # a notification failure never unwinds an opened position
             log.warning("position-opened notice failed: %s", error)
+
+    async def _open_exposure(self, positions: tuple[OpenPosition, ...]) -> Decimal | None:
+        """Total notional already committed, in EUR (§21).
+
+        `OpenPosition` carries only a symbol and a volume, so the contract size and the
+        price have to come from the broker. Returning None on any doubt is deliberate: the
+        risk engine refuses an order it cannot measure, which is the safe direction.
+        """
+        if not positions:
+            return Decimal(0)
+        total = Decimal(0)
+        try:
+            for position in positions:
+                spec = await self._broker.instrument(position.symbol)
+                quote = await self._broker.quote(position.symbol, Direction.BUY, None)
+                rate = quote.profit_to_eur if quote.profit_to_eur is not None else Decimal(1)
+                total += (
+                    position.volume * spec.contract_size * quote.entry_price(Direction.BUY) * rate
+                )
+        except Exception as error:
+            log.warning("open exposure not measurable: %s", error)
+            return None
+        return total
 
     def _market_state(self, symbol: str, now: datetime) -> SlotStatus:
         calendar = self._calendar_for(symbol)

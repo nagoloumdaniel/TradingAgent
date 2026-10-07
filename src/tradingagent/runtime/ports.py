@@ -8,7 +8,7 @@ protocols: the concrete brokers defined in `execution` satisfy them without bein
 from collections.abc import Iterable
 from datetime import datetime
 from decimal import Decimal
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from tradingagent.ai.layer import ReviewContext, ReviewOutcome
 from tradingagent.core.market import Candle, Direction
@@ -16,6 +16,9 @@ from tradingagent.core.mode import AiFilter
 from tradingagent.core.states import Severity
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.market_data import Subscription
+
+if TYPE_CHECKING:  # the lab imports this module, so the reference stays one-way
+    from tradingagent.ai.daily import LabRun
 from tradingagent.risk.model import (
     AccountState,
     BrokerPosition,
@@ -69,6 +72,12 @@ class BrokerPort(Protocol):
 
 class NotifierPort(Protocol):
     async def send(self, text: str, *, parse_mode: str | None = None) -> bool: ...
+
+
+class DailyLabPort(Protocol):
+    """The once-a-day AI Lab pass. It analyses and proposes; it can never trade."""
+
+    async def run_once(self, now: datetime) -> "LabRun": ...
 
 
 class AiReviewerPort(Protocol):

@@ -31,18 +31,21 @@ propositions qui passent obligatoirement par le protocole de validation.
 | 9, 10 | Backtest réaliste, anti-surapprentissage | `backtest/harness.py`, `backtest/costs.py`, `research/protocol.py` |
 | 11, 12 | Walk-forward, Monte-Carlo, stress | `research/protocol.py` |
 | 13, 49 | Critères de sélection, portes de promotion | `registry/gates.py` |
-| 15, 16, 17 | Analyse des pertes, dégradation, boucle d'amélioration | `ai/analyst.py`, `ai/researcher.py`, `ai/evaluation.py` |
+| 15, 16, 17 | Analyse des pertes, dégradation, boucle d'amélioration | `ai/analyst.py`, `ai/researcher.py`, `ai/daily.py` (passage quotidien câblé dans la boucle) |
 | 18, 19 | EA guardians | `mt5/Experts/TradingAgent/`, `ea/bridge.py`, `ea/health.py` |
 | 20 | Latence et slippage | `storage/telemetry.py`, `runtime/pipeline.py` |
 | 21, 22 | Risk management, kill switch | `risk/`, `control/guardian.py`, `control/cli.py` |
 | 23 à 34 | Dashboard, analytics, source de vérité | `web/`, `analytics/`, `reporting/` |
+| 27, 28 | Journal des décisions, replay d'un trade | `web/` (détail `/trades/{id}`), `storage/models.py` |
+| 31, 32 | Statistiques globales et de scalping | `analytics/performance.py`, `analytics/scalping.py` |
 | 35 | Entités de base | `storage/models.py`, migration `0006` |
 | 36, 37 | Logs, observabilité, alertes | `observability.py`, `notify/` |
-| 38, 43 | Contrôle humain, sécurité | `control/`, `config/redaction.py`, `notify/access.py` |
+| 38, 43 | Contrôle humain, sécurité | `control/`, `config/redaction.py`, `notify/access.py`, `web/` (jeton d'accès) |
 | 42 | Temps réel | `web/sse.py` |
-| 44 | Environnements progressifs | `core/mode.py`, `control/live.py` |
+| 44 | Environnements progressifs | `core/mode.py`, `control/live.py`, `reporting/campaign.py` |
 | 45, 46 | Santé du système, anomalies | `web/` (page system), `control/guardian.py`, `ea/health.py` |
 | 47, 48 | Performance du scalper, rentabilité | `analytics/`, `reporting/comparison.py` |
+| 50, 52 | Boucle recherche → validation → déploiement | `research/`, `registry/`, `ai/daily.py`, `runtime/` |
 | 51 | Dashboard final | `web/views.py`, `web/templates/` |
 | 53 | Ordre de développement | phases de `ROADMAP.md` |
 

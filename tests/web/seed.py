@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Connection, Engine, insert
+from sqlalchemy import Connection, Engine, insert, select
 
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
@@ -146,6 +146,7 @@ class Seeded:
     xau_signal_id: int
     btc_signal_id: int
     losing_signal_id: int
+    refused_signal_id: int
     report_id: int
     signal_generated_at: datetime
 
@@ -251,11 +252,48 @@ def seed(engine: Engine) -> Seeded:
             xau_signal_id=xau_signal,
             btc_signal_id=btc_signal,
             losing_signal_id=losing_signal,
+            refused_signal_id=refused_signal,
             report_id=report_id,
             signal_generated_at=NOW - timedelta(days=1, hours=4),
         )
     _daily(engine)
     return seeded
+
+
+def add_chain(
+    engine: Engine,
+    *,
+    ref: str = WITNESS,
+    market: str = XAU,
+    direction: Direction = Direction.BUY,
+    generated_at: datetime,
+    closed: bool = True,
+    with_execution: bool = True,
+) -> int:
+    """Append one more signal chain to an already-seeded database, and return its signal id.
+
+    The dashboard tests need shapes the representative dataset deliberately does not carry:
+    a closed trade with no fill, a position that never closed. Every table here is
+    append-only — a test appends rather than deletes — and this helper keeps the row shape
+    in one place instead of duplicating it in a test.
+    """
+    risk = Decimal("5.00")
+    with engine.begin() as connection:
+        version_id = connection.execute(
+            select(StrategyVersionRow.id).where(StrategyVersionRow.ref == ref)
+        ).scalar_one()
+        return _chain(
+            connection,
+            int(version_id),
+            market,
+            direction,
+            generated_at,
+            generated_at + timedelta(hours=1) if closed else None,
+            Decimal("1.00") if closed else None,
+            risk,
+            TradingMode.PAPER,
+            with_execution=with_execution,
+        )
 
 
 def _daily(engine: Engine) -> None:
@@ -297,6 +335,7 @@ def _chain(
     *,
     volume: Decimal = Decimal("0.02"),
     open_price: float = 2650.0,
+    with_execution: bool = True,
 ) -> int:
     """One signal → one order → one position → (one trade). Returns the signal id."""
     signal = _signal(connection, version_id, market, direction, generated_at)
@@ -347,16 +386,17 @@ def _chain(
             decided_at=generated_at,
         )
     )
-    connection.execute(
-        insert(ExecutionRow).values(
-            order_id=order,
-            broker_deal_ticket=900000 + signal,
-            price=open_price,
-            volume=volume,
-            slippage=0.15,
-            executed_at=generated_at + timedelta(seconds=2),
+    if with_execution:
+        connection.execute(
+            insert(ExecutionRow).values(
+                order_id=order,
+                broker_deal_ticket=900000 + signal,
+                price=open_price,
+                volume=volume,
+                slippage=0.15,
+                executed_at=generated_at + timedelta(seconds=2),
+            )
         )
-    )
     if closed_at is not None and pnl is not None:
         connection.execute(
             insert(TradeRow).values(

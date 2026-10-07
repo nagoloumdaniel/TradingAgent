@@ -14,19 +14,31 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, insert, make_url
-from tests.web.seed import NOW, Seeded, seed
+from sqlalchemy import Engine, insert, make_url, select
+from tests.web.seed import NOW, XAU, Seeded, seed
 
-from tradingagent.core.states import HaltAction, HaltSource
+from tradingagent.core.states import ExecutionEventKind, HaltAction, HaltSource
 from tradingagent.ea.bridge import PROTOCOL_VERSION, format_utc, report_path
 from tradingagent.storage.engine import create_database_engine
 from tradingagent.storage.migrate import downgrade, upgrade
-from tradingagent.storage.models import HaltCommandRow
+from tradingagent.storage.models import ExecutionEventRow, HaltCommandRow, OrderRow
 from tradingagent.web.app import create_app
+from tradingagent.web.auth import ACCESS_ENV_VAR
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 # DEFAULT_HEARTBEAT_TIMEOUT_SECONDS: a heartbeat older than this is OFFLINE.
 HEARTBEAT_TIMEOUT = 15.0
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test inherits a real ``TRADINGAGENT_WEB_TOKEN`` from the developer's shell.
+
+    Access protection is opt-in (§43): a test that wants it declares the token itself, via
+    ``monkeypatch.setenv`` or ``create_app(..., access_token=...)``. Without this guard a
+    protected shell would turn every page test into a 401.
+    """
+    monkeypatch.delenv(ACCESS_ENV_VAR, raising=False)
 
 
 def _guard(url: str) -> str:
@@ -239,3 +251,34 @@ def corrupt_ea_client(
         create_app(engine, now=lambda: NOW, ea_reports_dir=unreadable_reports_dir)
     ) as test_client:
         yield test_client
+
+
+# The measured hops of the first closed chain, as the runtime records them: the payload
+# carries the latency the pipeline clocked, and the event is linked to both the order and
+# the signal. Declared here, not in ``seed()``, so the latency table of the system page
+# keeps its single, separate sample.
+REPLAY_HOPS: tuple[tuple[ExecutionEventKind, int, int], ...] = (
+    (ExecutionEventKind.ORDER_SENT, 0, 12),
+    (ExecutionEventKind.FILLED, 1, 148),
+)
+
+
+@pytest.fixture
+def replay_telemetry(engine: Engine, populated: Seeded) -> Seeded:
+    """Execution events attached to the XAU winning trade, with their ``elapsed_ms``."""
+    with engine.begin() as connection:
+        order_id = connection.execute(
+            select(OrderRow.id).where(OrderRow.signal_id == populated.xau_signal_id)
+        ).scalar_one()
+        for kind, offset, elapsed_ms in REPLAY_HOPS:
+            connection.execute(
+                insert(ExecutionEventRow).values(
+                    order_id=order_id,
+                    signal_id=populated.xau_signal_id,
+                    symbol=XAU,
+                    kind=kind,
+                    detail={"hop": kind.value, "elapsed_ms": elapsed_ms},
+                    occurred_at=populated.signal_generated_at + timedelta(seconds=offset),
+                )
+            )
+    return populated

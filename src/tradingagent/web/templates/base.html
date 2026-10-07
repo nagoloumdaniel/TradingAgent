@@ -207,6 +207,10 @@ tbody tr:hover { background: #ffffff06; }
 tbody tr.total { background: var(--surface-2); font-weight: 600; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
 td.num { font-size: 12.5px; }
+/* A figure inside a key/value table: same monospace rule, left-aligned with its label. */
+td.mono { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 12.5px; }
+/* Long prose and hashes: a nowrap cell would widen the page instead of wrapping. */
+td.wrap, th.wrap { white-space: normal; overflow-wrap: anywhere; }
 
 /* -- semantic colour ------------------------------------------------------------------ */
 
@@ -321,7 +325,8 @@ ul.alerts .when { color: var(--faint); font-family: var(--font-mono); font-size:
 <div class="shell">
   <nav class="side">
     {% for path, label in pages %}
-      <a href="{{ path }}" {% if request.url.path == path %}class="active" aria-current="page"{% endif %}>{{ label }}</a>
+      {% set active = request.url.path == path or (path != '/' and request.url.path.startswith(path + '/')) %}
+      <a href="{{ path }}" {% if active %}class="active" aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>
   <main>

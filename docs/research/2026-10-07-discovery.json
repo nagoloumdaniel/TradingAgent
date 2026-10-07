@@ -1,0 +1,891 @@
+{
+  "generated_at": "2026-10-07T05:34:34.320957+00:00",
+  "source": "scripts/backtest/discover.py",
+  "datasets": {
+    "XAUUSD": {
+      "dataset_id": "mt5-2026-10-07",
+      "fingerprint": "f0d6c90ff7671a7961ad6b1ae5593eb8fbb34cacaa7f3afe28ddf6930f701bc3",
+      "source": "deriv-mt5:2026-10-07T02:45:00+00:00",
+      "bars": 3999
+    }
+  },
+  "report": {
+    "protocol": {
+      "train_fraction": 0.6,
+      "validation_fraction": 0.2,
+      "perturbation": 0.1,
+      "min_trades": 30,
+      "min_walk_forward_ratio": 0.5,
+      "max_parameter_dispersion": 0.5,
+      "min_stability_score": 0.5,
+      "min_profitable_regime_ratio": 0.5,
+      "min_out_of_sample_retention": 0.5,
+      "walk_forward": {
+        "train_bars": 250,
+        "validation_bars": 100,
+        "step_bars": 150,
+        "max_folds": 6
+      },
+      "costs": {
+        "spread_fraction": 5e-05,
+        "slippage_fraction": 2e-05,
+        "commission": "0.5"
+      }
+    },
+    "markets": [
+      {
+        "market": "XAUUSD",
+        "dataset_id": "mt5-2026-10-07",
+        "fingerprint": "f0d6c90ff7671a7961ad6b1ae5593eb8fbb34cacaa7f3afe28ddf6930f701bc3",
+        "bars": 3999,
+        "train_bars": 2399,
+        "validation_bars": 799,
+        "holdout_bars": 801,
+        "walk_forward_folds": 6,
+        "holdout_unlocks": 1,
+        "skipped": null
+      }
+    ],
+    "families": [
+      {
+        "family": "trend_following",
+        "description": "suivi de tendance (croisement EMA)",
+        "tested": 8,
+        "retained": 0,
+        "discarded": 8,
+        "failures": [
+          {
+            "cause": "overfitting",
+            "count": 6,
+            "description": "walk-forward non profitable : surapprentissage"
+          },
+          {
+            "cause": "unstable",
+            "count": 2,
+            "description": "score de stabilit\u00c3\u00a9 insuffisant"
+          }
+        ]
+      },
+      {
+        "family": "momentum",
+        "description": "momentum normalis\u00c3\u00a9 par l'ATR",
+        "tested": 2,
+        "retained": 0,
+        "discarded": 2,
+        "failures": [
+          {
+            "cause": "overfitting",
+            "count": 2,
+            "description": "walk-forward non profitable : surapprentissage"
+          }
+        ]
+      },
+      {
+        "family": "mean_reversion",
+        "description": "retour \u00e0 la moyenne (RSI)",
+        "tested": 2,
+        "retained": 1,
+        "discarded": 1,
+        "failures": [
+          {
+            "cause": "overfitting",
+            "count": 1,
+            "description": "walk-forward non profitable : surapprentissage"
+          }
+        ]
+      },
+      {
+        "family": "breakout",
+        "description": "cassure de canal Donchian",
+        "tested": 2,
+        "retained": 0,
+        "discarded": 2,
+        "failures": [
+          {
+            "cause": "overfitting",
+            "count": 2,
+            "description": "walk-forward non profitable : surapprentissage"
+          }
+        ]
+      },
+      {
+        "family": "volatility_breakout",
+        "description": "cassure de volatilit\u00c3\u00a9 (expansion ATR)",
+        "tested": 2,
+        "retained": 0,
+        "discarded": 2,
+        "failures": [
+          {
+            "cause": "overfitting",
+            "count": 2,
+            "description": "walk-forward non profitable : surapprentissage"
+          }
+        ]
+      },
+      {
+        "family": "ensemble",
+        "description": "ensemble : consensus tendance + RSI",
+        "tested": 1,
+        "retained": 0,
+        "discarded": 1,
+        "failures": [
+          {
+            "cause": "overfitting",
+            "count": 1,
+            "description": "walk-forward non profitable : surapprentissage"
+          }
+        ]
+      }
+    ],
+    "totals": {
+      "tested": 17,
+      "retained": 1,
+      "discarded": 16,
+      "failures": [
+        {
+          "cause": "overfitting",
+          "count": 14,
+          "description": "walk-forward non profitable : surapprentissage"
+        },
+        {
+          "cause": "unstable",
+          "count": 2,
+          "description": "score de stabilit\u00c3\u00a9 insuffisant"
+        }
+      ]
+    },
+    "candidates": [
+      {
+        "market": "XAUUSD",
+        "family": "trend_following",
+        "label": "witness:00",
+        "strategy_id": "witness",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "unstable",
+        "detail": "out-of-sample retention -0.84 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 10.0,
+          "ema_slow": 30.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 1.5
+        },
+        "train_net_profit": "138.441275183240",
+        "validation_net_profit": "-115.672679067590",
+        "out_of_sample_net_profit": null,
+        "train_trades": 54,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 4,
+        "walk_forward_ratio": 0.6666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.2046944030700235,
+          "out_of_sample_retention": -0.8355360705431697,
+          "parameter_dispersion": 0.1588426615499608,
+          "profitable_regime_ratio": 0.0,
+          "trades": 27,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.84 below 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.20 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "trend_following",
+        "label": "witness:01",
+        "strategy_id": "witness",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "unstable",
+        "detail": "out-of-sample retention -0.45 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 10.0,
+          "ema_slow": 30.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.5
+        },
+        "train_net_profit": "156.633880191090",
+        "validation_net_profit": "-70.653355062480",
+        "out_of_sample_net_profit": null,
+        "train_trades": 50,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 4,
+        "walk_forward_ratio": 0.6666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.09703327248883944,
+          "out_of_sample_retention": -0.4510732606271671,
+          "parameter_dispersion": 0.3382778791852676,
+          "profitable_regime_ratio": 0.0,
+          "trades": 26,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.45 below 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.10 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "trend_following",
+        "label": "witness:02",
+        "strategy_id": "witness",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -0.21 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 10.0,
+          "ema_slow": 60.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 1.5
+        },
+        "train_net_profit": "111.291345643600",
+        "validation_net_profit": "-22.883083958660",
+        "out_of_sample_net_profit": null,
+        "train_trades": 45,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.0,
+          "out_of_sample_retention": -0.20561422657194667,
+          "parameter_dispersion": 0.5292565494460978,
+          "profitable_regime_ratio": 0.0,
+          "trades": 16,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.21 below 0.50",
+            "parameter dispersion 0.53 above 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.00 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "trend_following",
+        "label": "witness:03",
+        "strategy_id": "witness",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -0.36 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 10.0,
+          "ema_slow": 60.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.5
+        },
+        "train_net_profit": "128.333280883530",
+        "validation_net_profit": "-45.574329409190",
+        "out_of_sample_net_profit": null,
+        "train_trades": 43,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.057120166436142934,
+          "out_of_sample_retention": -0.3551247898863537,
+          "parameter_dispersion": 0.40479972260642844,
+          "profitable_regime_ratio": 0.0,
+          "trades": 14,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.36 below 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.06 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "trend_following",
+        "label": "witness:04",
+        "strategy_id": "witness",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention 0.00 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 20.0,
+          "ema_slow": 30.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 1.5
+        },
+        "train_net_profit": "-7.734067171500",
+        "validation_net_profit": "-12.738995655040",
+        "out_of_sample_net_profit": null,
+        "train_trades": 40,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.0,
+          "out_of_sample_retention": 0.0,
+          "parameter_dispersion": 1.3012701857455067,
+          "profitable_regime_ratio": 0.0,
+          "trades": 22,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention 0.00 below 0.50",
+            "parameter dispersion 1.30 above 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.00 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "trend_following",
+        "label": "witness:05",
+        "strategy_id": "witness",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention 0.32 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 20.0,
+          "ema_slow": 30.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.5
+        },
+        "train_net_profit": "56.311850012810",
+        "validation_net_profit": "18.073903720520",
+        "out_of_sample_net_profit": null,
+        "train_trades": 40,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.3604804647370713,
+          "out_of_sample_retention": 0.3209609294741425,
+          "parameter_dispersion": 9.444794919194754,
+          "profitable_regime_ratio": 1.0,
+          "trades": 21,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention 0.32 below 0.50",
+            "parameter dispersion 9.44 above 0.50",
+            "stability score 0.36 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "trend_following",
+        "label": "witness:06",
+        "strategy_id": "witness",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -4.50 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 20.0,
+          "ema_slow": 60.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 1.5
+        },
+        "train_net_profit": "11.311252715310",
+        "validation_net_profit": "-50.870764874190",
+        "out_of_sample_net_profit": null,
+        "train_trades": 31,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.08237159637006346,
+          "out_of_sample_retention": -4.497359059561584,
+          "parameter_dispersion": 0.36271400604989423,
+          "profitable_regime_ratio": 0.0,
+          "trades": 14,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -4.50 below 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.08 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "trend_following",
+        "label": "witness:07",
+        "strategy_id": "witness",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -0.25 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 20.0,
+          "ema_slow": 60.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.5
+        },
+        "train_net_profit": "45.931114889620",
+        "validation_net_profit": "-11.533378971930",
+        "out_of_sample_net_profit": null,
+        "train_trades": 31,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.0,
+          "out_of_sample_retention": -0.2511016551556957,
+          "parameter_dispersion": 2.1224613608458363,
+          "profitable_regime_ratio": 0.0,
+          "trades": 14,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.25 below 0.50",
+            "parameter dispersion 2.12 above 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.00 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "momentum",
+        "label": "momentum:00",
+        "strategy_id": "momentum",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention 0.00 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "entry_zone_atr": 0.1,
+          "momentum_period": 10.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.0,
+          "threshold_atr": 1.0
+        },
+        "train_net_profit": "-134.885232292810",
+        "validation_net_profit": "-66.512522689760",
+        "out_of_sample_net_profit": null,
+        "train_trades": 165,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.0,
+          "out_of_sample_retention": 0.0,
+          "parameter_dispersion": 0.835364664587981,
+          "profitable_regime_ratio": 0.0,
+          "trades": 57,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention 0.00 below 0.50",
+            "parameter dispersion 0.84 above 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.00 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "momentum",
+        "label": "momentum:01",
+        "strategy_id": "momentum",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention 0.00 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "entry_zone_atr": 0.1,
+          "momentum_period": 20.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.0,
+          "threshold_atr": 1.0
+        },
+        "train_net_profit": "-63.644235509040",
+        "validation_net_profit": "-29.418732786470",
+        "out_of_sample_net_profit": null,
+        "train_trades": 157,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.0,
+          "out_of_sample_retention": 0.0,
+          "parameter_dispersion": 0.6746548707074763,
+          "profitable_regime_ratio": 0.0,
+          "trades": 62,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention 0.00 below 0.50",
+            "parameter dispersion 0.67 above 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.00 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "mean_reversion",
+        "label": "mean_reversion:00",
+        "strategy_id": "mean_reversion",
+        "version": "0.1.0",
+        "retained": true,
+        "cause": null,
+        "detail": "",
+        "parameters": {
+          "atr_period": 14.0,
+          "entry_zone_atr": 0.1,
+          "overbought": 70.0,
+          "oversold": 30.0,
+          "rsi_period": 14.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.0
+        },
+        "train_net_profit": "-44.007626719600",
+        "validation_net_profit": "50.926794228380",
+        "out_of_sample_net_profit": "41.975440879860",
+        "train_trades": 75,
+        "out_of_sample_trades": 21,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 4,
+        "walk_forward_ratio": 0.6666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": true,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.7770599167128842,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 0.3715668054785262,
+          "profitable_regime_ratio": 1.0,
+          "trades": 20,
+          "fragile": false,
+          "reasons": []
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "mean_reversion",
+        "label": "mean_reversion:01",
+        "strategy_id": "mean_reversion",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "",
+        "parameters": {
+          "atr_period": 14.0,
+          "entry_zone_atr": 0.1,
+          "overbought": 70.0,
+          "oversold": 30.0,
+          "rsi_period": 21.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.0
+        },
+        "train_net_profit": "-151.309927001120",
+        "validation_net_profit": "52.604197245150",
+        "out_of_sample_net_profit": null,
+        "train_trades": 39,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.7789088602858361,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 0.36848523285693996,
+          "profitable_regime_ratio": 1.0,
+          "trades": 9,
+          "fragile": false,
+          "reasons": []
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "breakout",
+        "label": "trend_breakout:00",
+        "strategy_id": "trend_breakout",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention 0.00 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "channel_period": 20.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.0,
+          "trend_period": 50.0
+        },
+        "train_net_profit": "-42.178777291280",
+        "validation_net_profit": "-85.877098706140",
+        "out_of_sample_net_profit": null,
+        "train_trades": 123,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.24601030168848093,
+          "out_of_sample_retention": 0.0,
+          "parameter_dispersion": 0.0899828305191984,
+          "profitable_regime_ratio": 0.0,
+          "trades": 34,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention 0.00 below 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.25 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "breakout",
+        "label": "trend_breakout:01",
+        "strategy_id": "trend_breakout",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "parameter dispersion 0.68 above 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "channel_period": 40.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.0,
+          "trend_period": 50.0
+        },
+        "train_net_profit": "-122.229507714760",
+        "validation_net_profit": "12.708306681340",
+        "out_of_sample_net_profit": null,
+        "train_trades": 92,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.7,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 0.6781671274822701,
+          "profitable_regime_ratio": 1.0,
+          "trades": 22,
+          "fragile": true,
+          "reasons": [
+            "parameter dispersion 0.68 above 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "volatility_breakout",
+        "label": "volatility_breakout:00",
+        "strategy_id": "volatility_breakout",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention 0.00 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "breakout_atr": 0.5,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.0
+        },
+        "train_net_profit": "-97.332643188060",
+        "validation_net_profit": "-54.985889290640",
+        "out_of_sample_net_profit": null,
+        "train_trades": 173,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.0,
+          "out_of_sample_retention": 0.0,
+          "parameter_dispersion": 0.8560189484511218,
+          "profitable_regime_ratio": 0.0,
+          "trades": 63,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention 0.00 below 0.50",
+            "parameter dispersion 0.86 above 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.00 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "volatility_breakout",
+        "label": "volatility_breakout:01",
+        "strategy_id": "volatility_breakout",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -0.73 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "breakout_atr": 1.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.0
+        },
+        "train_net_profit": "91.342114689970",
+        "validation_net_profit": "-66.426623798080",
+        "out_of_sample_net_profit": null,
+        "train_trades": 141,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.0,
+          "out_of_sample_retention": -0.7272288803860385,
+          "parameter_dispersion": 0.8425544425035557,
+          "profitable_regime_ratio": 0.0,
+          "trades": 49,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.73 below 0.50",
+            "parameter dispersion 0.84 above 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.00 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "ensemble",
+        "label": "consensus_ensemble:00",
+        "strategy_id": "consensus_ensemble",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -0.82 below 0.50",
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 10.0,
+          "ema_slow": 30.0,
+          "entry_zone_atr": 0.1,
+          "rsi_bear": 45.0,
+          "rsi_bull": 55.0,
+          "rsi_period": 14.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.0
+        },
+        "train_net_profit": "123.054118168110",
+        "validation_net_profit": "-100.713249691920",
+        "out_of_sample_net_profit": null,
+        "train_trades": 145,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.15814304156491044,
+          "out_of_sample_retention": -0.8184468036602474,
+          "parameter_dispersion": 0.23642826405848263,
+          "profitable_regime_ratio": 0.0,
+          "trades": 63,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.82 below 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.16 below 0.50"
+          ]
+        }
+      }
+    ]
+  }
+}

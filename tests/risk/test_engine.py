@@ -53,7 +53,7 @@ def test_without_a_stop_sizing_is_not_attempted() -> None:
 
 def test_the_checks_record_keeps_every_verdict() -> None:
     record = decide(context(), LOGIN).checks_record()
-    assert len(record) == 16
+    assert len(record) == 18  # 17 controls (RM-004 to RM-019) plus sizing
     assert all(entry["passed"] for entry in record.values())
 
 
@@ -123,3 +123,21 @@ def test_live_sizing_never_exceeds_the_declared_capital() -> None:
     sizing_check = next(c for c in decision.checks if c.name == "sizing")
     assert not sizing_check.passed
     assert "minimum lot" in sizing_check.reason
+
+
+def test_an_over_exposed_portfolio_is_refused_by_the_engine() -> None:
+    """RM-008: 10,000 EUR already open plus this order crosses the capital ceiling."""
+    ctx = context()
+    ctx = replace(ctx, portfolio=replace(ctx.portfolio, open_exposure_eur=D(10000)))
+    decision = decide(ctx, LOGIN)
+    assert decision.outcome is RiskOutcome.REFUSED
+    assert "total_exposure" in {check.name for check in decision.refusals}
+    assert decision.sizing is None
+
+
+def test_an_excessive_expected_slippage_is_refused_by_the_engine() -> None:
+    """RM-012: half a point of slippage on a 0.2 spread is over the ceiling."""
+    ctx = context(quote=replace(GOLD_QUOTE, expected_slippage=D("0.5")))
+    decision = decide(ctx, LOGIN)
+    assert decision.outcome is RiskOutcome.REFUSED
+    assert "slippage" in {check.name for check in decision.refusals}

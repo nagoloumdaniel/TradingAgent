@@ -104,6 +104,9 @@ class FakeBroker:
         self.placed: list[OrderRequest] = []
         self.closed: list[tuple[int, str]] = []
         self.divergences: tuple[str, ...] = ()
+        # Symbols whose quote raises, so a test can make one measurement impossible
+        # without breaking the quote the risk engine itself needs.
+        self.fail_quote_symbols: set[str] = set()
         self._positions: dict[int, BrokerPosition] = {}
         self._closed_queue: list[ClosedPosition] = []
 
@@ -119,6 +122,8 @@ class FakeBroker:
     async def quote(
         self, symbol: str, direction: Direction, stop_loss: Decimal | None = None
     ) -> MarketQuote:
+        if symbol in self.fail_quote_symbols:
+            raise RuntimeError(f"no quote for {symbol}")
         return GOLD_QUOTE
 
     async def open_positions(self) -> tuple[OpenPosition, ...]:

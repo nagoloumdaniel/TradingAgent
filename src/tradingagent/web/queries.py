@@ -21,10 +21,21 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import Engine, desc, select, text
+from sqlalchemy import Engine, desc, or_, select, text
 from sqlalchemy.orm import Session
 
 from tradingagent.analytics import Axis, Performance, Trade, compute_performance, group
+from tradingagent.analytics.scalping import (
+    Bucket,
+    CostSummary,
+    by_duration,
+    by_hour,
+    by_session,
+    by_size,
+    by_spread,
+    by_weekday,
+    cost_summary,
+)
 from tradingagent.config._yaml import read_yaml
 from tradingagent.config.agent import RiskConfig, RiskProfile
 from tradingagent.config.errors import ConfigError
@@ -40,6 +51,7 @@ from tradingagent.core.states import (
     StrategyStatus,
     ValidationStage,
 )
+from tradingagent.core.timeframe import Timeframe
 from tradingagent.ea.bridge import (
     DEFAULT_HEARTBEAT_TIMEOUT_SECONDS,
     EaEvent,
@@ -72,6 +84,7 @@ from tradingagent.storage.models import (
     ValidationRunRow,
 )
 from tradingagent.storage.positions import OpenPosition, PositionReader
+from tradingagent.storage.scalping import ExecutionCosts, execution_costs, size_of
 from tradingagent.storage.telemetry import ExecutionEventStore, LatencyStats
 
 # The whole-history window: bounded and tz-aware. A reader never depends on the clock to
@@ -270,6 +283,422 @@ def trade_detail(engine: Engine, signal_id: int) -> TradeDetail | None:
             )
             for execution in executions
         ),
+    )
+
+
+# ---------------------------------------------------------------------------------------
+# Trade replay (§28): the whole provenance of one signal, in chronological order.
+# ---------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class AnalysisView:
+    """What the AI observed. It never decided anything (§5, §15, §16, §39).
+
+    Declared here because the replay page attaches an analysis to its signal; the AI
+    laboratory page reuses the very same record.
+    """
+
+    id: int
+    kind: str
+    market: str
+    ref: str | None
+    model: str
+    findings: dict[str, Any]
+    response: str | None
+    cost_eur: Decimal | None
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class SignalView:
+    """Every stored field of the signal, including the indicators that produced it."""
+
+    id: int
+    idempotency_key: str
+    symbol: str
+    timeframe: Timeframe
+    direction: Direction
+    mode: TradingMode
+    observed_price: float
+    entry_low: float
+    entry_high: float
+    stop_loss: float
+    take_profits: tuple[float, ...]
+    reason: str
+    indicators: dict[str, float]
+    generated_at: datetime
+    expires_at: datetime
+    state: str
+
+
+@dataclass(frozen=True)
+class StrategyVersionView:
+    """Which strategy version executed the trade (§27).
+
+    The ``strategy_versions`` row is the immutable snapshot taken the first time the
+    manifest was seen, so an old trade stays explainable even after the strategy moved on.
+    The registry row adds the deployment state *today*; it may legitimately be absent.
+    """
+
+    ref: str
+    strategy_id: str
+    version: str
+    content_hash: str
+    manifest: dict[str, Any]
+    first_seen_at: datetime
+    status: StrategyStatus | None
+    origin: str | None
+    promoted_at: datetime | None
+    promotion_reason: str | None
+    parameters: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class RiskDecisionView:
+    """One control-by-control risk verdict, exactly as it was persisted (RM-005)."""
+
+    outcome: RiskOutcome
+    reason: str
+    checks: dict[str, Any]
+    volume: Decimal | None
+    risk_eur: Decimal | None
+    margin_eur: Decimal | None
+    decided_at: datetime
+
+
+@dataclass(frozen=True)
+class OrderView:
+    """The order the risk verdict authorized, with the broker's return code."""
+
+    id: int
+    idempotency_key: str
+    symbol: str
+    direction: Direction
+    volume: Decimal
+    requested_price: float
+    stop_loss: float
+    take_profit: float | None
+    mode: TradingMode
+    state: str
+    broker_order_ticket: int | None
+    retcode: int | None
+    broker_comment: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
+class PositionView:
+    """The position the fill opened: entry, volume, stop, target and mode."""
+
+    broker_position_ticket: int
+    symbol: str
+    direction: Direction
+    volume: Decimal
+    open_price: float
+    stop_loss: float
+    take_profit: float | None
+    mode: TradingMode
+    state: str
+    opened_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
+class ExecutionEventView:
+    """One telemetry hop, with the latency the runtime measured for it.
+
+    ``elapsed_ms`` is read from the stored payload: it is a measurement, not a difference
+    the dashboard recomputes. A hop that carries none stays ``None`` and is shown ``n/a``.
+    """
+
+    id: int
+    kind: ExecutionEventKind
+    symbol: str
+    detail: dict[str, Any]
+    elapsed_ms: int | None
+    occurred_at: datetime
+
+
+@dataclass(frozen=True)
+class TradeReplay:
+    """One signal and everything that followed it, resolved through the real foreign keys.
+
+    A signal that never became a position — refused by the risk engine, expired, rejected —
+    is a legitimate replay: the signal, its version and its verdict are there, and
+    ``order``, ``position`` and ``trade`` are ``None``. The page states that rather than
+    pretending the chain is broken.
+    """
+
+    signal: SignalView
+    strategy: StrategyVersionView
+    risk: RiskDecisionView | None
+    order: OrderView | None
+    executions: tuple[ExecutionView, ...]
+    position: PositionView | None
+    trade: Trade | None
+    close_price: float | None
+    exit_reason: str | None
+    events: tuple[ExecutionEventView, ...]
+    analyses: tuple[AnalysisView, ...]
+
+    @property
+    def signal_id(self) -> int:
+        return self.signal.id
+
+    @property
+    def r_multiple(self) -> Decimal | None:
+        """Realized R, by the storage layer's own definition (``DailyPerformance``):
+        net profit divided by the risk the engine authorized. A ratio of two stored
+        columns, never a re-derivation of a figure the analytics package owns."""
+        if self.trade is None or self.trade.risk_eur == 0:
+            return None
+        return self.trade.pnl_eur / self.trade.risk_eur
+
+    @property
+    def total_duration(self) -> timedelta | None:
+        """Signal to close, the difference between two stored timestamps."""
+        if self.trade is None:
+            return None
+        return self.trade.closed_at - self.signal.generated_at
+
+
+def _signal_view(signal: SignalRow) -> SignalView:
+    return SignalView(
+        id=int(signal.id),
+        idempotency_key=signal.idempotency_key,
+        symbol=signal.symbol,
+        timeframe=signal.timeframe,
+        direction=signal.direction,
+        mode=signal.mode,
+        observed_price=signal.observed_price,
+        entry_low=signal.entry_low,
+        entry_high=signal.entry_high,
+        stop_loss=signal.stop_loss,
+        take_profits=tuple(float(value) for value in signal.take_profits),
+        reason=signal.reason,
+        # Sorted once, here: the stored JSON has no meaningful order and the page must read
+        # the same way on every render.
+        indicators={key: float(value) for key, value in sorted(signal.indicators.items())},
+        generated_at=signal.generated_at,
+        expires_at=signal.expires_at,
+        state=str(signal.state),
+    )
+
+
+def _strategy_view(
+    version: StrategyVersionRow, registry: StrategyRegistryRow | None
+) -> StrategyVersionView:
+    return StrategyVersionView(
+        ref=version.ref,
+        strategy_id=version.strategy_id,
+        version=version.version,
+        content_hash=version.content_hash,
+        manifest=dict(version.manifest),
+        first_seen_at=version.first_seen_at,
+        status=None if registry is None else registry.status,
+        origin=None if registry is None else registry.origin,
+        promoted_at=None if registry is None else registry.promoted_at,
+        promotion_reason=None if registry is None else registry.promotion_reason,
+        parameters={} if registry is None else dict(registry.parameters),
+    )
+
+
+def _order_view(order: OrderRow) -> OrderView:
+    return OrderView(
+        id=int(order.id),
+        idempotency_key=order.idempotency_key,
+        symbol=order.symbol,
+        direction=order.direction,
+        volume=order.volume,
+        requested_price=order.requested_price,
+        stop_loss=order.stop_loss,
+        take_profit=order.take_profit,
+        mode=order.mode,
+        state=str(order.state),
+        broker_order_ticket=order.broker_order_ticket,
+        retcode=order.retcode,
+        broker_comment=order.broker_comment,
+        created_at=order.created_at,
+        updated_at=order.updated_at,
+    )
+
+
+def _position_detail(position: PositionRow) -> PositionView:
+    return PositionView(
+        broker_position_ticket=position.broker_position_ticket,
+        symbol=position.symbol,
+        direction=position.direction,
+        volume=position.volume,
+        open_price=position.open_price,
+        stop_loss=position.stop_loss,
+        take_profit=position.take_profit,
+        mode=position.mode,
+        state=str(position.state),
+        opened_at=position.opened_at,
+        updated_at=position.updated_at,
+    )
+
+
+def _elapsed_ms(detail: dict[str, Any]) -> int | None:
+    """The measured hop latency, when the runtime recorded one. Booleans are not numbers."""
+    value = detail.get("elapsed_ms")
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _event_view(event: ExecutionEventRow) -> ExecutionEventView:
+    detail = dict(event.detail)
+    return ExecutionEventView(
+        id=int(event.id),
+        kind=event.kind,
+        symbol=event.symbol,
+        detail=detail,
+        elapsed_ms=_elapsed_ms(detail),
+        occurred_at=event.occurred_at,
+    )
+
+
+def _analysis_view(row: AiAnalysisRow) -> AnalysisView:
+    return AnalysisView(
+        id=int(row.id),
+        kind=str(row.kind),
+        market=row.market,
+        ref=row.ref,
+        model=row.model,
+        findings=dict(row.findings),
+        response=row.response,
+        cost_eur=row.cost_eur,
+        created_at=row.created_at,
+    )
+
+
+def trade_replay(engine: Engine, signal_id: int) -> TradeReplay | None:
+    """The full replay of one signal, or ``None`` when no such signal exists.
+
+    The chain is walked through the stored foreign keys — signal → version, signal →
+    decision, signal → order → position → trade — so a missing link yields an explicit
+    empty section instead of an exception.
+    """
+    with Session(engine) as session:
+        signal = session.get(SignalRow, signal_id)
+        if signal is None:
+            return None
+        version = session.get(StrategyVersionRow, signal.strategy_version_id)
+        if version is None:
+            return None
+        registry = session.scalars(
+            select(StrategyRegistryRow).where(
+                StrategyRegistryRow.market == signal.symbol,
+                StrategyRegistryRow.ref == version.ref,
+            )
+        ).first()
+        decision = session.scalars(
+            select(RiskDecisionRow)
+            .where(RiskDecisionRow.signal_id == signal.id)
+            .order_by(desc(RiskDecisionRow.id))
+            .limit(1)
+        ).first()
+        order = session.scalars(
+            select(OrderRow).where(OrderRow.signal_id == signal.id).order_by(OrderRow.id)
+        ).first()
+        position = (
+            None
+            if order is None
+            else session.scalars(
+                select(PositionRow).where(PositionRow.order_id == order.id).order_by(PositionRow.id)
+            ).first()
+        )
+        trade_row = (
+            None
+            if position is None
+            else session.scalars(
+                select(TradeRow).where(TradeRow.position_id == position.id).order_by(TradeRow.id)
+            ).first()
+        )
+        executions = (
+            ()
+            if order is None
+            else tuple(
+                ExecutionView(
+                    price=execution.price,
+                    volume=execution.volume,
+                    slippage=execution.slippage,
+                    executed_at=execution.executed_at,
+                    broker_deal_ticket=execution.broker_deal_ticket,
+                )
+                for execution in session.scalars(
+                    select(ExecutionRow)
+                    .where(ExecutionRow.order_id == order.id)
+                    .order_by(ExecutionRow.executed_at, ExecutionRow.id)
+                ).all()
+            )
+        )
+        events = session.scalars(
+            select(ExecutionEventRow)
+            .where(_attached_to(int(signal.id), None if order is None else int(order.id)))
+            .order_by(ExecutionEventRow.occurred_at, ExecutionEventRow.id)
+        ).all()
+        analyses = session.scalars(
+            select(AiAnalysisRow)
+            .where(AiAnalysisRow.signal_id == signal.id)
+            .order_by(AiAnalysisRow.created_at, AiAnalysisRow.id)
+        ).all()
+        close_price = None if trade_row is None else trade_row.close_price
+        exit_reason = None if trade_row is None else trade_row.exit_reason
+        trade = (
+            None
+            if trade_row is None or position is None
+            else Trade(
+                symbol=position.symbol,
+                strategy_ref=version.ref,
+                direction=position.direction,
+                timeframe=signal.timeframe,
+                mode=trade_row.mode,
+                opened_at=position.opened_at,
+                closed_at=trade_row.closed_at,
+                pnl_eur=trade_row.pnl_eur,
+                risk_eur=trade_row.risk_eur,
+            )
+        )
+
+    return TradeReplay(
+        signal=_signal_view(signal),
+        strategy=_strategy_view(version, registry),
+        risk=None
+        if decision is None
+        else RiskDecisionView(
+            outcome=decision.outcome,
+            reason=decision.reason,
+            checks=dict(decision.checks),
+            volume=decision.volume,
+            risk_eur=decision.risk_eur,
+            margin_eur=decision.margin_eur,
+            decided_at=decision.decided_at,
+        ),
+        order=None if order is None else _order_view(order),
+        executions=executions,
+        position=None if position is None else _position_detail(position),
+        trade=trade,
+        close_price=close_price,
+        exit_reason=exit_reason,
+        events=tuple(_event_view(event) for event in events),
+        analyses=tuple(_analysis_view(row) for row in analyses),
+    )
+
+
+def _attached_to(signal_id: int, order_id: int | None) -> Any:
+    """Telemetry is linked either to the signal or to the order it belongs to."""
+    if order_id is None:
+        return ExecutionEventRow.signal_id == signal_id
+    return or_(
+        ExecutionEventRow.signal_id == signal_id,
+        ExecutionEventRow.order_id == order_id,
     )
 
 
@@ -732,21 +1161,6 @@ def overview(engine: Engine, at: datetime, ea_reports_dir: Path | None = None) -
 
 
 @dataclass(frozen=True)
-class AnalysisView:
-    """What the AI observed. It never decided anything (§5, §15, §16, §39)."""
-
-    id: int
-    kind: str
-    market: str
-    ref: str | None
-    model: str
-    findings: dict[str, Any]
-    response: str | None
-    cost_eur: Decimal | None
-    created_at: datetime
-
-
-@dataclass(frozen=True)
 class ProposalView:
     """A hypothesis waiting for validation; it becomes production only through the gates."""
 
@@ -775,20 +1189,7 @@ def ai_analyses(engine: Engine, limit: int = 100) -> tuple[AnalysisView, ...]:
     statement = select(AiAnalysisRow).order_by(desc(AiAnalysisRow.created_at)).limit(limit)
     with Session(engine) as session:
         rows = session.scalars(statement).all()
-    return tuple(
-        AnalysisView(
-            id=int(row.id),
-            kind=str(row.kind),
-            market=row.market,
-            ref=row.ref,
-            model=row.model,
-            findings=dict(row.findings),
-            response=row.response,
-            cost_eur=row.cost_eur,
-            created_at=row.created_at,
-        )
-        for row in rows
-    )
+    return tuple(_analysis_view(row) for row in rows)
 
 
 def ai_proposals(engine: Engine, limit: int = 100) -> tuple[ProposalView, ...]:
@@ -1224,6 +1625,46 @@ def _report(row: ReportRow) -> ReportView:
     )
 
 
+# ---------------------------------------------------------------------------------------
+# §32: the scalping cuts. Every figure comes from `analytics.scalping` (pure) and
+# `storage.scalping` (the only layer that touches the database); the page recomputes
+# nothing. The bucket edges are declared here, as configuration, never inside the maths.
+# ---------------------------------------------------------------------------------------
+
+SPREAD_EDGES: tuple[float, ...] = (0.0, 0.2, 0.5, 1.0, 2.0)
+# `by_duration` cuts on seconds, the unit the module documents: 0, 15 min, 1 h, 4 h.
+DURATION_EDGES: tuple[float, ...] = (0.0, 900.0, 3600.0, 14400.0)
+SIZE_EDGES: tuple[Decimal, ...] = (Decimal(0), Decimal("0.01"), Decimal("0.05"), Decimal("0.10"))
+
+
+@dataclass(frozen=True)
+class ScalpingView:
+    trades: int
+    hours: tuple[Bucket, ...]
+    sessions: tuple[Bucket, ...]
+    weekdays: tuple[Bucket, ...]
+    spreads: tuple[Bucket, ...]
+    durations: tuple[Bucket, ...]
+    sizes: tuple[Bucket, ...]
+    costs: CostSummary
+    execution: ExecutionCosts
+
+
+def scalping_view(engine: Engine) -> ScalpingView:
+    trades = all_trades(engine)
+    return ScalpingView(
+        trades=len(trades),
+        hours=by_hour(trades),
+        sessions=by_session(trades),
+        weekdays=by_weekday(trades),
+        spreads=by_spread(trades, SPREAD_EDGES),
+        durations=by_duration(trades, DURATION_EDGES),
+        sizes=by_size(trades, size_of(engine), SIZE_EDGES),
+        costs=cost_summary(trades),
+        execution=execution_costs(engine),
+    )
+
+
 # ``HaltView.scope`` is rendered as stored; ``halted_pairs`` already returns the parsed
 # (strategy, market) pairs the risk page displays.
 __all__ = [
@@ -1236,6 +1677,7 @@ __all__ = [
     "BacktestView",
     "DatabaseHealth",
     "EaView",
+    "ExecutionEventView",
     "ExecutionView",
     "ExposureView",
     "HaltView",
@@ -1243,11 +1685,17 @@ __all__ = [
     "MarketHealth",
     "MarketSummary",
     "OpenPositionView",
+    "OrderView",
     "Overview",
+    "PositionView",
     "ProposalView",
     "ReportView",
+    "RiskDecisionView",
     "RiskLimits",
     "RiskView",
+    "ScalpingView",
+    "SignalView",
+    "StrategyVersionView",
     "StrategyView",
     "SystemEventView",
     "SystemView",
@@ -1255,6 +1703,7 @@ __all__ = [
     "TradeDetail",
     "TradeEntry",
     "TradeFilters",
+    "TradeReplay",
     "ValidationView",
     "account_figures",
     "ai_analyses",
@@ -1287,6 +1736,7 @@ __all__ = [
     "reports",
     "risk_limits",
     "risk_view",
+    "scalping_view",
     "selectable_markets",
     "selectable_strategies",
     "strategies",
@@ -1294,6 +1744,7 @@ __all__ = [
     "telemetry",
     "trade_detail",
     "trade_entries",
+    "trade_replay",
     "trades_between",
     "validation_runs",
     "week_start",

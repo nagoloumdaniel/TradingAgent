@@ -21,6 +21,7 @@ from tradingagent.risk.model import (
     RiskLimits,
     TradeIntent,
 )
+from tradingagent.risk.sizing import SizingError, size_position
 
 ACCOUNT_CURRENCY = "EUR"
 
@@ -110,6 +111,29 @@ def check_entry_zone(ctx: RiskContext) -> CheckResult:
     )
 
 
+def check_slippage(ctx: RiskContext) -> CheckResult:
+    """RM-012: expected slippage, expressed in multiples of the observed spread.
+
+    A spread-relative ceiling fits gold and bitcoin alike, for the same reason
+    `max_spread_stop_pct` does. When the caller supplies no estimate the check passes
+    and says so: the unconditional guard remains `check_entry_zone`, which refuses any
+    executable price outside the signal's zone. Observed post-fill slippage is recorded
+    by execution and analysed by `analytics`, not gated here.
+    """
+    expected = ctx.quote.expected_slippage
+    multiple = ctx.limits.max_slippage_to_spread
+    spread = ctx.quote.spread
+    if expected is None:
+        return _verdict("slippage", True, "no slippage estimate; entry zone still guards the fill")
+    # A favourable estimate (a negative one) can never breach an adverse ceiling.
+    limit = multiple * spread
+    return _verdict(
+        "slippage",
+        expected <= limit,
+        f"expected slippage {expected}, limit {limit} ({multiple} x spread {spread})",
+    )
+
+
 def _loss_check(name: str, loss: Decimal, limit: Decimal, base: Decimal) -> CheckResult:
     threshold = limit * base
     passed = loss < threshold
@@ -168,6 +192,84 @@ def check_market_positions(ctx: RiskContext) -> CheckResult:
     count = sum(1 for position in ctx.portfolio.open_positions if position.symbol == symbol)
     limit = ctx.limits.max_positions_per_market
     return _verdict("market_positions", count < limit, f"{count} open on {symbol}, limit {limit}")
+
+
+def _planned_volume(ctx: RiskContext) -> Decimal:
+    """The volume sizing would authorize for this order.
+
+    The exposure ceiling must count what is really about to be added, not the minimum
+    lot. Sizing is pure, so the check can run it on the same snapshot; when it cannot
+    produce a size the order is refused elsewhere, and the smallest executable size is
+    counted here so the ceiling is never understated.
+    """
+    distance = ctx.stop_distance
+    if distance is None or distance <= 0:
+        return ctx.spec.volume_min
+    limits = ctx.limits
+    try:
+        sizing = size_position(
+            capital=limits.capital(ctx.account.equity),
+            risk_per_trade=limits.risk_per_trade,
+            stop_distance=distance,
+            spec=ctx.spec,
+            quote=ctx.quote,
+            free_margin=ctx.account.free_margin,
+            margin_usage=limits.margin_usage,
+            max_volume=limits.max_volume,
+        )
+    except SizingError:
+        return ctx.spec.volume_min
+    return sizing.volume
+
+
+def _notional_eur(ctx: RiskContext, volume: Decimal) -> Decimal | None:
+    """Notional of `volume` lots on the intended instrument, in EUR, or None if the
+    broker gave no conversion rate — the same refusal sizing would already produce."""
+    rate = ctx.quote.profit_to_eur
+    contract = ctx.spec.contract_size
+    if rate is None or contract is None or contract <= 0:
+        return None
+    return volume * contract * ctx.entry_price * rate
+
+
+def check_total_exposure(ctx: RiskContext) -> CheckResult:
+    """RM-008: notional of every open position, all markets, plus this order, against a
+    fraction of the capital in use.
+
+    Gold and bitcoin are summed before the comparison: their correlation makes two
+    separate market ceilings an illusion of safety. The current exposure is read from
+    `PortfolioState.open_exposure_eur`, a caller-computed aggregate; when a position is
+    open and the caller did not measure it, the check fails closed rather than let the
+    ceiling be skipped.
+    """
+    portfolio, limits = ctx.portfolio, ctx.limits
+    limit = limits.max_total_exposure * limits.capital(ctx.account.equity)
+    planned = _notional_eur(ctx, _planned_volume(ctx))
+    if planned is None:
+        return CheckResult(
+            "total_exposure",
+            False,
+            "notional unavailable: no profit-to-EUR rate (RM-008)",
+            blocked_by="sizing",
+        )
+    current = portfolio.open_exposure_eur
+    if current is None:
+        if not portfolio.open_positions:
+            current = Decimal(0)
+        else:
+            return CheckResult(
+                "total_exposure",
+                False,
+                "existing exposure unknown: the caller must supply "
+                "PortfolioState.open_exposure_eur (RM-008)",
+            )
+    total = current + planned
+    return _verdict(
+        "total_exposure",
+        total <= limit,
+        f"exposure {total:.2f} EUR (open {current:.2f} + order {planned:.2f}), "
+        f"limit {limit:.2f} EUR",
+    )
 
 
 def check_trades_today(ctx: RiskContext) -> CheckResult:
@@ -249,11 +351,13 @@ CHECKS: tuple[Callable[[RiskContext], CheckResult], ...] = (
     check_not_halted,
     check_stop_loss,
     check_entry_zone,
+    check_slippage,
     check_daily_loss,
     check_weekly_loss,
     check_drawdown,
     check_open_positions,
     check_market_positions,
+    check_total_exposure,
     check_trades_today,
     check_spread,
     check_margin,

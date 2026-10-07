@@ -15,14 +15,20 @@ Run it with::
 import argparse
 import os
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, Query, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, Response, StreamingResponse
+from fastapi.responses import (
+    HTMLResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -41,12 +47,15 @@ from tradingagent.reporting.exports import (
 from tradingagent.storage.engine import create_database_engine
 from tradingagent.web import format as display
 from tradingagent.web import queries
+from tradingagent.web.auth import ACCESS_ENV_VAR, SESSION_COOKIE, AccessControl, configured_token
 from tradingagent.web.sse import SSE_HEADERS, EventStream
 from tradingagent.web.views import (
     ALERT_COLUMNS,
     POSITION_COLUMNS,
     describe,
     position_cells,
+    replay_checks,
+    replay_timeline,
     state_label,
 )
 
@@ -66,6 +75,7 @@ PAGES: tuple[tuple[str, str], ...] = (
     ("/", "Vue d'ensemble"),
     ("/positions", "Positions"),
     ("/trades", "Trades"),
+    ("/scalping", "Scalping"),
     ("/strategies", "Stratégies"),
     ("/ai-lab", "Labo IA"),
     ("/risk", "Risque"),
@@ -87,16 +97,22 @@ def create_app(
     agent_config_path: Path | None = None,
     ea_reports_dir: Path | None = None,
     stream_cycles: int | None = None,
+    access_token: str | None = None,
 ) -> FastAPI:
     """Build the read-only dashboard around an already-migrated database engine.
 
     ``now`` is injected so every page is reproducible in a test; the production entry point
     passes the real UTC clock. ``ea_reports_dir`` points at the bridge's ``reports/``
     directory — when it is absent, the EA sections say so instead of inventing a status.
+    ``access_token`` is the optional access protection of §43: ``None`` reads
+    ``TRADINGAGENT_WEB_TOKEN`` from the environment, and an absent or blank variable leaves
+    the dashboard exactly as it was — local, unauthenticated, read-only.
     """
     clock = now if now is not None else _utc_now
     limits_path = agent_config_path if agent_config_path is not None else AGENT_CONFIG
     reports_dir = ea_reports_dir if ea_reports_dir is not None else _env_reports_dir()
+    credential = configured_token(access_token)
+    access = None if credential is None else AccessControl(credential)
     templates = Jinja2Templates(directory=str(templates_dir or TEMPLATES_DIR))
     templates.env.globals.update(display=display, pages=PAGES, state_label=state_label)
     templates.env.filters["describe"] = describe
@@ -112,6 +128,7 @@ def create_app(
     )
     app.state.read_only = READ_ONLY
     app.state.engine = engine
+    app.state.access_protected = access is not None
 
     stream = EventStream(engine, interval_seconds=interval_seconds, now=clock)
 
@@ -121,6 +138,41 @@ def create_app(
             f"{name}.html",
             {"request": request, "page": name, "render_at": clock(), **context},
         )
+
+    if access is not None:
+
+        @app.middleware("http")
+        async def require_access(
+            request: Request, call_next: Callable[[Request], Awaitable[Response]]
+        ) -> Response:
+            """Every page and the SSE feed sit behind the token (§43).
+
+            The refusal is a standalone 401 with no navigation, no figure and no echo of
+            what was presented: a request without a valid credential learns nothing about
+            the dashboard. The token itself is never logged, here or anywhere else.
+            """
+            if not access.granted(request):
+                return access.denial()
+            return await call_next(request)
+
+        @app.get("/session")
+        def open_session() -> RedirectResponse:
+            """Trade a valid bearer token for the signed session cookie.
+
+            A browser cannot set a header on a top-level navigation, and ``EventSource``
+            cannot set one at all, so the cookie exists for those two flows. It is minted
+            only from an already-authorized request; the middleware has answered 401
+            otherwise. The cookie carries ``HMAC-SHA256(token, …)``, never the token.
+            """
+            response = RedirectResponse("/", status_code=303)
+            response.set_cookie(
+                SESSION_COOKIE,
+                access.session_value,
+                httponly=True,
+                samesite="strict",
+                path="/",
+            )
+            return response
 
     @app.exception_handler(SQLAlchemyError)
     def database_error(request: Request, error: SQLAlchemyError) -> HTMLResponse:
@@ -189,6 +241,43 @@ def create_app(
             filters=filters,
             detail=queries.trade_detail(engine, trade_id) if trade_id is not None else None,
         )
+
+    @app.get("/trades/{trade_id}", response_class=HTMLResponse)
+    def trade_replay_page(request: Request, trade_id: int) -> HTMLResponse:
+        """The replay of one trade (§28), keyed on the signal that produced it.
+
+        The signal id is the identity the trades list carries; a signal that never became a
+        position still replays — its verdict is the answer to "why was this executed?".
+        An id the database does not hold is a 404, never a broken page.
+        """
+        replay = queries.trade_replay(engine, trade_id)
+        if replay is None:
+            return templates.TemplateResponse(
+                request,
+                "trade_replay.html",
+                {
+                    "request": request,
+                    "page": "trade_replay",
+                    "render_at": clock(),
+                    "trade_id": trade_id,
+                    "replay": None,
+                    "timeline": (),
+                    "checks": (),
+                },
+                status_code=404,
+            )
+        return page(
+            request,
+            "trade_replay",
+            trade_id=trade_id,
+            replay=replay,
+            timeline=replay_timeline(replay),
+            checks=replay_checks(replay),
+        )
+
+    @app.get("/scalping", response_class=HTMLResponse)
+    def scalping_page(request: Request) -> HTMLResponse:
+        return page(request, "scalping", view=queries.scalping_view(engine))
 
     @app.get("/strategies", response_class=HTMLResponse)
     def strategies_page(request: Request) -> HTMLResponse:
@@ -380,6 +469,7 @@ if __name__ == "__main__":
 
 
 __all__ = [
+    "ACCESS_ENV_VAR",
     "ALERT_COLUMNS",
     "DEFAULT_HOST",
     "DEFAULT_PORT",
@@ -387,6 +477,7 @@ __all__ = [
     "PAGES",
     "POSITION_COLUMNS",
     "READ_ONLY",
+    "SESSION_COOKIE",
     "create_app",
     "main",
 ]

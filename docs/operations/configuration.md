@@ -18,9 +18,10 @@ Le modèle à copier est [`.env.example`](../../.env.example).
 | `MT5_SERVER` | Serveur du courtier | Doit correspondre à celui du terminal |
 | `MT5_PASSWORD` | Mot de passe **investisseur** (lecture seule) | Jamais le mot de passe de l'espace client Deriv ; mot de passe principal uniquement pour l'exécution (phase 8) |
 | `MT5_TERMINAL_PATH` | Chemin de `terminal64.exe` | Optionnel si un seul terminal installé |
+| `EA_FILES_DIR` | Répertoire d'échange avec les deux Expert Advisors | **Pas** sous `MT5_TERMINAL_PATH` : c'est `%APPDATA%\MetaQuotes\Terminal\<instance>\MQL5\Files\TradingAgent`. Vide = l'agent tourne sans EA, état valide |
 | `TELEGRAM_BOT_TOKEN` | Jeton du bot BotFather | Un bot par environnement |
 | `TELEGRAM_ALLOWED_USER_IDS` | Identifiants Telegram autorisés, séparés par des virgules | Liste blanche ; les inconnus sont refusés silencieusement |
-| `ANTHROPIC_API_KEY` | Clé du modèle de langage | Utilisée pour expliquer un signal, jamais pour le créer |
+| `ANTHROPIC_API_KEY` | Clé du modèle de langage | **Optionnelle** : sans elle l'agent tourne, le filtre IA n'est pas câblé et l'AI Lab reste déterministe (RM-011) |
 | `DATABASE_URL` | URI PostgreSQL (Supabase, pooler session) | Obligatoire : aucun repli sur un fichier local |
 | `TRADING_MODE` | `OBSERVATION`, `SIGNAL`, `PAPER` ou `DEMO` | `LIVE` ne peut pas être posé ici seul |
 | `LIVE_TRADING_ENABLED` | Moitié serveur de la double condition du mode réel | Rester `false` hors phase 9 |

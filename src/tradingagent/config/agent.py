@@ -47,6 +47,12 @@ class RiskProfile(_Strict):
     max_spread_stop_pct: Percent = Decimal(10)
     margin_usage_pct: Percent = Decimal(50)
     max_volume: Decimal | None = Field(default=None, gt=0)
+    # §21: total notional across every market, as a percentage of the capital. Gold and
+    # bitcoin are treated as fully correlated, so their exposures simply add up.
+    max_total_exposure_pct: Percent = Decimal(200)
+    # §21: tolerated slippage, in multiples of the observed spread. 1 means "never worse
+    # than the spread".
+    max_slippage_to_spread: Decimal = Field(default=Decimal(1), gt=0)
 
     @model_validator(mode="after")
     def _coherent_limits(self) -> Self:

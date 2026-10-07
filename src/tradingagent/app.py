@@ -28,8 +28,12 @@ from sqlalchemy import Engine
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, ContextTypes, MessageHandler, filters
 
+from tradingagent.ai.analyst import TradeAnalyst
 from tradingagent.ai.anthropic_client import AnthropicClient
+from tradingagent.ai.daily import DailyLab
+from tradingagent.ai.lab_store import LabStore
 from tradingagent.ai.layer import AiFilterLayer
+from tradingagent.ai.researcher import StrategyResearcher
 from tradingagent.config._yaml import read_yaml
 from tradingagent.config.agent import AgentConfig, load_agent_config
 from tradingagent.config.errors import ConfigError
@@ -93,6 +97,16 @@ STRATEGY_DIR = ROOT / "config" / "strategies"
 # authoritative, so a wrong pick costs money, never correctness.
 DEFAULT_MODEL = "claude-sonnet-4-5"
 PAPER_STARTING_CAPITAL = Decimal(1000)
+# Section 14: the ladder gates the mode. Executing modes require the matching rung, so a
+# strategy cannot trade a rung it never climbed. OBSERVATION and SIGNAL are absent on
+# purpose: they execute nothing, and that is where a candidate earns its evidence.
+MODE_REQUIRED_STATUS: dict[TradingMode, frozenset[StrategyStatus]] = {
+    TradingMode.PAPER: frozenset(
+        {StrategyStatus.PAPER, StrategyStatus.CANDIDATE, StrategyStatus.LIVE}
+    ),
+    TradingMode.DEMO: frozenset({StrategyStatus.LIVE}),
+    TradingMode.LIVE: frozenset({StrategyStatus.LIVE}),
+}
 # The demo server is measured at UTC with no daylight saving (TASK-003); the live server
 # is not, and `verify_clock` stops the agent the moment the offset differs.
 DEMO_SERVER_OFFSET = timedelta(0)
@@ -242,18 +256,43 @@ def _build_telegram(settings: Settings, service: CommandService) -> Application:
     return application
 
 
-def _build_ai(engine: Engine, settings: Settings) -> AiFilterLayer | None:
+def _ai_client(settings: Settings) -> AnthropicClient | None:
+    """The model client, or None. Everything downstream must work without it (RM-011)."""
     key = settings.anthropic_api_key
     if key is None:
-        log.warning("no ANTHROPIC_API_KEY: the AI filter is disabled (RM-011, shadow only)")
+        log.warning("no ANTHROPIC_API_KEY: AI commentary disabled, deterministic analysis kept")
         return None
-    client = AnthropicClient(key.get_secret_value(), DEFAULT_MODEL)
+    return AnthropicClient(key.get_secret_value(), DEFAULT_MODEL)
+
+
+def _build_ai(engine: Engine, settings: Settings) -> AiFilterLayer | None:
+    client = _ai_client(settings)
+    if client is None:
+        return None
     return AiFilterLayer(
         client,
         AiCallStore(engine),
         SystemEventStore(engine),
         model=DEFAULT_MODEL,
         ai_filter=AiFilter.SHADOW,
+    )
+
+
+def _build_lab(engine: Engine, settings: Settings, notifier: Any, now: Any) -> DailyLab:
+    """The daily AI Lab pass. Without a model it still runs, deterministically.
+
+    That is the point of the design: the long-term improvement loop does not depend on an
+    API key, and the model only ever adds commentary to a verdict already computed.
+    """
+    client = _ai_client(settings)
+    store = LabStore(engine)
+    model = DEFAULT_MODEL if client is not None else "deterministic"
+    return DailyLab(
+        engine,
+        analyst=TradeAnalyst(store, client, model=model),
+        researcher=StrategyResearcher(store, client, model=model),
+        notifier=notifier,
+        now=now,
     )
 
 
@@ -297,7 +336,7 @@ async def build(settings: Settings) -> Components:
     subscriptions = _subscriptions(config, catalog)
     if not subscriptions:
         raise ConfigError("no enabled market in agent.yaml: nothing to watch")
-    _register_configured_strategies(engine, config, now)
+    _register_configured_strategies(engine, config, mode, now)
 
     tracker = PositionTracker(engine, now=now)
     broker = await _build_broker(terminal, tracker, settings, config, mode, halts)
@@ -370,6 +409,7 @@ async def build(settings: Settings) -> Components:
         calendars=calendars,
         ea_directory=settings.ea_files_dir,
         ea_magic=BROKER_MAGIC,
+        lab=_build_lab(engine, settings, notifier, now),
         now=now,
     )
     del account_snapshot
@@ -385,15 +425,20 @@ async def build(settings: Settings) -> Components:
     )
 
 
-def _register_configured_strategies(engine: Engine, config: AgentConfig, now: Any) -> None:
-    """Make every configured market visible to the registry and refuse a deprecated ref.
+def _register_configured_strategies(
+    engine: Engine, config: AgentConfig, mode: TradingMode, now: Any
+) -> None:
+    """Make every configured market visible to the registry, and enforce §14.
 
-    The registry is the deployment record (cahier v3 §14). A market whose configured
-    strategy was deprecated must not silently keep trading on it: the start-up stops and
-    says which ref to replace.
+    The registry is the deployment record. Two rules are checked before anything connects:
+    a deprecated ref stops the start-up, and an executing mode requires the strategy to have
+    climbed far enough up the ladder — PAPER accepts `paper`, `candidate` or `live`, while
+    DEMO and LIVE accept only `live`. In OBSERVATION and SIGNAL nothing is executed, so any
+    non-deprecated status is accepted: that is how a candidate earns its evidence.
     """
     registry = StrategyRegistry(engine, clock=now)
-    deprecated: list[str] = []
+    refused: list[str] = []
+    allowed = MODE_REQUIRED_STATUS.get(mode)
     for market in config.markets:
         if not market.enabled:
             continue
@@ -406,14 +451,35 @@ def _register_configured_strategies(engine: Engine, config: AgentConfig, now: An
                 origin="human",
                 parameters={"source": "config/agent.yaml"},
             )
-            continue
+            entry = registry.get(market.symbol, market.strategy)
+            log.info(
+                "registry: %s on %s registered as %s",
+                market.strategy,
+                market.symbol,
+                entry.status.value,
+            )
+        log.info(
+            "registry: %s on %s is %s (promoted %s)",
+            market.strategy,
+            market.symbol,
+            entry.status.value,
+            entry.promoted_at.isoformat() if entry.promoted_at else "never",
+        )
         if entry.status is StrategyStatus.DEPRECATED:
-            deprecated.append(f"{market.strategy} on {market.symbol}")
-    if deprecated:
+            refused.append(f"{market.strategy} on {market.symbol} is DEPRECATED")
+        elif allowed is not None and entry.status not in allowed:
+            refused.append(
+                f"{market.strategy} on {market.symbol} is {entry.status.value}, "
+                f"which cannot execute in {mode.value} (required: "
+                + ", ".join(sorted(status.value for status in allowed))
+                + ")"
+            )
+    if refused:
         raise ConfigError(
-            "these configured strategies are deprecated in the registry: "
-            + ", ".join(sorted(deprecated))
-            + ". Point agent.yaml at a promoted version."
+            "strategy governance refused the start-up: "
+            + "; ".join(sorted(refused))
+            + ". Promote the version through the validation gates, or point agent.yaml at "
+            "one that is already promoted."
         )
 
 

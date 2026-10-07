@@ -47,6 +47,7 @@ REFUSALS = {
     ),
     "entry_zone/above": context(quote=replace(GOLD_QUOTE, bid=D(2402), ask=D("2402.2"))),
     "entry_zone/below": context(quote=replace(GOLD_QUOTE, bid=D(2390), ask=D("2390.2"))),
+    "slippage/over_the_spread": context(quote=replace(GOLD_QUOTE, expected_slippage=D("0.3"))),
     "daily_loss/at_limit": portfolio(day_pnl=-EQUITY * D("0.02")),
     "weekly_loss/at_limit": portfolio(week_pnl=-EQUITY * D("0.06")),
     "drawdown/beyond_limit": portfolio(equity_peak=D(6200)),  # 702 EUR below a 6,200 peak
@@ -54,6 +55,8 @@ REFUSALS = {
         open_positions=(OpenPosition("BTCUSD", D("0.01")), OpenPosition("EURUSD", D("0.01")))
     ),
     "market_positions/already_in": portfolio(open_positions=(OpenPosition("XAUUSD", D("0.01")),)),
+    "total_exposure/over_the_cap": portfolio(open_exposure_eur=D(8000)),
+    "total_exposure/unmeasured": portfolio(open_positions=(OpenPosition("BTCUSD", D("0.01")),)),
     "trades_today/limit": portfolio(trades_today=4),
     "spread/wide": context(quote=replace(GOLD_QUOTE, bid=D("2398.7"), ask=D("2400.2"))),
     "spread/no_stop": context(intent=replace(GOLD_BUY, stop_loss=None)),
@@ -177,3 +180,81 @@ def test_live_eligibility_without_a_loss_per_lot_is_unknown_and_refused() -> Non
 def test_a_halt_refusal_names_who_stopped_and_why() -> None:
     halt = HaltStatus(True, False, ("global: weekly loss reached (automatic, agent)",))
     assert "weekly loss reached" in run("not_halted", context(halt=halt)).reason
+
+
+# --- RM-008 total exposure: BTC and XAU are summed before the comparison ----------
+
+# The cap is `DEFAULT_MAX_TOTAL_EXPOSURE` (2) x 5,497.74 EUR, so 10,995.48 EUR; the
+# intended gold order adds 0.02 x 100 x 2,400.2 x 0.888786 = 4,266.53 EUR.
+BTC_EXPOSURE = D(5000)
+XAU_EXPOSURE = D(5000)
+
+
+def test_total_exposure_cumulates_btc_and_xau() -> None:
+    """Each position alone leaves room; held together they breach the ceiling."""
+    assert run("total_exposure", portfolio(open_exposure_eur=BTC_EXPOSURE)).passed
+    assert run("total_exposure", portfolio(open_exposure_eur=XAU_EXPOSURE)).passed
+    both = run("total_exposure", portfolio(open_exposure_eur=BTC_EXPOSURE + XAU_EXPOSURE))
+    assert not both.passed, both.reason
+    assert "open 10000.00" in both.reason  # the two are added, not compared separately
+
+
+def test_total_exposure_counts_the_size_the_engine_will_authorize() -> None:
+    # 8,000 open + 4,266.53 planned is over; had only the minimum lot (2,133.26) been
+    # counted the order would have passed, so the check follows the sized volume.
+    assert not run("total_exposure", portfolio(open_exposure_eur=D(8000))).passed
+
+
+def test_total_exposure_stays_within_the_cap_with_no_open_position() -> None:
+    result = run("total_exposure", context())
+    assert result.passed, result.reason
+    assert "order 4266.53" in result.reason
+
+
+def test_the_exposure_cap_is_a_fraction_of_the_capital_not_a_hard_coded_amount() -> None:
+    # Same 2,000 EUR open: allowed at twice the capital, refused at once the capital.
+    opened = portfolio(open_exposure_eur=D(2000))
+    assert run("total_exposure", opened).passed
+    strict = replace(opened, limits=replace(opened.limits, max_total_exposure=D(1)))
+    assert not run("total_exposure", strict).passed
+
+
+def test_an_unmeasured_open_exposure_fails_closed() -> None:
+    ctx = portfolio(open_positions=(OpenPosition("BTCUSD", D("0.01")),))
+    result = run("total_exposure", ctx)
+    assert not result.passed
+    assert "open_exposure_eur" in result.reason
+
+
+def test_an_empty_portfolio_needs_no_exposure_measurement() -> None:
+    assert run("total_exposure", portfolio(open_exposure_eur=None)).passed
+
+
+# --- RM-012 slippage ceiling, expressed in multiples of the observed spread -------
+
+
+def test_expected_slippage_within_the_spread_passes() -> None:
+    ctx = context(quote=replace(GOLD_QUOTE, expected_slippage=D("0.2")))  # spread is 0.2
+    assert run("slippage", ctx).passed
+
+
+def test_expected_slippage_beyond_the_spread_is_refused() -> None:
+    ctx = context(quote=replace(GOLD_QUOTE, expected_slippage=D("0.2001")))
+    result = run("slippage", ctx)
+    assert not result.passed
+    assert "0.2" in result.reason
+
+
+def test_the_slippage_cap_follows_the_observed_spread() -> None:
+    # A wider spread raises the ceiling: 0.3 passes against a 0.4 spread, not a 0.2 one.
+    wide = replace(GOLD_QUOTE, bid=D("2399.8"), ask=D("2400.2"), expected_slippage=D("0.3"))
+    assert run("slippage", context(quote=wide)).passed
+    assert not run(
+        "slippage", context(quote=replace(GOLD_QUOTE, expected_slippage=D("0.3")))
+    ).passed
+
+
+def test_a_missing_slippage_estimate_does_not_block_but_says_so() -> None:
+    result = run("slippage", context())
+    assert result.passed
+    assert "entry zone" in result.reason
