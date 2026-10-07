@@ -296,6 +296,51 @@ def add_chain(
         )
 
 
+def add_candles(
+    engine: Engine,
+    *,
+    symbol: str = XAU,
+    at: datetime,
+    before: int = 0,
+    after: int = 0,
+    timeframe: Timeframe = Timeframe.H1,
+    base_price: float = 2650.0,
+) -> int:
+    """Append stored candles around one instant, and return how many were written.
+
+    ``before`` candles end exactly at ``at`` (so the signal sits on the last one of them) and
+    ``after`` candles start one step later. The shape is a fixed zigzag, not a market: these
+    rows exist to exercise the reader, and every test that asserts a geometry builds its own
+    candles. The default dataset holds a single candle per market, far from the signals —
+    which is exactly why the replay page has to say "no candles" rather than draw a stroke.
+    """
+    step = timedelta(seconds=timeframe.seconds)
+    rows = []
+    previous = base_price
+    for index, offset in enumerate(range(-before + 1, after + 1)):
+        moment = at + step * offset
+        close = base_price + (1.0 if index % 2 == 0 else -1.0)
+        rows.append(
+            {
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "open_time": moment,
+                "open": previous,
+                "high": max(previous, close) + 0.4,
+                "low": min(previous, close) - 0.4,
+                "close": close,
+                "source": "test",
+                "ingested_at": moment + timedelta(minutes=1),
+            }
+        )
+        previous = close
+    if not rows:
+        return 0
+    with engine.begin() as connection:
+        connection.execute(insert(CandleRow), rows)
+    return len(rows)
+
+
 def _daily(engine: Engine) -> None:
     """The daily aggregate table, written by its own store — the dashboard only reads it.
 

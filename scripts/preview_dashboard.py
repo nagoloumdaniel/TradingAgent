@@ -25,7 +25,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import uvicorn  # noqa: E402
-from sqlalchemy import Engine, delete, insert, select  # noqa: E402
+from sqlalchemy import Engine, delete, insert  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 from tests.web.seed import seed  # noqa: E402
 
@@ -36,62 +36,67 @@ from tradingagent.storage.models import AccountSnapshotRow, CandleRow  # noqa: E
 from tradingagent.web.app import create_app  # noqa: E402
 
 DEMO_SNAPSHOTS = 220
-DEMO_CANDLES = 260
+DEMO_CANDLES_PER_MARKET = 130
 DEMO_SEED = 20261007
+# The fixtures' signals live on 2026-10-06 and 2026-10-07; the candles must surround them,
+# with enough history on both sides for the replay window and the watermark.
+CANDLE_START = datetime(2026, 10, 3, 0, 0, tzinfo=UTC)
 
 
 def _demo(engine: Engine) -> None:
-    """A plausible history, so the watermark and the curve have something to say."""
+    """A plausible history, so the watermark, the curve and the replay charts have something
+    to say.
+
+    The candles have to sit *around the seeded signals*, not at some arbitrary date: the
+    replay page draws the candles surrounding `signals.generated_at`, and a demo whose
+    candles are a month early shows an empty chart and looks broken.
+    """
     # Reproducible demo data in a throwaway database; nothing here is cryptographic.
     rng = random.Random(DEMO_SEED)  # noqa: S311
     start = datetime(2026, 9, 1, tzinfo=UTC)
     with Session(engine) as session:
-        existing = session.scalar(select(AccountSnapshotRow.at).limit(1))
-        if existing is not None:
-            session.execute(delete(AccountSnapshotRow))
-        equity = 1000.0
-        rows = []
+        session.execute(delete(AccountSnapshotRow))
+        equity_rows = []
         for index in range(DEMO_SNAPSHOTS):
             # A slow drift with a weekly wave and noise: what a scalping curve looks like.
             drift = index * 0.42
             wave = math.sin(index / 11.0) * 26.0
             noise = rng.gauss(0, 7.5)
             equity = 1000.0 + drift + wave + noise
-            rows.append(
+            equity_rows.append(
                 {
                     "equity": Decimal(f"{equity:.2f}"),
                     "balance": Decimal(f"{equity:.2f}"),
                     "at": start + timedelta(hours=6 * index),
                 }
             )
-        session.execute(insert(AccountSnapshotRow), rows)
+        session.execute(insert(AccountSnapshotRow), equity_rows)
+        session.execute(delete(CandleRow))
 
-        if session.scalar(select(CandleRow.id).limit(1)) is not None:
-            session.execute(delete(CandleRow))
-        price = 2650.0
-        candles = []
-        for index in range(DEMO_CANDLES):
-            open_price = price
-            move = rng.gauss(0.04, 1.9)
-            close_price = open_price + move
-            high = max(open_price, close_price) + abs(rng.gauss(0, 0.9))
-            low = min(open_price, close_price) - abs(rng.gauss(0, 0.9))
-            price = close_price
-            moment = start + timedelta(minutes=15 * index)
-            candles.append(
-                {
-                    "symbol": "XAUUSD",
-                    "timeframe": Timeframe.M15,
-                    "open_time": moment,
-                    "open": round(open_price, 3),
-                    "high": round(high, 3),
-                    "low": round(low, 3),
-                    "close": round(close_price, 3),
-                    "source": "preview",
-                    "ingested_at": moment + timedelta(minutes=1),
-                }
-            )
-        session.execute(insert(CandleRow), candles)
+        # H1, covering the week the seeded signals live in, for both markets.
+        candle_rows = []
+        for symbol, base in (("XAUUSD", 2650.0), ("BTCUSD", 62000.0)):
+            price = base
+            for index in range(DEMO_CANDLES_PER_MARKET):
+                moment = CANDLE_START + timedelta(hours=index)
+                open_price = price
+                move = rng.gauss(0.0, base * 0.0006)
+                close_price = open_price + move
+                candle_rows.append(
+                    {
+                        "symbol": symbol,
+                        "timeframe": Timeframe.H1,
+                        "open_time": moment,
+                        "open": round(open_price, 3),
+                        "high": round(max(open_price, close_price) + abs(move) * 0.4, 3),
+                        "low": round(min(open_price, close_price) - abs(move) * 0.4, 3),
+                        "close": round(close_price, 3),
+                        "source": "preview",
+                        "ingested_at": moment + timedelta(minutes=1),
+                    }
+                )
+                price = close_price
+        session.execute(insert(CandleRow), candle_rows)
         session.commit()
 
 

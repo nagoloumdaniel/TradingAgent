@@ -109,12 +109,43 @@ def print_report(report: DiscoveryReport) -> None:
     for family in report.families:
         print(f"  {family.family} — {family.description}")
         print(
-            f"    candidats testés {family.tested} | retenus {family.retained} "
+            f"    candidats testés {family.tested} | retenus avant correction "
+            f"{family.retained_before_correction} | retenus après correction {family.retained} "
             f"| écartés {family.discarded}"
+        )
+        print(
+            f"    fausses découvertes attendues du seul fait du hasard : "
+            f"{family.expected_false_discoveries:.2f}"
         )
         for cause, count in family.failures.items():
             print(f"      - {cause.value:24s} {count:4d}  ({cause.description})")
-    print("== Candidats retenus (aucun n'est promu à ce stade) ==")
+    multiple = report.multiple_testing
+    print("== Sélection multiple : contrôle du taux de fausses découvertes ==")
+    print(f"  méthode : {multiple.method}, alpha = {multiple.alpha:.2f}")
+    print(f"  hypothèses testées : {multiple.hypotheses} (= un test par candidat essayé)")
+    print(
+        f"  seuil de Bonferroni (alpha/m), pour comparaison : {multiple.bonferroni_threshold:.6f}"
+    )
+    print(
+        f"  retenus avant correction {multiple.discoveries_before} -> après correction "
+        f"{multiple.discoveries_after} ({multiple.rejected_by_correction} écarté(s) par "
+        f"la correction)"
+    )
+    print(
+        f"  fausses découvertes attendues à ce nombre de tests : "
+        f"{multiple.expected_false_discoveries:.2f}"
+    )
+    print("  avant / après correction, par famille :")
+    print(
+        f"  {'famille':22s} {'testés':>7s} {'avant':>6s} {'après':>6s} "
+        f"{'fausses découvertes attendues':>30s}"
+    )
+    for family in report.families:
+        print(
+            f"  {family.family:22s} {family.tested:7d} {family.retained_before_correction:6d} "
+            f"{family.retained:6d} {family.expected_false_discoveries:30.2f}"
+        )
+    print("== Candidats retenus après correction (aucun n'est promu à ce stade) ==")
     retained = report.retained()
     if not retained:
         print("  aucun : c'est un résultat, pas un échec du laboratoire")
@@ -122,17 +153,23 @@ def print_report(report: DiscoveryReport) -> None:
         performance = candidate.out_of_sample
         net = "n/a" if performance is None else f"{performance.net_profit}"
         trades = 0 if performance is None else performance.trades
+        p_value = "n/a" if candidate.p_value is None else f"{candidate.p_value:.4f}"
         print(
             f"  {candidate.market:12s} {candidate.family:20s} {candidate.label:24s} "
-            f"hors-échantillon={net} opérations={trades}"
+            f"p={p_value} hors-échantillon={net} opérations={trades}"
         )
     totals = report.failures_by_cause()
     print("== Écartés, une ligne par cause ==")
     for cause, count in totals.items():
         print(f"  {cause.value:24s} {count:4d}  ({cause.description})")
     print(
-        f"== Total : testés {len(report.candidates)} | retenus {len(retained)} "
+        f"== Total : testés {len(report.candidates)} | retenus avant correction "
+        f"{multiple.discoveries_before} | retenus après correction {len(retained)} "
         f"| écartés {len(report.discarded())} =="
+    )
+    print(
+        "Rappel : une correction de sélection multiple ne crée aucun edge; elle empêche "
+        "seulement de confondre la chance et un signal."
     )
     print("Rappel : une découverte n'est pas une promotion; seul le Lead promeut.")
 

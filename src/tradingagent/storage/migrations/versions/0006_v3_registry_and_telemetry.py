@@ -98,11 +98,6 @@ def upgrade() -> None:
         sa.Column("created_at", tradingagent.storage.types.UtcDateTime(), nullable=False),
         sa.Column("promoted_at", tradingagent.storage.types.UtcDateTime(), nullable=True),
         sa.Column("updated_at", tradingagent.storage.types.UtcDateTime(), nullable=False),
-        sa.CheckConstraint(
-            "status IN ('discovered', 'experimental', 'backtesting', 'validating', 'paper', "
-            "'candidate', 'live', 'deprecated')",
-            name=op.f("ck_strategy_registry_strategystatus"),
-        ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_strategy_registry")),
         sa.UniqueConstraint("market", "ref", name=op.f("uq_strategy_registry_market_ref")),
     )
@@ -158,11 +153,6 @@ def upgrade() -> None:
         sa.Column("passed", sa.Boolean(), nullable=False),
         sa.Column("detail", sa.JSON(), nullable=False),
         sa.Column("created_at", tradingagent.storage.types.UtcDateTime(), nullable=False),
-        sa.CheckConstraint(
-            "stage IN ('backtest', 'costs', 'walk_forward', 'out_of_sample', 'monte_carlo', "
-            "'stress', 'parameter_robustness', 'paper', 'risk')",
-            name=op.f("ck_validation_runs_validationstage"),
-        ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_validation_runs")),
     )
     with op.batch_alter_table("validation_runs", schema=None) as batch_op:
@@ -197,10 +187,6 @@ def upgrade() -> None:
         sa.Column("findings", sa.JSON(), nullable=False),
         sa.Column("cost_eur", tradingagent.storage.types.ExactDecimal(length=48), nullable=True),
         sa.Column("created_at", tradingagent.storage.types.UtcDateTime(), nullable=False),
-        sa.CheckConstraint(
-            "kind IN ('loss_analysis', 'degradation', 'regime', 'hypothesis', 'postmortem')",
-            name=op.f("ck_ai_analyses_analysiskind"),
-        ),
         sa.ForeignKeyConstraint(
             ["signal_id"], ["signals.id"], name=op.f("fk_ai_analyses_signal_id_signals")
         ),
@@ -237,10 +223,6 @@ def upgrade() -> None:
         sa.Column("decision_reason", sa.Text(), nullable=True),
         sa.Column("created_at", tradingagent.storage.types.UtcDateTime(), nullable=False),
         sa.Column("decided_at", tradingagent.storage.types.UtcDateTime(), nullable=True),
-        sa.CheckConstraint(
-            "status IN ('proposed', 'validating', 'rejected', 'promoted')",
-            name=op.f("ck_ai_proposals_proposalstatus"),
-        ),
         sa.ForeignKeyConstraint(
             ["analysis_id"],
             ["ai_analyses.id"],
@@ -281,12 +263,6 @@ def upgrade() -> None:
         ),
         sa.Column("detail", sa.JSON(), nullable=False),
         sa.Column("occurred_at", tradingagent.storage.types.UtcDateTime(), nullable=False),
-        sa.CheckConstraint(
-            "kind IN ('signal_generated', 'order_requested', 'order_sent', 'order_accepted', "
-            "'order_rejected', 'filled', 'position_opened', 'position_closed', 'stop_missing', "
-            "'error')",
-            name=op.f("ck_execution_events_executioneventkind"),
-        ),
         sa.ForeignKeyConstraint(
             ["order_id"], ["orders.id"], name=op.f("fk_execution_events_order_id_orders")
         ),
@@ -326,10 +302,6 @@ def upgrade() -> None:
         sa.Column("pnl", tradingagent.storage.types.ExactDecimal(length=48), nullable=False),
         sa.Column("risk_eur", tradingagent.storage.types.ExactDecimal(length=48), nullable=False),
         sa.Column("created_at", tradingagent.storage.types.UtcDateTime(), nullable=False),
-        sa.CheckConstraint(
-            "mode IN ('OBSERVATION', 'SIGNAL', 'PAPER', 'DEMO', 'LIVE')",
-            name=op.f("ck_daily_performance_tradingmode"),
-        ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_daily_performance")),
         sa.UniqueConstraint(
             "day", "mode", "market", "ref", name=op.f("uq_daily_performance_day_mode_market_ref")

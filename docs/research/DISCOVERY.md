@@ -56,6 +56,10 @@ volatilité, combinaisons d'indicateurs et ensembles. Le catalogue est extensibl
 5. **Hors-échantillon scellé** : ouvert **uniquement** pour les candidats ayant déjà franchi
    les barrières roulantes, via `protocol.confirm` (lecture explicite et auditée ; le nombre
    d'ouvertures est reporté par marché).
+6. **Contrôle du taux de fausses découvertes** : les survivants de l'échelle ci-dessus sont
+   pesés *ensemble*, pas un par un (voir la section dédiée). Un survivant dont la p-value ne
+   franchit pas la correction de Benjamini-Hochberg est écarté avec la cause
+   `false_discovery`.
 
 ### L'échelle des causes d'écartement
 
@@ -71,9 +75,11 @@ C'est ce qui rend le rapport lisible : une ligne par cause, jamais un fourre-tou
 | `parameter_dispersion` | îlot de paramètres : dispersion > seuil, ou paramètres perturbés invalides | roulant |
 | `unstable` | score de stabilité insuffisant ou trop peu de périodes profitables | roulant |
 | `out_of_sample_negative` | hors-échantillon scellé ≤ 0, ou rétention < seuil | scellé |
+| `false_discovery` | le survivant ne franchit pas la correction de sélection multiple | sélection |
 
 Un candidat n'est **retenu** que s'il franchit : walk-forward **et** stabilité des
-paramètres **et** hors-échantillon scellé. Aucune exception, aucun raccourci.
+paramètres **et** hors-échantillon scellé **et** la correction de sélection multiple. Aucune
+exception, aucun raccourci.
 
 ### Interdiction structurelle de lire le futur
 
@@ -87,6 +93,101 @@ paramètres **et** hors-échantillon scellé. Aucune exception, aucun raccourci.
   postérieure à `evaluated_at`. Une règle qui aurait besoin de la bougie suivante ne peut
   jamais se déclencher : elle finit en `too_few_trades`, jamais retenue.
 
+## Contrôle du taux de fausses découvertes (sélection multiple)
+
+### Pourquoi
+
+Le laboratoire ne juge pas un candidat : il en juge des dizaines. Le protocole de
+`research/protocol.py` note chaque candidat **seul dans son coin** — c'est ce qui rend chaque
+verdict honnête — mais il ne dit rien du **nombre d'essais**. Sur le jeu synthétique à graine
+fixe, 51 candidats sont essayés ; sur l'or XAUUSD, 17. Avec assez d'essais, le hasard finit
+par produire un survivant présentable. « J'ai testé 51 variantes et gardé la meilleure » est
+une **sélection**, pas une découverte : sans correction, la probabilité qu'un survivant soit
+un faux positif croît avec le nombre de candidats, et le rapport laissait ce chiffre
+implicite.
+
+### La p-value, construite explicitement
+
+Le protocole existant ne fournit pas de p-value : `stability_report` est un score de
+robustesse, et `protocol.monte_carlo` rééchantillonne le P&L réalisé, donc se centre sur le
+total observé — il répond à « quels autres ordres de ces mêmes opérations ? », pas à « qu'aurait
+fait une règle sans edge ? ». La p-value est donc construite ici, en clair
+(`discovery.monte_carlo_p_value`), à partir des opérations du **hors-échantillon scellé** :
+
+- **hypothèse nulle** : la règle d'entrée n'apporte aucune information directionnelle sur ce
+  ruban. Sous H0, le signe de chaque opération est celui d'une pièce équilibrée ; les
+  amplitudes, elles, sont ce que le marché et les coûts ont donné ;
+- **statistique** : le profit net total hors-échantillon ;
+- **loi nulle** : on tire un signe indépendant par opération (test de randomisation par
+  inversion de signe, le test de Fisher pour observations appariées) et on compte les tirages
+  qui atteignent le total observé ;
+- **estimateur** : `(comptes + 1) / (tirages + 1)`. Jamais exactement zéro : un Monte-Carlo ne
+  résout pas en dessous de `1 / (tirages + 1)`, et prétendre le contraire serait mentir sur la
+  précision. Un échantillon hors-échantillon vide vaut `p = 1`.
+- **graine** : dérivée du couple (marché, famille, libellé) par CRC-32 — déterministe d'un
+  processus à l'autre, contrairement à `hash()`. Deux exécutions identiques donnent le même
+  rapport.
+
+Ce que ce test ne fait pas : il suppose les opérations échangeables, donc des régimes
+groupés et des positions qui se chevauchent le rendent **optimiste** ; il ne voit que l'edge
+**directionnel** — une règle dont l'edge brut est inférieur aux coûts affiche un total faible
+et retombe près de `1.0`, ce qui pèche du côté prudent.
+
+### La correction
+
+- **Benjamini-Hochberg** (taux de fausses découvertes), seuil `alpha` paramétrable via
+  `DiscoveryProtocol.false_discovery_rate`, **défaut 0,10**. Step-up : on trie les p-values,
+  le plus grand rang `k` tel que `p_(k) <= k/m * alpha` fixe le seuil, et tout candidat dont la
+  p-value est en dessous est déclaré découverte. Avec un seul candidat, la règle se réduit à
+  `p <= alpha` — la lecture honnête de « aucune sélection n'a eu lieu ».
+- **Bonferroni** (`alpha/m`, `discovery.bonferroni_threshold`) est calculé et **affiché pour
+  comparaison** : il est plus strict dès que plusieurs candidats semblent prometteurs. Il ne
+  décide jamais rien ici.
+- `m` est le nombre de **candidats essayés**, pas le nombre de survivants. Un candidat qui n'a
+  jamais mérité sa lecture du scellé n'a pas de p-value et compte comme `p = 1` : la
+  correction est ainsi **conservatrice**, pas flatteuse.
+- Un survivant qui ne franchit pas la correction est **écarté** avec la cause
+  `false_discovery`, sa p-value et le seuil de son rang écrits dans `detail`. Jamais de
+  disparition silencieuse.
+
+### Comment lire les chiffres
+
+| Champ | Sens |
+|---|---|
+| `multiple_testing.hypotheses` | nombre de candidats essayés = nombre de tests payés |
+| `multiple_testing.discoveries_before` | survivants de l'échelle, **avant** correction |
+| `multiple_testing.discoveries_after` | survivants **après** correction (le seul chiffre qui compte) |
+| `multiple_testing.rejected_by_correction` | `before - after` |
+| `multiple_testing.bonferroni_threshold` | `alpha / m`, pour comparaison |
+| `multiple_testing.expected_false_discoveries` | `m * alpha` : combien de candidats un seuil par test naïf laisserait passer par chance |
+| `multiple_testing.expected_false_discovery_rate` | l'`alpha` que Benjamini-Hochberg borne réellement |
+| `candidates[].p_value` | p-value hors-échantillon du candidat, `null` s'il n'a pas atteint le scellé |
+| `families[].retained_before_correction` | survivants de la famille avant correction |
+
+Deux lectures : si `discoveries_before == discoveries_after`, la correction n'a rien coûté et
+les survivants ont de la marge. Si `after` tombe à zéro alors que `before` valait 1 ou 2, le
+laboratoire vient de dire : « ces survivants ne se distinguent pas du hasard du nombre
+d'essais », ce qui est un résultat, pas un bug — et exactement ce que le §7 demandait de ne
+pas taire.
+
+### Ce que cela ne prouve pas
+
+Une correction de sélection multiple **ne crée aucun edge** et n'améliore aucune stratégie.
+Elle empêche seulement de confondre la chance et un signal : elle rend le seuil plus dur à
+mesure qu'on essaie de choses. Trois limites à garder en tête :
+
+- **peu de candidats** : avec un ou deux survivants, Benjamini-Hochberg est numériquement
+  presque identique à Bonferroni, et la puissance statistique est faible ; une vraie
+  découverte peut être écartée faute de preuve, pas parce qu'elle est fausse. Le rapport ne
+  prétend pas que les écartés sont mauvais, seulement que rien ne les distingue encore ;
+- **dépendance entre candidats** : BH suppose l'indépendance ou une dépendance positive
+  (PRDS). Les candidats d'une même famille partagent la même règle avec des paramètres voisins
+  et les marchés partagent une partie du ruban : les tests sont corrélés. C'est une hypothèse
+  de travail, pas une démonstration ;
+- **aucune hypothèse testée n'est fixée d'avance** : le catalogue explore, il ne pré-enregistre
+  pas un test unique. La correction protège la sélection telle qu'elle a eu lieu ; elle ne
+  remplace pas un protocole pré-enregistré.
+
 ## Lire le rapport
 
 `DiscoveryReport.to_dict()` — **déterministe**, sans horodatage (le CLI ajoute
@@ -94,17 +195,27 @@ paramètres **et** hors-échantillon scellé. Aucune exception, aucun raccourci.
 
 ```jsonc
 {
-  "protocol": { "min_trades": 30, "walk_forward": { ... }, "costs": { ... } },
+  "protocol": { "min_trades": 30, "false_discovery_rate": 0.1,
+                "monte_carlo_iterations": 1000,
+                "walk_forward": { ... }, "costs": { ... } },
   "markets":  [ { "market": "frxXAUUSD", "bars": 1500, "train_bars": 900,
                   "holdout_bars": 300, "walk_forward_folds": 6,
                   "holdout_unlocks": 1, "skipped": null } ],
-  "families": [ { "family": "trend_following", "tested": 24, "retained": 0,
-                  "discarded": 24,
+  "families": [ { "family": "trend_following", "tested": 24,
+                  "retained_before_correction": 1, "retained": 0,
+                  "discarded": 24, "expected_false_discoveries": 2.4,
                   "failures": [ { "cause": "too_few_trades", "count": 23,
                                   "description": "trop peu d'opérations ..." } ] } ],
-  "totals":   { "tested": 51, "retained": 1, "discarded": 50, "failures": [ ... ] },
+  "multiple_testing": { "method": "benjamini_hochberg", "alpha": 0.1,
+                        "expected_false_discovery_rate": 0.1,
+                        "expected_false_discoveries": 5.1, "hypotheses": 51,
+                        "bonferroni_threshold": 0.00196078431372549,
+                        "discoveries_before": 1, "discoveries_after": 0,
+                        "rejected_by_correction": 1 },
+  "totals":   { "tested": 51, "retained_before_correction": 1, "retained": 0,
+                "discarded": 51, "failures": [ ... ] },
   "candidates": [ { "market": "...", "family": "...", "label": "...", "retained": false,
-                    "cause": "overfitting", "parameters": { ... },
+                    "cause": "overfitting", "parameters": { ... }, "p_value": null,
                     "train_net_profit": "...", "out_of_sample_net_profit": null,
                     "walk_forward_ratio": 0.0, "holdout_was_read": false,
                     "stability": { "score": ..., "parameter_dispersion": ...,
@@ -112,7 +223,7 @@ paramètres **et** hors-échantillon scellé. Aucune exception, aucun raccourci.
 }
 ```
 
-Trois lectures utiles :
+Quatre lectures utiles :
 
 1. `families[].failures` — **le livrable principal du §7** : combien de candidats par
    famille, combien écartés, et pourquoi. Une famille qui ne retient rien n'est pas un bug :
@@ -121,6 +232,9 @@ Trois lectures utiles :
    qu'aucun candidat n'a même mérité d'être confirmé.
 3. `walk_forward_ratio` (plis profitables / plis joués) et
    `stability.parameter_dispersion` : les deux signatures du surapprentissage.
+4. `multiple_testing` et `candidates[].p_value` — ce que la sélection coûte : combien de
+   survivants avant correction, combien après, et à quel point le meilleur d'entre eux
+   ressemble à un tirage chanceux.
 
 ## Commandes
 
@@ -157,39 +271,51 @@ Le CLI écrase le rapport du jour à chaque exécution (comme `run_campaign.py`)
 
 1 marché, 17 candidats (6 familles), mêmes coûts et mêmes seuils que ci-dessous.
 
-| Famille | Testés | Retenus | Écartés | Causes |
-|---|---:|---:|---:|---|
-| `trend_following` | 8 | 0 | 8 | `overfitting` 6, `unstable` 2 |
-| `momentum` | 2 | 0 | 2 | `overfitting` 2 |
-| `mean_reversion` | 2 | **1** | 1 | `overfitting` 1 |
-| `breakout` | 2 | 0 | 2 | `overfitting` 2 |
-| `volatility_breakout` | 2 | 0 | 2 | `overfitting` 2 |
-| `ensemble` | 1 | 0 | 1 | `overfitting` 1 |
-| **Total** | **17** | **1** | **16** | `overfitting` 14, `unstable` 2 |
+| Famille | Testés | Retenus **avant** | Retenus **après** | Fausses déc. attendues | Causes |
+|---|---:|---:|---:|---:|---|
+| `trend_following` | 8 | 0 | 0 | 0,80 | `overfitting` 6, `unstable` 2 |
+| `momentum` | 2 | 0 | 0 | 0,20 | `overfitting` 2 |
+| `mean_reversion` | 2 | 1 | **0** | 0,20 | `false_discovery` 1, `overfitting` 1 |
+| `breakout` | 2 | 0 | 0 | 0,20 | `overfitting` 2 |
+| `volatility_breakout` | 2 | 0 | 0 | 0,20 | `overfitting` 2 |
+| `ensemble` | 1 | 0 | 0 | 0,10 | `overfitting` 1 |
+| **Total** | **17** | **1** | **0** | **1,70** | `overfitting` 14, `unstable` 2, `false_discovery` 1 |
 
-Le seul retenu est `mean_reversion:00` (RSI 14, 30/70, cible 2R) : +41,98 € hors-échantillon
-sur 21 opérations, après coûts. C'est une **hypothèse à instruire**, pas une recommandation :
-21 opérations restent peu, et le seuil de promotion exige davantage. Le scellé a été ouvert
-une fois, pour ce seul candidat.
+Sélection multiple : `alpha = 0.10`, 17 tests, seuil de Bonferroni `0,005882`,
+`discoveries_before = 1`, `discoveries_after = 0`, `rejected_by_correction = 1`.
+
+L'ancien survivant `mean_reversion:00` (RSI 14, 30/70, cible 2R) affichait +41,98 €
+hors-échantillon sur 21 opérations, après coûts. Sa p-value hors-échantillon est **0,2438** :
+un ruban de 21 opérations dont la direction serait tirée à pile ou face atteint ce total dans
+près d'un cas sur quatre. Le seuil que son rang exigeait était `0,10 / 17 = 0,0059`. Le
+candidat n'est donc plus retenu du tout : `false_discovery`. C'est exactement la question que
+le §7 laissait ouverte — « 17 essais, 1 survivant » — et la réponse honnête est « rien ne le
+distingue encore du hasard ». Le scellé a été ouvert une fois, pour ce seul candidat.
 
 ### Jeu synthétique à graine fixe (3 marchés, graine 20261007, 1500 bougies M15)
 
 Coûts 5 bp de spread + 2 bp de slippage + 0,50 € de commission, seuils du protocole par
 défaut.
 
-| Famille | Testés | Retenus | Écartés | Causes |
-|---|---:|---:|---:|---|
-| `trend_following` | 24 | 0 | 24 | `too_few_trades` 23, `parameter_dispersion` 1 |
-| `momentum` | 6 | 0 | 6 | `overfitting` 5, `parameter_dispersion` 1 |
-| `mean_reversion` | 6 | 0 | 6 | `too_few_trades` 6 |
-| `breakout` | 6 | 0 | 6 | `too_few_trades` 4, `overfitting` 2 |
-| `volatility_breakout` | 6 | 1 | 5 | `overfitting` 2, `unstable` 2, `too_few_trades` 1 |
-| `ensemble` | 3 | 0 | 3 | `overfitting` 3 |
-| **Total** | **51** | **1** | **50** | `too_few_trades` 34, `overfitting` 12, `parameter_dispersion` 2, `unstable` 2 |
+| Famille | Testés | Retenus **avant** | Retenus **après** | Fausses déc. attendues | Causes |
+|---|---:|---:|---:|---:|---|
+| `trend_following` | 24 | 0 | 0 | 2,40 | `too_few_trades` 23, `parameter_dispersion` 1 |
+| `momentum` | 6 | 0 | 0 | 0,60 | `overfitting` 5, `parameter_dispersion` 1 |
+| `mean_reversion` | 6 | 0 | 0 | 0,60 | `too_few_trades` 6 |
+| `breakout` | 6 | 0 | 0 | 0,60 | `too_few_trades` 4, `overfitting` 2 |
+| `volatility_breakout` | 6 | 1 | **0** | 0,60 | `overfitting` 2, `unstable` 2, `false_discovery` 1, `too_few_trades` 1 |
+| `ensemble` | 3 | 0 | 0 | 0,30 | `overfitting` 3 |
+| **Total** | **51** | **1** | **0** | **5,10** | `too_few_trades` 34, `overfitting` 12, `parameter_dispersion` 2, `unstable` 2, `false_discovery` 1 |
 
-Le seul candidat retenu (`volatility_breakout` sur l'or synthétique) n'est pas non plus une
-recommandation. Les écartements sont le résultat le plus utile : ils disent où le laboratoire
-a cherché, et pourquoi cela n'a pas tenu.
+Sélection multiple : `alpha = 0.10`, 51 tests, seuil de Bonferroni `0,001961`,
+`discoveries_before = 1`, `discoveries_after = 0`, `rejected_by_correction = 1`.
+
+Le survivant `volatility_breakout:00` (or synthétique) portait +17,12 € hors-échantillon sur
+9 opérations, p-value **0,3586** : la correction l'écarte, et 9 opérations ne pesaient de
+toute façon pas lourd. Les **5,10 fausses découvertes attendues** disent le fond de
+l'affaire : à 51 essais et `alpha = 0.10`, environ cinq candidats peuvent franchir un seuil
+par test naïf sans le moindre edge. Les écartements restent le résultat le plus utile : ils
+disent où le laboratoire a cherché, et pourquoi cela n'a pas tenu.
 
 ## Limites et restes
 
@@ -200,6 +326,15 @@ a cherché, et pourquoi cela n'a pas tenu.
   d'apprentissage : c'est voulu — un résultat sur 12 opérations n'est pas un résultat.
 - Les ensembles sont un consensus de deux indicateurs, pas encore une agrégation de
   stratégies complètes avec quorum ; c'est une extension naturelle du catalogue.
-- Le laboratoire ne fait aucune sélection multiple : chaque candidat est jugé seul. Un
-  contrôle du taux de fausses découvertes sur le nombre total de candidats testés reste à
-  ajouter (voir §7, « ne pas supposer qu'une famille est meilleure qu'une autre »).
+- **Le nombre de candidats reste faible** (17 à 51) et la correction a peu de puissance : avec
+  un ou deux survivants, Benjamini-Hochberg est numériquement presque Bonferroni, et un vrai
+  signal peut être écarté faute de preuve, pas parce qu'il est faux. Un écartement
+  `false_discovery` veut dire « pas encore démontré », jamais « mauvais ».
+- **Les candidats ne sont pas indépendants** : même règle à paramètres voisins dans une
+  famille, ruban partagé entre marchés. BH suppose l'indépendance ou une dépendance positive
+  (PRDS) — hypothèse de travail plausible pour des paramètres voisins, mais non démontrée ici.
+- La p-value est un test de randomisation par **inversion de signe** sur les opérations du
+  scellé : elle ignore les régimes groupés et les positions qui se chevauchent (donc plutôt
+  optimiste), et sa résolution est plafonnée par `monte_carlo_iterations` (défaut 1000).
+- Le laboratoire ne teste qu'**un** catalogue pré-défini : la correction protège la sélection
+  telle qu'elle a eu lieu, elle ne remplace pas un protocole pré-enregistré.

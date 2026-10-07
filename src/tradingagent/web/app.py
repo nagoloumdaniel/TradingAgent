@@ -387,6 +387,7 @@ def create_app(
                     "render_at": clock(),
                     "trade_id": trade_id,
                     "replay": None,
+                    "context": None,
                     "timeline": (),
                     "checks": (),
                 },
@@ -397,6 +398,10 @@ def create_app(
             "trade_replay",
             trade_id=trade_id,
             replay=replay,
+            # The market conditions at the signal's own moment: read-only, and every missing
+            # value stays missing so the page can write `n/a` instead of inventing one (§28).
+            context=queries.market_context(engine, replay),
+            min_candles=queries.REPLAY_MIN_CANDLES,
             timeline=replay_timeline(replay),
             checks=replay_checks(replay),
         )

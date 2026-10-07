@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T05:34:34.320957+00:00",
+  "generated_at": "2026-10-07T15:29:04.012364+00:00",
   "source": "scripts/backtest/discover.py",
   "datasets": {
     "XAUUSD": {
@@ -20,6 +20,8 @@
       "min_stability_score": 0.5,
       "min_profitable_regime_ratio": 0.5,
       "min_out_of_sample_retention": 0.5,
+      "false_discovery_rate": 0.1,
+      "monte_carlo_iterations": 1000,
       "walk_forward": {
         "train_bars": 250,
         "validation_bars": 100,
@@ -51,8 +53,10 @@
         "family": "trend_following",
         "description": "suivi de tendance (croisement EMA)",
         "tested": 8,
+        "retained_before_correction": 0,
         "retained": 0,
         "discarded": 8,
+        "expected_false_discoveries": 0.8,
         "failures": [
           {
             "cause": "overfitting",
@@ -62,16 +66,18 @@
           {
             "cause": "unstable",
             "count": 2,
-            "description": "score de stabilit\u00c3\u00a9 insuffisant"
+            "description": "score de stabilit\u00e9 insuffisant"
           }
         ]
       },
       {
         "family": "momentum",
-        "description": "momentum normalis\u00c3\u00a9 par l'ATR",
+        "description": "momentum normalis\u00e9 par l'ATR",
         "tested": 2,
+        "retained_before_correction": 0,
         "retained": 0,
         "discarded": 2,
+        "expected_false_discoveries": 0.2,
         "failures": [
           {
             "cause": "overfitting",
@@ -84,13 +90,20 @@
         "family": "mean_reversion",
         "description": "retour \u00e0 la moyenne (RSI)",
         "tested": 2,
-        "retained": 1,
-        "discarded": 1,
+        "retained_before_correction": 1,
+        "retained": 0,
+        "discarded": 2,
+        "expected_false_discoveries": 0.2,
         "failures": [
           {
             "cause": "overfitting",
             "count": 1,
             "description": "walk-forward non profitable : surapprentissage"
+          },
+          {
+            "cause": "false_discovery",
+            "count": 1,
+            "description": "survivant de la s\u00e9lection multiple : p-value au-dessus de la correction de Benjamini-Hochberg"
           }
         ]
       },
@@ -98,8 +111,10 @@
         "family": "breakout",
         "description": "cassure de canal Donchian",
         "tested": 2,
+        "retained_before_correction": 0,
         "retained": 0,
         "discarded": 2,
+        "expected_false_discoveries": 0.2,
         "failures": [
           {
             "cause": "overfitting",
@@ -110,10 +125,12 @@
       },
       {
         "family": "volatility_breakout",
-        "description": "cassure de volatilit\u00c3\u00a9 (expansion ATR)",
+        "description": "cassure de volatilit\u00e9 (expansion ATR)",
         "tested": 2,
+        "retained_before_correction": 0,
         "retained": 0,
         "discarded": 2,
+        "expected_false_discoveries": 0.2,
         "failures": [
           {
             "cause": "overfitting",
@@ -126,8 +143,10 @@
         "family": "ensemble",
         "description": "ensemble : consensus tendance + RSI",
         "tested": 1,
+        "retained_before_correction": 0,
         "retained": 0,
         "discarded": 1,
+        "expected_false_discoveries": 0.1,
         "failures": [
           {
             "cause": "overfitting",
@@ -137,10 +156,22 @@
         ]
       }
     ],
+    "multiple_testing": {
+      "method": "benjamini_hochberg",
+      "alpha": 0.1,
+      "expected_false_discovery_rate": 0.1,
+      "expected_false_discoveries": 1.7000000000000002,
+      "hypotheses": 17,
+      "bonferroni_threshold": 0.0058823529411764705,
+      "discoveries_before": 1,
+      "discoveries_after": 0,
+      "rejected_by_correction": 1
+    },
     "totals": {
       "tested": 17,
-      "retained": 1,
-      "discarded": 16,
+      "retained_before_correction": 1,
+      "retained": 0,
+      "discarded": 17,
       "failures": [
         {
           "cause": "overfitting",
@@ -150,7 +181,12 @@
         {
           "cause": "unstable",
           "count": 2,
-          "description": "score de stabilit\u00c3\u00a9 insuffisant"
+          "description": "score de stabilit\u00e9 insuffisant"
+        },
+        {
+          "cause": "false_discovery",
+          "count": 1,
+          "description": "survivant de la s\u00e9lection multiple : p-value au-dessus de la correction de Benjamini-Hochberg"
         }
       ]
     },
@@ -164,6 +200,7 @@
         "retained": false,
         "cause": "unstable",
         "detail": "out-of-sample retention -0.84 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "ema_fast": 10.0,
@@ -207,6 +244,7 @@
         "retained": false,
         "cause": "unstable",
         "detail": "out-of-sample retention -0.45 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "ema_fast": 10.0,
@@ -250,6 +288,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention -0.21 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "ema_fast": 10.0,
@@ -294,6 +333,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention -0.36 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "ema_fast": 10.0,
@@ -337,6 +377,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention 0.00 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "ema_fast": 20.0,
@@ -381,6 +422,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention 0.32 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "ema_fast": 20.0,
@@ -424,6 +466,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention -4.50 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "ema_fast": 20.0,
@@ -467,6 +510,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention -0.25 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "ema_fast": 20.0,
@@ -511,6 +555,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention 0.00 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "entry_zone_atr": 0.1,
@@ -555,6 +600,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention 0.00 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "entry_zone_atr": 0.1,
@@ -596,9 +642,10 @@
         "label": "mean_reversion:00",
         "strategy_id": "mean_reversion",
         "version": "0.1.0",
-        "retained": true,
-        "cause": null,
-        "detail": "",
+        "retained": false,
+        "cause": "false_discovery",
+        "detail": "p=0.2438 > seuil de Benjamini-Hochberg 0.0059 au rang 1 sur 17 test(s) \u00e0 alpha=0.10",
+        "p_value": 0.24375624375624375,
         "parameters": {
           "atr_period": 14.0,
           "entry_zone_atr": 0.1,
@@ -639,6 +686,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "entry_zone_atr": 0.1,
@@ -679,6 +727,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention 0.00 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "channel_period": 20.0,
@@ -722,6 +771,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "parameter dispersion 0.68 above 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "channel_period": 40.0,
@@ -763,6 +813,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention 0.00 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "breakout_atr": 0.5,
@@ -806,6 +857,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention -0.73 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "breakout_atr": 1.0,
@@ -849,6 +901,7 @@
         "retained": false,
         "cause": "overfitting",
         "detail": "out-of-sample retention -0.82 below 0.50",
+        "p_value": null,
         "parameters": {
           "atr_period": 14.0,
           "ema_fast": 10.0,

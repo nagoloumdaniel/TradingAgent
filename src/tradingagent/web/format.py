@@ -106,6 +106,20 @@ _SIGNAL_STATES = {
     SignalState.CANCELLED: "Annulé",
     SignalState.ERROR: "Erreur",
 }
+# The vocabulary of `ai.daily`: the labels are its own, this table only reads them in the
+# operator's language. Anything unknown falls back to the stored string, never to a guess.
+_REGIMES = {
+    "volatilite_haute": "Volatilité haute",
+    "volatilite_normale": "Volatilité normale",
+    "volatilite_basse": "Volatilité basse",
+    "inconnu": "Inconnu",
+}
+_SESSIONS = {
+    "asie": "Asie",
+    "londres": "Londres",
+    "new_york": "New York",
+    "apres_cloture": "Après clôture",
+}
 
 
 def money(value: Decimal | None, *, signed: bool = False) -> str:
@@ -237,6 +251,16 @@ def strategy_status_label(status: StrategyStatus | str) -> str:
     return _STRATEGY_STATUSES.get(parsed, str(status))
 
 
+def regime_label(regime: str | None) -> str:
+    """The volatility regime as `ai.daily.regime_of` named it. Absent stays absent."""
+    return NA if regime is None else _REGIMES.get(regime, regime)
+
+
+def session_label(session: str | None) -> str:
+    """The UTC session as `ai.daily.session_of` named it, read in French."""
+    return NA if session is None else _SESSIONS.get(session, session)
+
+
 def r_multiple(value: Decimal | float | None) -> str:
     """Realized R, written the way the storage layer defines it (profit over risk)."""
     return NA if value is None else f"{float(value):+.2f} R"
@@ -278,7 +302,9 @@ __all__ = [
     "r_multiple",
     "ratio",
     "ratio_class",
+    "regime_label",
     "risk_outcome_label",
+    "session_label",
     "severity_class",
     "severity_label",
     "signal_state_label",

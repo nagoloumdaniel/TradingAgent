@@ -19,6 +19,10 @@ Structural guarantees
   gates, so a family that fails early leaves the holdout sealed.
 * A template is a pure function of a parameter grid. It cannot read a dataset, so it cannot
   fit a parameter to the very data it will be judged on.
+* Trying fifty-one candidates and keeping the best one is a *selection*, not a discovery: the
+  survivors of the ladder are therefore passed through a Benjamini-Hochberg false-discovery
+  control. A survivor that does not clear it is discarded with an explicit cause, never kept
+  because it looked good.
 
 Discovering is not promoting: this module writes no manifest to ``config/strategies/`` and
 never touches ``strategies/registry.py``. A discovered candidate becomes executable only once
@@ -26,11 +30,12 @@ the Lead promotes it.
 """
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from enum import StrEnum
 from itertools import product
 from typing import Any, Self
+from zlib import crc32
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -38,6 +43,7 @@ from tradingagent.analytics.model import Performance
 from tradingagent.backtest.costs import CostModel
 from tradingagent.backtest.datasets import CandleDataset
 from tradingagent.backtest.harness import BacktestConfig, run_backtest
+from tradingagent.backtest.randomness import DeterministicRandom
 from tradingagent.core.market import Candle, Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.signal import SignalCandidate
@@ -70,6 +76,11 @@ from tradingagent.strategies.manifest import StrategyManifest
 
 DEFAULT_WALK_FORWARD_RATIO = 0.5
 DEFAULT_VERSION = "0.1.0"
+#: Tolerated proportion of false discoveries among the candidates a run retains. 0.10 is the
+#: usual convention and it is *not* sacred: the report always prints it next to the numbers.
+DEFAULT_FALSE_DISCOVERY_RATE = 0.10
+#: Draws of the sign-flip null used to estimate one candidate's out-of-sample p-value.
+DEFAULT_MONTE_CARLO_ITERATIONS = 1_000
 
 
 class DiscardCause(StrEnum):
@@ -82,6 +93,7 @@ class DiscardCause(StrEnum):
     PARAMETER_DISPERSION = "parameter_dispersion"
     UNSTABLE = "unstable"
     OUT_OF_SAMPLE_NEGATIVE = "out_of_sample_negative"
+    FALSE_DISCOVERY = "false_discovery"
 
     @property
     def description(self) -> str:
@@ -89,13 +101,17 @@ class DiscardCause(StrEnum):
 
 
 _CAUSE_DESCRIPTIONS: dict[DiscardCause, str] = {
-    DiscardCause.INVALID_PARAMETERS: "gabarit/paramÃ¨tres refusÃ©s par le modÃ¨le pydantic",
-    DiscardCause.INSUFFICIENT_DATA: "historique insuffisant pour dÃ©couper ou Ã©valuer",
-    DiscardCause.TOO_FEW_TRADES: "trop peu d'opÃ©rations en Ã©chantillon d'apprentissage",
+    DiscardCause.INVALID_PARAMETERS: "gabarit/paramètres refusés par le modèle pydantic",
+    DiscardCause.INSUFFICIENT_DATA: "historique insuffisant pour découper ou évaluer",
+    DiscardCause.TOO_FEW_TRADES: "trop peu d'opérations en échantillon d'apprentissage",
     DiscardCause.OVERFITTING: "walk-forward non profitable : surapprentissage",
-    DiscardCause.PARAMETER_DISPERSION: "dispersion des paramÃ¨tres : Ã®lot instable",
-    DiscardCause.UNSTABLE: "score de stabilitÃ© insuffisant",
-    DiscardCause.OUT_OF_SAMPLE_NEGATIVE: "hors-Ã©chantillon scellÃ© nÃ©gatif ou rÃ©tention nulle",
+    DiscardCause.PARAMETER_DISPERSION: "dispersion des paramètres : îlot instable",
+    DiscardCause.UNSTABLE: "score de stabilité insuffisant",
+    DiscardCause.OUT_OF_SAMPLE_NEGATIVE: "hors-échantillon scellé négatif ou rétention nulle",
+    DiscardCause.FALSE_DISCOVERY: (
+        "survivant de la sélection multiple : p-value au-dessus de la correction "
+        "de Benjamini-Hochberg"
+    ),
 }
 
 
@@ -654,12 +670,12 @@ FAMILIES: tuple[FamilyTemplate, ...] = (
     FamilyTemplate(
         "trend_following", "suivi de tendance (croisement EMA)", trend_following_template
     ),
-    FamilyTemplate("momentum", "momentum normalisÃ© par l'ATR", momentum_template),
+    FamilyTemplate("momentum", "momentum normalisé par l'ATR", momentum_template),
     FamilyTemplate("mean_reversion", "retour à la moyenne (RSI)", mean_reversion_template),
     FamilyTemplate("breakout", "cassure de canal Donchian", breakout_template),
     FamilyTemplate(
         "volatility_breakout",
-        "cassure de volatilitÃ© (expansion ATR)",
+        "cassure de volatilité (expansion ATR)",
         volatility_breakout_template,
     ),
     FamilyTemplate("ensemble", "ensemble : consensus tendance + RSI", ensemble_template),
@@ -710,6 +726,10 @@ class DiscoveryProtocol:
     slippage_fraction: float = 2e-5
     commission: Decimal = Decimal("0.5")
     risk_eur: Decimal = Decimal("10")
+    #: Tolerated false-discovery rate of the selection, and the resolution of the Monte-Carlo
+    #: null used to price each survivor of the ladder.
+    false_discovery_rate: float = DEFAULT_FALSE_DISCOVERY_RATE
+    monte_carlo_iterations: int = DEFAULT_MONTE_CARLO_ITERATIONS
 
     def __post_init__(self) -> None:
         if not self.token:
@@ -726,6 +746,10 @@ class DiscoveryProtocol:
             raise ValueError("min_walk_forward_ratio must be in [0, 1]")
         if not 0 <= self.min_stability_score <= 1:
             raise ValueError("min_stability_score must be in [0, 1]")
+        if not 0 < self.false_discovery_rate <= 1:
+            raise ValueError("false_discovery_rate must be in (0, 1]")
+        if self.monte_carlo_iterations < 1:
+            raise ValueError("monte_carlo_iterations must be positive")
         if self.risk_eur <= 0:
             raise ValueError("risk_eur must be positive")
 
@@ -779,6 +803,7 @@ class CandidateOutcome:
     stability: StabilityReport | None = None
     invalid_perturbations: int = 0
     strategy_errors: tuple[str, ...] = ()
+    p_value: float | None = None
 
     @property
     def holdout_was_read(self) -> bool:
@@ -807,17 +832,50 @@ class MarketOverview:
 
 @dataclass(frozen=True)
 class FamilySummary:
-    """The honest scoreboard: tested, retained, and one line per discard cause."""
+    """The honest scoreboard: tested, retained before/after correction, one line per cause.
+
+    ``retained`` is the count *after* the false-discovery correction -- what the family can
+    actually claim. ``retained_before_correction`` is how many survived the protocol alone,
+    which is what makes the cost of the multiple-testing correction visible.
+    """
 
     family: str
     description: str
     tested: int
     retained: int
     failures: Mapping[DiscardCause, int]
+    retained_before_correction: int = 0
+    expected_false_discoveries: float = 0.0
 
     @property
     def discarded(self) -> int:
         return self.tested - self.retained
+
+
+@dataclass(frozen=True)
+class MultipleTestingReport:
+    """What the false-discovery control did to one discovery run.
+
+    ``hypotheses`` is the number of candidates the laboratory tried, not the number that
+    reached the sealed set: that is the number of attempts the correction must pay for.
+    ``expected_false_discoveries`` is ``hypotheses * alpha``, the count of candidates a naive
+    per-test rule would wave through on luck alone; ``expected_false_discovery_rate`` is the
+    ``alpha`` Benjamini-Hochberg actually bounds among the retained.
+    """
+
+    method: str
+    alpha: float
+    hypotheses: int
+    discoveries_before: int
+    discoveries_after: int
+    rejected_by_correction: int
+    bonferroni_threshold: float
+    expected_false_discoveries: float
+
+    @property
+    def expected_false_discovery_rate(self) -> float:
+        """The tolerated false-discovery rate: the guarantee Benjamini-Hochberg gives."""
+        return self.alpha
 
 
 @dataclass(frozen=True)
@@ -828,6 +886,7 @@ class DiscoveryReport:
     families: tuple[FamilySummary, ...]
     candidates: tuple[CandidateOutcome, ...]
     protocol: DiscoveryProtocol
+    multiple_testing: MultipleTestingReport
 
     def retained(self) -> tuple[CandidateOutcome, ...]:
         return tuple(candidate for candidate in self.candidates if candidate.retained)
@@ -865,6 +924,8 @@ def report_to_dict(report: DiscoveryReport) -> dict[str, Any]:
             "min_stability_score": report.protocol.min_stability_score,
             "min_profitable_regime_ratio": report.protocol.min_profitable_regime_ratio,
             "min_out_of_sample_retention": report.protocol.min_out_of_sample_retention,
+            "false_discovery_rate": report.protocol.false_discovery_rate,
+            "monte_carlo_iterations": report.protocol.monte_carlo_iterations,
             "walk_forward": {
                 "train_bars": report.protocol.walk_forward.train_bars,
                 "validation_bars": report.protocol.walk_forward.validation_bars,
@@ -897,8 +958,10 @@ def report_to_dict(report: DiscoveryReport) -> dict[str, Any]:
                 "family": item.family,
                 "description": item.description,
                 "tested": item.tested,
+                "retained_before_correction": item.retained_before_correction,
                 "retained": item.retained,
                 "discarded": item.discarded,
+                "expected_false_discoveries": item.expected_false_discoveries,
                 "failures": [
                     {"cause": cause.value, "count": count, "description": cause.description}
                     for cause, count in sorted(
@@ -908,8 +971,20 @@ def report_to_dict(report: DiscoveryReport) -> dict[str, Any]:
             }
             for item in report.families
         ],
+        "multiple_testing": {
+            "method": report.multiple_testing.method,
+            "alpha": report.multiple_testing.alpha,
+            "expected_false_discovery_rate": report.multiple_testing.expected_false_discovery_rate,
+            "expected_false_discoveries": report.multiple_testing.expected_false_discoveries,
+            "hypotheses": report.multiple_testing.hypotheses,
+            "bonferroni_threshold": report.multiple_testing.bonferroni_threshold,
+            "discoveries_before": report.multiple_testing.discoveries_before,
+            "discoveries_after": report.multiple_testing.discoveries_after,
+            "rejected_by_correction": report.multiple_testing.rejected_by_correction,
+        },
         "totals": {
             "tested": len(report.candidates),
+            "retained_before_correction": report.multiple_testing.discoveries_before,
             "retained": len(report.retained()),
             "discarded": len(report.discarded()),
             "failures": [
@@ -934,6 +1009,7 @@ def _candidate_to_dict(candidate: CandidateOutcome) -> dict[str, Any]:
         "retained": candidate.retained,
         "cause": None if candidate.cause is None else candidate.cause.value,
         "detail": candidate.detail,
+        "p_value": candidate.p_value,
         "parameters": {key: float(value) for key, value in candidate.parameters.items()},
         "train_net_profit": _money(candidate.train),
         "validation_net_profit": _money(candidate.validation),
@@ -1036,6 +1112,185 @@ def discard_cause(
 
 
 # --------------------------------------------------------------------------------------
+# False-discovery control: a survivor of fifty-one attempts is not yet a discovery.
+# --------------------------------------------------------------------------------------
+#
+# Every candidate of a run is one hypothesis tested ("this candidate has no edge"). Keeping
+# the one that looks best out of many and calling it a discovery is the classic multiple-
+# comparison trap: with enough attempts, chance alone produces a presentable survivor. The
+# ladder above judges each candidate *alone*; the functions below judge the *selection*.
+#
+# The honest difficulty is that the existing protocol produces no p-value: `stability_report`
+# is a robustness score, and `protocol.monte_carlo` resamples the realized P&L, which centres
+# on the observed total and therefore answers "what other orderings of these same trades?"
+# rather than "what would a rule without edge have done?". So the p-value is built here,
+# explicitly, and its assumptions are written down rather than implied.
+
+
+def monte_carlo_p_value(
+    pnls: Sequence[float],
+    *,
+    iterations: int = DEFAULT_MONTE_CARLO_ITERATIONS,
+    seed: int = 0,
+) -> float:
+    """The probability that a random draw *without edge* does at least as well.
+
+    Null hypothesis: the entry rule carries no directional information on that tape. Under
+    it the sign of each realized trade is as good as a fair coin -- the magnitudes are what
+    the market and the costs gave, but the direction says nothing. The statistic is the total
+    net profit; the null distribution is drawn by flipping the sign of every trade with an
+    independent fair coin (a sign-flip randomization test, the Fisher test for paired
+    observations), and the p-value is the share of those draws that reach the observed total.
+
+    Two deliberate details:
+
+    * the estimate is ``(count + 1) / (iterations + 1)``, never exactly zero: with
+      ``iterations`` draws a Monte-Carlo p-value cannot resolve below ``1 / (iterations + 1)``,
+      and reporting a zero would claim a precision this method does not have;
+    * an empty out-of-sample sample returns ``1.0``: no trade is no evidence of an edge.
+
+    What it does *not* do: the trades are treated as exchangeable, so clustered regimes and
+    overlapping positions make the p-value optimistic, and the test only sees *directional*
+    edge -- a rule whose gross edge is smaller than its costs shows a small total and lands
+    near ``1.0``, which errs on the safe side.
+    """
+    if iterations < 1:
+        raise ValueError("iterations must be positive")
+    values = [float(value) for value in pnls]
+    if not values:
+        return 1.0
+    observed = sum(values)
+    stream = DeterministicRandom(seed)
+    at_least_as_good = 0
+    for _ in range(iterations):
+        total = 0.0
+        for value in values:
+            total += value if stream.random() < 0.5 else -value
+        if total >= observed:
+            at_least_as_good += 1
+    return (at_least_as_good + 1) / (iterations + 1)
+
+
+def bonferroni_threshold(hypotheses: int, *, alpha: float = DEFAULT_FALSE_DISCOVERY_RATE) -> float:
+    """The per-test threshold of the Bonferroni correction, shown only for comparison.
+
+    Bonferroni divides the level by the number of tests and is therefore stricter than
+    Benjamini-Hochberg whenever more than one test looks promising. It is reported so a
+    reader can see how much of the result comes from the correction and how much from the
+    choice of method; it never decides anything here. With no test at all, nothing has to be
+    cleared, so the threshold is ``1.0``.
+    """
+    if hypotheses < 0:
+        raise ValueError("hypotheses cannot be negative")
+    if not 0 < alpha <= 1:
+        raise ValueError("alpha must be in (0, 1]")
+    return alpha / hypotheses if hypotheses else 1.0
+
+
+def _benjamini_hochberg_cut_off(p_values: Sequence[float], alpha: float) -> float | None:
+    """The p-value cut-off of the BH step-up: the largest ``p_(k)`` with ``p_(k) <= k/m*alpha``.
+
+    ``None`` means "no rank qualifies", i.e. nothing is a discovery. Kept separate from the
+    flags so the rule is written in one place and the decisions are a plain comparison.
+    """
+    ordered = sorted(p_values)
+    cut_off: float | None = None
+    for rank, value in enumerate(ordered, start=1):
+        if value <= rank / len(ordered) * alpha:
+            cut_off = value
+    return cut_off
+
+
+def benjamini_hochberg(
+    p_values: Sequence[float], *, alpha: float = DEFAULT_FALSE_DISCOVERY_RATE
+) -> tuple[bool, ...]:
+    """Benjamini-Hochberg step-up: which hypotheses survive at a false-discovery rate alpha.
+
+    Sort the p-values ascending; the largest rank ``k`` with ``p_(k) <= k / m * alpha`` fixes
+    the cut-off, and every hypothesis with ``p <= p_(k)`` is rejected (i.e. *kept* here: a
+    small p-value is what makes a candidate a discovery). With a single candidate the rule
+    collapses to ``p <= alpha``, which is the honest reading of "no selection happened".
+
+    Flags come back in the order the p-values were given, so a caller can zip them straight
+    back onto its candidates.
+    """
+    if not 0 < alpha <= 1:
+        raise ValueError("alpha must be in (0, 1]")
+    for value in p_values:
+        if not 0.0 <= value <= 1.0:
+            raise ValueError(f"p-values must lie in [0, 1], got {value}")
+    if not p_values:
+        return ()
+    cut_off = _benjamini_hochberg_cut_off(p_values, alpha)
+    if cut_off is None:
+        return tuple(False for _ in p_values)
+    return tuple(value <= cut_off for value in p_values)
+
+
+def control_false_discoveries(
+    candidates: Sequence[CandidateOutcome],
+    *,
+    alpha: float = DEFAULT_FALSE_DISCOVERY_RATE,
+) -> tuple[tuple[CandidateOutcome, ...], MultipleTestingReport]:
+    """Demote the survivors that do not clear the false-discovery correction.
+
+    Every candidate of the run is one test. The ones that never reached the sealed set carry
+    no out-of-sample evidence and are counted with ``p = 1``; that keeps the number of tests
+    equal to the number of candidates the laboratory actually tried, which makes the
+    correction *conservative* rather than flattering. A demoted candidate keeps its p-value
+    and receives :attr:`DiscardCause.FALSE_DISCOVERY`, never a silent deletion.
+    """
+    count = len(candidates)
+    p_values = [1.0 if candidate.p_value is None else candidate.p_value for candidate in candidates]
+    survives = benjamini_hochberg(p_values, alpha=alpha)
+    # A demoted candidate is quoted the threshold *its own rank* required, ``rank/m * alpha``:
+    # Benjamini-Hochberg rejects exactly the p-values above their rank threshold, so the line
+    # says what the candidate failed to clear without borrowing another candidate's number.
+    ranks = [1 + sum(1 for other in p_values if other < value) for value in p_values]
+    controlled: list[CandidateOutcome] = []
+    demoted = 0
+    for position, (candidate, p_value, significant) in enumerate(
+        zip(candidates, p_values, survives, strict=True)
+    ):
+        if candidate.retained and not significant:
+            demoted += 1
+            controlled.append(
+                replace(
+                    candidate,
+                    retained=False,
+                    cause=DiscardCause.FALSE_DISCOVERY,
+                    detail=(
+                        f"p={p_value:.4f} > seuil de Benjamini-Hochberg "
+                        f"{ranks[position] / count * alpha:.4f} au rang {ranks[position]} "
+                        f"sur {count} test(s) à alpha={alpha:.2f}"
+                    ),
+                )
+            )
+            continue
+        controlled.append(candidate)
+    before = sum(1 for candidate in candidates if candidate.retained)
+    return tuple(controlled), MultipleTestingReport(
+        method="benjamini_hochberg",
+        alpha=alpha,
+        hypotheses=count,
+        discoveries_before=before,
+        discoveries_after=before - demoted,
+        rejected_by_correction=demoted,
+        bonferroni_threshold=bonferroni_threshold(count, alpha=alpha),
+        expected_false_discoveries=count * alpha,
+    )
+
+
+def _candidate_seed(market: str, family: str, label: str) -> int:
+    """A stable per-candidate Monte-Carlo seed.
+
+    ``hash()`` is salted per process, so it would make two runs of the same discovery
+    disagree. CRC-32 of the candidate's identity is stable across platforms and processes.
+    """
+    return crc32(f"{market}|{family}|{label}".encode())
+
+
+# --------------------------------------------------------------------------------------
 # The discovery run.
 # --------------------------------------------------------------------------------------
 
@@ -1055,11 +1310,13 @@ def discover(
     """
     settings = protocol if protocol is not None else DiscoveryProtocol()
     if not datasets:
+        empty, multiple_testing = control_false_discoveries((), alpha=settings.false_discovery_rate)
         return DiscoveryReport(
             markets=(),
-            families=_family_summaries((), families),
-            candidates=(),
+            families=_family_summaries((), families, alpha=settings.false_discovery_rate),
+            candidates=empty,
             protocol=settings,
+            multiple_testing=multiple_testing,
         )
     symbols = tuple(sorted({dataset.symbol for dataset in datasets.values()}))
     markets: list[MarketOverview] = []
@@ -1068,11 +1325,17 @@ def discover(
         outcomes, overview = _run_market(market, dataset, symbols, grid, settings, families)
         candidates.extend(outcomes)
         markets.append(overview)
+    # The correction comes last, over the *whole* run: the selection spans every family and
+    # every market, so the number of tests is the number of candidates the run tried.
+    controlled, multiple_testing = control_false_discoveries(
+        tuple(candidates), alpha=settings.false_discovery_rate
+    )
     return DiscoveryReport(
         markets=tuple(markets),
-        families=_family_summaries(tuple(candidates), families),
-        candidates=tuple(candidates),
+        families=_family_summaries(controlled, families, alpha=settings.false_discovery_rate),
+        candidates=controlled,
         protocol=settings,
+        multiple_testing=multiple_testing,
     )
 
 
@@ -1275,10 +1538,17 @@ def _evaluate_candidate(
             strategy_errors=errors,
         )
 
+    # The holdout trades are kept: the p-value that the selection correction needs is built
+    # from them, and `confirm` is the only function allowed to unlock the sealed set. The
+    # runner captures them rather than re-reading the holdout, so the audit trail (one
+    # unlock per candidate) is unchanged.
+    holdout_pnls: list[float] = []
+
     def runner(parameters: Mapping[str, float], candles: Sequence[Candle]) -> Performance:
         result = run_backtest(
             proposal.factory(parameters), proposal.manifest, {timeframe: candles}, config
         )
+        holdout_pnls.extend(float(trade.pnl_eur) for trade in result.trades)
         return result.performance
 
     # The holdout is the last gate and the only place it is ever read: a candidate that
@@ -1293,6 +1563,18 @@ def _evaluate_candidate(
         in_sample_trades=train.performance.trades,
         protocol=settings,
         invalid_perturbations=invalid_perturbations,
+    )
+    # Only a candidate that cleared the whole ladder is priced: the others are not
+    # discoveries, so a p-value would only mislead the correction. `None` means "counted as
+    # p = 1", which is what `control_false_discoveries` needs.
+    p_value = (
+        None
+        if cause is not None
+        else monte_carlo_p_value(
+            holdout_pnls,
+            iterations=settings.monte_carlo_iterations,
+            seed=_candidate_seed(market, proposal.family, label),
+        )
     )
     return CandidateOutcome(
         market=market,
@@ -1311,6 +1593,7 @@ def _evaluate_candidate(
         stability=stability,
         invalid_perturbations=invalid_perturbations,
         strategy_errors=errors,
+        p_value=p_value,
     )
 
 
@@ -1340,7 +1623,10 @@ def _verdict(
 
 
 def _family_summaries(
-    candidates: Sequence[CandidateOutcome], families: Sequence[FamilyTemplate]
+    candidates: Sequence[CandidateOutcome],
+    families: Sequence[FamilyTemplate],
+    *,
+    alpha: float,
 ) -> tuple[FamilySummary, ...]:
     described = {template.family: template.description for template in families}
     ordered = [template.family for template in families]
@@ -1362,6 +1648,14 @@ def _family_summaries(
                 tested=len(items),
                 retained=sum(1 for item in items if item.retained),
                 failures=failures,
+                # A `false_discovery` discard is a survivor of the protocol: counting it as
+                # "retained before the correction" is what makes the two columns differ.
+                retained_before_correction=sum(
+                    1
+                    for item in items
+                    if item.retained or item.cause is DiscardCause.FALSE_DISCOVERY
+                ),
+                expected_false_discoveries=len(items) * alpha,
             )
         )
     return tuple(summaries)

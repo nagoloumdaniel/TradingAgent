@@ -6,6 +6,7 @@ pure function of its grid, the report is deterministic, an over-fitted family lo
 rolling origin, and a strategy that would need a future candle can never see one.
 """
 
+import importlib
 import json
 from collections.abc import Iterator, Sequence
 from dataclasses import replace
@@ -13,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Self
 
+import pytest
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tradingagent.analytics.model import Performance, Trade
@@ -23,8 +25,10 @@ from tradingagent.core.mode import TradingMode
 from tradingagent.core.signal import SignalCandidate
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.indicators.volatility import atr
+from tradingagent.research import discovery as discovery_module
 from tradingagent.research.discovery import (
     FAMILIES,
+    CandidateOutcome,
     CandidateProposal,
     DiscardCause,
     DiscoveryProtocol,
@@ -32,12 +36,16 @@ from tradingagent.research.discovery import (
     Grid,
     TemplateScope,
     WalkForwardOutcome,
+    benjamini_hochberg,
+    bonferroni_threshold,
     build_proposal,
+    control_false_discoveries,
     default_grid,
     discard_cause,
     discover,
     early_discard_cause,
     grid_values,
+    monte_carlo_p_value,
 )
 from tradingagent.research.protocol import (
     StabilityReport,
@@ -58,6 +66,23 @@ def small_protocol(**overrides: object) -> DiscoveryProtocol:
         walk_forward=WalkForwardPlan(train_bars=80, validation_bars=60, step_bars=60, max_folds=3),
     )
     return replace(base, **overrides)  # type: ignore[arg-type]
+
+
+def loose_protocol(**overrides: object) -> DiscoveryProtocol:
+    """Every gate opened, so candidates actually reach the sealed set and the correction.
+
+    The false-discovery control only has something to bite on when candidates survive the
+    protocol; a test that wants survivors uses this rather than pretending the ladder passed.
+    """
+    return small_protocol(
+        min_walk_forward_ratio=0.0,
+        max_parameter_dispersion=10_000.0,
+        min_stability_score=0.0,
+        min_profitable_regime_ratio=0.0,
+        min_out_of_sample_retention=-10.0,
+        min_trades=1,
+        **overrides,
+    )
 
 
 def tiny_grid() -> dict[str, dict[str, tuple[float, ...]]]:
@@ -258,10 +283,14 @@ def test_an_empty_dataset_mapping_produces_an_empty_report_instead_of_crashing()
     assert report.failures_by_cause() == {}
     assert report.to_dict()["totals"] == {
         "tested": 0,
+        "retained_before_correction": 0,
         "retained": 0,
         "discarded": 0,
         "failures": [],
     }
+    assert report.multiple_testing.hypotheses == 0
+    assert report.multiple_testing.bonferroni_threshold == 1.0
+    assert report.multiple_testing.expected_false_discoveries == 0.0
 
 
 def test_a_dataset_too_short_to_split_is_reported_as_skipped() -> None:
@@ -552,14 +581,7 @@ def test_the_holdout_is_only_read_after_the_rolling_gates() -> None:
     assert failing.markets[0].holdout_unlocks == 0
     assert failing.candidates[0].holdout_was_read is False
 
-    loose = small_protocol(
-        min_walk_forward_ratio=0.0,
-        max_parameter_dispersion=10_000.0,
-        min_stability_score=0.0,
-        min_profitable_regime_ratio=0.0,
-        min_out_of_sample_retention=-10.0,
-        min_trades=1,
-    )
+    loose = loose_protocol()
     trading = tuple(template for template in FAMILIES if template.family == "trend_following")
     passing = discover({"frxXAUUSD": synthetic()}, tiny_grid(), loose, families=trading)
     assert passing.candidates
@@ -601,3 +623,277 @@ def test_a_broken_proposal_is_reported_as_invalid_parameters() -> None:
             "description": DiscardCause.INVALID_PARAMETERS.description,
         }
     ]
+
+
+# --------------------------------------------------------------------------------------
+# Multiple testing: a survivor of fifty-one attempts is not yet a discovery.
+# --------------------------------------------------------------------------------------
+
+
+def candidate_outcome(
+    *,
+    label: str = "probe:00",
+    family: str = "probe",
+    retained: bool = True,
+    cause: DiscardCause | None = None,
+    p_value: float | None = None,
+) -> CandidateOutcome:
+    """One hand-built verdict, so the correction is tested on written-down p-values."""
+    return CandidateOutcome(
+        market="frxXAUUSD",
+        family=family,
+        label=label,
+        strategy_id="probe",
+        version="0.1.0",
+        parameters={},
+        retained=retained,
+        cause=cause,
+        p_value=p_value,
+    )
+
+
+def test_the_documented_defaults_of_the_correction() -> None:
+    protocol = DiscoveryProtocol()
+    assert protocol.false_discovery_rate == 0.10
+    assert protocol.monte_carlo_iterations == 1_000
+
+
+def test_a_single_coin_flip_is_the_whole_null_for_a_single_trade() -> None:
+    # One trade of +1: the null draws +1 or -1, so exactly half of the draws reach the
+    # observed total. 0.5 is what the method must return, up to Monte-Carlo noise.
+    p_value = monte_carlo_p_value([1.0], iterations=4_000, seed=11)
+    assert 0.45 < p_value <= 0.55
+    assert p_value == monte_carlo_p_value([1.0], iterations=4_000, seed=11)
+
+
+def test_a_tape_that_only_lost_gets_a_p_value_of_one() -> None:
+    # Flipping a sign can only improve a losing tape, so every draw is at least as good as
+    # the observed total, and the p-value saturates at 1.0.
+    assert monte_carlo_p_value([-1.0, -1.0, -1.0], iterations=500, seed=3) == 1.0
+    assert monte_carlo_p_value([0.0, 0.0], iterations=500, seed=3) == 1.0
+    assert monte_carlo_p_value([], iterations=500, seed=3) == 1.0
+
+
+def test_ten_winning_trades_are_unlikely_under_the_no_edge_null() -> None:
+    # Reaching +10 requires ten positive signs out of ten: 1 / 2**10 = 1/1024.
+    p_value = monte_carlo_p_value([1.0] * 10, iterations=5_000, seed=5)
+    assert 0.0 < p_value <= 0.01
+    assert p_value == monte_carlo_p_value([1.0] * 10, iterations=5_000, seed=5)
+
+
+def test_the_monte_carlo_p_value_refuses_a_degenerate_resolution() -> None:
+    with pytest.raises(ValueError):
+        monte_carlo_p_value([1.0], iterations=0)
+
+
+def test_benjamini_hochberg_leaves_a_selection_it_has_no_reason_to_change() -> None:
+    # m = 3, alpha = 0.10: the ranked thresholds are 0.0333, 0.0667 and 0.1000, and every
+    # p-value clears its own. Nothing is corrected because nothing needed correcting.
+    assert benjamini_hochberg([0.01, 0.02, 0.03], alpha=0.10) == (True, True, True)
+
+
+def test_benjamini_hochberg_eliminates_the_candidate_that_chance_could_produce() -> None:
+    # m = 2, alpha = 0.10: thresholds 0.05 and 0.10. 0.04 clears the first rank, 0.20
+    # clears nothing -- the second candidate is the price of having tried two.
+    assert benjamini_hochberg([0.04, 0.20], alpha=0.10) == (True, False)
+    # The step-up stops at the highest qualifying rank: rank 2 qualifies (0.04 <= 0.0667),
+    # rank 3 does not (0.15 > 0.1000), so the cut-off is 0.04.
+    assert benjamini_hochberg([0.03, 0.04, 0.15], alpha=0.10) == (True, True, False)
+
+
+def test_one_candidate_is_only_ever_compared_to_alpha() -> None:
+    assert benjamini_hochberg([0.04], alpha=0.10) == (True,)
+    assert benjamini_hochberg([0.20], alpha=0.10) == (False,)
+    assert benjamini_hochberg([], alpha=0.10) == ()
+
+
+def test_no_qualifying_rank_keeps_nothing() -> None:
+    assert benjamini_hochberg([0.5, 0.6], alpha=0.10) == (False, False)
+
+
+def test_the_bonferroni_threshold_is_reported_for_comparison_only() -> None:
+    assert bonferroni_threshold(5, alpha=0.10) == 0.02
+    assert bonferroni_threshold(51, alpha=0.10) == 0.10 / 51
+    assert bonferroni_threshold(0, alpha=0.10) == 1.0
+
+
+def test_the_correction_leaves_a_clean_selection_untouched() -> None:
+    candidates = (
+        candidate_outcome(label="a", p_value=0.01),
+        candidate_outcome(label="b", p_value=0.02),
+        candidate_outcome(label="c", p_value=0.03),
+    )
+    controlled, multiple = control_false_discoveries(candidates, alpha=0.10)
+    assert [item.retained for item in controlled] == [True, True, True]
+    assert [item.cause for item in controlled] == [None, None, None]
+    assert multiple.hypotheses == 3
+    assert multiple.discoveries_before == 3
+    assert multiple.discoveries_after == 3
+    assert multiple.rejected_by_correction == 0
+    assert multiple.bonferroni_threshold == 0.10 / 3
+    assert multiple.expected_false_discoveries == pytest.approx(0.30)
+    assert controlled == candidates
+
+
+def test_the_correction_discards_the_survivor_chance_could_have_produced() -> None:
+    candidates = (
+        candidate_outcome(label="signal", p_value=0.04),
+        candidate_outcome(label="luck", p_value=0.20),
+    )
+    controlled, multiple = control_false_discoveries(candidates, alpha=0.10)
+    assert [item.retained for item in controlled] == [True, False]
+    assert controlled[1].cause is DiscardCause.FALSE_DISCOVERY
+    assert controlled[1].p_value == 0.20  # the evidence is kept, not erased
+    # The rank-2 threshold is 2 / 2 * 0.10 = 0.1000, and 0.20 does not clear it.
+    assert controlled[1].detail == (
+        "p=0.2000 > seuil de Benjamini-Hochberg 0.1000 au rang 2 sur 2 test(s) à alpha=0.10"
+    )
+    assert multiple.discoveries_before == 2
+    assert multiple.discoveries_after == 1
+    assert multiple.rejected_by_correction == 1
+    assert multiple.bonferroni_threshold == 0.05
+    assert multiple.expected_false_discoveries == 0.20
+    assert multiple.expected_false_discovery_rate == 0.10
+
+
+def test_a_single_survivor_is_its_own_selection() -> None:
+    kept, multiple = control_false_discoveries((candidate_outcome(p_value=0.04),), alpha=0.10)
+    assert kept[0].retained is True
+    assert multiple.hypotheses == 1
+    assert multiple.discoveries_after == 1
+    dropped, single = control_false_discoveries((candidate_outcome(p_value=0.20),), alpha=0.10)
+    assert dropped[0].retained is False
+    assert dropped[0].cause is DiscardCause.FALSE_DISCOVERY
+    assert single.hypotheses == 1
+    assert single.discoveries_before == 1
+    assert single.discoveries_after == 0
+
+
+def test_a_candidate_that_never_reached_the_holdout_counts_as_a_test_at_p_one() -> None:
+    candidates = (
+        candidate_outcome(label="signal", p_value=0.04),
+        candidate_outcome(label="dead", retained=False, cause=DiscardCause.OVERFITTING),
+    )
+    controlled, multiple = control_false_discoveries(candidates, alpha=0.10)
+    # Two candidates were tried, so two tests are paid for, even though only one has a
+    # p-value; m = 2 is what makes this conservative rather than flattering.
+    assert multiple.hypotheses == 2
+    assert multiple.bonferroni_threshold == 0.05
+    assert [item.retained for item in controlled] == [True, False]
+    assert [item.cause for item in controlled] == [None, DiscardCause.OVERFITTING]
+
+
+def test_a_survivor_without_any_p_value_is_never_kept_silently() -> None:
+    controlled, multiple = control_false_discoveries((candidate_outcome(p_value=None),), alpha=0.10)
+    assert controlled[0].retained is False
+    assert controlled[0].cause is DiscardCause.FALSE_DISCOVERY
+    assert multiple.discoveries_before == 1
+    assert multiple.discoveries_after == 0
+
+
+def test_the_correction_is_deterministic() -> None:
+    candidates = (
+        candidate_outcome(label="a", p_value=0.03),
+        candidate_outcome(label="b", p_value=0.04),
+        candidate_outcome(label="c", p_value=0.15),
+    )
+    first, first_report = control_false_discoveries(candidates, alpha=0.10)
+    second, second_report = control_false_discoveries(candidates, alpha=0.10)
+    assert first == second
+    assert first_report == second_report
+
+
+def test_the_run_prices_every_survivor_and_corrects_the_whole_selection() -> None:
+    report = discover({"frxXAUUSD": synthetic()}, tiny_grid(), loose_protocol())
+    multiple = report.multiple_testing
+    assert multiple.method == "benjamini_hochberg"
+    assert multiple.alpha == 0.10
+    assert multiple.hypotheses == len(report.candidates)
+    assert multiple.bonferroni_threshold == 0.10 / len(report.candidates)
+    assert multiple.expected_false_discoveries == len(report.candidates) * 0.10
+    assert multiple.discoveries_before == (
+        multiple.discoveries_after + multiple.rejected_by_correction
+    )
+    assert multiple.discoveries_after == len(report.retained())
+    for candidate in report.candidates:
+        if candidate.retained or candidate.cause is DiscardCause.FALSE_DISCOVERY:
+            assert candidate.p_value is not None
+            assert 0.0 < candidate.p_value <= 1.0
+        else:
+            # A candidate that never earned its holdout read has no p-value to offer, and
+            # must not be handed a flattering one.
+            assert candidate.p_value is None
+    for summary in report.families:
+        assert summary.retained_before_correction >= summary.retained
+        assert summary.retained_before_correction == (
+            summary.retained + summary.failures.get(DiscardCause.FALSE_DISCOVERY, 0)
+        )
+        assert summary.expected_false_discoveries == summary.tested * 0.10
+
+
+def test_the_report_json_carries_the_selection_figures_in_a_stable_shape() -> None:
+    report = discover({"frxXAUUSD": synthetic()}, tiny_grid(), loose_protocol())
+    payload = report.to_dict()
+    assert set(payload["multiple_testing"]) == {
+        "method",
+        "alpha",
+        "expected_false_discovery_rate",
+        "expected_false_discoveries",
+        "hypotheses",
+        "bonferroni_threshold",
+        "discoveries_before",
+        "discoveries_after",
+        "rejected_by_correction",
+    }
+    assert payload["multiple_testing"]["method"] == "benjamini_hochberg"
+    assert payload["multiple_testing"]["hypotheses"] == len(report.candidates)
+    assert payload["multiple_testing"]["bonferroni_threshold"] == 0.10 / len(report.candidates)
+    assert payload["multiple_testing"]["expected_false_discovery_rate"] == 0.10
+    assert payload["totals"]["retained_before_correction"] == (
+        report.multiple_testing.discoveries_before
+    )
+    assert payload["protocol"]["false_discovery_rate"] == 0.10
+    assert payload["protocol"]["monte_carlo_iterations"] == 1_000
+    for family in payload["families"]:
+        assert set(family) >= {"retained_before_correction", "expected_false_discoveries"}
+    assert all("p_value" in candidate for candidate in payload["candidates"])
+
+
+def test_a_run_whose_survivors_do_not_clear_the_correction_discards_them(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A written-down p-value for every survivor: 0.20 with m candidates and alpha = 0.10
+    # clears no rank (rank 1 would need p <= 0.10 / m), so nothing survives.
+    monkeypatch.setattr(discovery_module, "monte_carlo_p_value", lambda *_, **__: 0.20)
+    report = discover({"frxXAUUSD": synthetic()}, tiny_grid(), loose_protocol())
+    before = report.multiple_testing.discoveries_before
+    assert before >= 1
+    assert report.multiple_testing.discoveries_after == 0
+    assert report.multiple_testing.rejected_by_correction == before
+    assert report.retained() == ()
+    demoted = [
+        candidate
+        for candidate in report.candidates
+        if candidate.cause is DiscardCause.FALSE_DISCOVERY
+    ]
+    assert len(demoted) == before
+    assert all(candidate.p_value == 0.20 for candidate in demoted)
+    assert all(candidate.retained is False for candidate in demoted)
+    assert report.failures_by_cause()[DiscardCause.FALSE_DISCOVERY] == before
+    assert report.to_dict()["totals"]["retained"] == 0
+    assert report.to_dict()["totals"]["retained_before_correction"] == before
+
+
+def test_the_cli_summary_shows_the_figures_before_and_after_the_correction(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    script = importlib.import_module("scripts.backtest.discover")
+    report = discover({"frxXAUUSD": synthetic()}, tiny_grid(), loose_protocol())
+    script.print_report(report)
+    printed = capsys.readouterr().out
+    assert "Benjamini-Hochberg" in printed
+    assert "seuil de Bonferroni" in printed
+    assert "retenus avant correction" in printed
+    assert "fausses découvertes attendues" in printed
+    for summary in report.families:
+        assert summary.family in printed

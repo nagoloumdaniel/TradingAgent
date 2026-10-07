@@ -13,8 +13,10 @@ nothing (§34). The arithmetic that does live here is plain aggregation of store
 into a display total — exposure and counters — never an indicator.
 """
 
+from __future__ import annotations
+
 import logging
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -22,10 +24,11 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import Engine, desc, or_, select, text
+from sqlalchemy import Engine, desc, func, or_, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from tradingagent.ai.daily import regime_of, session_of
 from tradingagent.analytics import Axis, Performance, Trade, compute_performance, group
 from tradingagent.analytics.scalping import (
     Bucket,
@@ -703,6 +706,287 @@ def _attached_to(signal_id: int, order_id: int | None) -> Any:
     return or_(
         ExecutionEventRow.signal_id == signal_id,
         ExecutionEventRow.order_id == order_id,
+    )
+
+
+# ---------------------------------------------------------------------------------------
+# §28: the market conditions at the moment of the replayed signal.
+#
+# Everything here is read or already computed: the candles are the stored ones, the
+# indicators are the ones the signal recorded, the volatility regime and the session come
+# from the daily pass's own pure functions (`ai.daily`), and the slippage is the one the
+# execution row holds. No indicator is derived from the candles — a chart is not an
+# indicator — and an absence stays an absence: ``None``, read ``n/a`` (§34).
+# ---------------------------------------------------------------------------------------
+
+# The window drawn around `signals.generated_at`: 30 candles of context before the signal,
+# 10 after it. Past the limit the candle is simply not part of the chart.
+REPLAY_CANDLES_BEFORE = 30
+REPLAY_CANDLES_AFTER = 10
+# Under this, the "chart" would be two or three strokes that say nothing. The page then
+# states that no candles are stored for this instant instead of drawing a shape (§51's own
+# rule: a chart is earned).
+REPLAY_MIN_CANDLES = 10
+REPLAY_CHART_WIDTH = 960
+REPLAY_CHART_HEIGHT = 240
+REPLAY_CHART_PADDING_TOP = 18.0
+REPLAY_CHART_PADDING_BOTTOM = 26.0
+# How many recent signals of the same market feed the volatility median. Bounded by the
+# signal's own moment, never by the clock: the same replay reads the same regime every time.
+REPLAY_REGIME_WINDOW = 30
+# The ATR spellings the daily pass reads (`ai.daily._atr`): one stored field, one meaning.
+_ATR_KEYS: tuple[str, ...] = ("atr", "ATR", "atr14")
+
+
+@dataclass(frozen=True)
+class CandleView:
+    """One stored candle, as recorded: prices go to the page as they are in the table."""
+
+    open_time: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+
+
+@dataclass(frozen=True)
+class CandleChart:
+    """Candles already mapped into a viewBox — display geometry, never an indicator.
+
+    ``signal_x`` is where the signal's own timestamp falls on the drawn axis, ``None`` when
+    it is outside the window; it is a position, not a market level.
+    """
+
+    width: int
+    height: int
+    timeframe: Timeframe
+    high: float
+    low: float
+    plot_top: float
+    plot_bottom: float
+    candles: tuple[CandleMark, ...]
+    signal_x: float | None
+    first_at: datetime
+    last_at: datetime
+
+
+@dataclass(frozen=True)
+class MarketContext:
+    """What the market looked like when the replayed signal was generated (§28).
+
+    Every field is either read from a stored row or returned by a pure function the daily
+    pass already uses. ``None`` means the database holds nothing for it, and the page writes
+    ``n/a``: the dashboard fills no gap with a plausible number.
+    """
+
+    symbol: str
+    candles: tuple[CandleView, ...]
+    chart: CandleChart | None
+    indicators: dict[str, float]
+    atr: float | None
+    median_atr: float | None
+    regime: str | None
+    session: str
+    observed_price: float
+    executed_price: float | None
+    slippage: float | None
+
+
+def _stored_atr(indicators: Mapping[str, Any] | None) -> float | None:
+    """The ATR a signal recorded, under the keys the daily pass itself looks for."""
+    if not indicators:
+        return None
+    for key in _ATR_KEYS:
+        value = indicators.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        return float(value)
+    return None
+
+
+def _median(values: Sequence[float]) -> float | None:
+    """The upper median of the sorted values — the daily pass's own definition."""
+    known = sorted(values)
+    return known[len(known) // 2] if known else None
+
+
+def _candles_around(
+    engine: Engine, symbol: str, timeframe: Timeframe, at: datetime
+) -> tuple[CandleView, ...]:
+    """The stored candles of one unit around ``at``, in chronological order.
+
+    Two bounded reads rather than one: the window is asymmetric on purpose (more context
+    behind a signal than ahead of it). It is bounded in *time* as well as in rows, using the
+    timeframe's own duration, so a lonely candle written hours away cannot be drawn as if it
+    sat next to the others — the axis places candles by index, and a stale row would lie.
+    """
+    step = timedelta(seconds=timeframe.seconds)
+    restricted = (CandleRow.symbol == symbol, CandleRow.timeframe == timeframe)
+    with Session(engine) as session:
+        earlier = session.scalars(
+            select(CandleRow)
+            .where(
+                *restricted,
+                CandleRow.open_time > at - step * REPLAY_CANDLES_BEFORE,
+                CandleRow.open_time <= at,
+            )
+            .order_by(desc(CandleRow.open_time), desc(CandleRow.id))
+            .limit(REPLAY_CANDLES_BEFORE)
+        ).all()
+        later = session.scalars(
+            select(CandleRow)
+            .where(
+                *restricted,
+                CandleRow.open_time > at,
+                CandleRow.open_time <= at + step * REPLAY_CANDLES_AFTER,
+            )
+            .order_by(CandleRow.open_time, CandleRow.id)
+            .limit(REPLAY_CANDLES_AFTER)
+        ).all()
+    ordered = sorted([*earlier, *later], key=lambda row: (row.open_time, row.id))
+    return tuple(
+        CandleView(
+            open_time=row.open_time,
+            open=float(row.open),
+            high=float(row.high),
+            low=float(row.low),
+            close=float(row.close),
+        )
+        for row in ordered
+    )
+
+
+def _stored_timeframes(engine: Engine, symbol: str) -> tuple[Timeframe, ...]:
+    """The units this market stored candles in, most recently written first."""
+    statement = (
+        select(CandleRow.timeframe, func.max(CandleRow.open_time))
+        .where(CandleRow.symbol == symbol)
+        .group_by(CandleRow.timeframe)
+    )
+    with Session(engine) as session:
+        rows = session.execute(statement).all()
+    return tuple(timeframe for timeframe, _ in sorted(rows, key=lambda row: row[1], reverse=True))
+
+
+def _replay_candles(
+    engine: Engine, symbol: str, preferred: Timeframe, at: datetime
+) -> tuple[tuple[CandleView, ...], Timeframe | None]:
+    """The candles the chart draws, and the unit they are in.
+
+    The signal's own timeframe comes first — it is the unit the strategy reasoned in. When it
+    does not hold enough stored candles, the market's other units are tried, richest first,
+    because a chart must never mix two units in one view. Which unit was traced is returned,
+    so the page can say it rather than let the reader assume.
+    """
+    best = _candles_around(engine, symbol, preferred, at)
+    traced: Timeframe | None = preferred
+    if len(best) >= REPLAY_MIN_CANDLES:
+        return best, traced
+    for candidate in _stored_timeframes(engine, symbol):
+        if candidate == preferred:
+            continue
+        candles = _candles_around(engine, symbol, candidate, at)
+        if len(candles) > len(best):
+            best, traced = candles, candidate
+        if len(best) >= REPLAY_MIN_CANDLES:
+            break
+    return best, traced
+
+
+def _chart(candles: Sequence[CandleView], at: datetime, timeframe: Timeframe) -> CandleChart | None:
+    """The candles mapped into a viewBox. Display geometry only: no figure is derived here.
+
+    Under ``REPLAY_MIN_CANDLES`` there is no chart at all — the page says the database holds
+    no candles for this instant instead of drawing a line through three points.
+    """
+    if len(candles) < REPLAY_MIN_CANDLES:
+        return None
+    high = max(candle.high for candle in candles)
+    low = min(candle.low for candle in candles)
+    span = high - low or 1.0
+    top = REPLAY_CHART_PADDING_TOP
+    bottom = float(REPLAY_CHART_HEIGHT) - REPLAY_CHART_PADDING_BOTTOM
+    slot = REPLAY_CHART_WIDTH / len(candles)
+    width = max(1.5, slot * 0.42)
+
+    def y(value: float) -> float:
+        return bottom - (value - low) / span * (bottom - top)
+
+    marks = tuple(
+        CandleMark(
+            x=index * slot + slot / 2,
+            width=width,
+            wick_top=y(candle.high),
+            wick_bottom=y(candle.low),
+            body_top=y(max(candle.open, candle.close)),
+            body_bottom=y(min(candle.open, candle.close)),
+            up=candle.close >= candle.open,
+        )
+        for index, candle in enumerate(candles)
+    )
+    before = sum(1 for candle in candles if candle.open_time <= at)
+    return CandleChart(
+        width=REPLAY_CHART_WIDTH,
+        height=REPLAY_CHART_HEIGHT,
+        timeframe=timeframe,
+        high=high,
+        low=low,
+        plot_top=top,
+        plot_bottom=bottom,
+        candles=marks,
+        signal_x=slot * before if 0 < before < len(candles) else None,
+        first_at=candles[0].open_time,
+        last_at=candles[-1].open_time,
+    )
+
+
+def _market_median_atr(engine: Engine, symbol: str, at: datetime) -> float | None:
+    """The median ATR of this market's last signals, up to the replayed one.
+
+    ``at`` bounds the window rather than the clock, so a later signal can neither change an
+    old trade's regime nor make the same page read differently twice.
+    """
+    statement = (
+        select(SignalRow.indicators)
+        .where(SignalRow.symbol == symbol, SignalRow.generated_at <= at)
+        .order_by(desc(SignalRow.generated_at), desc(SignalRow.id))
+        .limit(REPLAY_REGIME_WINDOW)
+    )
+    with Session(engine) as session:
+        payloads = session.scalars(statement).all()
+    return _median([atr for payload in payloads if (atr := _stored_atr(payload)) is not None])
+
+
+def market_context(engine: Engine, replay: TradeReplay) -> MarketContext:
+    """The market conditions at the moment of the replayed signal (§28).
+
+    The candles are the stored ones around ``signals.generated_at``; the indicators are the
+    ones the signal recorded; the volatility regime compares that ATR to the median of the
+    market's last signals; the session is the UTC hour of the signal; the observed and
+    executed prices and the slippage come from the signal, the order and its fills. Nothing
+    is recomputed and nothing is interpolated: a missing value stays ``None``.
+    """
+    signal = replay.signal
+    candles, timeframe = _replay_candles(
+        engine, signal.symbol, signal.timeframe, signal.generated_at
+    )
+    atr = _stored_atr(signal.indicators)
+    median_atr = _market_median_atr(engine, signal.symbol, signal.generated_at)
+    execution = replay.executions[0] if replay.executions else None
+    return MarketContext(
+        symbol=signal.symbol,
+        candles=candles,
+        chart=None if timeframe is None else _chart(candles, signal.generated_at, timeframe),
+        indicators=dict(signal.indicators),
+        atr=atr,
+        median_atr=median_atr,
+        # `regime_of` is the daily pass's own comparison; its "inconnu" is not a verdict this
+        # page should spell differently, so an absent ATR or median stays `None` here.
+        regime=None if atr is None or median_atr is None else regime_of(atr, median_atr),
+        session=session_of(signal.generated_at),
+        observed_price=signal.observed_price,
+        executed_price=None if execution is None else execution.price,
+        slippage=None if execution is None else execution.slippage,
     )
 
 
@@ -1814,7 +2098,9 @@ __all__ = [
     "AiLab",
     "AnalysisView",
     "BacktestView",
+    "CandleChart",
     "CandleMark",
+    "CandleView",
     "ChartWatermark",
     "DatabaseHealth",
     "EaView",
@@ -1823,6 +2109,7 @@ __all__ = [
     "ExposureView",
     "HaltView",
     "LatencyView",
+    "MarketContext",
     "MarketHealth",
     "MarketSummary",
     "OpenPositionView",
@@ -1867,6 +2154,7 @@ __all__ = [
     "halted_pairs",
     "latency_views",
     "latest_snapshot",
+    "market_context",
     "market_health",
     "market_summaries",
     "month_start",

@@ -59,6 +59,7 @@ uv run tradingagent-web                      # http://127.0.0.1:8787
 uv run python scripts/preview_dashboard.py   # même dashboard, base jetable + fixtures
 
 # Contrôle
+uv run tradingagent doctor                   # quelles clés manquent, et où les trouver
 uv run tradingagent status                   # arrêt d'urgence
 uv run tradingagent halt --reason "..."      # arrêt côté serveur
 uv run tradingagent resume --reason "..."    # reprise
