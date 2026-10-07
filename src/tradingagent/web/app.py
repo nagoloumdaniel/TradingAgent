@@ -143,7 +143,15 @@ def create_app(
         return templates.TemplateResponse(
             request,
             f"{name}.html",
-            {"request": request, "page": name, "render_at": clock(), **context},
+            {
+                "request": request,
+                "page": name,
+                "render_at": clock(),
+                # Real charts, drawn behind the content (§51). Read-only, and every page
+                # still renders without them if the database holds nothing yet.
+                "watermark": queries.watermark(engine),
+                **context,
+            },
         )
 
     if access is not None:

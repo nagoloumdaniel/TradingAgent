@@ -3,332 +3,558 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="dark light">
 <link rel="icon" type="image/png" href="/static/nexagold.png">
 <title>{% block title %}Tableau de bord{% endblock %} — TradingAgent</title>
+<script>
+/* Theme before first paint. Dark is the default: the operator reads this at night, and a
+   flash of white between two checks of a live position is worse than a wrong default.
+   `?theme=light|dark` wins (so a link can carry a theme, and a kiosk screen can be pinned
+   to one), then the stored choice, then the system preference. */
+(function () {
+  var forced = new URLSearchParams(location.search).get("theme");
+  if (forced === "light" || forced === "dark") {
+    document.documentElement.dataset.theme = forced;
+    return;
+  }
+  try {
+    var stored = localStorage.getItem("ta-theme");
+    if (stored === "light" || stored === "dark") {
+      document.documentElement.dataset.theme = stored;
+    } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
+      document.documentElement.dataset.theme = "light";
+    }
+  } catch (error) { /* private mode: the default theme is still correct */ }
+})();
+</script>
 <style>
-/* ---------------------------------------------------------------------------------------
-   TradingAgent monitoring console.
+/* =======================================================================================
+   TradingAgent — console de monitoring.
 
-   Design rules, in order of authority:
-   1. This is a tool read many times a day, at night, for long sessions. Density and fast
-      scanning beat spectacle: no scroll reveals, no decorative motion, no gradients.
-   2. Every figure is monospaced with tabular numerals, so columns line up and digits do
-      not dance when a live value updates.
-   3. Warm neutral dark surfaces, 1px hairlines, one accent, semantic colour reserved for
-      meaning. Colour is a scarce resource.
-   4. Motion only where it explains something: 150ms colour transitions and a 0.97 press.
-      All of it disappears under prefers-reduced-motion.
-   --------------------------------------------------------------------------------------- */
+   Règles, par ordre d'autorité :
+
+   1. C'est un outil qu'on relit des dizaines de fois par jour, la nuit, pendant de longues
+      sessions. La densité et la vitesse de lecture passent avant le spectacle : aucune
+      animation d'entrée, aucun effet au scroll, aucun mouvement décoratif.
+   2. Chaque chiffre est en monospace à chiffres tabulaires : les colonnes s'alignent et
+      les valeurs ne dansent pas quand le flux les met à jour.
+   3. Le verre sert la hiérarchie, pas la décoration. Le flou est réservé à ce derrière
+      quoi du contenu défile réellement (en-tête, barre latérale) ; les cartes se
+      contentent d'une surface translucide, parce que quarante flous plein écran coûtent
+      cher sans rien dire de plus.
+   4. Les filigranes sont de vrais graphiques — la courbe d'équité et les bougies
+      enregistrées en base, dessinées à partir des chiffres que la page affiche déjà.
+      Aucun indicateur n'est calculé pour eux.
+   5. Le mouvement se limite à ce qui explique quelque chose : 150 ms de couleur et un
+      enfoncement à 0,97. Tout disparaît sous prefers-reduced-motion.
+   ======================================================================================= */
+
+/* -- polices : embarquées, jamais téléchargées ------------------------------------------
+   Geist et Geist Mono (Vercel), licence SIL OFL 1.1 — voir static/fonts/OFL.txt. Les
+   fichiers sont servis par le montage /static : le tableau de bord reste consultable
+   hors ligne, sans CDN et sans requête réseau. */
+@font-face {
+  font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("/static/fonts/geist-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+                 U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("/static/fonts/geist-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+                 U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+                 U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("/static/fonts/geist-mono-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+                 U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("/static/fonts/geist-mono-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+                 U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+                 U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* -- thème ----------------------------------------------------------------------------- */
 :root {
-  /* Surfaces: warm neutral, never pure black. */
-  --canvas: #0f1013;
-  --surface: #16181d;
-  --surface-2: #1b1e24;
-  --line: #262a32;
-  --line-strong: #333844;
-  --text: #e7e9ee;
-  --muted: #9aa1ad;
-  --faint: #6b7383;
+  color-scheme: dark;
+  --font-sans: "Geist", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
-  /* One accent, used for navigation, links and focus. */
-  --accent: #7aa2f7;
-  --accent-ink: #0b1220;
+  /* Fonds : neutres froids, jamais du noir pur — sur un écran de nuit, le noir absolu
+     transforme chaque bord en arête. */
+  --canvas: #0b0d11;
+  --veil: #0b0d11;
+  --surface: #14171d;
+  --surface-2: #191d24;
+  --glass: rgba(255, 255, 255, 0.026);
+  --glass-strong: rgba(20, 23, 29, 0.72);
+  --glass-line: rgba(255, 255, 255, 0.07);
+  --glass-top: rgba(255, 255, 255, 0.055);
+  --line: #232833;
+  --line-strong: #333a48;
 
-  /* Semantic, desaturated: readable on dark without shouting. */
-  --up: #6ee7a8;
-  --down: #ff8f8f;
-  --warn: #e8c07d;
-  --up-bg: #10241a;
-  --down-bg: #2a1618;
-  --warn-bg: #2a2214;
-  --up-line: #24503a;
-  --down-line: #5c2b30;
-  --warn-line: #5c4a26;
+  --text: #e8eaef;
+  --muted: #99a1b0;
+  --faint: #6b7484;
 
-  --radius: 12px;
-  --radius-sm: 8px;
+  --accent: #8ab4ff;
+  --accent-soft: rgba(138, 180, 255, 0.12);
+
+  --up: #5fd39a;
+  --down: #ff8b8b;
+  --warn: #e5c07b;
+  --up-bg: rgba(95, 211, 154, 0.10);
+  --down-bg: rgba(255, 139, 139, 0.10);
+  --warn-bg: rgba(229, 192, 123, 0.10);
+  --up-line: rgba(95, 211, 154, 0.28);
+  --down-line: rgba(255, 139, 139, 0.28);
+  --warn-line: rgba(229, 192, 123, 0.28);
+
+  --glow-a: rgba(122, 162, 247, 0.13);
+  --glow-b: rgba(160, 120, 255, 0.10);
+  --chart-ink: rgba(190, 205, 235, 0.9);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -18px rgba(0, 0, 0, 0.7);
+
+  --radius: 14px;
+  --radius-sm: 9px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --font-sans: ui-sans-serif, -apple-system, "Segoe UI Variable Text", "Segoe UI",
-               "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas,
-               "Liberation Mono", monospace;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #f6f6f4;
+  --veil: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #fbfbfa;
+  --glass: rgba(255, 255, 255, 0.66);
+  --glass-strong: rgba(255, 255, 255, 0.78);
+  --glass-line: rgba(17, 20, 28, 0.09);
+  --glass-top: rgba(255, 255, 255, 0.9);
+  --line: #e6e6e2;
+  --line-strong: #d2d3ce;
+
+  --text: #16181d;
+  --muted: #5f6572;
+  --faint: #8b909b;
+
+  --accent: #2f5fd0;
+  --accent-soft: rgba(47, 95, 208, 0.10);
+
+  --up: #17794c;
+  --down: #c0392b;
+  --warn: #9a6b14;
+  --up-bg: rgba(23, 121, 76, 0.09);
+  --down-bg: rgba(192, 57, 43, 0.08);
+  --warn-bg: rgba(154, 107, 20, 0.10);
+  --up-line: rgba(23, 121, 76, 0.30);
+  --down-line: rgba(192, 57, 43, 0.28);
+  --warn-line: rgba(154, 107, 20, 0.30);
+
+  --glow-a: rgba(47, 95, 208, 0.10);
+  --glow-b: rgba(150, 110, 240, 0.09);
+  --chart-ink: rgba(24, 32, 58, 0.95);
+  --shadow: 0 1px 2px rgba(16, 20, 30, 0.05), 0 14px 30px -22px rgba(16, 20, 30, 0.35);
 }
 
 * { box-sizing: border-box; }
 
 html { -webkit-text-size-adjust: 100%; }
 
+/* Lu par les lecteurs d'écran, jamais affiché : les deux boutons de thème n'ont que des
+   icônes, et une icône sans texte n'est pas un nom accessible. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
   background: var(--canvas);
   color: var(--text);
-  font: 15px/1.5 var(--font-sans);
+  font: 400 15px/1.55 var(--font-sans);
+  font-feature-settings: "cv01" 1, "ss01" 1;
+  -webkit-font-smoothing: antialiased;
   display: grid;
   grid-template-rows: auto 1fr auto;
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "top" "body" "foot";
 }
 
-/* -- shell ---------------------------------------------------------------------------- */
+/* -- atmosphère : lumières + filigranes de vrais graphiques ---------------------------- */
+.atmosphere {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+}
+.atmosphere .glow {
+  position: absolute; border-radius: 50%; filter: blur(90px);
+}
+.atmosphere .glow-a {
+  width: 46vw; height: 46vw; top: -14vw; left: -6vw; background: var(--glow-a);
+}
+.atmosphere .glow-b {
+  width: 40vw; height: 40vw; bottom: -18vw; right: -8vw; background: var(--glow-b);
+}
+/* Les deux graphiques : la courbe d'équité en haut, les bougies en bas. Très effacés et
+   masqués vers le centre : ce sont des filigranes. On doit pouvoir les deviner dans les
+   zones calmes, jamais les lire à travers une valeur — si l'œil s'y accroche, c'est raté. */
+.atmosphere .chart {
+  position: absolute; left: 0; width: 100%; color: var(--chart-ink);
+}
+.atmosphere .chart-equity {
+  top: 4vh; height: 40vh; opacity: 0.13;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 30%, #000 62%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 30%, #000 62%, transparent);
+}
+.atmosphere .chart-candles {
+  bottom: 0; height: 32vh; opacity: 0.10;
+  -webkit-mask-image: linear-gradient(0deg, transparent, #000 45%, transparent);
+  mask-image: linear-gradient(0deg, transparent, #000 45%, transparent);
+}
+.atmosphere svg { display: block; width: 100%; height: 100%; }
+.atmosphere .equity-line { fill: none; stroke: currentColor; stroke-width: 1.6; }
+.atmosphere .equity-area { fill: currentColor; opacity: 0.14; }
+.atmosphere .candle { stroke: currentColor; fill: none; stroke-width: 1; opacity: 0.5; }
+
+/* -- ossature -------------------------------------------------------------------------- */
+.top, .shell, footer { position: relative; z-index: 1; }
 
 .top {
   grid-area: top;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 16px;
-  padding: 12px 22px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
+  position: sticky; top: 0; z-index: 20;
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px 18px;
+  padding: 11px 24px;
+  border-bottom: 1px solid var(--glass-line);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
 }
-/* The mark is a white glyph on transparency, so it needs no plate of its own — the
-   warm dark surface is already the right background for it. */
-.brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 650;
-         letter-spacing: -0.01em; margin: 0; }
-.brand img { width: 26px; height: 26px; display: block; }
-.brand .name { display: flex; align-items: center; }
+.brand { display: flex; align-items: center; gap: 11px; margin: 0;
+         font-size: 15.5px; font-weight: 600; letter-spacing: -0.015em; }
+.brand img { width: 27px; height: 27px; display: block; }
+.brand .name { display: flex; align-items: center; gap: 9px; }
 .brand .tag {
-  margin-left: 8px; padding: 2px 7px; border: 1px solid var(--line-strong);
-  border-radius: 999px; font-size: 10.5px; font-weight: 500; letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--muted);
+  padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 999px;
+  font-size: 10px; font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--muted);
 }
-.top .sub { margin: 0; color: var(--muted); font-size: 12.5px; max-width: 68ch; }
+.top .sub { margin: 0; color: var(--muted); font-size: 12.5px; max-width: 62ch; }
 
-/* minmax(0, 1fr) and min-width: 0 are what stop a wide table from stretching the whole
-   page: a bare `1fr` track has an automatic min-content floor, and the table's
-   `white-space: nowrap` would otherwise push the layout past the viewport on mobile. */
-.shell { grid-area: body; display: grid; grid-template-columns: 208px minmax(0, 1fr);
+.theme-switch {
+  margin-left: auto; display: inline-flex; gap: 2px; padding: 3px;
+  border: 1px solid var(--glass-line); border-radius: 999px;
+  background: var(--glass);
+}
+.theme-switch button {
+  display: grid; place-items: center; width: 28px; height: 26px; cursor: pointer;
+  border: 0; border-radius: 999px; background: none; color: var(--faint);
+  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+.theme-switch button:hover { color: var(--text); }
+.theme-switch button[aria-pressed="true"] {
+  background: var(--accent-soft); color: var(--accent);
+}
+.theme-switch svg { width: 15px; height: 15px; }
+.theme-switch button:active { transform: scale(0.94); }
+.theme-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* minmax(0, 1fr) et min-width: 0 empêchent un tableau large d'étirer la page entière :
+   une piste `1fr` a un plancher implicite de min-content, et le white-space: nowrap d'un
+   tableau ferait déborder la mise en page au-delà du viewport sur mobile. */
+.shell { grid-area: body; display: grid; grid-template-columns: 228px minmax(0, 1fr);
          min-width: 0; }
 
 nav.side {
-  border-right: 1px solid var(--line);
-  padding: 16px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background: var(--surface);
-  /* A grid/flex item's automatic minimum is its min-content size, and the nowrap links
-     would push the whole page wider than the viewport. min-width: 0 lets it scroll. */
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 16px 12px 24px;
+  border-right: 1px solid var(--glass-line);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   min-width: 0;
 }
 nav.side a {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 13.5px;
-  padding: 8px 11px;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
+  display: block; padding: 8px 11px; border-radius: var(--radius-sm);
+  color: var(--muted); text-decoration: none; font-size: 13.5px; font-weight: 450;
+  white-space: nowrap;
   transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
 }
+nav.side a:hover { background: var(--glass); color: var(--text); }
 nav.side a.active {
-  color: var(--text);
-  background: var(--surface-2);
-  border-color: var(--line);
-  font-weight: 600;
+  background: var(--surface-2); color: var(--text); font-weight: 550;
+  box-shadow: inset 0 0 0 1px var(--glass-line);
 }
 nav.side a:active { transform: scale(0.985); }
 
-main { padding: 22px 24px 56px; max-width: 1340px; width: 100%; min-width: 0; }
-
-footer {
-  grid-area: foot;
-  padding: 14px 24px 26px;
-  color: var(--faint);
-  font-size: 12px;
-  border-top: 1px solid var(--line);
+main {
+  padding: 26px 28px 64px; max-width: 1420px; width: 100%; min-width: 0;
 }
-footer code { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
 
-/* -- typography ----------------------------------------------------------------------- */
-
+/* -- typographie ----------------------------------------------------------------------- */
 h2 {
-  font-size: 12px; font-weight: 600; margin: 28px 0 10px;
-  color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+  margin: 34px 0 14px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--faint);
 }
 h2:first-child { margin-top: 0; }
-h3 { font-size: 14px; font-weight: 600; margin: 18px 0 8px; letter-spacing: -0.005em; }
+h3 { margin: 20px 0 10px; font-size: 14px; font-weight: 600; letter-spacing: -0.008em; }
+p { margin: 0 0 12px; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; text-underline-offset: 2px; }
 .muted { color: var(--muted); }
+code {
+  font-family: var(--font-mono); font-size: 0.9em;
+  padding: 1px 5px; border-radius: 5px; background: var(--glass);
+  border: 1px solid var(--glass-line);
+}
 
-/* -- metrics -------------------------------------------------------------------------- */
-
+/* -- cartes ---------------------------------------------------------------------------- */
 .cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
-  gap: 12px;
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(172px, 1fr));
+  margin-bottom: 8px;
 }
 .card {
-  background: var(--surface);
-  border: 1px solid var(--line);
+  min-width: 0;
+  padding: 15px 16px 16px;
+  border: 1px solid var(--glass-line);
   border-radius: var(--radius);
-  padding: 13px 15px;
+  background: var(--glass);
+  box-shadow: inset 0 1px 0 var(--glass-top), var(--shadow);
 }
-.card .label {
-  /* Two lines maximum, and a fixed height so values line up across a row whatever the
-     label length. The full text stays available to assistive tech through the markup. */
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden; min-height: 2.5em;
-  color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.09em;
-}
-.card .value {
-  font-family: var(--font-mono);
-  font-size: 22px; font-weight: 600; letter-spacing: -0.02em;
-  margin-top: 6px; font-variant-numeric: tabular-nums;
-}
-.card .value.sm { font-size: 17px; }
-.card .note { color: var(--faint); font-size: 11.5px; margin-top: 3px; }
-
-/* A hero metric keeps its own weight: the balance is the first thing read. */
+/* Une seule carte floute par page : la principale. Le reste se contente de transparence,
+   parce que le flou ne se voit que là où quelque chose défile derrière. */
 .card.hero {
   grid-column: span 2;
-  background: linear-gradient(180deg, var(--surface-2), var(--surface));
-  border-color: var(--line-strong);
-  padding: 18px 20px;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  padding: 20px 22px 22px;
 }
-.card.hero .value { font-size: 34px; }
-.card.hero .label { font-size: 11px; }
-
-/* -- tables --------------------------------------------------------------------------- */
-
-.table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+.card .label {
+  /* Deux lignes au maximum, et une hauteur fixe pour que les valeurs s'alignent sur une
+     rangée quelle que soit la longueur du libellé. */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; min-height: 2.4em;
+  color: var(--faint); font-size: 10.5px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.1em;
 }
-table { border-collapse: collapse; width: 100%; font-size: 13px; }
-th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
-th {
-  position: sticky; top: 0; z-index: 1;
-  background: var(--surface-2);
-  color: var(--muted); font-weight: 500; font-size: 10.5px;
-  text-transform: uppercase; letter-spacing: 0.08em;
+.card .value {
+  margin-top: 6px;
+  font-family: var(--font-mono); font-size: 21px; font-weight: 500;
+  letter-spacing: -0.025em; font-variant-numeric: tabular-nums;
 }
-tbody tr:last-child td { border-bottom: none; }
-tbody tr { transition: background-color 120ms var(--ease-out); }
-tbody tr:hover { background: #ffffff06; }
-tbody tr.total { background: var(--surface-2); font-weight: 600; }
-td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
-td.num { font-size: 12.5px; }
-/* A figure inside a key/value table: same monospace rule, left-aligned with its label. */
-td.mono { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 12.5px; }
-/* Long prose and hashes: a nowrap cell would widen the page instead of wrapping. */
-td.wrap, th.wrap { white-space: normal; overflow-wrap: anywhere; }
+.card.hero .value { font-size: clamp(30px, 4.4vw, 42px); font-weight: 500; }
+.card .value.sm { font-size: 16px; }
+.card .value.pos { color: var(--up); }
+.card .value.neg { color: var(--down); }
+.card .note { margin-top: 7px; color: var(--muted); font-size: 11.5px; }
+.card.hero .note { font-size: 12px; }
 
-/* -- semantic colour ------------------------------------------------------------------ */
-
-.pos, .up { color: var(--up); }
-.neg, .down { color: var(--down); }
-
+/* -- badges et bannières --------------------------------------------------------------- */
 .badge {
-  display: inline-block; padding: 2px 8px; border-radius: 999px;
-  font-size: 11px; font-weight: 500; letter-spacing: 0.02em;
-  border: 1px solid var(--line-strong); color: var(--muted);
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border: 1px solid var(--line); border-radius: 999px;
+  font-size: 11px; font-weight: 500; color: var(--muted); white-space: nowrap;
 }
-.badge.ok  { color: var(--up);   background: var(--up-bg);   border-color: var(--up-line); }
-.badge.warn{ color: var(--warn); background: var(--warn-bg); border-color: var(--warn-line); }
-.badge.bad { color: var(--down); background: var(--down-bg); border-color: var(--down-line); }
+.badge.ok { color: var(--up); background: var(--up-bg); border-color: var(--up-line); }
+.badge.warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-line); }
+.badge.bad, .badge.error { color: var(--down); background: var(--down-bg);
+                           border-color: var(--down-line); }
+.pos { color: var(--up); }
+.neg { color: var(--down); }
+.num, .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+              letter-spacing: -0.01em; }
+.num { text-align: right; }
 
 .banner {
-  padding: 12px 15px; border-radius: var(--radius); margin-bottom: 14px; font-size: 13.5px;
-  border: 1px solid var(--line-strong); background: var(--surface-2);
+  margin: 0 0 18px; padding: 12px 15px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--glass); font-size: 13.5px;
 }
-.banner.bad { background: var(--down-bg); border-color: var(--down-line); color: var(--text); }
-.banner.ok  { background: var(--up-bg);   border-color: var(--up-line);   color: var(--text); }
-.banner.warn{ background: var(--warn-bg); border-color: var(--warn-line); color: var(--text); }
-.banner strong { font-weight: 650; }
+.banner.ok { color: var(--up); background: var(--up-bg); border-color: var(--up-line); }
+.banner.warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-line); }
+.banner.bad, .banner.error { color: var(--down); background: var(--down-bg);
+                             border-color: var(--down-line); }
 
-/* -- controls ------------------------------------------------------------------------- */
-
-form.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 14px; }
-form.filters label {
-  display: block; color: var(--muted); font-size: 10.5px;
-  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px;
+.empty {
+  padding: 18px; border: 1px dashed var(--line); border-radius: var(--radius);
+  color: var(--muted); font-size: 13.5px;
 }
-select, button {
-  background: var(--surface); color: var(--text); border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm); padding: 7px 10px; font-size: 13px; font-family: inherit;
+
+/* -- tableaux -------------------------------------------------------------------------- */
+.table-wrap {
+  border: 1px solid var(--glass-line); border-radius: var(--radius);
+  background: var(--glass); overflow-x: auto; margin-bottom: 8px;
+  box-shadow: inset 0 1px 0 var(--glass-top);
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  position: sticky; top: 0; z-index: 2;
+  padding: 10px 14px; text-align: left; white-space: nowrap;
+  background: var(--surface-2);
+  color: var(--faint); font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.09em;
+  border-bottom: 1px solid var(--glass-line);
+}
+tbody td {
+  padding: 10px 14px; border-bottom: 1px solid var(--glass-line);
+  white-space: nowrap; vertical-align: baseline;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr { transition: background-color 120ms var(--ease-out); }
+tbody tr:hover td { background: var(--glass); }
+tbody td.wrap { white-space: normal; min-width: 22ch; }
+td.num, th.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+tfoot td { padding: 10px 14px; font-weight: 600; border-top: 1px solid var(--line-strong); }
+
+/* -- contrôles ------------------------------------------------------------------------- */
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.actions a, button, select {
+  padding: 7px 13px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--glass); color: var(--text);
+  font: 500 13px var(--font-sans); text-decoration: none; cursor: pointer;
   transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out);
 }
-select:hover, button:hover { border-color: var(--faint); }
-button { cursor: pointer; }
-button:active { transform: scale(0.97); }
-
-.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-.actions a {
-  color: var(--text); font-size: 12.5px; text-decoration: none;
-  border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 6px 11px;
-  transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out);
+.actions a:hover, button:hover, select:hover {
+  border-color: var(--line-strong); text-decoration: none;
+  background: var(--surface-2);
 }
-.actions a:hover { background: var(--surface-2); border-color: var(--faint); }
-.actions a:active { transform: scale(0.97); }
+.actions a:active, button:active { transform: scale(0.97); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-:where(a, button, select, summary):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; }
+.filters label { color: var(--muted); font-size: 12px; }
+
+footer {
+  grid-area: foot;
+  padding: 18px 28px 26px; border-top: 1px solid var(--glass-line);
+  color: var(--faint); font-size: 11.5px;
 }
+footer code { background: none; border: 0; padding: 0; }
 
-pre {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 13px 15px; overflow-x: auto; font-size: 12.5px; font-family: var(--font-mono);
-  white-space: pre-wrap; word-break: break-word;
+/* -- adaptatif ------------------------------------------------------------------------- */
+@media (max-width: 1100px) {
+  main { padding: 22px 20px 56px; }
 }
-.empty { padding: 18px 15px; color: var(--muted); font-size: 13px; }
-
-ul.alerts { list-style: none; padding: 0; margin: 0; border: 1px solid var(--line);
-            border-radius: var(--radius); overflow: hidden; background: var(--surface); }
-ul.alerts li { padding: 9px 13px; border-bottom: 1px solid var(--line); font-size: 13px; }
-ul.alerts li:last-child { border-bottom: none; }
-ul.alerts .when { color: var(--faint); font-family: var(--font-mono); font-size: 11.5px; }
-
-/* -- responsive ----------------------------------------------------------------------- */
 
 @media (max-width: 880px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
   nav.side {
-    flex-direction: row; overflow-x: auto; gap: 6px;
-    border-right: none; border-bottom: 1px solid var(--line); padding: 10px 14px;
+    flex-direction: row; gap: 6px; overflow-x: auto;
+    padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--glass-line);
     scrollbar-width: thin;
   }
-  nav.side a { white-space: nowrap; }
-  main { padding: 16px 14px 44px; }
-  .top { padding: 12px 15px; }
-  .card.hero { grid-column: span 1; }
-  .card.hero .value { font-size: 28px; }
+  nav.side a { flex: 0 0 auto; }
+  main { padding: 18px 16px 52px; }
+  .top { padding: 10px 16px; gap: 4px 12px; }
+  .top .sub { display: none; }
+  /* 1 / -1 plutôt que span 2 : si la grille retombe à une seule colonne, la carte héro
+     occupe la ligne au lieu de fabriquer une colonne fantôme qui déborde. */
+  .card.hero { grid-column: 1 / -1; }
+  footer { padding: 16px; }
 }
 
-/* -- motion --------------------------------------------------------------------------- */
-/* A dashboard is re-read constantly: nothing animates on load or on scroll. The two
-   transitions above (colour, press) are the whole motion budget. Colour keeps working
-   under reduced motion because it aids comprehension; movement does not. */
+@media (max-width: 560px) {
+  /* 160px et non 148 : au téléphone cela donne deux colonnes lisibles plutôt que trois
+     colonnes où « Drawdown courant » se casse sur trois lignes. */
+  .cards { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .card.hero { grid-column: 1 / -1; }
+  .card .value { font-size: 19px; }
+  .brand .tag { display: none; }
+  h2 { margin-top: 26px; }
+  thead th, tbody td { padding: 9px 11px; }
+}
+
+/* Les effets de survol ne s'appliquent qu'à un vrai pointeur : au doigt, ils se
+   déclenchent au premier contact et laissent l'interface « collée ». */
+@media (hover: none) {
+  tbody tr:hover td { background: none; }
+  select:hover, button:hover, .actions a:hover { border-color: var(--line); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
+  * { transition-duration: 1ms !important; }
   button:active, .actions a:active { transform: none; }
 }
 
-/* Touch devices fire :hover on tap; keep hover styling to real pointers. */
-@media (hover: none) {
-  tbody tr:hover { background: none; }
-  select:hover, button:hover, .actions a:hover { border-color: var(--line-strong); }
+/* -- impression ------------------------------------------------------------------------ */
+@media print {
+  .atmosphere, .theme-switch, nav.side { display: none; }
+  body { background: #fff; color: #000; }
+  .card, .table-wrap { box-shadow: none; }
 }
 </style>
 </head>
 <body>
+
+{# Le gabarit de base ne suppose aucune clé de contexte : la page 503, la 404 et la 401
+   sont rendues par d'autres chemins que `page()`. Un filigrane absent est simplement un
+   filigrane qu'on ne dessine pas. #}
+{% set wm = watermark | default(none) %}
+<div class="atmosphere" aria-hidden="true">
+  <span class="glow glow-a"></span>
+  <span class="glow glow-b"></span>
+  {% if wm and wm.equity_line %}
+    <svg class="chart chart-equity" viewBox="0 0 {{ wm.width }} {{ wm.height }}"
+         preserveAspectRatio="none" role="presentation">
+      <path class="equity-area" d="{{ wm.equity_area }}"/>
+      <path class="equity-line" d="{{ wm.equity_line }}"/>
+    </svg>
+  {% endif %}
+  {% if wm and wm.candles %}
+    <svg class="chart chart-candles" viewBox="0 0 {{ wm.width }} {{ wm.height }}"
+         preserveAspectRatio="none" role="presentation">
+      {% for candle in wm.candles %}
+        <line class="candle" x1="{{ '%.1f'|format(candle.x) }}" y1="{{ '%.1f'|format(candle.wick_top) }}"
+              x2="{{ '%.1f'|format(candle.x) }}" y2="{{ '%.1f'|format(candle.wick_bottom) }}"/>
+        {% if candle.body_bottom - candle.body_top > 1.2 %}
+          <rect class="candle" x="{{ '%.1f'|format(candle.x - candle.width / 2) }}"
+                y="{{ '%.1f'|format(candle.body_top) }}" width="{{ '%.1f'|format(candle.width) }}"
+                height="{{ '%.1f'|format(candle.body_bottom - candle.body_top) }}"/>
+        {% else %}
+          <line class="candle" x1="{{ '%.1f'|format(candle.x - candle.width / 2) }}"
+                y1="{{ '%.1f'|format(candle.body_top) }}"
+                x2="{{ '%.1f'|format(candle.x + candle.width / 2) }}"
+                y2="{{ '%.1f'|format(candle.body_top) }}"/>
+        {% endif %}
+      {% endfor %}
+    </svg>
+  {% endif %}
+</div>
+
 <header class="top">
   <h1 class="brand">
-    <img src="/static/nexagold.png" alt="" width="26" height="26">
+    <img src="/static/nexagold.png" alt="" width="27" height="27">
     <span class="name">TradingAgent<span class="tag">lecture seule</span></span>
   </h1>
   <p class="sub">Le tableau de bord ne calcule aucun indicateur et ne peut ni écrire en base
      ni passer d'ordre (§34).</p>
+  <div class="theme-switch" role="group" aria-label="Thème">
+    <button type="button" data-theme-set="dark" aria-pressed="false" title="Thème sombre">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+      </svg>
+      <span class="sr-only">Thème sombre</span>
+    </button>
+    <button type="button" data-theme-set="light" aria-pressed="false" title="Thème clair">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+      </svg>
+      <span class="sr-only">Thème clair</span>
+    </button>
+  </div>
 </header>
 
 <div class="shell">
@@ -347,5 +573,29 @@ ul.alerts .when { color: var(--faint); font-family: var(--font-mono); font-size:
   Vue rendue le {{ display.precise(render_at) }} UTC — montants en EUR, dates en UTC.
   Données : base de l'agent et paquet <code>analytics</code>.
 </footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var buttons = document.querySelectorAll("[data-theme-set]");
+  function paint(theme) {
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute("aria-pressed", String(buttons[i].dataset.themeSet === theme));
+    }
+  }
+  function current() {
+    return root.dataset.theme === "light" ? "light" : "dark";
+  }
+  for (var i = 0; i < buttons.length; i++) {
+    buttons[i].addEventListener("click", function () {
+      var theme = this.dataset.themeSet;
+      root.dataset.theme = theme;
+      try { localStorage.setItem("ta-theme", theme); } catch (error) { /* ignore */ }
+      paint(theme);
+    });
+  }
+  paint(current());
+})();
+</script>
 </body>
 </html>

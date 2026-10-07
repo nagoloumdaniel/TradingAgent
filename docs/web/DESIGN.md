@@ -11,14 +11,14 @@
 
 | Règle du skill | Application |
 |---|---|
-| Monochrome chaud, couleur rare | Fonds `#0f1013` / `#16181d` / `#1b1e24`, un seul accent `#7aa2f7`, sémantique désaturée (vert/rouge/ambre) réservée au sens |
-| Bordures 1 px `#EAEAEA`, rayons 8-12 px | `--line: #262a32`, `--radius: 12px` / `--radius-sm: 8px` |
-| Interdiction d'Inter/Roboto/Arial par défaut | Pile système avec du caractère : `Segoe UI Variable Text`, et monospace pour tous les chiffres |
-| Contraste typographique | Libellés 10,5 px, majuscules, interlettrage 0,09 em ; valeurs 22 px (34 px pour le solde) |
-| Titres de section discrets | `h2` en 12 px majuscules gris, la hiérarchie est portée par l'espace, pas par la couleur |
-| Badges pastel, petits, majuscules | `.badge.ok/.warn/.bad` sur fonds sombres désaturés |
+| Monochrome froid, couleur rare | Fonds `#0b0d11` / `#14171d` / `#191d24`, un seul accent `#8ab4ff`, sémantique désaturée (vert/rouge/ambre) réservée au sens |
+| Bordures 1 px, rayons 8-12 px | `--glass-line: rgba(255,255,255,.07)`, `--radius: 14px` / `--radius-sm: 9px` |
+| Interdiction d'Inter/Roboto/Arial par défaut | **Geist** et **Geist Mono**, embarquées (§ « Typographie ») |
+| Contraste typographique | Libellés 10,5 px, majuscules, interlettrage 0,1 em ; valeurs 21 px, solde en `clamp(30px, 4.4vw, 42px)` |
+| Titres de section discrets | `h2` en 11 px majuscules gris, la hiérarchie est portée par l'espace, pas par la couleur |
+| Badges pastel, petits, majuscules | `.badge.ok/.warn/.bad` sur fonds désaturés |
 | Pas d'emoji dans le balisage | aucun emoji dans les gabarits |
-| Ombres quasi absentes | aucune ombre portée : la profondeur vient des hairlines et de deux nuances de surface |
+| Ombres quasi absentes | une seule ombre, très diffusée, pour détacher les cartes du fond |
 
 **`emil-design-eng`** — la discipline d'interaction :
 
@@ -31,6 +31,87 @@
 | `prefers-reduced-motion` respecté | bloc dédié : les couleurs restent (elles aident à comprendre), le mouvement disparaît |
 | Survol au doigt = faux positifs | `@media (hover: none)` neutralise les effets de survol |
 | N'animer que `transform` et `opacity` | les transitions ne touchent que `background-color`, `border-color` et `transform` |
+
+## Typographie — Geist, embarquée
+
+Le dashboard doit rester consultable **hors ligne** : aucune police n'est téléchargée à
+l'exécution. Geist et Geist Mono sont donc **versionnées dans le dépôt**
+(`src/tradingagent/web/static/fonts/`, 86 Ko au total) et déclarées en `@font-face` avec
+les sous-ensembles `latin` et `latin-ext`.
+
+- Police : **Geist** (Vercel), licence **SIL OFL 1.1** — le texte de licence voyage avec
+  les fichiers (`static/fonts/OFL.txt`), comme la licence l'exige.
+- Chiffres : **Geist Mono**, `font-variant-numeric: tabular-nums`. C'est la règle qui
+  compte le plus ici : une colonne de montants qui ne danse pas quand le flux SSE met la
+  page à jour.
+- Repli : `ui-sans-serif, system-ui, "Segoe UI"` — si le fichier manque, la page reste
+  lisible, simplement moins belle.
+
+## Deux thèmes
+
+| Thème | Quand | Comment |
+|---|---|---|
+| Sombre | **défaut** | L'opérateur travaille la nuit : un flash de blanc entre deux vérifications d'une position ouverte est pire qu'un mauvais défaut |
+| Clair | au choix | Bascule en haut à droite, mémorisée dans `localStorage` |
+
+L'ordre de priorité est : `?theme=light|dark` dans l'URL, puis le choix mémorisé, puis la
+préférence système. Le paramètre d'URL n'est pas un détail de test : il permet de coller un
+lien qui porte son thème et d'épingler un écran de supervision sur un thème donné.
+
+Le thème est posé **avant le premier rendu** par un script en ligne dans `<head>` : pas de
+clignotement. Les deux palettes sont deux jeux de variables CSS ; aucune règle de mise en
+page n'est dupliquée.
+
+## Glassmorphism — où le flou est dépensé, et pourquoi pas partout
+
+Trois surfaces translucides, un seul niveau de flou réel :
+
+| Surface | Traitement |
+|---|---|
+| En-tête (collant) | `backdrop-filter: blur(20px) saturate(180%)` — c'est là que du contenu défile vraiment derrière |
+| Barre latérale | `blur(14px)` |
+| Carte héro | `blur(16px) saturate(150%)` — une seule par page |
+| Toutes les autres cartes | surface translucide + liseré lumineux, **sans flou** |
+
+La raison est mesurable : une page porte jusqu'à quarante cartes, et quarante flous plein
+écran coûtent cher sans rien dire de plus — le flou ne se voit que là où quelque chose
+passe derrière. La translucidité, elle, suffit à laisser deviner le filigrane.
+
+## Filigranes — de vrais graphiques
+
+Deux graphiques vivent derrière le contenu, dessinés à partir de **données réelles** :
+
+- la **courbe d'équité**, depuis les instantanés de compte (`account_snapshots`) ;
+- les **bougies M15**, depuis les bougies stockées (`candles`).
+
+`queries.watermark()` ne fait que de la géométrie d'affichage : elle projette des nombres
+déjà en base sur un `viewBox`. Aucun indicateur n'est calculé, aucune figure n'en dérive, et
+toutes les pages s'affichent à l'identique sans filigrane — le §34 tient.
+
+Trois garde-fous, tous appris d'un défaut observé à l'écran :
+
+1. **Un seuil d'échantillon.** En dessous de 12 points d'équité ou 24 bougies, on ne
+   dessine rien : avec cinq points, la « courbe » n'est qu'une diagonale qui traverse les
+   cartes. Un graphique se mérite.
+2. **Une intensité très basse** (opacité 0,13 et 0,10) et un masque qui efface le centre.
+   Si l'œil s'accroche au filigrane, c'est raté.
+3. **Aucune exception ne remonte.** Une base non migrée renvoie un filigrane vide, jamais
+   une erreur : c'est ce qui évitait de transformer une page 503 propre en 500.
+
+## Adaptatif
+
+| Largeur | Comportement |
+|---|---|
+| > 1100 px | Barre latérale verticale, grille de cartes en `auto-fit` |
+| 880-1100 px | Marges resserrées |
+| < 880 px | Barre latérale en bandeau horizontal défilant, sous-titre masqué |
+| < 560 px | Cartes sur deux colonnes minimum de 160 px, marque seule dans l'en-tête |
+
+Toutes les largeurs ont été vérifiées par capture. Deux pièges rencontrés et corrigés :
+`grid-template-columns: 1fr` a un plancher implicite de `min-content` (une table
+`nowrap` élargissait la page au-delà du viewport), et `grid-column: span 2` sur une grille
+retombée à une colonne fabrique une colonne fantôme — remplacé par `1 / -1`.
+
 
 **`high-end-visual-design`** — ce qui sert un dashboard :
 
@@ -48,9 +129,9 @@
 | `py-24` à `py-40` entre sections, `max-w-4xl` | **assouplie** | 24 px de padding vertical, largeur 1340 px : la densité est une fonctionnalité d'un tableau de bord. |
 | Z-Axis Cascade, rotations `-2deg`, cartes qui se chevauchent | **écartée** | Empêche la lecture en colonne et les comparaisons ligne à ligne. |
 | Boutons en pilule, « button-in-button » | **écartée sur les cartes** | Les pilules sont réservées aux badges de statut ; les contrôles restent à 8 px de rayon. |
-| Polices premium téléchargées (Geist, Clash Display) | **écartée** | Aucune dépendance réseau : l'outil s'ouvre hors ligne. La pile système est documentée dans `--font-sans`. |
-| Grain, dégradés ambiants, orbes lumineux | **écartée** | Aucun apport d'information ; le bruit dégrade la lisibilité des chiffres. |
-| Fond blanc/creme (`minimalist-ui` §4) | **inversée** | L'opérateur travaille la nuit, sur de longues sessions : thème sombre chaud. La discipline de couleur du skill est conservée, pas sa luminance. |
+| Polices premium téléchargées (Geist, Clash Display) | **retournée** | La règle visait la *dépendance réseau*, pas la police : Geist est désormais embarquée dans le dépôt et servie localement. L'outil s'ouvre toujours hors ligne. |
+| Grain, dégradés ambiants, orbes lumineux | **assouplie** | Deux halos très diffus sont conservés comme source de lumière derrière le verre, à 10-13 % d'opacité. Aucun grain : il dégrade la lisibilité des chiffres. |
+| Fond blanc/crème (`minimalist-ui` §4) | **inversée et complétée** | L'opérateur travaille la nuit : le thème sombre reste le défaut. Le thème clair existe maintenant comme choix explicite, et non comme imposition du système. |
 
 ## Contraintes d'accessibilité tenues
 
@@ -77,14 +158,21 @@ tests ne voyaient pas :
 ## Reproduire la revue visuelle
 
 ```bash
-uv run python scripts/preview_dashboard.py --port 8799     # base SQLite jetable + fixtures
+uv run python scripts/preview_dashboard.py --port 8799 --demo    # base jetable + fixtures + historique réaliste
 "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" \
   --headless=new --force-device-scale-factor=1 --window-size=1440,1250 \
-  --screenshot=overview.png http://127.0.0.1:8799/
+  --screenshot=overview.png "http://127.0.0.1:8799/"
+"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" \
+  --headless=new --force-device-scale-factor=1 --window-size=1440,1250 \
+  --screenshot=light.png "http://127.0.0.1:8799/?theme=light"
 ```
 
+`--demo` ajoute une courbe d'équité et 260 bougies : sans lui, les fixtures de test ne
+contiennent que quelques points, ce qui suffit à exercer le code mais pas à juger un
+graphique (et sous le seuil, le filigrane ne se dessine pas — c'est voulu).
+
 Captures de référence versionnées dans `docs/web/screenshots/` :
-`overview-desktop.png`, `overview-mobile.png` (fenêtre 500 px) et `system.png`.
+`overview-desktop.png`, `header-logo.png`, `scalping.png`, `system.png`.
 
 ## Le logo
 

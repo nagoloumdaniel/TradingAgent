@@ -13,6 +13,7 @@ nothing (§34). The arithmetic that does live here is plain aggregation of store
 into a display total — exposure and counters — never an indicator.
 """
 
+import logging
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -22,6 +23,7 @@ from typing import Any
 
 from pydantic import ValidationError
 from sqlalchemy import Engine, desc, or_, select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from tradingagent.analytics import Axis, Performance, Trade, compute_performance, group
@@ -86,6 +88,8 @@ from tradingagent.storage.models import (
 from tradingagent.storage.positions import OpenPosition, PositionReader
 from tradingagent.storage.scalping import ExecutionCosts, execution_costs, size_of
 from tradingagent.storage.telemetry import ExecutionEventStore, LatencyStats
+
+log = logging.getLogger(__name__)
 
 # The whole-history window: bounded and tz-aware. A reader never depends on the clock to
 # decide what exists.
@@ -1665,6 +1669,141 @@ def scalping_view(engine: Engine) -> ScalpingView:
     )
 
 
+# ---------------------------------------------------------------------------------------
+# Background watermarks: real charts, not decoration.
+#
+# The geometry below is display maths, not analytics. It maps numbers the dashboard already
+# shows onto a viewBox — no indicator is computed, nothing is derived from them, and every
+# page renders identically without the watermark. §34 holds: the dashboard re-derives no
+# figure, it draws the ones it was given.
+# ---------------------------------------------------------------------------------------
+
+WATERMARK_WIDTH = 1440
+WATERMARK_HEIGHT = 420
+WATERMARK_CANDLES = 96
+# Below these, the "chart" would be a straight line between two or three points: a streak
+# across the cards, not a chart. A watermark drawn from real data needs enough real data
+# behind it, so under the threshold we draw nothing at all.
+WATERMARK_MIN_EQUITY_POINTS = 12
+WATERMARK_MIN_CANDLES = 24
+
+
+@dataclass(frozen=True)
+class CandleMark:
+    """One candle, already mapped into the watermark's viewBox."""
+
+    x: float
+    width: float
+    wick_top: float
+    wick_bottom: float
+    body_top: float
+    body_bottom: float
+    up: bool
+
+
+@dataclass(frozen=True)
+class ChartWatermark:
+    width: int
+    height: int
+    equity_line: str
+    equity_area: str
+    candles: tuple[CandleMark, ...]
+    symbol: str | None
+
+
+def _equity_geometry(series: Sequence[tuple[datetime, Decimal]]) -> tuple[str, str]:
+    if len(series) < WATERMARK_MIN_EQUITY_POINTS:
+        return "", ""
+    values = [float(value) for _, value in series]
+    low, high = min(values), max(values)
+    span = high - low or 1.0
+    step = WATERMARK_WIDTH / (len(values) - 1)
+    # Vertical padding keeps the curve off the edges; the chart is a watermark, not a table.
+    top, bottom = 40.0, float(WATERMARK_HEIGHT) - 30.0
+    points = [
+        (index * step, bottom - (value - low) / span * (bottom - top))
+        for index, value in enumerate(values)
+    ]
+    line = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in points)
+    area = (
+        f"M{points[0][0]:.1f},{points[0][1]:.1f} "
+        + " ".join(f"L{x:.1f},{y:.1f}" for x, y in points[1:])
+        + f" L{points[-1][0]:.1f},{WATERMARK_HEIGHT} L{points[0][0]:.1f},{WATERMARK_HEIGHT} Z"
+    )
+    return line, area
+
+
+def _candles(engine: Engine) -> tuple[str | None, tuple[CandleMark, ...]]:
+    with Session(engine) as session:
+        symbol = session.scalar(
+            select(CandleRow.symbol).order_by(desc(CandleRow.open_time)).limit(1)
+        )
+        if symbol is None:
+            return None, ()
+        rows = session.execute(
+            select(
+                CandleRow.open,
+                CandleRow.high,
+                CandleRow.low,
+                CandleRow.close,
+            )
+            .where(CandleRow.symbol == symbol)
+            .order_by(desc(CandleRow.open_time))
+            .limit(WATERMARK_CANDLES)
+        ).all()
+    if not rows or len(rows) < WATERMARK_MIN_CANDLES:
+        return symbol, ()
+    ordered = list(reversed(rows))
+    highs = [float(row.high) for row in ordered]
+    lows = [float(row.low) for row in ordered]
+    high, low = max(highs), min(lows)
+    span = high - low or 1.0
+    top, bottom = 40.0, float(WATERMARK_HEIGHT) - 30.0
+    slot = WATERMARK_WIDTH / len(ordered)
+    width = max(1.5, slot * 0.42)
+
+    def y(value: float) -> float:
+        return bottom - (float(value) - low) / span * (bottom - top)
+
+    marks = tuple(
+        CandleMark(
+            x=index * slot + slot / 2,
+            width=width,
+            wick_top=y(row.high),
+            wick_bottom=y(row.low),
+            body_top=y(max(row.open, row.close)),
+            body_bottom=y(min(row.open, row.close)),
+            up=float(row.close) >= float(row.open),
+        )
+        for index, row in enumerate(ordered)
+    )
+    return str(symbol), marks
+
+
+def watermark(engine: Engine) -> ChartWatermark:
+    """The two background charts: the real equity curve and the real candles.
+
+    Decoration must never cost a page. An unmigrated or unreachable database, an empty
+    table, a column that is not there yet: all of it yields an empty watermark, so the
+    page still renders — and the handler's own read stays the one that decides between a
+    503, a 404 and a real answer.
+    """
+    try:
+        line, area = _equity_geometry(equity_series(engine))
+        symbol, candles = _candles(engine)
+    except SQLAlchemyError as error:
+        log.warning("watermark unavailable: %s", error)
+        line, area, symbol, candles = "", "", None, ()
+    return ChartWatermark(
+        width=WATERMARK_WIDTH,
+        height=WATERMARK_HEIGHT,
+        equity_line=line,
+        equity_area=area,
+        candles=candles,
+        symbol=symbol,
+    )
+
+
 # ``HaltView.scope`` is rendered as stored; ``halted_pairs`` already returns the parsed
 # (strategy, market) pairs the risk page displays.
 __all__ = [
@@ -1675,6 +1814,8 @@ __all__ = [
     "AiLab",
     "AnalysisView",
     "BacktestView",
+    "CandleMark",
+    "ChartWatermark",
     "DatabaseHealth",
     "EaView",
     "ExecutionEventView",
@@ -1747,5 +1888,6 @@ __all__ = [
     "trade_replay",
     "trades_between",
     "validation_runs",
+    "watermark",
     "week_start",
 ]
