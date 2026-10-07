@@ -14,15 +14,11 @@
 
 <h2>Compte</h2>
 <div class="cards">
-  <div class="card">
+  <div class="card hero">
     <div class="label">Solde</div>
     <div class="value">{{ display.money(data.account.balance) }}</div>
-    <div class="note">dernier instantané {{ display.moment(data.account.at) }}</div>
-  </div>
-  <div class="card">
-    <div class="label">Équité</div>
-    <div class="value">{{ display.money(data.account.equity) }}</div>
-    <div class="note">pic enregistré {{ display.money(data.account.peak_equity) }}</div>
+    <div class="note">équité {{ display.money(data.account.equity) }} · pic {{ display.money(data.account.peak_equity) }}
+      · instantané {{ display.moment(data.account.at) }}</div>
   </div>
   <div class="card">
     <div class="label">Drawdown courant</div>
@@ -77,11 +73,11 @@
     <div class="note">gain moyen {{ display.number(t.average_win) }}, perte moyenne {{ display.number(t.average_loss) }}</div></div>
   <div class="card"><div class="label">Meilleur / pire</div><div class="value">{{ display.money(t.best) }}</div>
     <div class="note">pire {{ display.money(t.worst) }}</div></div>
-  <div class="card"><div class="label">Séries</div><div class="value">{{ t.max_win_streak }} / {{ t.max_loss_streak }}</div>
+  <div class="card"><div class="label">Séries</div><div class="value sm">{{ t.max_win_streak }} / {{ t.max_loss_streak }}</div>
     <div class="note">gagnantes / perdantes consécutives</div></div>
-  <div class="card"><div class="label">Sharpe / Sortino</div><div class="value">{{ display.ratio(t.sharpe) }} / {{ display.ratio(t.sortino) }}</div>
+  <div class="card"><div class="label">Sharpe / Sortino</div><div class="value sm">{{ display.ratio(t.sharpe) }} / {{ display.ratio(t.sortino) }}</div>
     <div class="note">non annualisés (multiples rendement/risque)</div></div>
-  <div class="card"><div class="label">Durée moyenne</div><div class="value">{{ display.duration(t.average_position_duration) }}</div>
+  <div class="card"><div class="label">Durée moyenne</div><div class="value sm">{{ display.duration(t.average_position_duration) }}</div>
     <div class="note">par position clôturée</div></div>
   <div class="card"><div class="label">Glissement / spread moyens</div>
     <div class="value">{{ display.number(t.average_slippage, 4) }}</div>

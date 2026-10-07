@@ -3,83 +3,332 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>{% block title %}Tableau de bord{% endblock %} — TradingAgent</title>
 <style>
+/* ---------------------------------------------------------------------------------------
+   TradingAgent monitoring console.
+
+   Design rules, in order of authority:
+   1. This is a tool read many times a day, at night, for long sessions. Density and fast
+      scanning beat spectacle: no scroll reveals, no decorative motion, no gradients.
+   2. Every figure is monospaced with tabular numerals, so columns line up and digits do
+      not dance when a live value updates.
+   3. Warm neutral dark surfaces, 1px hairlines, one accent, semantic colour reserved for
+      meaning. Colour is a scarce resource.
+   4. Motion only where it explains something: 150ms colour transitions and a 0.97 press.
+      All of it disappears under prefers-reduced-motion.
+   --------------------------------------------------------------------------------------- */
 :root {
-  --bg: #12151a; --panel: #1b2027; --line: #2b323c; --text: #e7ecf2; --muted: #9aa7b5;
-  --ok: #3ddc84; --warn: #f2b134; --bad: #ff5c5c; --accent: #4aa3ff;
+  /* Surfaces: warm neutral, never pure black. */
+  --canvas: #0f1013;
+  --surface: #16181d;
+  --surface-2: #1b1e24;
+  --line: #262a32;
+  --line-strong: #333844;
+  --text: #e7e9ee;
+  --muted: #9aa1ad;
+  --faint: #6b7383;
+
+  /* One accent, used for navigation, links and focus. */
+  --accent: #7aa2f7;
+  --accent-ink: #0b1220;
+
+  /* Semantic, desaturated: readable on dark without shouting. */
+  --up: #6ee7a8;
+  --down: #ff8f8f;
+  --warn: #e8c07d;
+  --up-bg: #10241a;
+  --down-bg: #2a1618;
+  --warn-bg: #2a2214;
+  --up-line: #24503a;
+  --down-line: #5c2b30;
+  --warn-line: #5c4a26;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --font-sans: ui-sans-serif, -apple-system, "Segoe UI Variable Text", "Segoe UI",
+               "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas,
+               "Liberation Mono", monospace;
 }
+
 * { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
 body {
-  margin: 0; background: var(--bg); color: var(--text);
-  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--canvas);
+  color: var(--text);
+  font: 15px/1.5 var(--font-sans);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "top" "body" "foot";
 }
-header { padding: 14px 16px 0; border-bottom: 1px solid var(--line); }
-header h1 { margin: 0; font-size: 19px; letter-spacing: .3px; }
-header .sub { margin: 4px 0 10px; color: var(--muted); font-size: 12.5px; }
-nav { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 10px; }
-nav a {
-  color: var(--muted); text-decoration: none; font-size: 13px;
-  padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px;
+
+/* -- shell ---------------------------------------------------------------------------- */
+
+.top {
+  grid-area: top;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
 }
-nav a.active { color: #06121f; background: var(--accent); border-color: var(--accent); font-weight: 600; }
-main { padding: 14px 16px 40px; max-width: 1200px; margin: 0 auto; }
-footer { padding: 12px 16px 28px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); }
-h2 { font-size: 15px; margin: 22px 0 8px; color: var(--accent); text-transform: uppercase; letter-spacing: .6px; }
-h3 { font-size: 14px; margin: 16px 0 6px; }
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
-.card .label { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; }
-.card .value { font-size: 21px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
-.card .note { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
-.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
-table { border-collapse: collapse; width: 100%; font-size: 13px; }
-th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
-th { color: var(--muted); font-weight: 500; font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; }
-tbody tr:last-child td { border-bottom: none; }
-tbody tr.total { background: #20273240; font-weight: 600; }
-td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-.pos { color: var(--ok); } .neg { color: var(--bad); }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; border: 1px solid var(--line); }
-.badge.ok { color: var(--ok); border-color: #245c3c; }
-.badge.warn { color: var(--warn); border-color: #6b5320; }
-.badge.bad { color: var(--bad); border-color: #6b2626; }
-.banner { padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; font-size: 13.5px; }
-.banner.bad { background: #3a1a1a; border: 1px solid #6b2626; }
-.banner.ok { background: #16301f; border: 1px solid #245c3c; }
-form.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-bottom: 12px; }
-form.filters label { display: block; color: var(--muted); font-size: 11.5px; text-transform: uppercase; }
-select, button {
-  background: var(--panel); color: var(--text); border: 1px solid var(--line);
-  border-radius: 8px; padding: 7px 9px; font-size: 13px;
+.brand { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; margin: 0; }
+.brand .tag {
+  margin-left: 8px; padding: 2px 7px; border: 1px solid var(--line-strong);
+  border-radius: 999px; font-size: 10.5px; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted); vertical-align: 1px;
 }
-button { cursor: pointer; }
-pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px;
-      overflow-x: auto; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+.top .sub { margin: 0; color: var(--muted); font-size: 12.5px; max-width: 68ch; }
+
+/* minmax(0, 1fr) and min-width: 0 are what stop a wide table from stretching the whole
+   page: a bare `1fr` track has an automatic min-content floor, and the table's
+   `white-space: nowrap` would otherwise push the layout past the viewport on mobile. */
+.shell { grid-area: body; display: grid; grid-template-columns: 208px minmax(0, 1fr);
+         min-width: 0; }
+
+nav.side {
+  border-right: 1px solid var(--line);
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  /* A grid/flex item's automatic minimum is its min-content size, and the nowrap links
+     would push the whole page wider than the viewport. min-width: 0 lets it scroll. */
+  min-width: 0;
+}
+nav.side a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13.5px;
+  padding: 8px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+nav.side a.active {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--line);
+  font-weight: 600;
+}
+nav.side a:active { transform: scale(0.985); }
+
+main { padding: 22px 24px 56px; max-width: 1340px; width: 100%; min-width: 0; }
+
+footer {
+  grid-area: foot;
+  padding: 14px 24px 26px;
+  color: var(--faint);
+  font-size: 12px;
+  border-top: 1px solid var(--line);
+}
+footer code { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+
+/* -- typography ----------------------------------------------------------------------- */
+
+h2 {
+  font-size: 12px; font-weight: 600; margin: 28px 0 10px;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+}
+h2:first-child { margin-top: 0; }
+h3 { font-size: 14px; font-weight: 600; margin: 18px 0 8px; letter-spacing: -0.005em; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 2px; }
 .muted { color: var(--muted); }
-.empty { padding: 14px; color: var(--muted); font-size: 13px; }
-ul.alerts { list-style: none; padding: 0; margin: 0; }
-ul.alerts li { padding: 7px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+
+/* -- metrics -------------------------------------------------------------------------- */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 12px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 13px 15px;
+}
+.card .label {
+  /* Two lines maximum, and a fixed height so values line up across a row whatever the
+     label length. The full text stays available to assistive tech through the markup. */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; min-height: 2.5em;
+  color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.09em;
+}
+.card .value {
+  font-family: var(--font-mono);
+  font-size: 22px; font-weight: 600; letter-spacing: -0.02em;
+  margin-top: 6px; font-variant-numeric: tabular-nums;
+}
+.card .value.sm { font-size: 17px; }
+.card .note { color: var(--faint); font-size: 11.5px; margin-top: 3px; }
+
+/* A hero metric keeps its own weight: the balance is the first thing read. */
+.card.hero {
+  grid-column: span 2;
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  border-color: var(--line-strong);
+  padding: 18px 20px;
+}
+.card.hero .value { font-size: 34px; }
+.card.hero .label { font-size: 11px; }
+
+/* -- tables --------------------------------------------------------------------------- */
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface-2);
+  color: var(--muted); font-weight: 500; font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr { transition: background-color 120ms var(--ease-out); }
+tbody tr:hover { background: #ffffff06; }
+tbody tr.total { background: var(--surface-2); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+td.num { font-size: 12.5px; }
+
+/* -- semantic colour ------------------------------------------------------------------ */
+
+.pos, .up { color: var(--up); }
+.neg, .down { color: var(--down); }
+
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 500; letter-spacing: 0.02em;
+  border: 1px solid var(--line-strong); color: var(--muted);
+}
+.badge.ok  { color: var(--up);   background: var(--up-bg);   border-color: var(--up-line); }
+.badge.warn{ color: var(--warn); background: var(--warn-bg); border-color: var(--warn-line); }
+.badge.bad { color: var(--down); background: var(--down-bg); border-color: var(--down-line); }
+
+.banner {
+  padding: 12px 15px; border-radius: var(--radius); margin-bottom: 14px; font-size: 13.5px;
+  border: 1px solid var(--line-strong); background: var(--surface-2);
+}
+.banner.bad { background: var(--down-bg); border-color: var(--down-line); color: var(--text); }
+.banner.ok  { background: var(--up-bg);   border-color: var(--up-line);   color: var(--text); }
+.banner.warn{ background: var(--warn-bg); border-color: var(--warn-line); color: var(--text); }
+.banner strong { font-weight: 650; }
+
+/* -- controls ------------------------------------------------------------------------- */
+
+form.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 14px; }
+form.filters label {
+  display: block; color: var(--muted); font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px;
+}
+select, button {
+  background: var(--surface); color: var(--text); border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm); padding: 7px 10px; font-size: 13px; font-family: inherit;
+  transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out);
+}
+select:hover, button:hover { border-color: var(--faint); }
+button { cursor: pointer; }
+button:active { transform: scale(0.97); }
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.actions a {
+  color: var(--text); font-size: 12.5px; text-decoration: none;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 6px 11px;
+  transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out);
+}
+.actions a:hover { background: var(--surface-2); border-color: var(--faint); }
+.actions a:active { transform: scale(0.97); }
+
+:where(a, button, select, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+pre {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 13px 15px; overflow-x: auto; font-size: 12.5px; font-family: var(--font-mono);
+  white-space: pre-wrap; word-break: break-word;
+}
+.empty { padding: 18px 15px; color: var(--muted); font-size: 13px; }
+
+ul.alerts { list-style: none; padding: 0; margin: 0; border: 1px solid var(--line);
+            border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+ul.alerts li { padding: 9px 13px; border-bottom: 1px solid var(--line); font-size: 13px; }
 ul.alerts li:last-child { border-bottom: none; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-.actions a { color: var(--accent); font-size: 13px; text-decoration: none; border: 1px solid var(--line);
-             border-radius: 8px; padding: 6px 10px; }
+ul.alerts .when { color: var(--faint); font-family: var(--font-mono); font-size: 11.5px; }
+
+/* -- responsive ----------------------------------------------------------------------- */
+
+@media (max-width: 880px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  nav.side {
+    flex-direction: row; overflow-x: auto; gap: 6px;
+    border-right: none; border-bottom: 1px solid var(--line); padding: 10px 14px;
+    scrollbar-width: thin;
+  }
+  nav.side a { white-space: nowrap; }
+  main { padding: 16px 14px 44px; }
+  .top { padding: 12px 15px; }
+  .card.hero { grid-column: span 1; }
+  .card.hero .value { font-size: 28px; }
+}
+
+/* -- motion --------------------------------------------------------------------------- */
+/* A dashboard is re-read constantly: nothing animates on load or on scroll. The two
+   transitions above (colour, press) are the whole motion budget. Colour keeps working
+   under reduced motion because it aids comprehension; movement does not. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  button:active, .actions a:active { transform: none; }
+}
+
+/* Touch devices fire :hover on tap; keep hover styling to real pointers. */
+@media (hover: none) {
+  tbody tr:hover { background: none; }
+  select:hover, button:hover, .actions a:hover { border-color: var(--line-strong); }
+}
 </style>
 </head>
 <body>
-<header>
-  <h1>TradingAgent</h1>
-  <p class="sub">Monitoring en lecture seule — le tableau de bord ne calcule aucun indicateur
-     et ne peut ni écrire en base ni passer d'ordre (§34).</p>
-  <nav>
+<header class="top">
+  <h1 class="brand">TradingAgent<span class="tag">lecture seule</span></h1>
+  <p class="sub">Le tableau de bord ne calcule aucun indicateur et ne peut ni écrire en base
+     ni passer d'ordre (§34).</p>
+</header>
+
+<div class="shell">
+  <nav class="side">
     {% for path, label in pages %}
-      <a href="{{ path }}" {% if request.url.path == path %}class="active"{% endif %}>{{ label }}</a>
+      <a href="{{ path }}" {% if request.url.path == path %}class="active" aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>
-</header>
-<main>
-{% block content %}{% endblock %}
-</main>
+  <main>
+  {% block content %}{% endblock %}
+  </main>
+</div>
+
 <footer>
   Vue rendue le {{ display.precise(render_at) }} UTC — montants en EUR, dates en UTC.
   Données : base de l'agent et paquet <code>analytics</code>.
