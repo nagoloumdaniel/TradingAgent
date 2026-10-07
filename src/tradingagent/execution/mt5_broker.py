@@ -134,6 +134,7 @@ class MT5Broker:
             currency=snapshot.currency,
             equity=Decimal(str(funds.equity)),
             free_margin=Decimal(str(funds.free_margin)),
+            balance=Decimal(str(funds.balance)),
         )
 
     async def instrument(self, symbol: str) -> InstrumentSpec:

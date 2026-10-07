@@ -12,6 +12,7 @@ import logging
 from collections.abc import Awaitable, Callable, Iterable, MutableMapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from sqlalchemy import Engine
 
@@ -26,11 +27,12 @@ from tradingagent.data.history import HistorySync
 from tradingagent.data.market_calendar import MarketCalendar, learn_calendar
 from tradingagent.data.market_data import ClockMismatchError, Subscription
 from tradingagent.notify.health_alerts import HealthAlerter
+from tradingagent.notify.trade_messages import PositionClosed, render_position_closed
 from tradingagent.reporting.service import ReportService
 from tradingagent.risk.model import ClosedPosition, limits_for
 from tradingagent.runtime.pipeline import ProcessOutcome, SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
-from tradingagent.runtime.ports import BrokerPort, MarketPort
+from tradingagent.runtime.ports import BrokerPort, MarketPort, NotifierPort
 from tradingagent.signals.generator import GenerationStatus, SignalGenerator
 from tradingagent.storage.account import AccountStore
 from tradingagent.storage.candles import CandleStore
@@ -71,6 +73,7 @@ class AgentLoop:
         pipeline: SignalPipeline,
         broker: BrokerPort,
         halts: HaltStore,
+        notifier: NotifierPort,
         guardian: Guardian,
         alerts: HealthAlerter,
         reports: ReportService,
@@ -93,6 +96,7 @@ class AgentLoop:
         self._pipeline = pipeline
         self._broker = broker
         self._halts = halts
+        self._notifier = notifier
         self._guardian = guardian
         self._alerts = alerts
         self._reports = reports
@@ -216,6 +220,7 @@ class AgentLoop:
             closed = ()
         for position in closed:
             self._record_close(position)
+            await self.notify_close(position)
             report.closed_positions += 1
 
         calendar = self._calendars.get(symbol)
@@ -283,6 +288,31 @@ class AgentLoop:
             )
         except Exception as error:  # already closed, or not in a closable state
             log.warning("signal %d not moved to CLOSED: %s", closed.signal_id, error)
+
+    async def notify_close(self, closed: ClosedPosition) -> None:
+        """`+10.00 €` / `-10.00 €` and the total balance, nothing else (cahier v3, §37)."""
+        currency, balance = await self._account_totals()
+        notice = PositionClosed(
+            symbol=closed.symbol,
+            pnl=closed.pnl_eur,
+            balance=balance,
+            currency=currency,
+            exit_reason=closed.exit_reason,
+            ticket=closed.ticket,
+        )
+        try:
+            await self._notifier.send(render_position_closed(notice), parse_mode="HTML")
+        except Exception as error:  # a notification failure never blocks the loop
+            log.warning("position-closed notice failed: %s", error)
+
+    async def _account_totals(self) -> tuple[str, Decimal]:
+        try:
+            account = await self._broker.account()
+        except Exception as error:
+            log.warning("balance unavailable for the close notice: %s", error)
+            return "EUR", Decimal(0)
+        balance = account.balance if account.balance is not None else account.equity
+        return account.currency, balance
 
     async def _check_limits(self, now: datetime, report: CycleReport) -> None:
         try:

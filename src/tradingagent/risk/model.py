@@ -33,6 +33,8 @@ class AccountState:
     currency: str
     equity: Decimal
     free_margin: Decimal
+    # Optional so existing callers stay valid; the operator's close message shows it.
+    balance: Decimal | None = None
 
 
 @dataclass(frozen=True)

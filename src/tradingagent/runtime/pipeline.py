@@ -28,10 +28,15 @@ from tradingagent.core.mode import TradingMode
 from tradingagent.core.states import RiskOutcome, Severity, SignalState
 from tradingagent.data.market_calendar import MarketCalendar, SlotStatus
 from tradingagent.notify.signal_template import SignalNotice, render_signal_message
+from tradingagent.notify.trade_messages import (
+    PositionOpened,
+    render_position_opened,
+)
 from tradingagent.risk.checks import RiskContext
 from tradingagent.risk.engine import AccountModeMismatchError, RiskDecision, decide
 from tradingagent.risk.model import (
     OrderRequest,
+    OrderResult,
     TradeIntent,
     limits_for,
 )
@@ -311,7 +316,30 @@ class SignalPipeline:
             return ProcessOutcome(detail.id, "stop_missing", "position closed immediately")
 
         transition(self._engine, detail.id, SignalState.POSITION_OPEN, now, "position opened")
+        await self._notify_open(detail, request, result)
         return ProcessOutcome(detail.id, "executed", f"ticket {result.ticket}")
+
+    async def _notify_open(
+        self, detail: SignalDetail, request: OrderRequest, result: OrderResult
+    ) -> None:
+        """The operator asked for the position's essentials only (cahier v3, §37)."""
+        if result.ticket is None or result.executed_price is None:
+            return
+        notice = PositionOpened(
+            symbol=detail.symbol,
+            direction=detail.direction,
+            volume=request.volume,
+            entry_price=result.executed_price,
+            stop_loss=request.stop_loss,
+            take_profit=request.take_profit,
+            strategy_ref=detail.strategy_ref,
+            mode=detail.mode,
+            ticket=result.ticket,
+        )
+        try:
+            await self._notifier.send(render_position_opened(notice), parse_mode="HTML")
+        except Exception as error:  # a notification failure never unwinds an opened position
+            log.warning("position-opened notice failed: %s", error)
 
     def _market_state(self, symbol: str, now: datetime) -> SlotStatus:
         calendar = self._calendar_for(symbol)

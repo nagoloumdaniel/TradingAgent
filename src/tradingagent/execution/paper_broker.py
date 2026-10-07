@@ -155,6 +155,7 @@ class PaperBroker:
             currency=self._account.currency,
             equity=equity,
             free_margin=equity - margin,
+            balance=self._account.equity + realized,
         )
 
     async def instrument(self, symbol: str) -> InstrumentSpec:

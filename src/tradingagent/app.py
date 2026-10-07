@@ -354,6 +354,7 @@ async def build(settings: Settings) -> Components:
         pipeline=pipeline,
         broker=broker,
         halts=halts,
+        notifier=notifier,
         guardian=guardian,
         alerts=alerts,
         reports=report_service,

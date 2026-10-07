@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
@@ -21,6 +22,7 @@ from tradingagent.data.market_calendar import MarketCalendar
 from tradingagent.data.market_data import ClockMismatchError, Subscription
 from tradingagent.notify.health_alerts import HealthAlerter
 from tradingagent.reporting.service import ReportService
+from tradingagent.risk.model import ClosedPosition
 from tradingagent.runtime.loop import AgentLoop
 from tradingagent.runtime.pipeline import SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
@@ -129,6 +131,7 @@ def build_loop(
         pipeline=pipeline,
         broker=broker,
         halts=halts,
+        notifier=notifier,
         guardian=Guardian(halts, now=lambda: NOW),
         alerts=alerts,
         reports=ReportService(engine, sender=sent),
@@ -221,3 +224,21 @@ def test_the_snapshot_is_written_periodically(engine: Engine) -> None:
     snapshots = loop._snapshots.latest_before(NOW)
     assert snapshots is not None
     assert snapshots.equity == Decimal("5497.74")
+
+
+def test_a_closed_position_notifies_the_result_and_the_balance(engine: Engine) -> None:
+    loop, _, _, _ = build_loop(engine)
+    asyncio.run(
+        loop.notify_close(
+            ClosedPosition(
+                ticket=555001,
+                symbol="XAUUSD",
+                exit_price=Decimal("2424"),
+                pnl_eur=Decimal("-10.00"),
+                exit_reason="stop_loss",
+                closed_at=NOW,
+            )
+        )
+    )
+    notifier = cast(FakeNotifier, loop._notifier)
+    assert notifier.messages == ["❌ XAUUSD : -10.00 €\nSolde : 5 497.74 €"]

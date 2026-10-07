@@ -240,7 +240,8 @@ def test_paper_mode_places_the_order_and_opens_the_position(engine: Engine) -> N
     outcome = parts.run(signal_id)
 
     assert outcome.kind == "executed"
-    assert len(parts.notifier.messages) == 1
+    assert len(parts.notifier.messages) == 2  # the signal, then the compact position notice
+    assert parts.notifier.messages[1].splitlines()[0] == "📈 OUVERT — XAUUSD"
     assert len(parts.broker.placed) == 1
     assert parts.broker.placed[0].volume == Decimal("0.02")
     assert parts.broker.placed[0].idempotency_key.startswith("witness@1.1.0:XAUUSD")
