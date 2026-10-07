@@ -95,14 +95,24 @@ ENV_FILE = ROOT / ".env"
 AGENT_CONFIG = ROOT / "config" / "agent.yaml"
 STRATEGY_DIR = ROOT / "config" / "strategies"
 PAPER_STARTING_CAPITAL = Decimal(1000)
-# Section 14: the ladder gates the mode. Executing modes require the matching rung, so a
-# strategy cannot trade a rung it never climbed. OBSERVATION and SIGNAL are absent on
-# purpose: they execute nothing, and that is where a candidate earns its evidence.
+# Section 14: the ladder gates the mode, so a strategy cannot trade a rung it never climbed.
+# OBSERVATION and SIGNAL are absent on purpose: they execute nothing, and that is where a
+# candidate earns its evidence.
+#
+# PAPER and DEMO ask for the same rung, and that is deliberate. Both are venues without real
+# money; what separates them is the fill — simulated against a demo account, real against a
+# live account. Requiring `live` for DEMO, as an earlier version did, inverted the
+# environment ladder of §44 (DEV → BACKTEST → PAPER → DEMO → LIVE_SMALL → PROD): it made the
+# rehearsal available only once the decision it exists to inform had already been taken.
+# LIVE keeps the top rung: real money is the one thing that must never be spent on a
+# version nobody validated.
 MODE_REQUIRED_STATUS: dict[TradingMode, frozenset[StrategyStatus]] = {
     TradingMode.PAPER: frozenset(
         {StrategyStatus.PAPER, StrategyStatus.CANDIDATE, StrategyStatus.LIVE}
     ),
-    TradingMode.DEMO: frozenset({StrategyStatus.LIVE}),
+    TradingMode.DEMO: frozenset(
+        {StrategyStatus.PAPER, StrategyStatus.CANDIDATE, StrategyStatus.LIVE}
+    ),
     TradingMode.LIVE: frozenset({StrategyStatus.LIVE}),
 }
 # The demo server is measured at UTC with no daylight saving (TASK-003); the live server

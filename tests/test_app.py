@@ -185,6 +185,33 @@ def test_paper_mode_only_requires_the_paper_rung(tmp_path) -> None:
         "BTCUSD", "trend_breakout@1.0.0", StrategyStatus.PAPER, "operator", "x", now()
     )
     with pytest.raises(ConfigError):
-        _register_configured_strategies(engine, config, TradingMode.DEMO, now)
-    _register_configured_strategies(engine, config, TradingMode.PAPER, now)  # both on the rung
+        _register_configured_strategies(engine, config, TradingMode.LIVE, now)
+    # PAPER and DEMO accept the same rung: both are venues without real money, and the
+    # environment ladder of §44 puts the demo rehearsal before real trading, not after it.
+    _register_configured_strategies(engine, config, TradingMode.PAPER, now)
+    _register_configured_strategies(engine, config, TradingMode.DEMO, now)
+    engine.dispose()
+
+
+def test_demo_and_paper_accept_the_same_rung_but_live_does_not(tmp_path) -> None:
+    """The one distinction that matters: real money needs the top rung, a demo account does
+    not. Requiring it there would make the rehearsal available only after the decision it
+    exists to inform."""
+    engine, config = _configured(tmp_path)
+    now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
+    registry = StrategyRegistry(engine, clock=now)
+    _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)
+    for ref, market in (("witness@1.1.0", "XAUUSD"), ("trend_breakout@1.0.0", "BTCUSD")):
+        for status in (
+            StrategyStatus.EXPERIMENTAL,
+            StrategyStatus.BACKTESTING,
+            StrategyStatus.VALIDATING,
+            StrategyStatus.PAPER,
+        ):
+            registry.transition(market, ref, status, "operator", "campaign", now())
+
+    _register_configured_strategies(engine, config, TradingMode.DEMO, now)  # accepted
+    with pytest.raises(ConfigError) as caught:
+        _register_configured_strategies(engine, config, TradingMode.LIVE, now)
+    assert "cannot execute in LIVE" in str(caught.value)
     engine.dispose()
