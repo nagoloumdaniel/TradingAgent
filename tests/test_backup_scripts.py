@@ -96,9 +96,82 @@ def test_scripts_carry_no_secret_literal(name: str) -> None:
     assert findings == []
 
 
+def test_backup_reads_its_settings_from_an_env_file(tmp_path: Path) -> None:
+    """The feature the operators were promised: a key set in `.env` is used.
+
+    Nothing is exported in the environment here — only the file speaks, which is exactly
+    how the documented setup works.
+    """
+    source = tmp_path / "source.db"
+    make_database(source, 3)
+    env_file = tmp_path / "operator.env"
+    env_file.write_text(
+        f"DATABASE_URL={sqlite_url(source)}\nBACKUP_PASSPHRASE=passphrase-from-the-file\n",
+        encoding="utf-8",
+    )
+    backups = tmp_path / "backups"
+    result = run_script(
+        "backup.ps1",
+        "-EnvFile",
+        str(env_file),
+        "-BackupDir",
+        str(backups),
+        env=clean_environment(),
+    )
+    assert result.returncode == 0, result.stderr
+    assert list(backups.glob("*.enc")), "an encrypted archive should exist"
+
+
+def test_the_environment_still_overrides_the_env_file(tmp_path: Path) -> None:
+    """Same precedence as everywhere else in the project: environment, then file."""
+    source = tmp_path / "source.db"
+    make_database(source, 4)
+    env_file = tmp_path / "operator.env"
+    env_file.write_text(
+        f"DATABASE_URL={sqlite_url(source)}\nBACKUP_PASSPHRASE=the-file-one\n",
+        encoding="utf-8",
+    )
+    backups = tmp_path / "backups"
+    result = run_script(
+        "backup.ps1",
+        "-EnvFile",
+        str(env_file),
+        "-BackupDir",
+        str(backups),
+        env=clean_environment(BACKUP_PASSPHRASE="the-environment-one"),
+    )
+    assert result.returncode == 0, result.stderr
+    archive = next(backups.glob("*.enc"))
+    # Restoring with the file's passphrase must fail: the environment's was used.
+    restored = tmp_path / "restored.db"
+    wrong = run_script(
+        "restore.ps1",
+        "-BackupFile",
+        str(archive),
+        "-Provider",
+        "sqlite",
+        "-DatabaseUrl",
+        sqlite_url(restored),
+        "-Passphrase",
+        "the-file-one",
+        "-Force",
+        env=clean_environment(),
+    )
+    assert wrong.returncode != 0
+    assert not restored.exists()
+
+
 def test_backup_refuses_a_missing_database_url(tmp_path: Path) -> None:
     result = run_script(
-        "backup.ps1", "-DryRun", "-BackupDir", str(tmp_path / "backups"), env=clean_environment()
+        "backup.ps1",
+        "-DryRun",
+        "-BackupDir",
+        str(tmp_path / "backups"),
+        # The script falls back on the repository's `.env`; this test is about the case
+        # where nothing is configured at all, environment or file.
+        "-EnvFile",
+        str(tmp_path / "absent.env"),
+        env=clean_environment(),
     )
     assert result.returncode == 2
     assert "DATABASE_URL" in result.stderr
@@ -111,6 +184,11 @@ def test_backup_refuses_a_missing_passphrase(tmp_path: Path) -> None:
         "backup.ps1",
         "-BackupDir",
         str(tmp_path / "backups"),
+        # Point the `.env` fallback at a file that does not exist: the script reads the
+        # repository's own `.env` otherwise, and this test is precisely about the case
+        # where no passphrase is configured anywhere.
+        "-EnvFile",
+        str(tmp_path / "absent.env"),
         env=clean_environment(DATABASE_URL=sqlite_url(source)),
     )
     assert result.returncode == 2
@@ -153,6 +231,9 @@ def test_restore_refuses_a_missing_passphrase(tmp_path: Path) -> None:
         "-BackupFile",
         str(archive),
         "-Force",
+        # Same reason as the backup case: isolate the script from the repository's `.env`.
+        "-EnvFile",
+        str(tmp_path / "absent.env"),
         env=clean_environment(DATABASE_URL=sqlite_url(tmp_path / "target.db")),
     )
     assert result.returncode == 2

@@ -91,6 +91,11 @@ class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(frozen=True, extra="ignore")
 
     database_url: SecretStr
+    # Optional access protection for the dashboard (§43). It lives here rather than in
+    # `Settings` because `tradingagent-web` must be startable without MT5 credentials:
+    # reading a database is not trading. Absent or blank leaves the dashboard open, which
+    # is the documented default on 127.0.0.1.
+    tradingagent_web_token: SecretStr | None = None
 
     @field_validator("database_url")
     @classmethod

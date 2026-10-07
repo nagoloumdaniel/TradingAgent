@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Sauvegarde quotidienne chiffrée de la base TradingAgent (TASK-053, ENF-007).
@@ -38,6 +38,10 @@ param(
 
     [string]$Passphrase = $env:BACKUP_PASSPHRASE,
 
+    # Which `.env` to fall back on when the environment is silent. Resolved in the body,
+    # because `$PSScriptRoot` is empty while the defaults above are evaluated.
+    [string]$EnvFile = '',
+
     [switch]$DryRun
 )
 
@@ -55,6 +59,38 @@ $SaltSize = 16
 $IvSize = 16
 $HmacSize = 32
 $Pbkdf2Iterations = 200000
+
+# `.env` is where every other setting of this project lives, but the parameters above could
+# only read the process environment: `$PSScriptRoot` is empty while they are evaluated. Now
+# that the root is known, the file gets its say — and only when the environment was silent,
+# so exporting a variable still overrides the file, as everywhere else in the project.
+function Get-DotEnvValue {
+    param([string]$Name, [string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return '' }
+    $found = ''
+    foreach ($line in [System.IO.File]::ReadAllLines($Path)) {
+        $trimmed = $line.Trim()
+        if (-not $trimmed -or $trimmed.StartsWith('#') -or -not $trimmed.Contains('=')) { continue }
+        $parts = $trimmed.Split('=', 2)
+        if ($parts[0].Trim() -eq $Name) {
+            $found = $parts[1].Trim().Trim('"').Trim("'")  # last one wins, like dotenv
+        }
+    }
+    return $found
+}
+
+$EnvFile = if ([string]::IsNullOrWhiteSpace($EnvFile)) {
+    Join-Path $ProjectRoot '.env'
+} else { $EnvFile }
+if ([string]::IsNullOrWhiteSpace($DatabaseUrl)) {
+    $DatabaseUrl = Get-DotEnvValue 'DATABASE_URL' $EnvFile
+}
+if ([string]::IsNullOrWhiteSpace($Passphrase)) {
+    $Passphrase = Get-DotEnvValue 'BACKUP_PASSPHRASE' $EnvFile
+}
+if ([string]::IsNullOrWhiteSpace($BackupDir)) {
+    $BackupDir = Get-DotEnvValue 'BACKUP_DIR' $EnvFile
+}
 
 function Fail {
     param([string]$Message, [int]$Code = 1)

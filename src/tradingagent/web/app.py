@@ -583,9 +583,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     engine = create_database_engine(settings.database_url.get_secret_value())
     reports_dir = Path(args.ea_reports_dir) if args.ea_reports_dir else None
+    # The token comes from the same `.env` as everything else. Reading it from `os.environ`
+    # alone would have left the dashboard unprotected while the operator believed otherwise:
+    # pydantic-settings parses `.env` into a model, it does not export it to the process.
+    declared = settings.tradingagent_web_token
+    access_token = declared.get_secret_value() if declared is not None else None
     try:
         uvicorn.run(
-            create_app(engine, interval_seconds=args.interval, ea_reports_dir=reports_dir),
+            create_app(
+                engine,
+                interval_seconds=args.interval,
+                ea_reports_dir=reports_dir,
+                access_token=access_token,
+            ),
             host=args.host,
             port=args.port,
             log_level=args.log_level,
