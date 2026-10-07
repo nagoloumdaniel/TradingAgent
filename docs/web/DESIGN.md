@@ -82,3 +82,6 @@ uv run python scripts/preview_dashboard.py --port 8799     # base SQLite jetable
   --headless=new --force-device-scale-factor=1 --window-size=1440,1250 \
   --screenshot=overview.png http://127.0.0.1:8799/
 ```
+
+Captures de référence versionnées dans `docs/web/screenshots/` :
+`overview-desktop.png`, `overview-mobile.png` (fenêtre 500 px) et `system.png`.
