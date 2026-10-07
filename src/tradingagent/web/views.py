@@ -14,7 +14,12 @@ from typing import Any
 
 from tradingagent.core.states import SignalState
 from tradingagent.web import format as display
-from tradingagent.web.queries import OpenPositionView, SystemEventView, TradeReplay
+from tradingagent.web.queries import (
+    OpenPositionView,
+    PositionListView,
+    SystemEventView,
+    TradeReplay,
+)
 
 POSITION_COLUMNS: tuple[str, ...] = (
     "Marché",
@@ -25,6 +30,25 @@ POSITION_COLUMNS: tuple[str, ...] = (
     "Mode",
     "Ouverte le (UTC)",
     "Âge",
+)
+# The positions page shows the whole history, closed rows included — which is why it also
+# carries the lifecycle columns (state, ticket, exit reason) the live feed does not need.
+POSITION_TABLE_COLUMNS: tuple[str, ...] = (
+    "Marché",
+    "Sens",
+    "État",
+    "Volume",
+    "Prix d'entrée",
+    "Notionnel",
+    "Mode",
+    "Ticket",
+    "Motif de sortie",
+    "Ouverte le (UTC)",
+    "Âge",
+)
+# Right-aligned, monospace columns: money, volume and the ticket. Everything else reads left.
+POSITION_NUMERIC_COLUMNS: frozenset[str] = frozenset(
+    {"Volume", "Prix d'entrée", "Notionnel", "Ticket"}
 )
 ALERT_COLUMNS: tuple[str, ...] = ("Horodatage (UTC)", "Gravité", "Type", "Détail")
 
@@ -61,6 +85,28 @@ def alert_cells(event: SystemEventView) -> list[str]:
         display.severity_label(event.severity),
         event.kind,
         describe(event.detail),
+    ]
+
+
+def alert_classes(events: Sequence[SystemEventView]) -> list[str]:
+    """The badge class per alert, so the browser colours a severity it never interprets."""
+    return [display.severity_class(event.severity) for event in events]
+
+
+def position_list_cells(position: PositionListView) -> list[str]:
+    """One row of the positions page, in the order of :data:`POSITION_TABLE_COLUMNS`."""
+    return [
+        position.symbol,
+        display.direction_label(position.direction),
+        display.position_state_label(position.state),
+        display.number(position.volume, 2),
+        display.number(position.open_price, 5),
+        display.money(position.notional),
+        display.mode_label(position.mode),
+        str(position.ticket),
+        position.exit_reason or display.NA,
+        display.moment(position.opened_at),
+        display.duration(position.age),
     ]
 
 
@@ -265,13 +311,17 @@ def replay_checks(replay: TradeReplay) -> Sequence[CheckRow]:
 __all__ = [
     "ALERT_COLUMNS",
     "POSITION_COLUMNS",
+    "POSITION_NUMERIC_COLUMNS",
+    "POSITION_TABLE_COLUMNS",
     "TIMELINE_RANK",
     "CheckRow",
     "TimelineEntry",
     "alert_cells",
+    "alert_classes",
     "check_rows",
     "describe",
     "position_cells",
+    "position_list_cells",
     "replay_checks",
     "replay_timeline",
     "state_label",

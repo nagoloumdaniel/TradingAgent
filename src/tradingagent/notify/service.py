@@ -16,7 +16,7 @@ from tradingagent.storage.audit import AuditStore
 log = logging.getLogger(__name__)
 
 RATE_LIMITED_REPLY = "Trop de commandes en peu de temps : réessaie dans quelques minutes."
-NOT_A_COMMAND_REPLY = "Je ne comprends que les commandes. Tape /help pour la liste."
+NOT_A_COMMAND_REPLY = "Je ne comprends que les commandes.\nTape /help pour voir la liste."
 
 
 def _utc_now() -> datetime:
@@ -73,12 +73,18 @@ class CommandService:
             )
         except Exception:
             log.exception("audit log unavailable, /%s not executed", command)
-            return "Le journal des commandes est indisponible : commande non exécutée."
+            return (
+                f"Commande /{command} non exécutée : le journal est indisponible.\n"
+                f"Rien n'a été lancé. Réessaie dans un instant."
+            )
         try:
             return await self._router.dispatch(CommandRequest(user_id, command, args, at))
         except Exception:
             log.exception("/%s failed", command)
-            return f"La commande /{command} a rencontré une erreur interne. Voir les journaux."
+            return (
+                f"La commande /{command} a échoué sur une erreur interne.\n"
+                f"Tape /status pour vérifier l'état de l'agent."
+            )
 
     async def _record_safely(
         self, actor: str, action: str, detail: dict[str, object], at: datetime

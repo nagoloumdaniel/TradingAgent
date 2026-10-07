@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -5,9 +6,15 @@ import pytest
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.timeframe import Timeframe
-from tradingagent.notify.signal_template import SignalNotice, render_signal_message
+from tradingagent.notify.signal_template import (
+    LABEL_WIDTH,
+    SignalNotice,
+    render_signal_message,
+)
 
 GENERATED = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)
+
+PRE = re.compile(r"<pre>(.*?)</pre>", re.DOTALL)
 
 
 def a_notice(**overrides: object) -> SignalNotice:
@@ -49,7 +56,7 @@ REQUIRED_PARTS = {
     "expiry time": "2026-10-06 12:45",
     "market state": "HEALTHY",
     "justification": "MM20 crossed above MM50",
-    "risk reward header": "risque/rendement",
+    "risk reward header": "Risque/rendement",
 }
 
 
@@ -69,6 +76,13 @@ def test_the_mode_is_unmistakable(mode: TradingMode, must_have: str, must_not_ha
     message = render_signal_message(a_notice(mode=mode))
     assert must_have in message
     assert must_not_have not in message
+
+
+def test_the_parenthetical_mode_label_is_gone_from_the_pushed_message() -> None:
+    """The operator asked for brief: one word, not a sentence inside a number block."""
+    message = render_signal_message(a_notice(mode=TradingMode.SIGNAL))
+    assert "Mode : SIGNAL" in message
+    assert "signaux seulement" not in message
 
 
 def test_a_sell_direction_is_named_vente() -> None:
@@ -114,3 +128,58 @@ def test_data_derived_text_cannot_break_the_html_formatting() -> None:
 def test_times_are_explicitly_utc() -> None:
     message = render_signal_message(a_notice())
     assert message.count("UTC") >= 2
+
+
+# --- shape: four blocks, not a wall --------------------------------------------------------
+
+
+def test_the_message_is_four_blocks_separated_by_a_blank_line() -> None:
+    message = render_signal_message(a_notice())
+    blocks = message.split("\n\n")
+    assert len(blocks) == 4
+    assert blocks[0].startswith("📈 SIGNAL")
+    assert blocks[1].startswith("<pre>")
+    assert "Motif :" in blocks[2]
+    assert "Réf :" in blocks[3]
+
+
+def test_a_signal_stays_under_twenty_five_lines() -> None:
+    message = render_signal_message(a_notice(confidence=0.72))
+    assert len(message.splitlines()) <= 25
+    assert len(message) < 4096
+
+
+def test_the_identifier_block_comes_last() -> None:
+    lines = [line for line in render_signal_message(a_notice()).splitlines() if line]
+    assert lines[-1].startswith("Réf : ")
+
+
+# --- alignment: the values form a column ---------------------------------------------------
+
+
+def test_the_numbers_sit_in_a_monospace_block() -> None:
+    blocks = PRE.findall(render_signal_message(a_notice()))
+    assert len(blocks) == 1
+
+
+def test_every_value_starts_at_the_same_column() -> None:
+    [block] = PRE.findall(render_signal_message(a_notice()))
+    columns = set()
+    for line in block.splitlines():
+        match = re.match(r"^(\S.*?)\s{2,}(\S.*)$", line)
+        assert match is not None, f"line is not label + value: {line!r}"
+        columns.add(match.start(2))
+    assert columns == {LABEL_WIDTH}, block
+
+
+def test_the_figures_are_all_in_the_aligned_block() -> None:
+    [block] = PRE.findall(render_signal_message(a_notice()))
+    for figure in ("2650.10", "2649.50", "2650.50", "2647.50", "2652.50", "2655.50"):
+        assert figure in block
+
+
+def test_a_signal_without_confidence_keeps_the_same_number_of_lines_as_one_with() -> None:
+    assert (
+        len(render_signal_message(a_notice()).splitlines())
+        == len(render_signal_message(a_notice(confidence=0.5)).splitlines()) - 1
+    )

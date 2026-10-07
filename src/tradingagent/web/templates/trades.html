@@ -7,27 +7,30 @@
    Filtrage en mémoire : sous SQLite les montants sont stockés en texte, aucun calcul SQL ne les touche.</p>
 
 <form class="filters" method="get" action="/trades">
-  <div>
+  {# Chaque filtre reste un <select> natif, avec son nom et son libellé : le script de
+     base.html le double d'un bouton stylé quand JavaScript est là, et le laisse tel quel
+     sinon. Le menu déroulant est donc une amélioration, jamais une condition d'usage. #}
+  <div class="field">
     <label for="market">Marché</label>
-    <select id="market" name="market">
+    <select id="market" name="market" data-custom-select>
       <option value="">Tous</option>
       {% for value in markets %}
         <option value="{{ value }}" {% if filters.market == value %}selected{% endif %}>{{ value }}</option>
       {% endfor %}
     </select>
   </div>
-  <div>
+  <div class="field">
     <label for="strategy">Stratégie</label>
-    <select id="strategy" name="strategy">
+    <select id="strategy" name="strategy" data-custom-select>
       <option value="">Toutes</option>
       {% for value in strategies %}
         <option value="{{ value }}" {% if filters.strategy == value %}selected{% endif %}>{{ value }}</option>
       {% endfor %}
     </select>
   </div>
-  <div>
+  <div class="field">
     <label for="mode">Mode</label>
-    <select id="mode" name="mode">
+    <select id="mode" name="mode" data-custom-select>
       <option value="">Tous</option>
       {% for value in modes %}
         <option value="{{ value.value }}" {% if filters.mode is not none and filters.mode.value == value.value %}selected{% endif %}>{{ display.mode_label(value) }} ({{ value.value }})</option>

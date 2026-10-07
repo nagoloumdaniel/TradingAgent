@@ -36,6 +36,7 @@ from tradingagent.risk.model import BrokerPosition, ClosedPosition, limits_for
 from tradingagent.runtime.pipeline import ProcessOutcome, SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
 from tradingagent.runtime.ports import BrokerPort, DailyLabPort, MarketPort, NotifierPort
+from tradingagent.runtime.sessions import MarketSessionGuard
 from tradingagent.signals.generator import GenerationStatus, SignalGenerator
 from tradingagent.storage.account import AccountStore
 from tradingagent.storage.candles import CandleStore
@@ -93,6 +94,7 @@ class AgentLoop:
         expected_login: int,
         subscriptions: Iterable[Subscription],
         calendars: MutableMapping[str, MarketCalendar] | None = None,
+        sessions: MarketSessionGuard | None = None,
         ea_directory: Path | None = None,
         ea_magic: int = 0,
         lab: "DailyLabPort | None" = None,
@@ -126,6 +128,12 @@ class AgentLoop:
         self._stop = False
         # Shared with the pipeline: the same learned calendars, updated in place.
         self._calendars = calendars if calendars is not None else {}
+        # Stops the markets the calendar says are closed, and reopens them on its own.
+        self._sessions = (
+            sessions
+            if sessions is not None
+            else MarketSessionGuard(halts=halts, alerts=alerts, calendar_for=self.calendar_for)
+        )
         # The MQL5 Guardians stop trading on their own when the heartbeat goes quiet, so the
         # state must be republished well inside their timeout (EA_PROTOCOL §6).
         self._ea_directory = ea_directory
@@ -216,6 +224,7 @@ class AgentLoop:
         except ClockMismatchError as error:
             return await self._clock_failed(error, now, report)
 
+        await self._guard_sessions(now)
         await self._retry_notifications()
         for subscription in self._subscriptions:
             await self._poll(subscription, now, report)
@@ -242,6 +251,19 @@ class AgentLoop:
         self._events.record("clock_mismatch", Severity.CRITICAL, {"detail": str(error)}, now)
         await self._alerts.connection_lost("server_clock", now)
         return report
+
+    async def _guard_sessions(self, now: datetime) -> None:
+        """Stop what the calendar says is closed, reopen it once it trades again (F-005).
+
+        One market at a time: a failure on gold must not stop the crypto, and vice versa.
+        Gold's weekend is not the agent's weekend, so the halt lives in `session:XAUUSD`,
+        which the risk engine never reads as a global stop.
+        """
+        for symbol in self.symbols:
+            try:
+                await self._sessions.guard(symbol, now)
+            except Exception as error:
+                log.warning("%s session guard failed: %s", symbol, error)
 
     async def _poll(self, subscription: Subscription, now: datetime, report: CycleReport) -> None:
         try:

@@ -195,6 +195,33 @@ def read_recent_signals(engine: Engine, limit: int = 10) -> list[RecentSignal]:
     ]
 
 
+def read_last_signal(engine: Engine, symbol: str) -> RecentSignal | None:
+    """The newest signal of one market, or None: the per-market view reads nothing else.
+
+    The market is part of the query, never a filter applied to a global listing: a market
+    with no recent signal must answer "none", not borrow the busiest market's line.
+    """
+    statement = (
+        select(SignalRow)
+        .where(SignalRow.symbol == symbol)
+        .order_by(SignalRow.generated_at.desc())
+        .limit(1)
+    )
+    with Session(engine) as session:
+        row = session.scalars(statement).first()
+    if row is None:
+        return None
+    return RecentSignal(
+        idempotency_key=row.idempotency_key,
+        symbol=row.symbol,
+        timeframe=row.timeframe,
+        direction=row.direction,
+        mode=row.mode,
+        state=row.state,
+        generated_at=row.generated_at,
+    )
+
+
 def transition(
     engine: Engine,
     signal_id: int,

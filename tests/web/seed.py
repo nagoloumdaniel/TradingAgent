@@ -269,13 +269,16 @@ def add_chain(
     generated_at: datetime,
     closed: bool = True,
     with_execution: bool = True,
+    mode: TradingMode = TradingMode.PAPER,
+    exit_reason: str = "take_profit",
 ) -> int:
     """Append one more signal chain to an already-seeded database, and return its signal id.
 
     The dashboard tests need shapes the representative dataset deliberately does not carry:
-    a closed trade with no fill, a position that never closed. Every table here is
-    append-only — a test appends rather than deletes — and this helper keeps the row shape
-    in one place instead of duplicating it in a test.
+    a closed trade with no fill, a position that never closed, a mode or an exit reason the
+    representative dataset does not use. Every table here is append-only — a test appends
+    rather than deletes — and this helper keeps the row shape in one place instead of
+    duplicating it in a test.
     """
     risk = Decimal("5.00")
     with engine.begin() as connection:
@@ -291,8 +294,9 @@ def add_chain(
             generated_at + timedelta(hours=1) if closed else None,
             Decimal("1.00") if closed else None,
             risk,
-            TradingMode.PAPER,
+            mode,
             with_execution=with_execution,
+            exit_reason=exit_reason,
         )
 
 
@@ -381,6 +385,7 @@ def _chain(
     volume: Decimal = Decimal("0.02"),
     open_price: float = 2650.0,
     with_execution: bool = True,
+    exit_reason: str = "take_profit",
 ) -> int:
     """One signal → one order → one position → (one trade). Returns the signal id."""
     signal = _signal(connection, version_id, market, direction, generated_at)
@@ -451,7 +456,7 @@ def _chain(
                 close_price=open_price + 5,
                 pnl_eur=pnl,
                 risk_eur=risk,
-                exit_reason="take_profit",
+                exit_reason=exit_reason,
             )
         )
     return signal

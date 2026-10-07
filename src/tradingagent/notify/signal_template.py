@@ -2,6 +2,12 @@
 
 Pure rendering: no clock, no network. Every data-derived string is HTML-escaped, so the
 message is sent with Telegram's HTML parse mode and no field can break the formatting.
+
+The shape is deliberate. The operator reads this on a phone, so the message is four blocks
+separated by a blank line — identity, numbers, justification, identifiers. The numbers sit
+in a `<pre>` block: monospace is the only way to get a real column in Telegram, and two
+signals can then be compared at a glance. Values start at `LABEL_WIDTH`, the labels are
+short, and nothing is padded with filler beyond that one column.
 """
 
 import html
@@ -11,9 +17,15 @@ from datetime import UTC, datetime
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.timeframe import Timeframe
-from tradingagent.notify.commands import MODE_LABELS
+from tradingagent.notify.commands import MODE_SHORT_LABELS
 
 DIRECTION_LABELS = {Direction.BUY: "ACHAT", Direction.SELL: "VENTE"}
+
+# One emoji at most, at the head, and only when it says something the text does not.
+DIRECTION_ICONS = {Direction.BUY: "📈", Direction.SELL: "📉"}
+
+# The column every value starts at inside the <pre> block: the widest label, plus two.
+LABEL_WIDTH = 18
 
 
 @dataclass(frozen=True)
@@ -56,31 +68,56 @@ def _risk_reward(notice: SignalNotice) -> str:
     return f"{reward / risk:.1f}"
 
 
-def render_signal_message(notice: SignalNotice) -> str:
-    def safe(text: str) -> str:
-        return html.escape(text, quote=False)
+def _safe(text: str) -> str:
+    return html.escape(text, quote=False)
 
-    lines = [
-        f"📈 SIGNAL — {safe(notice.symbol)} ({notice.timeframe.value})",
-        f"Sens : {DIRECTION_LABELS[notice.direction]}",
-        f"Mode : {MODE_LABELS[notice.mode]}",
-        "",
-        f"Prix observé : {_price(notice.observed_price)}",
-        f"Zone d'entrée : {_price(notice.entry_low)} à {_price(notice.entry_high)}",
-        f"Stop-loss : {_price(notice.stop_loss)}",
-        f"Objectifs : {', '.join(_price(target) for target in notice.take_profits)}",
-        f"Ratio risque/rendement estimé : {_risk_reward(notice)}",
-        "",
-        f"Stratégie : {safe(notice.strategy_ref)}",
-        f"Justification : {safe(notice.reason)}",
-        f"État du marché : {safe(notice.market_state)}",
+
+def _row(label: str, value: str) -> str:
+    return f"{label:<{LABEL_WIDTH}}{value}"
+
+
+def _mode_line(mode: TradingMode) -> str:
+    """Real money is the one mode that gets emphasis; the others are simply named."""
+    label = MODE_SHORT_LABELS[mode]
+    if mode is TradingMode.LIVE:
+        return f"<b>Mode : {label}</b>"
+    return f"Mode : {label}"
+
+
+def render_signal_message(notice: SignalNotice) -> str:
+    identity = (
+        f"{DIRECTION_ICONS[notice.direction]} SIGNAL · {_safe(notice.symbol)} · "
+        f"{_safe(notice.timeframe.value)} · {DIRECTION_LABELS[notice.direction]}"
+    )
+
+    numbers = [
+        _row("Prix observé", _price(notice.observed_price)),
+        _row("Entrée", f"{_price(notice.entry_low)} - {_price(notice.entry_high)}"),
+        _row("Stop-loss", _price(notice.stop_loss)),
+        _row("Objectifs", " · ".join(_price(target) for target in notice.take_profits)),
+        _row("Risque/rendement", _risk_reward(notice)),
+    ]
+
+    justification = [
+        _mode_line(notice.mode),
+        f"Stratégie : {_safe(notice.strategy_ref)}",
+        f"Motif : {_safe(notice.reason)}",
+        f"Marché : {_safe(notice.market_state)}",
     ]
     if notice.confidence is not None:
-        lines.append(f"Confiance : {notice.confidence * 100:.0f} %")
-    lines += [
-        "",
-        f"Identifiant : {safe(notice.ref)}",
-        f"Généré le : {_utc(notice.generated_at)}",
+        justification.append(f"Confiance : {notice.confidence * 100:.0f} %")
+
+    identifiers = [
+        f"Généré : {_utc(notice.generated_at)}",
         f"Expire le : {_utc(notice.expires_at)}",
+        f"Réf : {_safe(notice.ref)}",
     ]
-    return "\n".join(lines)
+
+    return "\n\n".join(
+        [
+            identity,
+            "<pre>" + "\n".join(numbers) + "</pre>",
+            "\n".join(justification),
+            "\n".join(identifiers),
+        ]
+    )

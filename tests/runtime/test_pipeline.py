@@ -1,13 +1,15 @@
 """The pipeline: AI can only block, risk decides, notification then execution (F-009..F-017)."""
 
 import asyncio
-from datetime import timedelta
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 from tests.runtime.fakes import (
+    BTC,
     GOLD,
     LOGIN,
     NOW,
@@ -16,12 +18,14 @@ from tests.runtime.fakes import (
     FakeBroker,
     FakeNotifier,
     open_calendar,
+    weekend_calendar,
 )
 
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import AiFilter, TradingMode
 from tradingagent.core.states import HaltAction, HaltSource, RiskOutcome, SignalState
 from tradingagent.core.timeframe import Timeframe
+from tradingagent.data.market_calendar import MarketCalendar
 from tradingagent.risk.model import BrokerPosition, OpenPosition
 from tradingagent.runtime.pipeline import SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
@@ -52,7 +56,13 @@ async def _no_sleep(_: float) -> None:
 
 
 class Parts:
-    def __init__(self, engine: Engine, mode: TradingMode = TradingMode.SIGNAL) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        mode: TradingMode = TradingMode.SIGNAL,
+        calendar_for: Callable[[str], MarketCalendar | None] = open_calendar,
+        now: Callable[[], datetime] = lambda: NOW,
+    ) -> None:
         self.engine = engine
         self.broker = FakeBroker()
         self.notifier = FakeNotifier()
@@ -66,9 +76,9 @@ class Parts:
             risk_config=RISK,
             expected_login=LOGIN,
             mode=mode,
-            calendar_for=open_calendar,
+            calendar_for=calendar_for,
             ai=self.ai,
-            now=lambda: NOW,
+            now=now,
             sleep=_no_sleep,
         )
 
@@ -136,7 +146,7 @@ def test_a_validated_signal_is_sent_once_with_every_required_field(engine: Engin
         "ACHAT",
         "Stop-loss",
         "Objectifs",
-        "Ratio risque/rendement",
+        "Risque/rendement",
         "Stratégie",
         "Expire le",
         "Mode",
@@ -176,6 +186,7 @@ def test_a_notable_refusal_is_sent_to_the_operator(engine: Engine) -> None:
     assert len(parts.notifier.messages) == 1
     assert "Refus risque" in parts.notifier.messages[0]
     assert "daily_loss" in parts.notifier.messages[0]
+    assert "Aucun ordre n'a été envoyé" in parts.notifier.messages[0]
 
 
 def test_a_shadow_rejection_does_not_block_the_signal(engine: Engine) -> None:
@@ -242,7 +253,7 @@ def test_paper_mode_places_the_order_and_opens_the_position(engine: Engine) -> N
 
     assert outcome.kind == "executed"
     assert len(parts.notifier.messages) == 2  # the signal, then the compact position notice
-    assert parts.notifier.messages[1].splitlines()[0] == "📈 OUVERT — XAUUSD"
+    assert parts.notifier.messages[1].splitlines()[0] == "📈 OUVERT · XAUUSD · ACHAT"
     assert len(parts.broker.placed) == 1
     assert parts.broker.placed[0].volume == Decimal("0.02")
     assert parts.broker.placed[0].idempotency_key.startswith("witness@1.1.0:XAUUSD")
@@ -327,3 +338,26 @@ def test_an_unmeasurable_exposure_is_none_and_blocks_the_order(engine: Engine) -
     outcome = parts.run(signal_id)
     assert outcome.kind == "refused"
     assert "total_exposure" in outcome.detail
+
+
+def test_a_closed_gold_market_never_stops_bitcoin(engine: Engine) -> None:
+    """F-005, the operator's requirement: gold is off, the crypto keeps producing signals."""
+    saturday = datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
+    gold, bitcoin = weekend_calendar(GOLD), open_calendar(BTC)
+    parts = Parts(
+        engine,
+        calendar_for=lambda symbol: gold if symbol == GOLD else bitcoin,
+        now=lambda: saturday,
+    )
+    gold_id = record_signal(engine, symbol=GOLD)
+    bitcoin_id = record_signal(engine, symbol=BTC)
+
+    gold_outcome = parts.run(gold_id)
+    bitcoin_outcome = parts.run(bitcoin_id)
+
+    assert gold_outcome.kind == "refused"
+    assert "trading_hours" in gold_outcome.detail
+    assert state_of(engine, gold_id) is SignalState.RISK_REJECTED
+    assert bitcoin_outcome.kind == "notified"
+    assert state_of(engine, bitcoin_id) is SignalState.SENT
+    assert any(BTC in message for message in parts.notifier.messages)

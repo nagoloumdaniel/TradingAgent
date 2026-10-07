@@ -18,6 +18,9 @@ from tradingagent.core.timeframe import Timeframe
 Slot = tuple[int, int]  # (weekday with Monday = 0, quarter of the day 0-95), in UTC
 SLOT = timedelta(minutes=15)
 SLOTS_PER_WEEK = 7 * 96
+# A closure is a run of consecutive closed slots. The walk back is bounded so a corrupt
+# calendar cannot make it unbounded; only a closure longer than this would re-announce itself.
+CLOSURE_LOOKBACK = timedelta(days=14)
 
 
 class SlotStatus(StrEnum):
@@ -75,3 +78,38 @@ def learn_calendar(
 def _slot(moment: datetime) -> Slot:
     utc = moment.astimezone(UTC)
     return utc.weekday(), (utc.hour * 60 + utc.minute) // 15
+
+
+def slot_start(moment: datetime) -> datetime:
+    """The quarter-hour slot containing `moment`, floored to its first second."""
+    return moment.replace(minute=moment.minute - moment.minute % 15, second=0, microsecond=0)
+
+
+def is_open(calendar: MarketCalendar | None, moment: datetime) -> bool:
+    """Whether the calendar proves the symbol trades at `moment` (UTC).
+
+    Pure and fail-closed: the moment is an argument, never read from a clock, and a market
+    whose calendar is unknown is not traded. This is what makes a Saturday testable without
+    waiting for one.
+    """
+    if calendar is None:
+        return False
+    return calendar.status_at(moment) is SlotStatus.OPEN
+
+
+def closure_started_at(
+    calendar: MarketCalendar, moment: datetime, lookback: timedelta = CLOSURE_LOOKBACK
+) -> datetime | None:
+    """The slot where the closure containing `moment` began, or None if the market is open.
+
+    This is the identity of a closure: every cycle of the same weekend returns the same
+    start, which is what lets the operator be told once instead of every twenty seconds. An
+    uncertain slot counts as closed, the same fail-closed reading the risk engine uses.
+    """
+    if calendar.status_at(moment) is SlotStatus.OPEN:
+        return None
+    start = slot_start(moment)
+    limit = start - lookback
+    while start - SLOT >= limit and calendar.status_at(start - SLOT) is not SlotStatus.OPEN:
+        start -= SLOT
+    return start

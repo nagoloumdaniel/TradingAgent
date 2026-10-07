@@ -68,6 +68,22 @@ def open_calendar(symbol: str = GOLD) -> MarketCalendar:
     return MarketCalendar(symbol, slots, frozenset())
 
 
+def weekend_calendar(symbol: str = GOLD) -> MarketCalendar:
+    """A gold-like week, as eight weeks of Deriv bars teach it (TASK-014).
+
+    Trading stops on Friday at 20:45 UTC and resumes on Sunday at 22:00 UTC. Crypto, by
+    contrast, quotes seven days a week: `open_calendar` is its calendar.
+    """
+    quarters = range(SLOTS_PER_WEEK // 7)
+    closed = (
+        {(4, quarter) for quarter in quarters if quarter >= 83}  # Friday from 20:45
+        | {(5, quarter) for quarter in quarters}  # Saturday
+        | {(6, quarter) for quarter in quarters if quarter < 88}  # Sunday before 22:00
+    )
+    slots = frozenset((weekday, quarter) for weekday in range(7) for quarter in quarters) - closed
+    return MarketCalendar(symbol, frozenset(slots), frozenset())
+
+
 class FakeNotifier:
     def __init__(self, *, deliver: bool = True) -> None:
         self.deliver = deliver
@@ -249,4 +265,5 @@ __all__ = [
     "candle",
     "open_calendar",
     "timedelta",
+    "weekend_calendar",
 ]

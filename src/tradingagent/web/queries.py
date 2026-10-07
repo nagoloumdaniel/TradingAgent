@@ -22,9 +22,10 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from pydantic import ValidationError
-from sqlalchemy import Engine, desc, func, or_, select, text
+from sqlalchemy import Engine, String, cast, desc, func, or_, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -51,6 +52,7 @@ from tradingagent.core.states import (
     ExecutionEventKind,
     HaltAction,
     HaltSource,
+    PositionState,
     RiskOutcome,
     Severity,
     StrategyStatus,
@@ -91,6 +93,7 @@ from tradingagent.storage.models import (
 from tradingagent.storage.positions import OpenPosition, PositionReader
 from tradingagent.storage.scalping import ExecutionCosts, execution_costs, size_of
 from tradingagent.storage.telemetry import ExecutionEventStore, LatencyStats
+from tradingagent.web import format as display
 
 log = logging.getLogger(__name__)
 
@@ -1076,6 +1079,176 @@ def _position_view(position: OpenPosition, at: datetime) -> OpenPositionView:
         age=at - position.opened_at,
         notional=position.volume * Decimal(str(position.open_price)),
     )
+
+
+# ---------------------------------------------------------------------------------------
+# The positions page: the most recent positions, one bounded page at a time.
+#
+# The table grows without bound over a trading year, so the ten rows the operator sees are
+# chosen by SQLite, not by the browser: the search is a bound parameter and the page is a
+# LIMIT/OFFSET. Sending the whole history to display ten rows is the defect this prevents.
+# ---------------------------------------------------------------------------------------
+
+POSITION_PAGE_SIZE = 10
+# What a search may match, in the operator's terms. The ticket is an integer column and the
+# enums are stored as their values, so every one of them is cast to text before the LIKE.
+POSITION_SEARCH_FIELDS: tuple[str, ...] = (
+    "symbole",
+    "sens",
+    "mode",
+    "ticket",
+    "motif de sortie",
+)
+
+
+@dataclass(frozen=True)
+class PositionListView:
+    """One position of the history, closed or still open, as the page displays it."""
+
+    ticket: int
+    symbol: str
+    direction: Direction
+    mode: TradingMode
+    state: PositionState
+    volume: Decimal
+    open_price: float
+    notional: Decimal
+    opened_at: datetime
+    age: timedelta
+    exit_reason: str | None
+
+
+@dataclass(frozen=True)
+class PositionPage:
+    """One page of positions plus the metadata the pager and the empty state need.
+
+    ``page`` is always inside ``[1, pages]``: the query clamps it, so a stale ``?page=999``
+    bookmark lands on the last valid page instead of an error.
+    """
+
+    rows: tuple[PositionListView, ...]
+    total: int
+    page: int
+    pages: int
+    query: str
+    page_size: int
+
+    @property
+    def empty_message(self) -> str:
+        """An empty table must say why it is empty, not just sit there mute."""
+        if self.query:
+            return f"Aucune position pour « {self.query} »."
+        return "Aucune position enregistrée."
+
+    def url(self, number: int) -> str:
+        """The link to another page, carrying the search that produced this one."""
+        parameters = {"page": str(number)}
+        if self.query:
+            parameters["q"] = self.query
+        return "/positions?" + urlencode(parameters)
+
+
+def position_page(
+    engine: Engine,
+    at: datetime,
+    *,
+    query: str = "",
+    page: int = 1,
+    page_size: int = POSITION_PAGE_SIZE,
+) -> PositionPage:
+    """The most recent positions, one page, filtered and bounded in the database.
+
+    Newest first, ``opened_at`` and then ``id`` so two positions opened in the same second
+    keep a stable order across pages. The count and the page are two statements on purpose:
+    the count must not carry the LIMIT.
+    """
+    needle = query.strip()
+    size = max(1, page_size)
+    conditions = _position_search(needle)
+    count_statement = (
+        select(func.count())
+        .select_from(PositionRow)
+        .outerjoin(TradeRow, TradeRow.position_id == PositionRow.id)
+        .where(*conditions)
+    )
+    with Session(engine) as session:
+        total = int(session.scalar(count_statement) or 0)
+        pages = max(1, -(-total // size))
+        current = min(max(page, 1), pages)
+        statement = (
+            select(PositionRow, TradeRow.exit_reason)
+            .outerjoin(TradeRow, TradeRow.position_id == PositionRow.id)
+            .where(*conditions)
+            .order_by(desc(PositionRow.opened_at), desc(PositionRow.id))
+            .limit(size)
+            .offset((current - 1) * size)
+        )
+        found = session.execute(statement).all()
+    return PositionPage(
+        rows=tuple(_position_list_view(row[0], row[1], at) for row in found),
+        total=total,
+        page=current,
+        pages=pages,
+        query=needle,
+        page_size=size,
+    )
+
+
+def _position_list_view(
+    position: PositionRow, exit_reason: str | None, at: datetime
+) -> PositionListView:
+    return PositionListView(
+        ticket=position.broker_position_ticket,
+        symbol=position.symbol,
+        direction=position.direction,
+        mode=position.mode,
+        state=position.state,
+        volume=position.volume,
+        open_price=position.open_price,
+        notional=position.volume * Decimal(str(position.open_price)),
+        opened_at=position.opened_at,
+        age=at - position.opened_at,
+        exit_reason=exit_reason,
+    )
+
+
+def _position_search(needle: str) -> list[Any]:
+    """One OR over the useful columns, every branch a bound parameter.
+
+    The pattern is escaped: ``%`` and ``_`` typed by the operator are search text, not the
+    SQL wildcards they resemble. The enums are cast to text first — a LIKE pattern cannot go
+    through the column's own type, which validates its values.
+    """
+    if not needle:
+        return []
+    pattern = _like_pattern(needle)
+    terms: list[Any] = [
+        cast(PositionRow.symbol, String).ilike(pattern, escape="\\"),
+        cast(PositionRow.broker_position_ticket, String).ilike(pattern, escape="\\"),
+        cast(TradeRow.exit_reason, String).ilike(pattern, escape="\\"),
+    ]
+    terms.extend(
+        _enum_search_terms(PositionRow.direction, list(Direction), display.direction_label, needle)
+    )
+    terms.extend(
+        _enum_search_terms(PositionRow.mode, list(TradingMode), display.mode_label, needle)
+    )
+    return [or_(*terms)]
+
+
+def _enum_search_terms(
+    column: Any, members: Iterable[Any], label: Callable[[Any], str], needle: str
+) -> list[Any]:
+    """Match an enum column by its stored value or by the label the page displays."""
+    terms: list[Any] = [cast(column, String).ilike(_like_pattern(needle), escape="\\")]
+    folded = needle.casefold()
+    terms.extend(column == member for member in members if folded in label(member).casefold())
+    return terms
+
+
+def _like_pattern(needle: str) -> str:
+    escaped = needle.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
 
 
 @dataclass(frozen=True)
@@ -2093,6 +2266,8 @@ def watermark(engine: Engine) -> ChartWatermark:
 __all__ = [
     "EPOCH",
     "FOREVER",
+    "POSITION_PAGE_SIZE",
+    "POSITION_SEARCH_FIELDS",
     "TOTAL",
     "AccountFigures",
     "AiLab",
@@ -2115,6 +2290,8 @@ __all__ = [
     "OpenPositionView",
     "OrderView",
     "Overview",
+    "PositionListView",
+    "PositionPage",
     "PositionView",
     "ProposalView",
     "ReportView",
@@ -2160,6 +2337,7 @@ __all__ = [
     "month_start",
     "open_positions",
     "overview",
+    "position_page",
     "recent_events",
     "report_by_id",
     "reports",

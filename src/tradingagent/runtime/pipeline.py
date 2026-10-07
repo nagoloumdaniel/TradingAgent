@@ -29,7 +29,11 @@ from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.states import ExecutionEventKind, RiskOutcome, Severity, SignalState
 from tradingagent.data.market_calendar import MarketCalendar, SlotStatus
-from tradingagent.notify.signal_template import SignalNotice, render_signal_message
+from tradingagent.notify.signal_template import (
+    DIRECTION_LABELS,
+    SignalNotice,
+    render_signal_message,
+)
 from tradingagent.notify.trade_messages import (
     PositionOpened,
     render_position_opened,
@@ -439,10 +443,15 @@ class SignalPipeline:
 
 
 def _refusal_message(detail: SignalDetail, decision: RiskDecision) -> str:
+    """Plain text (this one is sent without a parse mode): what was refused, why, and what
+    the agent did about it, so the operator never reads a bare "erreur"."""
     causes = ", ".join(check.name for check in decision.refusals)
     return (
-        f"⛔ Refus risque — {detail.symbol} {detail.direction.value}\n"
-        f"Contrôles : {causes}\n"
+        f"⛔ Refus risque · {detail.symbol} {DIRECTION_LABELS[detail.direction]}\n"
+        f"\n"
+        f"Contrôles refusés : {causes}\n"
         f"Motif : {decision.reason}\n"
-        f"Identifiant : {detail.idempotency_key}"
+        f"\n"
+        f"Réf : {detail.idempotency_key}\n"
+        f"Aucun ordre n'a été envoyé."
     )

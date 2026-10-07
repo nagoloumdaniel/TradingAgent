@@ -2,79 +2,153 @@
 {% block title %}Positions{% endblock %}
 {% block content %}
 
-<h2>Positions ouvertes — <span id="positions-count">{{ rows | length }}</span></h2>
+<h2>Positions — {{ positions.total }} au total</h2>
 <p class="muted">
-  Flux en direct toutes les {{ interval }} s depuis la base.
+  Les {{ positions.page_size }} positions les plus récentes, de la plus récente à la plus
+  ancienne. Flux en direct toutes les {{ interval }} s depuis la base.
+  Positions ouvertes : <span id="open-count">…</span>.
   État : <span id="stream-status" class="badge">connexion…</span>
   Dernière mise à jour : <span id="positions-at">{{ display.precise(at) }}</span> UTC.
 </p>
 
+{# Sans JavaScript, ce formulaire est le seul chemin vers le filtrage : pas de menu à
+   construire, pas de recherche côté client. Le serveur répond à GET /positions?q=…&page=… #}
+<form class="filters" method="get" action="/positions" role="search">
+  <div class="field">
+    <label for="positions-q">Recherche</label>
+    <input type="search" id="positions-q" name="q" value="{{ positions.query }}"
+           placeholder="symbole, sens, mode, ticket, motif de sortie"
+           autocomplete="off" spellcheck="false">
+  </div>
+  <div><button type="submit">Rechercher</button></div>
+  {% if positions.query %}<div><a class="action" href="/positions">Réinitialiser</a></div>{% endif %}
+</form>
+
+{% if positions.query %}
+  <p class="muted" id="positions-search-summary">
+    {{ positions.total }} position(s) pour « {{ positions.query }} ».
+  </p>
+{% endif %}
+
 <div class="table-wrap">
 <table>
   <thead>
-    <tr>{% for column in columns %}<th{% if not loop.first and loop.index > 2 %} class="num"{% endif %}>{{ column }}</th>{% endfor %}</tr>
+    <tr>{% for column in columns %}<th{% if column in numeric %} class="num"{% endif %}>{{ column }}</th>{% endfor %}</tr>
   </thead>
   <tbody id="positions-body">
     {% for row in rows %}
-      <tr>{% for cell in row %}<td{% if not loop.first and loop.index > 2 %} class="num"{% endif %}>{{ cell }}</td>{% endfor %}</tr>
+      <tr>{% for cell in row %}<td{% if columns[loop.index0] in numeric %} class="num"{% endif %}>{{ cell }}</td>{% endfor %}</tr>
     {% else %}
-      <tr id="positions-empty"><td colspan="{{ columns | length }}" class="empty">Aucune position ouverte.</td></tr>
+      <tr id="positions-empty"><td colspan="{{ columns | length }}" class="empty">{{ positions.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
 
+{% if positions.pages > 1 %}
+<nav class="pager" aria-label="Pagination des positions">
+  {% if positions.page > 1 %}
+    <a class="pager-link" rel="prev" href="{{ positions.url(positions.page - 1) }}">← Précédent</a>
+  {% else %}
+    <span class="pager-link disabled" aria-disabled="true">← Précédent</span>
+  {% endif %}
+  <span class="pager-status">Page {{ positions.page }} sur {{ positions.pages }}</span>
+  {% if positions.page < positions.pages %}
+    <a class="pager-link" rel="next" href="{{ positions.url(positions.page + 1) }}">Suivant →</a>
+  {% else %}
+    <span class="pager-link disabled" aria-disabled="true">Suivant →</span>
+  {% endif %}
+</nav>
+{% endif %}
+
 <h2>Alertes</h2>
-<p class="muted">Événements système de gravité avertissement ou critique, poussés par le flux.</p>
+<p class="muted">Événements système de gravité avertissement ou critique, poussés par le flux.
+   Chaque colonne reste alignée : l'horodatage, le badge de gravité, le type et le détail.</p>
 <div class="table-wrap">
-  <ul class="alerts" id="alerts-list">
-    {% for alert in alerts %}
-      <li><span class="badge {{ display.severity_class(alert.severity) }}">{{ display.severity_label(alert.severity) }}</span>
-          {{ alert.kind }} — {{ alert.detail | describe }}</li>
-    {% endfor %}
-  </ul>
+  <table>
+    <thead>
+      <tr>{% for column in alert_columns %}<th>{{ column }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody id="alerts-list">
+      {% for alert in alerts %}
+        <tr>
+          <td class="mono">{{ display.precise(alert.occurred_at) }}</td>
+          <td><span class="badge {{ display.severity_class(alert.severity) }}">{{ display.severity_label(alert.severity) }}</span></td>
+          <td class="mono">{{ alert.kind }}</td>
+          <td class="wrap">{{ alert.detail | describe }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="{{ alert_columns | length }}" class="empty">Aucun événement de gravité avertissement ou critique en base.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 
 <script>
 (function () {
   "use strict";
-  var columns = {{ columns | tojson }};
-  var body = document.getElementById("positions-body");
+  // The table itself is paginated and searched server-side: rewriting its rows from the
+  // stream would erase the page and the filter the operator chose. The stream feeds the
+  // two things that must stay live — the open-position count and the alerts list.
   var alerts = document.getElementById("alerts-list");
+  var openCount = document.getElementById("open-count");
   var status = document.getElementById("stream-status");
-  var numericFrom = 2;
+  var at = document.getElementById("positions-at");
 
-  function renderPositions(payload) {
-    var rowsNodes = payload.rows.map(function (row) {
-      var tr = document.createElement("tr");
-      row.forEach(function (cell, index) {
-        var td = document.createElement("td");
-        if (index >= numericFrom) { td.className = "num"; }
-        td.textContent = cell;
-        tr.appendChild(td);
-      });
-      return tr;
-    });
-    if (rowsNodes.length === 0) {
-      var empty = document.createElement("tr");
-      var cell = document.createElement("td");
-      cell.colSpan = columns.length;
-      cell.className = "empty";
-      cell.textContent = "Aucune position ouverte.";
-      empty.appendChild(cell);
-      rowsNodes = [empty];
-    }
-    body.replaceChildren.apply(body, rowsNodes);
-    document.getElementById("positions-count").textContent = payload.rows.length;
-    document.getElementById("positions-at").textContent = payload.at;
+  // Same shape as the server-rendered rows: timestamp, badge, type, detail.
+  function alertRow(cells, severity) {
+    var row = document.createElement("tr");
+    var moment = document.createElement("td");
+    moment.className = "mono";
+    moment.textContent = cells[0];
+    var badgeCell = document.createElement("td");
+    var badge = document.createElement("span");
+    badge.className = "badge " + (severity || "ok");
+    badge.textContent = cells[1];
+    badgeCell.appendChild(badge);
+    var kind = document.createElement("td");
+    kind.className = "mono";
+    kind.textContent = cells[2];
+    var detail = document.createElement("td");
+    detail.className = "wrap";
+    detail.textContent = cells[3];
+    row.appendChild(moment);
+    row.appendChild(badgeCell);
+    row.appendChild(kind);
+    row.appendChild(detail);
+    return row;
   }
 
-  function renderAlerts(payload) {
-    payload.rows.forEach(function (row) {
-      var item = document.createElement("li");
-      row.forEach(function (cell) { item.appendChild(document.createTextNode(cell + " ")); });
-      alerts.appendChild(item);
+  // The rows the server already rendered are the ones the first stream cycle would send
+  // again: key them so the live feed completes the list instead of duplicating it.
+  var seen = {};
+  function alertKey(cells) { return cells.join("\u0000"); }
+  Array.prototype.forEach.call(alerts.rows, function (row) {
+    var cells = Array.prototype.map.call(row.cells, function (cell) {
+      return cell.textContent;
     });
+    seen[alertKey(cells)] = true;
+  });
+
+  function renderAlerts(payload) {
+    var empty = alerts.querySelector(".empty");
+    if (empty && empty.parentNode && empty.parentNode.parentNode) {
+      empty.parentNode.parentNode.removeChild(empty.parentNode);
+    }
+    var additions = [];
+    payload.rows.forEach(function (cells, index) {
+      if (seen[alertKey(cells)]) { return; }
+      seen[alertKey(cells)] = true;
+      additions.push(alertRow(cells, (payload.severities || [])[index]));
+    });
+    // Newest first, like the server's own order: the frame arrives oldest-first, so the new
+    // rows are inserted at the top in reverse.
+    for (var i = additions.length - 1; i >= 0; i--) {
+      alerts.insertBefore(additions[i], alerts.firstChild);
+    }
+    // The same ceiling the server applies, so a session left open for a week cannot grow
+    // the list without bound.
+    while (alerts.rows.length > 20) { alerts.deleteRow(alerts.rows.length - 1); }
   }
 
   var source = new EventSource("/events");
@@ -87,7 +161,9 @@
     status.className = "badge bad";
   });
   source.addEventListener("positions", function (message) {
-    renderPositions(JSON.parse(message.data));
+    var payload = JSON.parse(message.data);
+    openCount.textContent = payload.rows.length;
+    at.textContent = payload.at;
   });
   source.addEventListener("alerts", function (message) {
     renderAlerts(JSON.parse(message.data));

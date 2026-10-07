@@ -43,6 +43,14 @@ CLOSED_ON_TUESDAY_NOON = MarketCalendar(
     ALWAYS_OPEN.open_slots - {(1, 48)},
     frozenset(),
 )
+# Gold-like: Monday to Friday trade, the weekend does not.
+GOLD_WEEKEND = MarketCalendar(
+    "XAUUSD",
+    frozenset((weekday, quarter) for weekday in range(5) for quarter in range(96)),
+    frozenset(),
+)
+SATURDAY = datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
+SUNDAY = datetime(2026, 10, 4, 12, 0, tzinfo=UTC)
 
 
 class NoParameters(BaseModel):
@@ -222,6 +230,21 @@ def test_a_closed_market_skips_evaluation_and_keeps_the_reason(engine: Engine) -
     assert Buyer.calls == 0
     assert signals(engine) == []
     assert events(engine) == [("evaluation_skipped", Severity.INFO)]
+
+
+@pytest.mark.parametrize("moment", [SATURDAY, SUNDAY])
+def test_the_gold_weekend_produces_no_signal_and_runs_no_strategy(
+    engine: Engine, moment: datetime
+) -> None:
+    """F-005: a closed weekend is not an anomaly, it is simply nothing to do for gold."""
+    trigger = stored(engine)
+    gen = generator(engine, loaded(Buyer))
+
+    status = close(gen, trigger, calendar=GOLD_WEEKEND, now=moment)
+
+    assert status == {"buyer@1.0.0": GenerationStatus.SKIPPED}
+    assert Buyer.calls == 0
+    assert signals(engine) == []
 
 
 def test_a_gap_in_the_series_skips_evaluation_with_a_warning(engine: Engine) -> None:

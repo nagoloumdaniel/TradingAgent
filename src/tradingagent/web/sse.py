@@ -20,7 +20,13 @@ from sqlalchemy import Engine
 
 from tradingagent.core.states import Severity
 from tradingagent.web.queries import open_positions, recent_events
-from tradingagent.web.views import ALERT_COLUMNS, POSITION_COLUMNS, alert_cells, position_cells
+from tradingagent.web.views import (
+    ALERT_COLUMNS,
+    POSITION_COLUMNS,
+    alert_cells,
+    alert_classes,
+    position_cells,
+)
 
 # Sent once, first: it tells EventSource how long to wait before reconnecting.
 RETRY_HINT = "retry: 3000\n\n"
@@ -73,6 +79,9 @@ class EventStream:
         alerts = recent_events(
             self._engine, since=since, minimum=Severity.WARNING, limit=self._alert_limit
         )
+        # Stored newest-first; the frame is sent oldest-first, because the client inserts a
+        # frame at the top in reverse and the list then reads newest-first throughout.
+        ordered = list(reversed(alerts))
         return [
             Frame(
                 "positions",
@@ -91,8 +100,10 @@ class EventStream:
                     {
                         "at": at.isoformat(),
                         "columns": list(ALERT_COLUMNS),
-                        # Stored newest-first; the client appends, so it receives oldest-first.
-                        "rows": [alert_cells(event) for event in reversed(alerts)],
+                        "rows": [alert_cells(event) for event in ordered],
+                        # The badge class travels with the row: the browser colours what the
+                        # server decided, it does not map a label back to a severity.
+                        "severities": alert_classes(ordered),
                     },
                     ensure_ascii=False,
                 ),

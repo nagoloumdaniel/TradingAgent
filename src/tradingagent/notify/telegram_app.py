@@ -19,9 +19,12 @@ from tradingagent.config.settings import load_bot_settings
 from tradingagent.notify.access import AccessGate
 from tradingagent.notify.commands import CommandRouter, status_handler
 from tradingagent.notify.read_commands import (
+    gates_handler,
+    market_handler,
     markets_handler,
     performance_handler,
     positions_handler,
+    proposals_handler,
     signals_handler,
 )
 from tradingagent.notify.sensitive_commands import (
@@ -86,6 +89,15 @@ def main() -> int:
     router.register(
         "markets", "marchés suivis et fraîcheur des données", markets_handler(markets, candles)
     )
+    router.register(
+        "marche",
+        "état d'un marché : position, haltes, calendrier",
+        market_handler(markets, candles, halts, engine),
+    )
+    router.register(
+        "propositions", "propositions de l'IA et leur décision", proposals_handler(engine)
+    )
+    router.register("portes", "portes de promotion manquantes", gates_handler(engine))
     router.register("signals", "derniers signaux", signals_handler(engine))
     router.register("positions", "positions ouvertes", positions_handler(engine))
     router.register("performance", "trades clôturés", performance_handler(engine))

@@ -2,7 +2,8 @@
 
 Scopes: `global` (operator decisions and hard limits), `connection` (lifted automatically
 once data is healthy again, RM-013), `market:<symbol>` (operator-enabled or disabled
-markets, TASK-023) and one scope per (strategy, market) quarantine.
+markets, TASK-023), `session:<symbol>` (a market the agent stopped for its own closure, such
+as the gold weekend, and reopens by itself) and one scope per (strategy, market) quarantine.
 """
 
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ CONNECTION = "connection"
 TRADING_SCOPES = (GLOBAL, CONNECTION)
 PAIR_PREFIX = "pair:"
 MARKET_PREFIX = "market:"
+SESSION_PREFIX = "session:"
 
 
 def pair_scope(ref: str, symbol: str) -> str:
@@ -20,6 +22,15 @@ def pair_scope(ref: str, symbol: str) -> str:
 
 def market_scope(symbol: str) -> str:
     return f"{MARKET_PREFIX}{symbol}"
+
+
+def session_scope(symbol: str) -> str:
+    """A market the agent stopped for a closure it detected, and will reopen on its own.
+
+    Deliberately distinct from `market:<symbol>`, which the operator owns through `/disable`:
+    the automatic weekend resume must never lift an operator's decision.
+    """
+    return f"{SESSION_PREFIX}{symbol}"
 
 
 def parse_pair_scope(scope: str) -> tuple[str, str]:

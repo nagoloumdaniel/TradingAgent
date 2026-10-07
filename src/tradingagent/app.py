@@ -16,7 +16,7 @@ import argparse
 import asyncio
 import logging
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -60,9 +60,12 @@ from tradingagent.notify.access import AccessGate
 from tradingagent.notify.commands import CommandRouter, status_handler
 from tradingagent.notify.health_alerts import HealthAlerter
 from tradingagent.notify.read_commands import (
+    gates_handler,
+    market_handler,
     markets_handler,
     performance_handler,
     positions_handler,
+    proposals_handler,
     report_handler,
     signals_handler,
 )
@@ -229,6 +232,7 @@ def _build_command_service(
     candles: CandleStore,
     markets: Sequence[tuple[str, bool]],
     now: Any,
+    calendars: Mapping[str, MarketCalendar] | None = None,
 ) -> CommandService:
     router = CommandRouter()
     router.register(
@@ -243,6 +247,25 @@ def _build_command_service(
     router.register("positions", "positions ouvertes", positions_handler(engine))
     router.register("performance", "trades clôturés", performance_handler(engine))
     router.register("report", "rapport à la demande", report_handler(engine, now))
+    # The per-market control centre: one market per answer, never a blended view. The
+    # calendars mapping is shared with the agent loop, which fills it in place, so the
+    # answers follow the learned trading hours without being rebuilt at every command.
+    live_calendars = calendars if calendars is not None else {}
+    router.register(
+        "marche",
+        "état d'un marché : position, haltes, calendrier",
+        market_handler(markets, candles, halts, engine, calendar_for=live_calendars.get),
+    )
+    router.register(
+        "propositions",
+        "propositions de l'IA et leur décision",
+        proposals_handler(engine, markets=markets),
+    )
+    router.register(
+        "portes",
+        "portes de promotion manquantes",
+        gates_handler(engine, markets=markets),
+    )
     router.register("pause", "suspend les ordres", pause_handler(halts))
     router.register("resume", "reprend les ordres", resume_handler(halts))
     router.register("close_all", "ferme les positions", close_all_handler(halts))
@@ -392,6 +415,7 @@ async def build(
             candles,
             tuple((market_.symbol, market_.enabled) for market_ in config.markets),
             now,
+            calendars,
         )
         application = _build_telegram(settings, service)
         operator_id = settings.telegram_allowed_user_ids[0]

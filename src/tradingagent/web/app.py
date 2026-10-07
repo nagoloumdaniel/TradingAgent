@@ -56,8 +56,10 @@ from tradingagent.web.sse import SSE_HEADERS, EventStream
 from tradingagent.web.views import (
     ALERT_COLUMNS,
     POSITION_COLUMNS,
+    POSITION_NUMERIC_COLUMNS,
+    POSITION_TABLE_COLUMNS,
     describe,
-    position_cells,
+    position_list_cells,
     replay_checks,
     replay_timeline,
     state_label,
@@ -328,17 +330,30 @@ def create_app(
         )
 
     @app.get("/positions", response_class=HTMLResponse)
-    def positions_page(request: Request) -> HTMLResponse:
+    def positions_page(
+        request: Request,
+        q: str | None = None,
+        page_number: str | None = Query(default=None, alias="page"),
+    ) -> HTMLResponse:
+        """The positions history, ten rows at a time.
+
+        Paging and searching happen in SQL (:func:`queries.position_page`): the table grows
+        all year, and sending it whole to display ten rows is the defect this avoids. A page
+        outside the bounds is clamped rather than refused, and a garbled one falls back to
+        the first — a stale bookmark degrades, it does not raise.
+        """
         at = clock()
-        positions = queries.open_positions(engine, at)
+        positions = queries.position_page(engine, at, query=q or "", page=_page_number(page_number))
         return page(
             request,
             "positions",
             at=at,
             positions=positions,
-            rows=[position_cells(position) for position in positions],
-            columns=POSITION_COLUMNS,
+            rows=[position_list_cells(position) for position in positions.rows],
+            columns=POSITION_TABLE_COLUMNS,
+            numeric=POSITION_NUMERIC_COLUMNS,
             alerts=queries.recent_events(engine, minimum=Severity.WARNING, limit=20),
+            alert_columns=ALERT_COLUMNS,
             interval=stream.interval_seconds,
         )
 
@@ -528,6 +543,22 @@ def _mode(value: str | None) -> TradingMode | None:
         return TradingMode(value)
     except ValueError:
         return None
+
+
+def _page_number(value: str | None) -> int:
+    """A stale or garbled ``?page=`` degrades to the first page, never to a 422.
+
+    The upper bound is not checked here: :func:`queries.position_page` knows how many pages
+    the filtered history holds and clamps to the last one, which is the useful answer for a
+    bookmark made against a database that has since shrunk.
+    """
+    if not value:
+        return 1
+    try:
+        number = int(value)
+    except ValueError:
+        return 1
+    return number if number > 0 else 1
 
 
 def _stamp(at: datetime) -> str:

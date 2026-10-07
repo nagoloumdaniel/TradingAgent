@@ -232,3 +232,22 @@ class LabStore:
                 .order_by(AiProposalRow.created_at, AiProposalRow.id)
             ).all()
             return tuple(_proposal(row) for row in rows)
+
+    def recent_proposals(
+        self, *, market: str | None = None, limit: int = 50
+    ) -> tuple[StoredProposal, ...]:
+        """The latest proposals, decided or not, newest first (the operator's view).
+
+        Read-only, like every read of this store: the operator sees what was proposed and
+        where the decision stands. A decision is never recomputed here, only displayed.
+        """
+        if limit <= 0:
+            return ()
+        statement = select(AiProposalRow).order_by(
+            AiProposalRow.created_at.desc(), AiProposalRow.id.desc()
+        )
+        if market is not None:
+            statement = statement.where(AiProposalRow.market == market)
+        with Session(self._engine) as session:
+            rows = session.scalars(statement.limit(limit)).all()
+            return tuple(_proposal(row) for row in rows)

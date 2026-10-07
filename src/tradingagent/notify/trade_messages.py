@@ -5,7 +5,8 @@ currency plus the account balance, nothing else. The detailed signal message (F-
 different event and keeps its own mandatory fields.
 
 Pure rendering: no clock, no network. Every data-derived string is HTML-escaped so the
-message can be sent with Telegram's HTML parse mode.
+message can be sent with Telegram's HTML parse mode. The figures sit in a `<pre>` block:
+aligned columns, one line per figure, nothing to decode.
 """
 
 import html
@@ -14,10 +15,13 @@ from decimal import Decimal
 
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
-from tradingagent.notify.commands import MODE_LABELS
+from tradingagent.notify.commands import MODE_SHORT_LABELS
 
 CURRENCY_SYMBOLS = {"EUR": "€", "USD": "$", "GBP": "£", "CHF": "CHF", "JPY": "¥"}
 DIRECTION_LABELS = {Direction.BUY: "ACHAT", Direction.SELL: "VENTE"}
+
+# The column every value starts at inside a <pre> block of these messages.
+LABEL_WIDTH = 12
 
 
 @dataclass(frozen=True)
@@ -55,21 +59,32 @@ def signed_money(value: Decimal, currency: str) -> str:
     return f"{prefix}{money(value, currency)}"
 
 
+def _safe(text: str) -> str:
+    return html.escape(text, quote=False)
+
+
+def _row(label: str, value: str) -> str:
+    return f"{label:<{LABEL_WIDTH}}{value}"
+
+
+def _block(rows: list[str]) -> str:
+    return "<pre>" + "\n".join(rows) + "</pre>"
+
+
 def render_position_opened(notice: PositionOpened) -> str:
-    lines = [
-        f"📈 OUVERT — {html.escape(notice.symbol)}",
-        f"{DIRECTION_LABELS[notice.direction]} {_volume(notice.volume)} lot "
-        f"@ {_price(notice.entry_price)}",
+    identity = f"📈 OUVERT · {_safe(notice.symbol)} · {DIRECTION_LABELS[notice.direction]}"
+    rows = [
+        _row("Volume", f"{_volume(notice.volume)} lot"),
+        _row("Entrée", _price(notice.entry_price)),
     ]
-    levels = []
+    # A missing level is left out rather than shown as a dash: the block stays aligned and
+    # the operator is not invited to read a level that does not exist.
     if notice.stop_loss is not None:
-        levels.append(f"SL {_price(notice.stop_loss)}")
+        rows.append(_row("Stop", _price(notice.stop_loss)))
     if notice.take_profit is not None:
-        levels.append(f"TP {_price(notice.take_profit)}")
-    if levels:
-        lines.append(" · ".join(levels))
-    lines.append(f"{html.escape(notice.strategy_ref)} · {MODE_LABELS[notice.mode]}")
-    return "\n".join(lines)
+        rows.append(_row("Cible", _price(notice.take_profit)))
+    footer = f"{_safe(notice.strategy_ref)} · {MODE_SHORT_LABELS[notice.mode]}"
+    return "\n\n".join([identity, _block(rows), footer])
 
 
 def render_position_closed(notice: PositionClosed) -> str:
@@ -79,10 +94,11 @@ def render_position_closed(notice: PositionClosed) -> str:
         icon = "❌"
     else:
         icon = "⚪"
-    return (
-        f"{icon} {html.escape(notice.symbol)} : {signed_money(notice.pnl, notice.currency)}\n"
-        f"Solde : {money(notice.balance, notice.currency)}"
-    )
+    rows = [
+        _row("Résultat", signed_money(notice.pnl, notice.currency)),
+        _row("Solde", money(notice.balance, notice.currency)),
+    ]
+    return "\n\n".join([f"{icon} {_safe(notice.symbol)}", _block(rows)])
 
 
 def _price(value: Decimal) -> str:

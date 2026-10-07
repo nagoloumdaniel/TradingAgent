@@ -3,18 +3,28 @@
 import asyncio
 import json
 from collections.abc import Iterable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import cast
 
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
-from tests.runtime.fakes import LOGIN, NOW, RISK, FakeBroker, FakeNotifier, candle
+from tests.runtime.fakes import (
+    BTC,
+    LOGIN,
+    NOW,
+    RISK,
+    FakeBroker,
+    FakeNotifier,
+    candle,
+    open_calendar,
+    weekend_calendar,
+)
 
 from tradingagent.config.agent import load_agent_config
 from tradingagent.control.guardian import Guardian
-from tradingagent.core.halt import CONNECTION, GLOBAL
+from tradingagent.core.halt import CONNECTION, GLOBAL, session_scope
 from tradingagent.core.market import Candle
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.timeframe import Timeframe
@@ -96,6 +106,9 @@ def build_loop(
     broker: FakeBroker | None = None,
     connection_threshold: timedelta = timedelta(0),
     ea_directory: Path | None = None,
+    calendars: dict[str, MarketCalendar] | None = None,
+    subscriptions: tuple[Subscription, ...] | None = None,
+    now: datetime = NOW,
 ) -> tuple[AgentLoop, FakeMarket, FakeBroker, Sent]:
     market = market or FakeMarket()
     broker = broker or FakeBroker()
@@ -105,7 +118,7 @@ def build_loop(
     sent = Sent()
     alerts = HealthAlerter(sent, events, disk_path=ROOT)
     notifier = FakeNotifier()
-    calendars: dict[str, MarketCalendar] = {}
+    learned = calendars if calendars is not None else {}
     config = load_agent_config(
         SHIPPED_AGENT,
         known_symbols=BROKER_SYMBOLS,
@@ -121,31 +134,33 @@ def build_loop(
         risk_config=RISK,
         expected_login=LOGIN,
         mode=TradingMode.SIGNAL,
-        calendar_for=calendars.get,
-        now=lambda: NOW,
+        calendar_for=learned.get,
+        now=lambda: now,
     )
     loop = AgentLoop(
         engine=engine,
         market=market,
         store=store,
-        history=HistorySync(market, store, now=lambda: NOW),
+        history=HistorySync(market, store, now=lambda: now),
         generator=SignalGenerator((), store, SignalRepository(engine), TradingMode.SIGNAL),
         pipeline=pipeline,
         broker=broker,
         halts=halts,
         notifier=notifier,
-        guardian=Guardian(halts, now=lambda: NOW),
+        guardian=Guardian(halts, now=lambda: now),
         alerts=alerts,
         reports=ReportService(engine, sender=sent),
         portfolio=PortfolioBuilder(engine),
         config=config,
         mode=TradingMode.SIGNAL,
         expected_login=LOGIN,
-        subscriptions=(Subscription("XAUUSD", Timeframe.M15),),
-        calendars=calendars,
+        subscriptions=(
+            subscriptions if subscriptions is not None else (Subscription("XAUUSD", Timeframe.M15),)
+        ),
+        calendars=learned,
         ea_directory=ea_directory,
         connection_threshold=connection_threshold,
-        now=lambda: NOW,
+        now=lambda: now,
     )
     return loop, market, broker, sent
 
@@ -295,7 +310,16 @@ def test_a_closed_position_notifies_the_result_and_the_balance(engine: Engine) -
         )
     )
     notifier = cast(FakeNotifier, loop._notifier)
-    assert notifier.messages == ["❌ XAUUSD : -10.00 €\nSolde : 5 497.74 €"]
+    [message] = notifier.messages
+    lines = message.splitlines()
+    assert lines[0] == "❌ XAUUSD"
+    assert lines[1] == ""
+    assert lines[2].startswith("<pre>Résultat")
+    assert "-10.00 €" in lines[2]
+    assert lines[3].endswith("</pre>") and "5 497.74 €" in lines[3]
+    # Aligned: with the <pre> tags taken out, the two figures start at the same column.
+    body = [line.removeprefix("<pre>").removesuffix("</pre>") for line in lines[2:4]]
+    assert body[0].index("-10.00 €") == body[1].index("5 497.74 €")
 
 
 def test_a_close_lands_in_the_daily_bucket_and_the_telemetry(engine: Engine) -> None:
@@ -364,3 +388,49 @@ def test_an_ea_that_stops_beating_is_reported_offline(engine: Engine, tmp_path: 
 
     assert events_of(engine, "ea_offline")
     assert loop._ea_offline == {"XAUUSD"}
+
+
+# --- the weekend the agent starts into ------------------------------------------------------
+#
+# 2026-10-03 is a Saturday, 2026-10-05 the Monday after. The loop must announce the gold
+# closure once, stop gold, and leave bitcoin alone.
+
+SATURDAY = datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
+MONDAY = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
+
+
+def test_a_weekend_start_announces_the_gold_closure_once(engine: Engine) -> None:
+    calendars = {"XAUUSD": weekend_calendar("XAUUSD"), "BTCUSD": open_calendar(BTC)}
+    loop, _, _, sent = build_loop(
+        engine,
+        calendars=calendars,
+        subscriptions=(
+            Subscription("XAUUSD", Timeframe.M15),
+            Subscription("BTCUSD", Timeframe.M15),
+        ),
+        now=SATURDAY,
+    )
+
+    asyncio.run(loop.run_once())
+    asyncio.run(loop.run_once())
+
+    closures = [text for text in sent.messages if "Marché fermé" in text]
+    assert len(closures) == 1
+    assert "XAUUSD" in closures[0]
+    assert HaltStore(engine).is_halted(session_scope("XAUUSD")) is True
+    assert HaltStore(engine).is_halted(session_scope("BTCUSD")) is False
+    # Gold stopping for its weekend is not the whole agent stopping.
+    assert HaltStore(engine).status().halted is False
+
+
+def test_the_gold_weekend_ends_on_monday_without_any_operator_action(engine: Engine) -> None:
+    calendars = {"XAUUSD": weekend_calendar("XAUUSD")}
+    loop, _, _, sent = build_loop(engine, calendars=calendars, now=SATURDAY)
+    asyncio.run(loop.run_once())
+    assert HaltStore(engine).is_halted(session_scope("XAUUSD")) is True
+
+    loop, _, _, sent = build_loop(engine, calendars=calendars, now=MONDAY)
+    asyncio.run(loop.run_once())
+
+    assert HaltStore(engine).is_halted(session_scope("XAUUSD")) is False
+    assert any("Marché rouvert" in text for text in sent.messages)

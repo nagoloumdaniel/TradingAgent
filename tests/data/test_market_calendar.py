@@ -5,12 +5,24 @@ import pytest
 
 from tradingagent.core.market import Candle
 from tradingagent.core.timeframe import Timeframe
-from tradingagent.data.market_calendar import SlotStatus, learn_calendar
+from tradingagent.data.market_calendar import (
+    SlotStatus,
+    closure_started_at,
+    is_open,
+    learn_calendar,
+)
 
 # A Monday at 00:00 UTC, eight full weeks before NOW.
 START = datetime(2026, 8, 10, tzinfo=UTC)
 NOW = START + timedelta(weeks=8)
 FRIDAY, SATURDAY, SUNDAY = 4, 5, 6
+
+# 2026-10-02 is a Friday, 10-03 a Saturday, 10-04 a Sunday and 10-05 a Monday.
+FRIDAY_CLOSE = datetime(2026, 10, 2, 20, 50, tzinfo=UTC)
+SATURDAY_NOON = datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
+SUNDAY_NOON = datetime(2026, 10, 4, 12, 0, tzinfo=UTC)
+SUNDAY_REOPEN = datetime(2026, 10, 4, 22, 15, tzinfo=UTC)
+MONDAY_NOON = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
 
 
 QUARTER = timedelta(minutes=15)
@@ -112,3 +124,56 @@ def test_naive_moment_is_refused() -> None:
     calendar = learn_calendar("BTCUSD", history(lambda _: True), NOW)
     with pytest.raises(ValueError, match="UTC"):
         calendar.status_at(datetime(2026, 10, 3, 12))  # noqa: DTZ001 - the point of the test
+
+
+# --- what the weekend means for a market, as a pure predicate ------------------------------
+#
+# `is_open` and `closure_started_at` take the moment as an argument: no clock is read, so a
+# Saturday can be injected and the weekend behaviour is proven, not waited for.
+
+
+def test_gold_is_not_open_over_the_weekend_and_is_open_on_monday() -> None:
+    gold = learn_calendar("XAUUSD", history(gold_like), NOW)
+
+    assert is_open(gold, FRIDAY_CLOSE) is False  # the Friday 20:45 close
+    assert is_open(gold, SATURDAY_NOON) is False
+    assert is_open(gold, SUNDAY_NOON) is False
+    assert is_open(gold, SUNDAY_REOPEN) is True  # the Sunday 22:00 reopening
+    assert is_open(gold, MONDAY_NOON) is True
+
+
+def test_a_seven_day_market_stays_open_on_the_weekend() -> None:
+    bitcoin = learn_calendar("BTCUSD", history(lambda _: True), NOW)
+
+    assert is_open(bitcoin, SATURDAY_NOON) is True
+    assert is_open(bitcoin, SUNDAY_NOON) is True
+
+
+def test_without_a_calendar_nothing_is_proven_open() -> None:
+    assert is_open(None, MONDAY_NOON) is False
+
+
+def test_the_weekend_closure_has_one_identity_from_saturday_to_sunday() -> None:
+    gold = learn_calendar("XAUUSD", history(gold_like), NOW)
+    friday_close = datetime(2026, 10, 2, 20, 45, tzinfo=UTC)
+
+    assert closure_started_at(gold, SATURDAY_NOON) == friday_close
+    assert closure_started_at(gold, SUNDAY_NOON) == friday_close
+    # Two cycles twenty seconds apart are the same closure, so they can be announced once.
+    assert closure_started_at(gold, SATURDAY_NOON + timedelta(seconds=20)) == friday_close
+
+
+def test_an_open_market_has_no_closure_to_announce() -> None:
+    gold = learn_calendar("XAUUSD", history(gold_like), NOW)
+
+    assert closure_started_at(gold, MONDAY_NOON) is None
+    assert closure_started_at(gold, SUNDAY_REOPEN) is None
+
+
+def test_the_daily_break_is_its_own_closure() -> None:
+    gold = learn_calendar("XAUUSD", history(gold_like), NOW)
+
+    # The 21:00 UTC break is a second closure, distinct from the weekend one.
+    assert closure_started_at(gold, datetime(2026, 9, 30, 21, 10, tzinfo=UTC)) == datetime(
+        2026, 9, 30, 21, 0, tzinfo=UTC
+    )

@@ -478,6 +478,71 @@ tfoot td { padding: 10px 14px; font-weight: 600; border-top: 1px solid var(--lin
 
 .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; }
 .filters label { color: var(--muted); font-size: 12px; }
+.filters .field { display: flex; align-items: center; gap: 8px; }
+.filters input[type="search"] {
+  min-width: min(30rem, 68vw); max-width: 100%;
+  padding: 7px 13px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--glass); color: var(--text); font: 500 13px var(--font-sans);
+}
+.filters input[type="search"]::placeholder { color: var(--faint); }
+.filters input[type="search"]:hover { border-color: var(--line-strong); }
+
+/* -- pagination -------------------------------------------------------------------------
+   Un lien de page est un lien : il porte son état dans l'adresse, se copie et se recharge.
+   La page hors bornes est ramenée par le serveur, jamais par le client. */
+.pager { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; }
+.pager .pager-link {
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  color: var(--text); text-decoration: none; font-size: 13px;
+  transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out);
+}
+.pager a.pager-link:hover {
+  border-color: var(--line-strong); background: var(--surface-2); text-decoration: none;
+}
+.pager .pager-link:active { transform: scale(0.97); }
+.pager .pager-link.disabled { color: var(--faint); border-color: var(--glass-line); }
+.pager .pager-status {
+  color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums;
+}
+
+/* -- menus déroulants personnalisés -----------------------------------------------------
+   Le <select> natif reste le contrôle : il porte le nom, la valeur et l'envoi du
+   formulaire. Le script ne fait que le retirer de la vue et poser un bouton et une listbox
+   à sa place — jamais l'inverse. Sans JavaScript, rien de ce bloc n'existe et le
+   formulaire fonctionne tel quel, avec le menu du système. */
+.custom-select { position: relative; display: inline-block; min-width: 11rem; }
+.custom-select select.custom-select-native {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.custom-select-button {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; text-align: left;
+}
+.custom-select-chevron {
+  display: inline-flex; color: var(--faint);
+  transition: transform 150ms var(--ease-out);
+}
+.custom-select-chevron svg { width: 13px; height: 13px; display: block; }
+.custom-select-open .custom-select-chevron { transform: rotate(180deg); }
+.custom-select-list {
+  position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; min-width: 100%;
+  max-height: 17rem; overflow-y: auto;
+  margin: 0; padding: 4px; list-style: none;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--surface-2); box-shadow: var(--shadow);
+}
+.custom-select-list[hidden] { display: none; }
+.custom-select-option {
+  padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  white-space: nowrap; color: var(--text);
+}
+.custom-select-option.active { background: var(--glass); }
+.custom-select-option[aria-selected="true"] {
+  color: var(--accent); background: var(--accent-soft);
+}
+.custom-select-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .custom-select-chevron { transition: none; } }
 
 footer {
   grid-area: foot;
@@ -640,6 +705,176 @@ footer code { background: none; border: 0; padding: 0; }
     });
   }
   paint(current());
+})();
+</script>
+
+<script>
+/* Menus déroulants personnalisés — amélioration progressive, jamais un remplacement.
+   Le <select> natif reste dans le formulaire, avec son `name` : il est seulement retiré de
+   la vue et du parcours de tabulation, et un bouton `aria-haspopup="listbox"` plus une
+   listbox `role="listbox"` prennent sa place. Si ce script ne s'exécute pas, l'opérateur
+   garde le menu du système et peut filtrer. Le navigateur ne décide de rien : les options,
+   leurs valeurs et celle qui est sélectionnée viennent du <select> lui-même. */
+(function () {
+  "use strict";
+  var CHEVRON =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+
+  function enhance(select) {
+    if (select.dataset.customReady === "1") { return; }
+    select.dataset.customReady = "1";
+
+    var wrapper = document.createElement("div");
+    wrapper.className = "custom-select";
+    select.parentNode.insertBefore(wrapper, select);
+    wrapper.appendChild(select);
+    // Hidden, not removed: it still submits, but it is out of the tab order and out of the
+    // accessibility tree, so the button is the single control the operator reaches.
+    select.classList.add("custom-select-native");
+    select.tabIndex = -1;
+    select.setAttribute("aria-hidden", "true");
+
+    var base = select.id || "select";
+    var buttonId = base + "-button";
+    var listId = base + "-list";
+
+    var button = document.createElement("button");
+    button.type = "button";
+    button.id = buttonId;
+    button.className = "custom-select-button";
+    button.setAttribute("aria-haspopup", "listbox");
+    button.setAttribute("aria-expanded", "false");
+    button.setAttribute("aria-controls", listId);
+
+    var value = document.createElement("span");
+    value.className = "custom-select-value";
+    button.appendChild(value);
+    var chevron = document.createElement("span");
+    chevron.className = "custom-select-chevron";
+    chevron.innerHTML = CHEVRON;
+    button.appendChild(chevron);
+
+    var list = document.createElement("ul");
+    list.className = "custom-select-list";
+    list.id = listId;
+    list.setAttribute("role", "listbox");
+    list.hidden = true;
+
+    var options = [];
+    Array.prototype.forEach.call(select.options, function (option, index) {
+      var item = document.createElement("li");
+      item.className = "custom-select-option";
+      item.id = listId + "-option-" + index;
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", String(option.selected));
+      item.dataset.value = option.value;
+      item.textContent = option.textContent;
+      list.appendChild(item);
+      options.push(item);
+    });
+
+    // The visible label now names the button; without the script it keeps naming the select.
+    var label = select.id ? document.querySelector('label[for="' + select.id + '"]') : null;
+    if (label) {
+      if (!label.id) { label.id = base + "-label"; }
+      button.setAttribute("aria-labelledby", label.id + " " + buttonId);
+      label.htmlFor = buttonId;
+    }
+
+    wrapper.appendChild(button);
+    wrapper.appendChild(list);
+
+    var active = Math.max(0, select.selectedIndex);
+
+    function paintValue() {
+      var option = select.options[select.selectedIndex];
+      value.textContent = option ? option.textContent : "";
+      for (var i = 0; i < options.length; i++) {
+        options[i].setAttribute("aria-selected", String(i === select.selectedIndex));
+      }
+    }
+
+    function isOpen() { return !list.hidden; }
+
+    function setActive(index, scroll) {
+      if (index < 0) { index = 0; }
+      if (index > options.length - 1) { index = options.length - 1; }
+      active = index;
+      for (var i = 0; i < options.length; i++) {
+        if (i === active) { options[i].classList.add("active"); }
+        else { options[i].classList.remove("active"); }
+      }
+      if (options[active]) {
+        button.setAttribute("aria-activedescendant", options[active].id);
+        if (scroll && options[active].scrollIntoView) {
+          options[active].scrollIntoView({ block: "nearest" });
+        }
+      }
+    }
+
+    function open() {
+      list.hidden = false;
+      wrapper.classList.add("custom-select-open");
+      button.setAttribute("aria-expanded", "true");
+      setActive(select.selectedIndex, true);
+    }
+
+    function close(focusButton) {
+      list.hidden = true;
+      wrapper.classList.remove("custom-select-open");
+      button.setAttribute("aria-expanded", "false");
+      button.removeAttribute("aria-activedescendant");
+      if (focusButton) { button.focus(); }
+    }
+
+    function choose(index) {
+      if (index < 0 || index >= select.options.length) { return; }
+      select.selectedIndex = index;
+      paintValue();
+      close(true);
+    }
+
+    button.addEventListener("click", function () {
+      if (isOpen()) { close(false); } else { open(); }
+    });
+
+    button.addEventListener("keydown", function (event) {
+      var key = event.key;
+      if (!isOpen()) {
+        if (key === "ArrowDown" || key === "ArrowUp" || key === "Enter" || key === " ") {
+          event.preventDefault();
+          open();
+        }
+        return;
+      }
+      if (key === "Escape") { event.preventDefault(); close(true); }
+      else if (key === "ArrowDown") { event.preventDefault(); setActive(active + 1, true); }
+      else if (key === "ArrowUp") { event.preventDefault(); setActive(active - 1, true); }
+      else if (key === "Home") { event.preventDefault(); setActive(0, true); }
+      else if (key === "End") { event.preventDefault(); setActive(options.length - 1, true); }
+      else if (key === "Enter" || key === " ") { event.preventDefault(); choose(active); }
+      else if (key === "Tab") { close(false); }
+    });
+
+    list.addEventListener("click", function (event) {
+      var item = event.target.closest ? event.target.closest(".custom-select-option") : null;
+      if (item) { choose(options.indexOf(item)); }
+    });
+    list.addEventListener("mousemove", function (event) {
+      var item = event.target.closest ? event.target.closest(".custom-select-option") : null;
+      if (item) { setActive(options.indexOf(item), false); }
+    });
+    document.addEventListener("click", function (event) {
+      if (isOpen() && !wrapper.contains(event.target)) { close(false); }
+    });
+    select.addEventListener("change", paintValue);
+
+    paintValue();
+  }
+
+  var selects = document.querySelectorAll("select[data-custom-select]");
+  Array.prototype.forEach.call(selects, enhance);
 })();
 </script>
 </body>
