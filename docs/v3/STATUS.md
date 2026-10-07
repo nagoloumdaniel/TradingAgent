@@ -30,8 +30,10 @@ l'objectif « exécuter automatiquement en production » dépend de TASK-090 et 
 | 12 Monte-Carlo et stress | ✅ | idem, plus `backtest/costs.stressed()` |
 | 13 Critères de sélection multi-métriques | ✅ | `analytics/performance.py`, `registry/gates.py` |
 
-**Reste** : un historique Deriv multi-marchés versionné (aucun jeu crypto réel exploitable ici) ;
-contrôle du taux de fausses découvertes en sélection multiple.
+**Reste** : un historique Deriv multi-marchés versionné (aucun jeu crypto réel exploitable ici).
+Le contrôle du taux de fausses découvertes en sélection multiple est **livré** (Benjamini-Hochberg
+sur la p-value du scellé, voir `docs/research/DISCOVERY.md`) ; conséquence à connaître : sur l'or
+réel, **aucun candidat ne survit** à la correction — c'est le résultat honnête, pas un échec.
 
 ## 14 à 17 — Cycle de vie, analyse des pertes, dégradation, boucle d'amélioration
 
@@ -73,8 +75,10 @@ contrôle du taux de fausses découvertes en sélection multiple.
 | 33 Analyse par marché | ✅ | Overview et Strategies séparent BTCUSD / XAUUSD |
 | 34 Analytics = source de vérité | ✅ | le web ne recalcule rien ; test AST + comptage de lignes |
 
-**Reste** : les « conditions de marché » au moment du signal (bougies, spread) ne sont pas
-rattachées en base ; la page ne les invente donc pas.
+**Reste** : le **spread courtier en temps réel** au moment du signal n'est stocké nulle part —
+l'inférer du high-low serait une autre grandeur, donc la page ne l'affiche pas. Les bougies,
+les indicateurs, le régime de volatilité et la session, eux, sont affichés depuis la base
+(§28 comblé le 2026-10-07, voir `docs/web/REPLAY.md`).
 
 ## 35 à 43 — Base, logs, alertes, contrôle humain, sécurité, temps réel
 
@@ -90,7 +94,8 @@ rattachées en base ; la page ne les invente donc pas.
 | 42 Temps réel | ✅ | `web/sse.py` |
 | 43 Sécurité | ✅ | secrets hors dépôt, masquage, RM-017, jeton d'accès optionnel au dashboard, RLS Supabase |
 
-**Reste (37)** : les alertes réelles dépendent du jeton Telegram de l'opérateur.
+**Reste (37)** : l'envoi réel des alertes sur Telegram n'a pas été exercé de bout en bout — le
+jeton du bot est renseigné, la livraison reste à confirmer depuis le poste d'exploitation.
 
 ## 44 à 53 — Environnements, santé, anomalies, rentabilité, recette
 
@@ -116,10 +121,13 @@ signature de conformité.
 1. **Opérateur, décision** : signer `docs/legal/2026-10-07-verification-operateur.md`.
 2. **Opérateur, infrastructure** : provisionner le serveur Windows (TASK-051).
 3. **Temps** : faire tourner la campagne paper 30 jours (`scripts/paper_campaign.py` la mesure).
-4. **Opérateur, clés** : `TEST_DATABASE_URL`, `BACKUP_PASSPHRASE`, `ANTHROPIC_API_KEY` (optionnelle).
+4. **Opérateur, clés** : `TEST_DATABASE_URL` (second projet Supabase en `_test`) et
+   `ANTHROPIC_API_KEY` (optionnelle). `BACKUP_PASSPHRASE` et `TRADINGAGENT_WEB_TOKEN` sont
+   désormais générés et renseignés.
 5. **Opérateur, terminal** : installer les deux EA (procédure dans `docs/ea/README.md`).
 6. **Fait mais à confirmer par un tiers** : restauration sur machine vierge, validation de la
    documentation d'exploitation.
 
-Aucune de ces lignes n'est un blocage technique : ce sont des décisions, des clés, du temps
-ou une machine.
+État vérifié le 2026-10-07 par `uv run tradingagent doctor` : base joignable, schéma **à jour
+(0006)**, répertoire des EA présent, toutes les clés obligatoires renseignées. Aucune de ces
+lignes n'est un blocage technique : ce sont des décisions, des clés, du temps ou une machine.
