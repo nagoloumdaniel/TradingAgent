@@ -19,6 +19,8 @@ from sqlalchemy import Engine, insert, select
 from sqlalchemy.orm import Session
 
 from tradingagent.ai.analyst import LossContext, LossObservation, LossVerdict, TradeAnalyst
+from tradingagent.ai.escalation import DEFAULT_TRIGGER, Escalation, escalations, failure_patterns
+from tradingagent.ai.lab_store import LabStore
 from tradingagent.ai.researcher import (
     BacktestEvidence,
     Hypothesis,
@@ -43,6 +45,9 @@ from tradingagent.storage.models import (
 log = logging.getLogger(__name__)
 
 MARKER = "ai_lab_ran"
+# How much history the trigger reads. Two weeks of analyses is far more than a fortnight of
+# trading produces, and the window — not this limit — is what bounds the count.
+ESCALATION_HISTORY = 200
 SESSIONS = (
     (0, "asie"),
     (7, "londres"),
@@ -96,6 +101,7 @@ class LabRun:
     trades: int
     verdicts: tuple[LossVerdict, ...]
     proposals: tuple[Hypothesis, ...]
+    escalations: tuple[Escalation, ...] = ()
     skipped: bool = False
 
 
@@ -109,12 +115,14 @@ class DailyLab:
         analyst: TradeAnalyst,
         researcher: StrategyResearcher | None = None,
         notifier: NotifierPort | None = None,
+        trigger: int = DEFAULT_TRIGGER,
         now: Callable[[], datetime] = _utc_now,
     ) -> None:
         self._engine = engine
         self._analyst = analyst
         self._researcher = researcher
         self._notifier = notifier
+        self._trigger = trigger
         self._now = now
 
     async def run_once(self, now: datetime) -> LabRun:
@@ -124,15 +132,40 @@ class DailyLab:
 
         facts = self._closed_trades(day)
         verdicts = await self._analyse(facts, now)
+        escalated = await self._escalate(now)
         proposals = await self._research(facts, now)
         self._mark(day, len(facts), len(proposals), now)
         log.info(
-            "AI Lab: %d trade(s) examined, %d verdict(s), %d proposal(s)",
+            "AI Lab: %d trade(s) examined, %d verdict(s), %d escalation(s), %d proposal(s)",
             len(facts),
             len(verdicts),
+            len(escalated),
             len(proposals),
         )
-        return LabRun(day=day, trades=len(facts), verdicts=verdicts, proposals=proposals)
+        return LabRun(
+            day=day,
+            trades=len(facts),
+            verdicts=verdicts,
+            proposals=proposals,
+            escalations=escalated,
+        )
+
+    # -- the trigger ----------------------------------------------------------------------
+
+    async def _escalate(self, now: datetime) -> tuple[Escalation, ...]:
+        """Ask whether any market has failed often enough to be worth rewriting.
+
+        Read from the persisted history, not from today's trades: a motif that shows up twice
+        a day for a week never looks repetitive inside one day, which is the case worth
+        catching. Nothing is proposed here — the trigger only decides that a rewrite is
+        justified, and says so to the operator.
+        """
+        history = LabStore(self._engine).recent_analyses(limit=ESCALATION_HISTORY)
+        patterns = failure_patterns(history, trigger=self._trigger, now=now)
+        decided = escalations(patterns, trigger=self._trigger)
+        for escalation in decided:
+            await self._alert(escalation.message())
+        return decided
 
     # -- analysis -------------------------------------------------------------------------
 
