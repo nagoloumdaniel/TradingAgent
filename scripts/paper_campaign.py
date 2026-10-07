@@ -11,7 +11,7 @@ l'agent (voir `docs/operations/campagne-paper.md`) :
 Lecture seule : ce script ne crée, ne modifie et ne supprime **aucune** ligne. Il lit
 `DATABASE_URL` comme `control/cli.py` (variable d'environnement prioritaire, sinon `.env`).
 Code de sortie : 0 = lecture réussie (le verdict est dans le texte ou le JSON), 2 = base
-non configurée.
+non configurée ou injoignable.
 """
 
 import argparse
@@ -26,6 +26,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from sqlalchemy import Engine  # noqa: E402
+from sqlalchemy.exc import SQLAlchemyError  # noqa: E402
 
 from tradingagent.config.errors import ConfigError  # noqa: E402
 from tradingagent.config.settings import load_database_settings  # noqa: E402
@@ -37,8 +38,9 @@ def _use_utf8_when_redirected() -> None:
     """A redirected Windows pipe defaults to a legacy code page, which cannot encode every
     French accent. The report asks for UTF-8 instead of crashing once it is logged."""
     for stream in (sys.stdout, sys.stderr):
-        if not stream.isatty():
-            stream.reconfigure(encoding="utf-8", errors="replace")
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None and not stream.isatty():
+            reconfigure(encoding="utf-8", errors="replace")
 
 
 def _engine_from_environment() -> Engine:
@@ -88,8 +90,15 @@ def main(
     except ConfigError as error:
         print(error, file=sys.stderr)
         return 2
+    except SQLAlchemyError as error:
+        print(f"base injoignable : {error}", file=sys.stderr)
+        return 2
     try:
         state = progress(engine, at=at, market=args.market, plan=PLAN)
+    except SQLAlchemyError as error:
+        # An operator runs this every week for a month: a clear line beats a traceback.
+        print(f"lecture impossible : {error}", file=sys.stderr)
+        return 2
     finally:
         engine.dispose()
     if args.json:
