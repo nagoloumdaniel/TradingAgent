@@ -1,0 +1,66 @@
+{
+  "market": "BTCUSD",
+  "supersedes": "trend_breakout@1.0.0",
+  "proposed_label": "trend_period+25%",
+  "parameters": {
+    "channel_period": 20.0,
+    "trend_period": 125.0,
+    "atr_period": 14.0,
+    "stop_atr_multiplier": 2.0,
+    "take_profit_rr": 2.0,
+    "entry_zone_atr": 0.1
+  },
+  "incumbent_objective": -20.69894909445,
+  "proposed_objective": -9.54848695004,
+  "relative_gain": 0.5386970175891572,
+  "comparisons_made": 3,
+  "decided_at": "2026-10-07T22:20:18.441767+00:00",
+  "note": "Candidat, pas une promotion. max_mode reste SIGNAL tant que les portes de validation ne sont pas franchies. 3 comparaison(s) ont été faites : ce nombre doit entrer dans la correction du test multiple.",
+  "attempts": [
+    {
+      "number": 1,
+      "label": "channel_period+25%",
+      "accepted": false,
+      "objective": -20.69894909445,
+      "reason": "no real improvement: -20.70 against -20.70 and -18.63 required",
+      "parameters": {
+        "channel_period": 25.0,
+        "trend_period": 100.0,
+        "atr_period": 14.0,
+        "stop_atr_multiplier": 2.0,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    },
+    {
+      "number": 2,
+      "label": "channel_period-25%",
+      "accepted": false,
+      "objective": -31.49565679118,
+      "reason": "drawdown 49.77 above the 36.77 allowed (the incumbent's +10 %)",
+      "parameters": {
+        "channel_period": 15.0,
+        "trend_period": 100.0,
+        "atr_period": 14.0,
+        "stop_atr_multiplier": 2.0,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    },
+    {
+      "number": 3,
+      "label": "trend_period+25%",
+      "accepted": true,
+      "objective": -9.54848695004,
+      "reason": "loses less than the incumbent (-9.55 > -18.63)",
+      "parameters": {
+        "channel_period": 20.0,
+        "trend_period": 125.0,
+        "atr_period": 14.0,
+        "stop_atr_multiplier": 2.0,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    }
+  ]
+}

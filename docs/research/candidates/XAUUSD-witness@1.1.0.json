@@ -1,0 +1,96 @@
+{
+  "market": "XAUUSD",
+  "supersedes": "witness@1.1.0",
+  "proposed_label": "atr_period+25%",
+  "parameters": {
+    "ema_fast": 20.0,
+    "ema_slow": 50.0,
+    "atr_period": 18.0,
+    "stop_atr_multiplier": 1.5,
+    "take_profit_rr": 2.0,
+    "entry_zone_atr": 0.1
+  },
+  "incumbent_objective": 11.21872892343,
+  "proposed_objective": 40.40306297739,
+  "relative_gain": 2.6013939950905973,
+  "comparisons_made": 5,
+  "decided_at": "2026-10-07T22:20:56.525029+00:00",
+  "note": "Candidat, pas une promotion. max_mode reste SIGNAL tant que les portes de validation ne sont pas franchies. 5 comparaison(s) ont été faites : ce nombre doit entrer dans la correction du test multiple.",
+  "attempts": [
+    {
+      "number": 1,
+      "label": "ema_fast+25%",
+      "accepted": false,
+      "objective": -3.79511212909,
+      "reason": "profit factor 0.93 below the incumbent's 1.19",
+      "parameters": {
+        "ema_fast": 25.0,
+        "ema_slow": 50.0,
+        "atr_period": 14.0,
+        "stop_atr_multiplier": 1.5,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    },
+    {
+      "number": 2,
+      "label": "ema_fast-25%",
+      "accepted": false,
+      "objective": 3.51842559899,
+      "reason": "drawdown 45.23 above the 41.14 allowed (the incumbent's +10 %)",
+      "parameters": {
+        "ema_fast": 15.0,
+        "ema_slow": 50.0,
+        "atr_period": 14.0,
+        "stop_atr_multiplier": 1.5,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    },
+    {
+      "number": 3,
+      "label": "ema_slow+25%",
+      "accepted": false,
+      "objective": -3.68878809395,
+      "reason": "profit factor 0.93 below the incumbent's 1.19",
+      "parameters": {
+        "ema_fast": 20.0,
+        "ema_slow": 62.0,
+        "atr_period": 14.0,
+        "stop_atr_multiplier": 1.5,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    },
+    {
+      "number": 4,
+      "label": "ema_slow-25%",
+      "accepted": false,
+      "objective": -14.18295264493,
+      "reason": "drawdown 56.63 above the 41.14 allowed (the incumbent's +10 %)",
+      "parameters": {
+        "ema_fast": 20.0,
+        "ema_slow": 38.0,
+        "atr_period": 14.0,
+        "stop_atr_multiplier": 1.5,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    },
+    {
+      "number": 5,
+      "label": "atr_period+25%",
+      "accepted": true,
+      "objective": 40.40306297739,
+      "reason": "improves by 260.1 %, above the 10 % required",
+      "parameters": {
+        "ema_fast": 20.0,
+        "ema_slow": 50.0,
+        "atr_period": 18.0,
+        "stop_atr_multiplier": 1.5,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    }
+  ]
+}
