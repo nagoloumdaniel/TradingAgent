@@ -11,9 +11,9 @@ import MetaTrader5 as mt5
 from dotenv import dotenv_values
 
 from tradingagent.config.redaction import install_secret_redaction
+from tradingagent.data.terminal import MAGIC
 
 DEMO = 0
-MAGIC = 3031
 log = logging.getLogger("tradingagent.feasibility")
 
 

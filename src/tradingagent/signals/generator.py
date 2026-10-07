@@ -100,6 +100,10 @@ class SignalGenerator:
     def quarantined(self) -> set[Pair]:
         return self._quarantine.quarantined()
 
+    @property
+    def strategies(self) -> tuple[LoadedStrategy, ...]:
+        return self._strategies
+
     def rearm(self, ref: str, symbol: str, actor: str = "operator") -> None:
         self._quarantine.rearm(ref, symbol, actor)
         self._failures.pop((ref, symbol), None)

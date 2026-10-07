@@ -71,6 +71,76 @@ class OpenPosition:
 
 
 @dataclass(frozen=True)
+class OrderRequest:
+    """What the executor is allowed to send once risk has authorized a signal.
+
+    The idempotency key travels to the broker (hashed into the order comment), so a lost
+    answer can be reconciled by looking the ticket up instead of resending an order.
+    """
+
+    signal_id: int
+    idempotency_key: str
+    symbol: str
+    direction: Direction
+    volume: Decimal
+    stop_loss: Decimal
+    take_profit: Decimal | None
+    mode: TradingMode
+    comment: str
+
+
+@dataclass(frozen=True)
+class OrderResult:
+    accepted: bool
+    ticket: int | None
+    retcode: int | None
+    requested_price: Decimal
+    executed_price: Decimal | None
+    slippage: Decimal | None
+    stop_present: bool  # read back from the position, not assumed from the request
+    message: str
+
+
+@dataclass(frozen=True)
+class BrokerPosition:
+    ticket: int
+    symbol: str
+    direction: Direction
+    volume: Decimal
+    open_price: Decimal
+    stop_loss: Decimal | None
+    take_profit: Decimal | None
+    mode: TradingMode
+
+
+@dataclass(frozen=True)
+class ClosedPosition:
+    """A position that ended, reported by the tracking layer (F-017, TASK-082).
+
+    `signal_id` travels back so the agent loop can move the signal's lifecycle to CLOSED
+    without reading the executor's tables.
+    """
+
+    ticket: int
+    symbol: str
+    exit_price: Decimal
+    pnl_eur: Decimal
+    exit_reason: str
+    closed_at: datetime
+    signal_id: int | None = None
+
+
+@dataclass(frozen=True)
+class CloseResult:
+    closed: bool
+    position_ticket: int
+    exit_price: Decimal | None
+    pnl_eur: Decimal | None
+    exit_reason: str
+    message: str
+
+
+@dataclass(frozen=True)
 class PortfolioState:
     open_positions: tuple[OpenPosition, ...]
     trades_today: int

@@ -19,7 +19,7 @@ from sqlalchemy import Connection, Engine, insert, select
 from sqlalchemy.orm import Session
 
 from tradingagent.core.market import Direction
-from tradingagent.core.mode import TradingMode
+from tradingagent.core.mode import AiFilter, TradingMode
 from tradingagent.core.states import Severity, SignalState
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.signals.lifecycle import validate_transition
@@ -234,3 +234,83 @@ def history(engine: Engine, signal_id: int) -> list[SignalEventRow]:
     )
     with Session(engine) as session:
         return list(session.scalars(statement).all())
+
+
+@dataclass(frozen=True)
+class SignalDetail:
+    """Everything the agent loop needs to decide, notify and execute one signal."""
+
+    id: int
+    idempotency_key: str
+    strategy_ref: str
+    symbol: str
+    timeframe: Timeframe
+    direction: Direction
+    mode: TradingMode
+    observed_price: float
+    entry_low: float
+    entry_high: float
+    stop_loss: float
+    take_profits: tuple[float, ...]
+    reason: str
+    indicators: dict[str, float]
+    generated_at: datetime
+    expires_at: datetime
+    state: SignalState
+    ai_filter: AiFilter = AiFilter.SHADOW
+
+
+def get_signal(engine: Engine, signal_id: int) -> SignalDetail | None:
+    """One signal with its strategy reference, or None when the id is unknown."""
+    statement = (
+        select(SignalRow, StrategyVersionRow.ref, StrategyVersionRow.manifest)
+        .join(StrategyVersionRow, SignalRow.strategy_version_id == StrategyVersionRow.id)
+        .where(SignalRow.id == signal_id)
+    )
+    with Session(engine) as session:
+        row = session.execute(statement).first()
+    if row is None:
+        return None
+    signal, ref, manifest = row
+    return SignalDetail(
+        id=int(signal.id),
+        idempotency_key=signal.idempotency_key,
+        strategy_ref=str(ref),
+        symbol=signal.symbol,
+        timeframe=signal.timeframe,
+        direction=signal.direction,
+        mode=signal.mode,
+        observed_price=signal.observed_price,
+        entry_low=signal.entry_low,
+        entry_high=signal.entry_high,
+        stop_loss=signal.stop_loss,
+        take_profits=tuple(signal.take_profits),
+        reason=signal.reason,
+        indicators=dict(signal.indicators),
+        generated_at=signal.generated_at,
+        expires_at=signal.expires_at,
+        state=signal.state,
+        ai_filter=_manifest_filter(manifest),
+    )
+
+
+def _manifest_filter(manifest: dict[str, Any]) -> AiFilter:
+    try:
+        return AiFilter(str(manifest.get("ai_filter", AiFilter.SHADOW)))
+    except ValueError:
+        return AiFilter.SHADOW
+
+
+def pending_notifications(engine: Engine, limit: int = 50) -> list[int]:
+    """Signals validated by risk but whose message was never delivered (F-013 retry).
+
+    Their state stays VALIDATED: the Telegram outage must cost a delay, not the signal.
+    """
+    statement = (
+        select(SignalRow.id)
+        .where(SignalRow.state == SignalState.VALIDATED)
+        .order_by(SignalRow.generated_at)
+        .limit(limit)
+    )
+    with Session(engine) as session:
+        return [int(value) for value in session.scalars(statement).all()]

@@ -109,6 +109,15 @@ class MarketDataClient:
                 "converting would shift every candle"
             )
 
+    async def last_tick_at(self, symbol: str) -> datetime | None:
+        """UTC time of the last tick seen on `symbol`, for the freshness lock (RM-001).
+
+        None means the terminal has no tick for it: callers must treat that as "unknown",
+        never as "fresh".
+        """
+        tick = await self._call(self._terminal.last_tick, symbol)
+        return None if tick is None else self._clock.to_utc(tick.server_epoch)
+
     async def select(self, symbols: Iterable[str]) -> set[str]:
         for symbol in sorted(set(symbols)):
             if await self._call(self._terminal.select, symbol):

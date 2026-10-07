@@ -6,17 +6,30 @@ with UTC timestamps, and say so when there is nothing to report.
 """
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from datetime import datetime
 
 from sqlalchemy import Engine
 
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.notify.commands import CommandRequest, Handler, market_line
 from tradingagent.notify.signal_template import DIRECTION_LABELS
+from tradingagent.reporting.generator import ReportGenerator
+from tradingagent.reporting.schedule import Period, window_containing
+from tradingagent.storage.account import AccountStore, ReportData
 from tradingagent.storage.candles import CandleStore
 from tradingagent.storage.performance import PerformanceReader
 from tradingagent.storage.positions import PositionReader
 from tradingagent.storage.signals import read_recent_signals
+
+REPORT_PERIODS = {
+    "daily": Period.DAILY,
+    "quotidien": Period.DAILY,
+    "weekly": Period.WEEKLY,
+    "hebdomadaire": Period.WEEKLY,
+    "monthly": Period.MONTHLY,
+    "mensuel": Period.MONTHLY,
+}
 
 
 def markets_handler(
@@ -83,3 +96,19 @@ def performance_handler(engine: Engine) -> Handler:
         return "\n".join(lines)
 
     return performance
+
+
+def report_handler(engine: Engine, now: Callable[[], datetime]) -> Handler:
+    """`/report daily|weekly|monthly`: the same numbers the scheduled report sends,
+    assembled from the database alone (F-022)."""
+
+    async def report(request: CommandRequest) -> str:
+        name = request.args[0].lower() if request.args else "daily"
+        period = REPORT_PERIODS.get(name)
+        if period is None:
+            return "Usage : /report daily|weekly|monthly"
+        window = window_containing(period, now())
+        generator = ReportGenerator(ReportData(engine), AccountStore(engine))
+        return await asyncio.to_thread(generator.build, window)
+
+    return report

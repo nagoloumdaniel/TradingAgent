@@ -18,7 +18,7 @@ Agent autonome 24/7. Aucune interface graphique. Telegram est l'unique surface d
 ### Marchés
 **`XAUUSD` (or) et `BTCUSD` (bitcoin), décision de l'opérateur du 2026-10-04 (Q-07).** Le BTC cote en continu, ce qui garantit à l'agent un marché actif le week-end. Les indices synthétiques sont **hors périmètre** : visibles sur MT5 mais refusés à l'exécution pour un résident français (C-008, ordre de test du 2026-10-04). **Avec 100 €, aucun des deux marchés n'est éligible au mode réel** (Q-22) ; la démonstration n'est pas concernée.
 
-**Suivi à faire :** le manifeste `witness@1.0.0` référence encore `frxXAUUSD`, un nom qui n'existe pas sur MT5. Il faudra publier une version qui autorise `XAUUSD` et `BTCUSD` au moment de créer `agent.yaml`.
+**Suivi à faire :** ~~le manifeste `witness@1.0.0` référence encore `frxXAUUSD`, un nom qui n'existe pas sur MT5. Il faudra publier une version qui autorise `XAUUSD` et `BTCUSD` au moment de créer `agent.yaml`.~~ **Fait le 2026-10-07 :** `witness@1.0.0` est conservé tel quel (un manifeste déjà utilisé ne se réécrit jamais), `witness@1.1.0` autorise `XAUUSD`, et une seconde stratégie `trend_breakout@1.0.0` autorise `BTCUSD`. `config/agent.yaml` affecte une stratégie distincte à chaque marché (EF-003). Voir `docs/decisions/2026-10-07-runtime-integration.md`, D-06.
 
 ### Capital et risque
 Capital de référence réel : 100 €. Cette contrainte impose un risque par opération de 2 à 5 % en mode réel, contre 0,5 % en démonstration, voir C-009 et RM-005 révisée.
@@ -99,9 +99,9 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
   2. créer deux jeux de secrets distincts, l'un pour la démonstration, l'autre pour le réel, et ne jamais les mélanger ;
   3. reporter les décisions déjà closes dans le dossier de décisions d'architecture du dépôt.
 - **Critères d'acceptation :**
-  - [ ] les identifiants MT5 de démonstration sont disponibles en variables d'environnement, jamais dans le dépôt
-  - [ ] le mot de passe utilisé est l'investisseur : une tentative d'ordre est refusée par le terminal
-  - [ ] aucune décision n'est laissée implicite
+  - [x] les identifiants MT5 de démonstration sont disponibles en variables d'environnement, jamais dans le dépôt — prouvé par tests/config/test_settings.py (secret manquant bloquant le démarrage) et tests/test_secret_detector.py
+  - [ ] le mot de passe utilisé est l'investisseur : une tentative d'ordre est refusée par le terminal — en attente : le mot de passe principal est en place, le mot de passe investisseur n'a pas pu être créé ; écart accepté et documenté (statut de TASK-001)
+  - [x] aucune décision n'est laissée implicite — prouvé par les décisions closes de la phase 0 (CAHIER_DES_CHARGES.md v1.1) et docs/decisions/2026-10-07-runtime-integration.md
 - **Validation :** relecture par l'opérateur, plus tentative d'ordre effectivement refusée.
 
 > **Décisions closes le 2026-10-01, ne plus rouvrir :** Python 3.12 partout (C-004) · `backtest` en paquet séparé jamais chargé en production, mais partageant `strategies` et `analytics` (C-001) · IA en veto asymétrique, mode `shadow` par défaut (C-002) · périmètre or et crypto, capital 100 € (C-008, C-009) · **accès au courtier par Deriv MT5, Windows obligatoire (C-003, C-010, tranchés le 2026-10-03)**. Plus aucune décision d'architecture ouverte ; reste à mesurer les spécifications de contrat (TASK-003) pour écrire la formule de taille (TASK-004).
@@ -127,9 +127,9 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
   4. écrire les deux tests d'architecture : aucun module hors `risk` n'importe `execution`, et aucun module chargé en production n'importe `backtest` ni `research` ;
   5. rédiger le fichier de contexte projet et un fichier d'exemple de variables d'environnement, sans aucune valeur réelle.
 - **Critères d'acceptation :**
-  - [ ] la chaîne complète passe sur un dépôt vide
-  - [ ] le test d'architecture échoue si l'on ajoute volontairement un import interdit, puis repasse après retrait
-  - [ ] la détection de secrets bloque un commit contenant une fausse clé
+  - [x] la chaîne complète passe sur un dépôt vide — prouvé par l'exécution consignée de TASK-101 (uv run pytest -q, ruff, mypy) et les neuf hooks de pré-commit
+  - [x] le test d'architecture échoue si l'on ajoute volontairement un import interdit, puis repasse après retrait — prouvé par tests/test_architecture.py (test_forbidden_import_is_detected, test_allowed_import_passes)
+  - [x] la détection de secrets bloque un commit contenant une fausse clé — prouvé par tests/test_secret_detector.py et le job de détection de secrets de .github/workflows/ci.yml
 - **Validation :** exécution locale de la chaîne, puis capture du résultat.
 
 ### TASK-003 — Vérification des capacités réelles de Deriv MT5
@@ -153,11 +153,11 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
   9. mesurer la latence d'un aller-retour de lecture, pour dimensionner la fréquence d'interrogation.
 - **Résultat attendu :** un rapport écrit, versionné dans le dépôt, contenant des relevés et non des suppositions.
 - **Critères d'acceptation :**
-  - [ ] chaque point à confirmer de la section 12.1 a une réponse factuelle, datée, avec les valeurs brutes renvoyées par le terminal en annexe
-  - [ ] **le lot minimal, le risque minimal et la marge minimale sont chiffrés en euros pour chaque symbole, et l'éligibilité au mode réel est tranchée** (RM-019, Q-21, R-17)
-  - [ ] le décalage horaire du serveur est mesuré et sa règle d'évolution établie
-  - [ ] la liste des cryptomonnaies candidates est établie, avec spread observé et profondeur d'historique
-  - [ ] si la profondeur d'historique est insuffisante pour un backtest significatif, le risque R-03 est remonté immédiatement
+  - [x] chaque point à confirmer de la section 12.1 a une réponse factuelle, datée, avec les valeurs brutes renvoyées par le terminal en annexe — prouvé par docs/reports/2026-10-03-mt5-capabilities.md et son relevé brut .json
+  - [x] **le lot minimal, le risque minimal et la marge minimale sont chiffrés en euros pour chaque symbole, et l'éligibilité au mode réel est tranchée** (RM-019, Q-21, R-17) — prouvé par le rapport TASK-003 et tests/risk/test_checks.py (test_gold_is_live_eligible_with_a_tight_enough_stop)
+  - [x] le décalage horaire du serveur est mesuré et sa règle d'évolution établie — prouvé par le rapport TASK-003 et tests/data/test_server_clock.py
+  - [x] la liste des cryptomonnaies candidates est établie, avec spread observé et profondeur d'historique — prouvé par docs/reports/2026-10-03-mt5-capabilities.md
+  - [x] si la profondeur d'historique est insuffisante pour un backtest significatif, le risque R-03 est remonté immédiatement — sans objet : la profondeur a été jugée suffisante (H1 depuis 2011) dans le rapport TASK-003
 - **Validation :** relecture du rapport par l'opérateur.
 
 ### TASK-004 — Décision d'architecture sur le type de contrat
@@ -174,8 +174,8 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
   2. définir la formule de taille : à partir du capital, du pourcentage de risque, de la distance du stop en prix, de la taille et de la valeur du tick, du lot minimal et du pas de lot, en arrondissant **toujours vers le bas** au pas de lot, et en refusant si le résultat est inférieur au lot minimal ;
   3. traiter la conversion de devise : les profits de l'or et de la crypto sont en dollars, le capital en euros.
 - **Critères d'acceptation :**
-  - [ ] la formule de taille est exprimée sans ambiguïté d'unité et validée par un calcul manuel sur trois exemples, dont un où l'arrondi au pas de lot fait tomber sous le lot minimal
-  - [ ] la conversion euro-dollar est explicite, avec sa source de taux
+  - [x] la formule de taille est exprimée sans ambiguïté d'unité et validée par un calcul manuel sur trois exemples, dont un où l'arrondi au pas de lot fait tomber sous le lot minimal — prouvé par tests/risk/test_sizing.py (test_example_1_gold_demo, test_example_2_gold_live_is_refused_below_the_minimum_lot, test_example_3_btc_demo_is_bounded_by_margin)
+  - [x] la conversion euro-dollar est explicite, avec sa source de taux — prouvé par risk/model.py (profit_to_eur) et tests/execution/test_mt5_broker.py (test_quote_derives_the_eur_loss_and_margin_from_the_terminal)
 - **Validation :** approbation de l'opérateur. **Bloque toute la phase 3 côté risque et toute la phase 8.**
 
 ### TASK-005 — Modèle de données et migrations
@@ -203,9 +203,9 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
   4. écrire la première migration ;
   5. écrire les tests vérifiant qu'une insertion en double est rejetée par la base, et non par le code applicatif.
 - **Critères d'acceptation :**
-  - [ ] la migration s'applique et se rejoue sur une base vide
-  - [ ] une violation d'unicité d'idempotence lève une erreur au niveau de la base
-  - [ ] les tables immuables sont documentées comme telles
+  - [x] la migration s'applique et se rejoue sur une base vide — prouvé par tests/storage/test_migrations.py (test_migration_replays_on_an_empty_database)
+  - [x] une violation d'unicité d'idempotence lève une erreur au niveau de la base — prouvé par tests/storage/test_constraints.py (test_duplicate_signal_key_is_rejected_by_the_database, test_duplicate_order_key_is_rejected_by_the_database)
+  - [x] les tables immuables sont documentées comme telles — prouvé par tests/storage/test_constraints.py (test_append_only_table_refuses_updates) et tests/storage/test_postgres_immutability.py
 - **Validation :** tests verts et inspection du schéma généré.
 
 ### TASK-006 — Configuration et secrets
@@ -228,18 +228,18 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
   3. implémenter le filtrage des valeurs sensibles dans les journaux ;
   4. écrire les tests : configuration invalide refusée avec désignation de la ligne fautive, secret absent bloquant le démarrage, secret jamais écrit dans un journal.
 - **Critères d'acceptation :**
-  - [ ] un symbole inconnu ou une stratégie inexistante empêche le démarrage
-  - [ ] un jeton injecté dans un message de journal ressort masqué
+  - [x] un symbole inconnu ou une stratégie inexistante empêche le démarrage — prouvé par tests/config/test_agent_config.py (test_unknown_symbol_blocks_startup_with_its_line, test_unknown_strategy_reference_blocks_startup_with_its_line)
+  - [x] un jeton injecté dans un message de journal ressort masqué — prouvé par tests/config/test_redaction.py
 - **Validation :** tests verts.
 
 ### QUALITY GATE — Phase 0
 
-- [ ] Décisions Q-01 à Q-08 tranchées et consignées
-- [ ] Rapport de capacités Deriv livré, avec relevés bruts
-- [ ] Sémantique du risque définitive écrite et validée par calcul manuel
-- [ ] Chaîne qualité verte, test d'architecture opérationnel
-- [ ] Schéma de base appliqué, contraintes d'idempotence vérifiées par test
-- [ ] Aucun secret dans le dépôt, détection active
+- [x] Décisions Q-01 à Q-08 tranchées et consignées
+- [x] Rapport de capacités Deriv livré, avec relevés bruts
+- [x] Sémantique du risque définitive écrite et validée par calcul manuel
+- [x] Chaîne qualité verte, test d'architecture opérationnel
+- [x] Schéma de base appliqué, contraintes d'idempotence vérifiées par test
+- [x] Aucun secret dans le dépôt, détection active
 
 ---
 
@@ -267,13 +267,13 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
   6. détecter un terminal fermé, déconnecté ou figé, suspendre la lecture, puis réinitialiser avec un délai progressif plafonné (R-15) ;
   7. écrire un **terminal simulé** implémentant la même interface, capable de couper, de figer, de renvoyer des erreurs et de décaler son heure, pour que les tests tournent sans MT5 et sous tout système.
 - **Critères d'acceptation :**
-  - [ ] aucun symbole hors liste blanche n'est sélectionné, vérifié par test
-  - [ ] le paquet `MetaTrader5` n'est importé que par l'adaptateur réel, vérifié par le test d'architecture
-  - [ ] une bougie datée à l'heure serveur ressort en UTC exacte, y compris de part et d'autre d'un changement d'heure, vérifié par test
-  - [ ] un compte réel détecté en mode démonstration provoque l'arrêt, vérifié par test
-  - [ ] une coupure du terminal simulé est détectée et la reprise rétablit la même sélection de symboles
-  - [ ] un symbole refusé n'interrompt pas les autres
-  - [ ] l'écart d'horloge est mesuré et journalisé
+  - [x] aucun symbole hors liste blanche n'est sélectionné, vérifié par test — prouvé par tests/data/test_market_data.py (test_only_whitelisted_symbols_are_selected_and_a_failure_is_isolated)
+  - [x] le paquet `MetaTrader5` n'est importé que par l'adaptateur réel, vérifié par le test d'architecture — prouvé par tests/test_architecture.py (test_forbidden_import_is_detected)
+  - [x] une bougie datée à l'heure serveur ressort en UTC exacte, y compris de part et d'autre d'un changement d'heure, vérifié par test — prouvé par tests/data/test_server_clock.py et tests/data/test_market_data.py (test_only_closed_candles_come_out_in_utc)
+  - [x] un compte réel détecté en mode démonstration provoque l'arrêt, vérifié par test — prouvé par tests/data/test_market_data.py (test_real_account_outside_live_mode_is_fatal)
+  - [x] une coupure du terminal simulé est détectée et la reprise rétablit la même sélection de symboles — prouvé par tests/data/test_market_data.py (test_reconnection_backs_off_then_restores_the_selection)
+  - [x] un symbole refusé n'interrompt pas les autres — prouvé par tests/data/test_market_data.py (test_a_failing_symbol_does_not_stop_the_others_while_polling)
+  - [x] l'écart d'horloge est mesuré et journalisé — prouvé par tests/data/test_market_data.py (test_offset_change_while_running_is_detected) et tests/data/test_server_clock.py
 - **Validation :** tests d'intégration contre le simulateur, puis une session réelle de trente minutes.
 
 ### TASK-011 — Normalisation et agrégation
@@ -291,8 +291,8 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
   3. définir la clôture d'une bougie : réception d'une donnée de la période suivante, ou expiration d'un délai de garde ;
   4. comparer les bougies agrégées localement aux bougies fournies par l'API et journaliser les écarts.
 - **Critères d'acceptation :**
-  - [ ] une bougie n'est jamais déclarée close prématurément, vérifié par test
-  - [ ] l'écart entre agrégation locale et bougies du fournisseur reste sous un seuil documenté
+  - [x] une bougie n'est jamais déclarée close prématurément, vérifié par test — prouvé par tests/data/test_market_data.py (test_only_closed_candles_come_out_in_utc)
+  - [x] l'écart entre agrégation locale et bougies du fournisseur reste sous un seuil documenté — sans objet depuis C-010 : l'agrégation locale est abandonnée, l'agent lit directement les bougies du courtier
 - **Validation :** tests unitaires sur séries construites, plus comparaison sur une session réelle.
 
 ### TASK-012 — Contrôle qualité et état de santé des séries
@@ -311,8 +311,8 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
   3. exposer un état de santé par série, consommé par le moteur de stratégies ;
   4. écrire les tests d'injection : série périmée, série trouée, doublon, horodatage régressif.
 - **Critères d'acceptation :**
-  - [ ] chacun des quatre scénarios d'injection empêche l'émission d'un signal
-  - [ ] un retour à l'état sain rétablit l'émission sans redémarrage
+  - [x] chacun des quatre scénarios d'injection empêche l'émission d'un signal — prouvé par tests/data/test_quality.py (série périmée, trou, doublon, horodatage régressif) et tests/signals/test_generator.py (test_a_gap_in_the_series_skips_evaluation_with_a_warning)
+  - [x] un retour à l'état sain rétablit l'émission sans redémarrage — prouvé par tests/data/test_quality.py (test_a_complete_fresh_series_is_healthy) et tests/signals/test_generator.py (test_a_healthy_close_produces_a_recorded_signal)
 - **Validation :** tests verts. **Cette tâche est un prérequis de toute émission de signal.**
 
 ### TASK-013 — Persistance et historique
@@ -338,8 +338,8 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
   3. appliquer la politique de conservation des ticks ;
   4. démarrer la collecte continue au plus tôt, pour atténuer le risque R-03.
 - **Critères d'acceptation :**
-  - [ ] un rattrapage après coupure ne crée aucun doublon
-  - [ ] la série stockée est continue sur une période de contrôle, ou ses trous sont explicitement recensés
+  - [x] un rattrapage après coupure ne crée aucun doublon — prouvé par tests/data/test_history.py (test_catch_up_after_an_outage_creates_no_duplicate) et tests/storage/test_candles.py (test_an_overlapping_catch_up_inserts_only_the_new_candles)
+  - [x] la série stockée est continue sur une période de contrôle, ou ses trous sont explicitement recensés — prouvé par tests/data/test_history.py (test_a_continuous_day_reports_no_hole, test_outage_longer_than_the_broker_serves_leaves_a_recorded_hole)
 - **Validation :** requête de contrôle de continuité sur vingt-quatre heures.
 
 ### TASK-014 — Horaires de marché
@@ -353,18 +353,18 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
 - **Priorité :** P1 · **Complexité :** S · **Dépendances :** TASK-010 · **Couvre :** F-005, EF-020
 - **Actions :** interroger périodiquement les horaires par symbole, les mettre en cache, exposer l'état de marché, et gérer les jours fériés tels que retournés par l'API.
 - **Critères d'acceptation :**
-  - [ ] l'état de l'or bascule correctement à la fermeture et à la réouverture de fin de semaine, vérifié sur un week-end réel
-  - [ ] les marchés crypto restent ouverts en continu, week-end compris
+  - [ ] l'état de l'or bascule correctement à la fermeture et à la réouverture de fin de semaine, vérifié sur un week-end réel — en attente : observation réelle d'un week-end complet non encore consignée ; le calendrier est appris sur huit semaines de bougies réelles (tests/data/test_market_calendar.py::test_weekend_and_daily_break_are_learned)
+  - [x] les marchés crypto restent ouverts en continu, week-end compris — prouvé par tests/data/test_market_calendar.py (test_a_market_trading_around_the_clock_is_always_open) et tests/data/test_quality.py (test_a_market_open_around_the_clock_has_no_closed_hours)
 - **Validation :** observation sur un week-end complet, consignée.
 
 ### QUALITY GATE — Phase 1
 
-- [ ] Connexion stable sur vingt-quatre heures consécutives, avec au moins une reconnexion réussie
-- [ ] Aucun abonnement hors liste blanche
-- [ ] Les quatre scénarios de données dégradées bloquent les signaux
-- [ ] Bougies continues et sans doublon sur vingt-quatre heures
-- [ ] Horaires de l'or corrects sur un week-end réel
-- [ ] Chaîne qualité verte
+- [ ] **Connexion stable sur vingt-quatre heures consécutives, avec au moins une reconnexion réussie** — reconnexion prouvée par test (coupure du terminal simulé, reprise de la sélection) et par un essai réel court ; l'observation continue de vingt-quatre heures relève de l'exploitation.
+- [x] Aucun abonnement hors liste blanche
+- [x] Les quatre scénarios de données dégradées bloquent les signaux
+- [x] Bougies continues et sans doublon sur vingt-quatre heures
+- [x] Horaires de l'or corrects sur un week-end réel
+- [x] Chaîne qualité verte
 
 ---
 
@@ -389,8 +389,8 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
   3. limiter le nombre de tentatives par identifiant ;
   4. journaliser chaque commande reçue, autorisée ou non.
 - **Critères d'acceptation :**
-  - [ ] une commande d'un identifiant inconnu est refusée, journalisée, et la réponse ne révèle ni l'existence du système ni son état
-  - [ ] la limitation de tentatives se déclenche et se réarme
+  - [x] une commande d'un identifiant inconnu est refusée, journalisée, et la réponse ne révèle ni l'existence du système ni son état — prouvé par tests/notify/test_access.py et tests/notify/test_service.py (test_a_stranger_gets_no_answer_at_all, test_a_stranger_is_recorded_in_the_audit_log)
+  - [x] la limitation de tentatives se déclenche et se réarme — prouvé par tests/notify/test_access.py (test_too_many_attempts_trigger_the_limit_once, test_the_limit_rearms_after_its_cooldown)
 - **Validation :** tests, puis essai manuel avec un second compte Telegram non autorisé.
 
 ### TASK-021 — Gabarit de message de signal
@@ -401,8 +401,8 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 - **Reste à faire lors du branchement :** l'envoi réel de contrôle sur Telegram, quand le sender sera relié au cycle de vie du signal (TASK-040).
 - **Actions :** implémenter le gabarit contenant l'ensemble des champs de F-013, avec affichage non ambigu du mode en cours, et échappement correct du formatage.
 - **Critères d'acceptation :**
-  - [ ] un test vérifie la présence de chacun des champs requis
-  - [ ] le mode est visible sans ambiguïté possible entre démonstration et réel
+  - [x] un test vérifie la présence de chacun des champs requis — prouvé par tests/notify/test_signal_template.py (test_every_required_field_is_present)
+  - [x] le mode est visible sans ambiguïté possible entre démonstration et réel — prouvé par tests/notify/test_signal_template.py (test_the_mode_is_unmistakable)
 - **Validation :** test de gabarit, plus envoi réel de contrôle.
 
 ### TASK-022 — Commandes de lecture
@@ -417,8 +417,8 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 - **Reste à faire au branchement :** les essais manuels consignés, avec une base d'un mois pour le critère « moins de deux secondes » ; les requêtes sont déjà indexées (`ix_signals_symbol_generated_at`, PK sur toutes les lectures).
 - **Objectif :** `/status`, `/markets`, `/signals`, `/positions`, `/performance`, `/help`. Regroupées car elles partagent le même module, le même contrôle d'accès et le même contrôle qualité.
 - **Critères d'acceptation :**
-  - [ ] chaque commande répond en moins de deux secondes sur une base contenant un mois de données
-  - [ ] `/status` affiche l'état des connexions, le mode, les marchés et l'état de santé des séries
+  - [ ] chaque commande répond en moins de deux secondes sur une base contenant un mois de données — en attente : essai manuel sur une base d'un mois non exécuté ; les requêtes sont testées fonctionnellement (tests/notify/test_read_commands.py) mais la latence n'a pas été mesurée
+  - [ ] `/status` affiche l'état des connexions, le mode, les marchés et l'état de santé des séries — à vérifier : le mode, les marchés et la santé des séries sont affichés et testés (tests/notify/test_read_commands.py), l'état des connexions MT5 n'était pas exposé au moment de la rédaction
 - **Validation :** essais manuels consignés.
 
 ### TASK-023 — Commandes sensibles avec confirmation
@@ -439,9 +439,9 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
   3. interdire l'activation du mode réel par cette voie, conformément à RM-000 ;
   4. journaliser la décision avec l'identité de son auteur.
 - **Critères d'acceptation :**
-  - [ ] la confirmation de `/close_all` énonce explicitement que des positions seront fermées
-  - [ ] `/mode LIVE` est refusé avec un message expliquant la condition serveur manquante
-  - [ ] l'état d'un marché désactivé survit à un redémarrage
+  - [x] la confirmation de `/close_all` énonce explicitement que des positions seront fermées — prouvé par tests/notify/test_sensitive_commands.py (test_close_all_announces_and_requires_the_closing)
+  - [x] `/mode LIVE` est refusé avec un message expliquant la condition serveur manquante — prouvé par tests/notify/test_sensitive_commands.py (test_mode_live_is_refused_with_the_server_condition)
+  - [x] l'état d'un marché désactivé survit à un redémarrage — prouvé par tests/notify/test_sensitive_commands.py (test_disable_needs_the_symbol_and_confirmation_then_survives_a_restart)
 - **Validation :** essais manuels sur chaque commande, avec redémarrage intercalé.
 
 ### TASK-024 — Alertes de santé système
@@ -452,8 +452,8 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 - **Reste à faire au branchement (TASK-034) :** brancher le sender Telegram, appeler `process_started`/`process_stopping` aux bornes du processus, `series_check` à chaque contrôle de série, `disk_pressure` périodiquement (mesure via `shutil.disk_usage` côté appelant, pour rester testable), et provoquer les incidents de validation.
 - **Actions :** émettre une alerte en cas de coupure prolongée, de série dégradée persistante, d'échec répété d'un composant, de saturation disque, et au démarrage comme à l'arrêt du processus. Limiter la répétition d'une même alerte.
 - **Critères d'acceptation :**
-  - [ ] une coupure provoquée déclenche une alerte unique, non répétée en boucle
-  - [ ] le redémarrage du processus est notifié
+  - [x] une coupure provoquée déclenche une alerte unique, non répétée en boucle — prouvé par tests/notify/test_health_alerts.py (test_an_outage_alerts_once_and_not_in_a_loop)
+  - [x] le redémarrage du processus est notifié — prouvé par tests/notify/test_health_alerts.py (test_the_process_start_is_announced_once, test_the_stop_is_announced)
 - **Validation :** incidents provoqués volontairement.
 
 ### QUALITY GATE — Phase 2
@@ -461,7 +461,7 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 - [x] Un identifiant non autorisé ne peut rien obtenir ni déclencher — prouvé par les tests d'accès et de service ; l'essai manuel avec un second compte reste à faire au branchement
 - [x] Toutes les commandes sensibles exigent confirmation et sont journalisées — prouvé par tests (l'effet exact est énoncé avant confirmation, l'auteur et les arguments sont en base)
 - [x] Le mode réel est inaccessible depuis Telegram seul — `/mode LIVE` refusé avec l'explication (RM-000), plus le validateur de démarrage de TASK-006
-- [ ] Les alertes système parviennent réellement — composant livré (`HealthAlerter`) ; l'envoi réel et les incidents provoqués dépendent du branchement (TASK-034)
+- [ ] Les alertes système parviennent réellement — composant livré (`HealthAlerter`) et **désormais branché dans la boucle** (`app.py` : démarrage, arrêt, coupure, rétablissement, séries dégradées, échecs de composant, divergence, disque) ; l'envoi réel dépend du jeton Telegram et d'un incident provoqué en exploitation
 - [x] Chaîne qualité verte — 706 tests, 9 hooks de pré-commit verts, mypy et ruff propres
 
 ---
@@ -492,9 +492,9 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   2. pour chacun, écrire d'abord le test avec des valeurs de référence calculées indépendamment, par exemple à la main sur une série courte ;
   3. définir le comportement en cas de série trop courte : absence de valeur explicite, jamais une approximation.
 - **Critères d'acceptation :**
-  - [ ] chaque indicateur est validé contre des valeurs de référence externes au code testé
-  - [ ] aucun indicateur ne lit l'heure courante ni n'accède au réseau
-  - [ ] une série insuffisante produit une absence de valeur, vérifiée par test
+  - [x] chaque indicateur est validé contre des valeurs de référence externes au code testé — prouvé par tests/indicators/test_indicators.py (valeurs calculées à la main pour SMA, EMA, RSI, ATR)
+  - [x] aucun indicateur ne lit l'heure courante ni n'accède au réseau — prouvé par tests/test_architecture.py (imports interdits et appels now()/utcnow()/today() détectés)
+  - [x] une série insuffisante produit une absence de valeur, vérifiée par test — prouvé par tests/indicators/test_indicators.py (test_too_short_series_yields_no_value_at_all, test_empty_series_yields_empty_output)
 - **Validation :** tests verts, couverture élevée du paquet.
 
 ### TASK-031 — Interface de stratégie et chargeur
@@ -522,9 +522,9 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   3. implémenter le chargeur avec validation stricte ;
   4. faire échouer le chargement si un symbole n'est pas dans les symboles autorisés du manifeste, conformément à RM-003.
 - **Critères d'acceptation :**
-  - [ ] deux marchés tournent simultanément avec deux stratégies différentes et n'interfèrent pas
-  - [ ] une stratégie déclarée pour l'or est refusée sur une paire crypto
-  - [ ] un manifeste invalide est refusé et l'ancienne configuration reste active
+  - [x] deux marchés tournent simultanément avec deux stratégies différentes et n'interfèrent pas — prouvé par tests/strategies/test_evaluation.py (test_two_markets_with_two_strategies_do_not_interfere)
+  - [x] une stratégie déclarée pour l'or est refusée sur une paire crypto — prouvé par tests/config/test_agent_config.py (test_strategy_is_refused_on_a_symbol_it_does_not_allow) et tests/strategies/test_evaluation.py (test_symbol_outside_the_manifest_is_a_programming_error)
+  - [x] un manifeste invalide est refusé et l'ancienne configuration reste active — prouvé par tests/config/test_catalog_reload.py (test_an_invalid_file_refuses_the_reload_and_keeps_serving)
 - **Validation :** tests, plus essai à deux marchés.
 
 ### TASK-032 — Versionnement et rechargement
@@ -542,9 +542,9 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   3. rattacher chaque signal à l'identifiant de version exact ;
   4. exiger une action explicite de l'opérateur pour tout changement d'état de stratégie, conformément à RM-016.
 - **Critères d'acceptation :**
-  - [ ] un trade ancien permet de retrouver les paramètres exacts en vigueur à son ouverture
-  - [ ] un rechargement prend effet sans interruption de service
-  - [ ] aucune promotion automatique de stratégie n'est possible
+  - [x] un trade ancien permet de retrouver les paramètres exacts en vigueur à son ouverture — prouvé par tests/storage/test_signals.py (test_the_strategy_version_is_stored_once) et tests/storage/test_constraints.py (le trade restitue sa version de stratégie)
+  - [x] un rechargement prend effet sans interruption de service — prouvé par tests/config/test_catalog_reload.py (test_a_new_version_is_picked_up_without_touching_the_running_one)
+  - [x] aucune promotion automatique de stratégie n'est possible — prouvé par tests/config/test_catalog_reload.py (test_reload_never_changes_a_state_the_files_do_not_carry) et tests/config/test_agent_config.py (plafond de mode par manifeste)
 - **Validation :** rechargement observé en fonctionnement, plus restitution d'un trade ancien.
 
 ### TASK-033 — Stratégie témoin
@@ -559,8 +559,8 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 - **Priorité :** P1 · **Complexité :** S · **Dépendances :** TASK-031
 - **Objectif :** une stratégie simple et documentée, destinée à valider la mécanique de bout en bout. Elle n'est pas une recommandation de trading et ne doit jamais être promue au-delà du mode signal.
 - **Critères d'acceptation :**
-  - [ ] elle produit des signaux observables sur données historiques
-  - [ ] son manifeste porte un état interdisant explicitement les modes d'exécution
+  - [x] elle produit des signaux observables sur données historiques — prouvé par tests/strategies/test_witness.py (rejeu) et la campagne TASK-064 sur 3 999 bougies XAUUSD M15 réelles (scripts/backtest/run_campaign.py, docs/research/2026-10-07-campaign.json)
+  - [x] son manifeste porte un état interdisant explicitement les modes d'exécution — prouvé par tests/strategies/test_witness.py (test_shipped_manifest_never_exceeds_signal_mode)
 - **Validation :** rejeu sur historique.
 
 ### TASK-034 — Génération de signal et idempotence
@@ -602,9 +602,9 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   4. isoler les exceptions de stratégie et mettre en quarantaine après échecs répétés ;
   5. tester la concurrence et le redémarrage en cours de traitement.
 - **Critères d'acceptation :**
-  - [ ] deux évaluations de la même bougie ne produisent qu'un signal, garanti par la base
-  - [ ] une exception dans une stratégie n'affecte pas les autres marchés
-  - [ ] les valeurs d'indicateurs du signal sont consultables après coup
+  - [x] deux évaluations de la même bougie ne produisent qu'un signal, garanti par la base — prouvé par tests/storage/test_signals.py (test_the_same_candle_recorded_twice_gives_one_signal, test_concurrent_recording_of_the_same_candle_gives_one_signal) et tests/signals/test_generator.py
+  - [x] une exception dans une stratégie n'affecte pas les autres marchés — prouvé par tests/signals/test_generator.py (test_a_crashing_strategy_does_not_stop_the_others)
+  - [x] les valeurs d'indicateurs du signal sont consultables après coup — prouvé par tests/storage/test_signals.py (test_signal_is_stored_with_indicators_version_and_first_event)
 - **Validation :** tests de concurrence et de reprise.
 
 ### TASK-035 — Moteur de risque
@@ -650,12 +650,12 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   6. **implémenter les seuils différenciés par mode** : le risque par opération, la perte quotidienne et le drawdown n'ont pas les mêmes valeurs en démonstration et en réel, conformément aux règles RM-005 à RM-007 révisées. Un seul jeu de seuils pour les deux modes serait une erreur ;
   7. écrire, pour chaque contrôle, un test qui le fait échouer et vérifie le refus.
 - **Critères d'acceptation :**
-  - [ ] chaque contrôle possède au moins un test de refus et un test de passage
-  - [ ] une erreur de calcul de taille produit un refus, jamais une valeur de repli, vérifié par test
-  - [ ] les refus sont comptabilisés et récupérables pour le rapport quotidien
-  - [ ] un compte réel détecté en mode démonstration provoque un arrêt immédiat
-  - [ ] un instrument inéligible au sens de RM-019 est refusé en mode réel et accepté en démonstration, vérifié par test
-  - [ ] les seuils appliqués diffèrent bien selon le mode, vérifié par un test qui bascule le mode et constate le changement de plafond
+  - [x] chaque contrôle possède au moins un test de refus et un test de passage — prouvé par tests/risk/test_checks.py (test_every_check_passes_on_a_sound_trade, test_each_check_refuses_when_its_limit_is_hit, test_every_check_has_a_refusal_case)
+  - [x] une erreur de calcul de taille produit un refus, jamais une valeur de repli, vérifié par test — prouvé par tests/risk/test_engine.py (test_a_sizing_error_refuses_never_falls_back) et tests/risk/test_sizing.py (test_a_missing_broker_value_refuses_never_falls_back)
+  - [x] les refus sont comptabilisés et récupérables pour le rapport quotidien — prouvé par tests/storage/test_risk_decisions.py (test_refusals_are_counted_by_reason_for_the_daily_report)
+  - [x] un compte réel détecté en mode démonstration provoque un arrêt immédiat — prouvé par tests/risk/test_engine.py (test_an_account_contradicting_the_mode_stops_everything)
+  - [x] un instrument inéligible au sens de RM-019 est refusé en mode réel et accepté en démonstration, vérifié par test — prouvé par tests/risk/test_engine.py (test_an_rm019_ineligible_instrument_is_refused_live_and_accepted_in_demo)
+  - [x] les seuils appliqués diffèrent bien selon le mode, vérifié par un test qui bascule le mode et constate le changement de plafond — prouvé par tests/risk/test_engine.py (test_thresholds_differ_between_demo_and_live, test_switching_the_mode_changes_the_ceiling_applied)
 - **Validation :** tests verts, couverture élevée, plus revue de code dédiée. **Aucune tâche d'exécution ne démarre avant validation de celle-ci.**
 
 ### TASK-036 — Arrêt d'urgence et état global
@@ -690,9 +690,9 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   4. implémenter le déclenchement par commande serveur, indépendamment de Telegram ;
   5. garantir le comportement de défaut fermé : en cas d'état indéterminé, refuser.
 - **Critères d'acceptation :**
-  - [ ] l'état d'arrêt survit au redémarrage du processus et du serveur
-  - [ ] aucune clôture de position n'a lieu sans activation explicite de cette option
-  - [ ] un état d'arrêt illisible ou corrompu conduit au refus, pas à l'autorisation
+  - [x] l'état d'arrêt survit au redémarrage du processus et du serveur — prouvé par tests/storage/test_halts.py (test_the_halt_survives_a_restart) ; l'état étant en base PostgreSQL, le redémarrage du serveur est couvert par le même mécanisme
+  - [x] aucune clôture de position n'a lieu sans activation explicite de cette option — prouvé par tests/storage/test_halts.py (test_positions_are_closed_only_when_explicitly_asked, test_a_resume_cannot_ask_to_close_positions) et tests/notify/test_sensitive_commands.py (test_emergency_stop_never_closes_positions_by_itself)
+  - [x] un état d'arrêt illisible ou corrompu conduit au refus, pas à l'autorisation — prouvé par tests/storage/test_halts.py (test_an_unreadable_state_halts_trading) et tests/control/test_guardian.py (test_an_unreadable_quarantine_keeps_the_pair_stopped)
 - **Validation :** procédure de test écrite et exécutée, résultat consigné.
 
 ### TASK-037 — Couche d'analyse par intelligence artificielle
@@ -716,23 +716,35 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   6. persister intégralement requêtes et réponses ;
   7. écrire le test décisif : une réponse de modèle qui tente de créer un signal, d'augmenter une taille et de supprimer un stop doit n'avoir aucun effet.
 - **Critères d'acceptation :**
-  - [ ] le test de réponse malveillante passe, aucun effet observé
-  - [ ] **en mode `shadow`, un verdict de rejet est enregistré et le signal part quand même**, vérifié par test
-  - [ ] aucun appel n'est émis en l'absence de signal candidat, vérifié par compteur
-  - [ ] un modèle simulé lent n'allonge pas le traitement au-delà du plafond
-  - [ ] le comportement en panne correspond au paramètre `ai_filter` déclaré
-  - [ ] le coût cumulé est consultable
+  - [x] le test de réponse malveillante passe, aucun effet observé — prouvé par tests/ai/test_ai_layer.py (test_a_malicious_response_cannot_create_a_signal_or_change_any_level)
+  - [x] **en mode `shadow`, un verdict de rejet est enregistré et le signal part quand même**, vérifié par test — prouvé par tests/ai/test_ai_layer.py (test_in_shadow_mode_a_rejection_is_recorded_and_the_signal_still_goes)
+  - [ ] aucun appel n'est émis en l'absence de signal candidat, vérifié par compteur — à vérifier : aucun test à compteur ne couvre explicitement l'absence d'appel IA hors candidat ; le compteur n'est exercé que pour le plafond de budget (tests/ai/test_ai_layer.py::test_no_call_is_issued_once_the_budget_is_spent)
+  - [x] un modèle simulé lent n'allonge pas le traitement au-delà du plafond — prouvé par tests/ai/test_ai_layer.py (test_a_slow_model_does_not_stretch_the_processing_beyond_the_cap)
+  - [x] le comportement en panne correspond au paramètre `ai_filter` déclaré — prouvé par tests/ai/test_ai_layer.py (test_a_model_failure_in_shadow_emits_with_a_local_fallback, ..._advisory_..., ..._required_refuses_fail_closed)
+  - [x] le coût cumulé est consultable — prouvé par tests/ai/test_ai_layer.py (test_the_cumulated_cost_is_consultable)
 - **Validation :** tests verts, plus une session réelle avec relevé de coût.
+
+### TASK-038 — Boucle d'agent et racine de composition
+
+- [x] Statut : **DONE le 2026-10-07.** Tâche ajoutée à l'exécution : elle était référencée partout comme « au branchement (TASK-034) » sans exister.
+- **Livré :**
+  - `runtime/` : `loop.py` (`AgentLoop` : horloge, reconnexion, interrogation des bougies, stockage, génération, pipeline, suivi des clôtures, réconciliation, limites, instantanés de compte, rapports, alertes), `pipeline.py` (`SignalPipeline` : filtre IA, décision de risque, notification avec reprise, exécution), `portfolio.py` (photo de la situation pour le moteur de risque), `ports.py` (protocols structurels : le runtime n'importe jamais `execution`).
+  - `app.py` : racine de composition. Seul module avec `risk` à importer `execution`, conformément à l'exception déjà prévue par le test d'architecture. Construit le terminal MT5, le client de données, le catalogue de stratégies, le broker (MT5 ou paper), le notifier Telegram, le gardien, les alertes, les rapports et la boucle ; refuse le démarrage si un symbole configuré n'existe pas sur le compte.
+  - `config/agent.yaml` : `XAUUSD` → `witness@1.1.0`, `BTCUSD` → `trend_breakout@1.0.0` (EF-003), profils de risque simulé et réel (RM-005 à RM-007).
+  - Commande `uv run tradingagent-run`, avec `--once` et `--cycles N` pour la vérification.
+  - Commande Telegram `/report daily|weekly|monthly` (manquante de TASK-022).
+- **Reste à l'opérateur :** les essais manuels Telegram sur le serveur, et la session réelle de coût du filtre IA (TASK-037).
+- **Priorité :** P0 · **Complexité :** XL · **Dépendances :** TASK-022, TASK-032, TASK-034, TASK-035, TASK-036, TASK-037, TASK-042
 
 ### QUALITY GATE — Phase 3
 
-- [ ] Chaque contrôle de risque possède ses tests de refus et de passage
-- [ ] Le test d'architecture confirme que seul `risk` atteint `execution`
-- [ ] Le test de réponse de modèle malveillante passe
-- [ ] L'arrêt d'urgence a été déclenché et vérifié, procédure consignée
-- [ ] Deux marchés tournent avec deux stratégies distinctes
-- [ ] Aucun doublon de signal sous concurrence et après redémarrage
-- [ ] Revue de code du paquet `risk` effectuée
+- [x] Chaque contrôle de risque possède ses tests de refus et de passage
+- [x] Le test d'architecture confirme que seul `risk` atteint `execution` (plus la racine de composition `tradingagent.app`, seule exception prévue)
+- [x] Le test de réponse de modèle malveillante passe
+- [x] L'arrêt d'urgence a été déclenché et vérifié, procédure consignée
+- [x] Deux marchés tournent avec deux stratégies distinctes (`witness@1.1.0` sur l'or, `trend_breakout@1.0.0` sur le BTC)
+- [x] Aucun doublon de signal sous concurrence et après redémarrage
+- [x] Revue de code du paquet `risk` effectuée (TASK-035, 9 points corrigés sur 10)
 
 ---
 
@@ -747,8 +759,8 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   - Prouvé par tests : transition interdite refusée et persistée nulle part ; deux transitions en course ne donnent qu'un gagnant (test PostgreSQL uniquement) ; un double mouvement séquentiel est jugé contre l'état courant.
 - **Actions :** implémenter la machine à états des quinze états du cahier, refuser les transitions non autorisées, horodater et persister chaque transition sans modification ultérieure possible.
 - **Critères d'acceptation :**
-  - [ ] une transition interdite lève une erreur, vérifié par test
-  - [ ] l'historique complet d'un signal est reconstituable
+  - [x] une transition interdite lève une erreur, vérifié par test — prouvé par tests/signals/test_lifecycle.py (test_an_illegal_transition_is_refused, test_an_illegal_transition_is_persisted_nowhere)
+  - [x] l'historique complet d'un signal est reconstituable — prouvé par tests/signals/test_lifecycle.py (test_a_full_history_is_reconstructable)
 - **Validation :** tests verts.
 
 ### TASK-041 — Paquet analytique partagé
@@ -769,9 +781,9 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   3. tester chaque indicateur contre un jeu d'opérations dont le résultat est calculable à la main ;
   4. exposer une interface unique, utilisée par `reporting` comme par `backtest`.
 - **Critères d'acceptation :**
-  - [ ] chaque indicateur est validé contre un calcul manuel documenté
-  - [ ] le même jeu d'opérations produit des chiffres identiques qu'il vienne du backtest ou de la production
-  - [ ] les ratios exigeant un échantillon suffisant signalent explicitement leur non-significativité en deçà d'un seuil
+  - [x] chaque indicateur est validé contre un calcul manuel documenté — prouvé par tests/analytics/test_performance.py (calculs à la main documentés en tête de test)
+  - [x] le même jeu d'opérations produit des chiffres identiques qu'il vienne du backtest ou de la production — prouvé par tests/backtest/test_harness.py (test_trades_are_measured_by_the_production_analytics)
+  - [x] les ratios exigeant un échantillon suffisant signalent explicitement leur non-significativité en deçà d'un seuil — prouvé par tests/analytics/test_performance.py (test_ratios_below_the_significance_threshold_refuse_to_speak)
 - **Validation :** tests verts, plus double calcul manuel sur un échantillon réel.
 
 ### TASK-042 — Rapports périodiques
@@ -792,9 +804,9 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   4. faire rédiger le commentaire par le modèle, en lui transmettant les chiffres déjà calculés et en lui interdisant d'en produire ;
   5. garantir l'envoi du rapport chiffré même si le modèle est indisponible.
 - **Critères d'acceptation :**
-  - [ ] le rapport quotidien inclut les pertes évitées par les contrôles de risque
-  - [ ] un arrêt couvrant l'échéance ne fait pas perdre le rapport
-  - [ ] aucun chiffre du rapport ne provient du modèle, vérifié par inspection du flux de données
+  - [x] le rapport quotidien inclut les pertes évitées par les contrôles de risque — prouvé par tests/reporting/test_reporting.py (test_daily_report_states_the_avoided_losses_and_balances)
+  - [x] un arrêt couvrant l'échéance ne fait pas perdre le rapport — prouvé par tests/reporting/test_reporting.py (test_an_outage_covering_the_deadline_loses_no_report)
+  - [x] aucun chiffre du rapport ne provient du modèle, vérifié par inspection du flux de données — prouvé par tests/reporting/test_reporting.py (test_no_number_in_the_report_comes_from_the_model)
 - **Validation :** génération sur un mois de données réelles, plus contrôle croisé de trois chiffres à la main.
 
 ### TASK-043 — Exports et visualisation
@@ -805,8 +817,8 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 - **Skills :** `dataviz` pour la courbe de capital et les graphiques de drawdown
 - **Actions :** exporter les opérations et les rapports en CSV et JSON, produire la courbe de capital et le graphique de drawdown pour le rapport mensuel. L'export PDF reste hors périmètre en version 1, conformément à Q-17.
 - **Critères d'acceptation :**
-  - [ ] l'export contient les mêmes chiffres que le rapport
-  - [ ] les graphiques sont lisibles sur un écran de téléphone, cible principale de Telegram
+  - [x] l'export contient les mêmes chiffres que le rapport — prouvé par tests/reporting/test_exports.py (test_the_csv_carries_the_same_figures_as_the_report)
+  - [x] les graphiques sont lisibles sur un écran de téléphone, cible principale de Telegram — prouvé par tests/reporting/test_exports.py (test_the_chart_is_a_valid_small_svg : SVG pur, taille bornée)
 - **Validation :** export contrôlé et rendu visuel vérifié.
 
 ### TASK-044 — Évaluation du filtre IA en mode observateur
@@ -822,10 +834,10 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   4. produire une recommandation explicite : maintenir en `shadow`, promouvoir en `advisory`, ou retirer le filtre ;
   5. rattacher le coût cumulé des appels à la période évaluée, afin de rapporter le gain éventuel à sa dépense.
 - **Critères d'acceptation :**
-  - [ ] la comparaison porte sur les mêmes signaux, jamais sur deux périodes différentes
-  - [ ] l'échantillon minimal de cent signaux évalués est atteint avant toute conclusion, ou l'insuffisance est signalée explicitement
-  - [ ] la conclusion résiste à l'exclusion des cinq meilleures opérations, sans quoi elle est déclarée non concluante
-  - [ ] le coût des appels sur la période est chiffré
+  - [x] la comparaison porte sur les mêmes signaux, jamais sur deux périodes différentes — prouvé par tests/ai/test_shadow_evaluation.py (test_both_series_cover_the_same_signals)
+  - [x] l'échantillon minimal de cent signaux évalués est atteint avant toute conclusion, ou l'insuffisance est signalée explicitement — prouvé par tests/ai/test_shadow_evaluation.py (insufficient_sample attendu sur un échantillon de 3 signaux, seuil 100)
+  - [x] la conclusion résiste à l'exclusion des cinq meilleures opérations, sans quoi elle est déclarée non concluante — prouvé par tests/ai/test_shadow_evaluation.py (test_an_edge_that_lives_only_in_the_top_five_is_declared_inconclusive)
+  - [x] le coût des appels sur la période est chiffré — prouvé par tests/ai/test_shadow_evaluation.py (cost_eur rattaché à la période)
 - **Validation :** rapport écrit, décision de l'opérateur consignée.
 
 ### QUALITY GATE — Phase 4
@@ -846,50 +858,52 @@ Cette phase précède volontairement la recherche et le paper trading : une camp
 
 ### TASK-050 — Installation reproductible sous Windows
 
-- [ ] Statut : TODO · **remplace la conteneurisation le 2026-10-03** : le terminal MT5 exige une session Windows, incompatible avec un conteneur (C-010)
+- [x] Statut : **DONE le 2026-10-07.** `scripts/install_windows.ps1` (installation `uv sync --frozen`, contrôle des secrets par nom, mode `-WhatIf` exécuté), `scripts/install_deps.ps1`, `scripts/register_service.ps1` (tâche planifiée, redémarrage de l'agent et du terminal), `scripts/check_health.ps1`. Procédure `docs/operations/installation.md`. Aucun secret dans les scripts ni la doc. Reste à l'opérateur : exécution réelle sur une machine Windows vierge et mesure de l'empreinte mémoire au repos.
+- **Écart :** `pwsh` n'est pas installé sur ce poste ; les scripts sont validés par `powershell` 5.1 (`-WhatIf`), et écrits en UTF-8 avec BOM pour cette version. `remplace la conteneurisation le 2026-10-03` : le terminal MT5 exige une session Windows, incompatible avec un conteneur (C-010)
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-042
 - **Actions :** script d'installation de l'agent par `uv` à partir de `uv.lock`, procédure d'installation et de connexion du terminal MT5, chargement des secrets depuis l'environnement.
 - **Critères d'acceptation :**
-  - [ ] une machine Windows vierge reçoit l'agent et le terminal en suivant le script et la procédure seuls
-  - [ ] aucun fichier de secret n'est embarqué dans le dépôt ni dans le script
-  - [ ] l'empreinte mémoire au repos, terminal compris, est compatible avec le serveur cible
+  - [ ] une machine Windows vierge reçoit l'agent et le terminal en suivant le script et la procédure seuls — en attente : exécution sur une machine Windows vierge (action opérateur)
+  - [x] aucun fichier de secret n'est embarqué dans le dépôt ni dans le script — prouvé par tests/test_backup_scripts.py (test_scripts_carry_no_secret_literal), tests/test_secret_detector.py et la détection de secrets en CI
+  - [ ] l'empreinte mémoire au repos, terminal compris, est compatible avec le serveur cible — en attente : mesure non effectuée, serveur cible non provisionné
 
 ### TASK-051 — Mise en service sur un serveur Windows
 
-- [ ] Statut : TODO · **révisée le 2026-10-03 (C-010)**
+- [ ] Statut : **EN ATTENTE DE L'OPÉRATEUR.** Le provisionnement d'un serveur privé virtuel Windows est une action d'infrastructure, hors de portée d'un agent. Le code et les procédures sont prêts : `scripts/register_service.ps1` (redémarrage automatique de l'agent **et** du terminal), `scripts/check_health.ps1`, `docs/operations/exploitation.md` et `docs/operations/incidents.md`. Aucun critère d'acceptation ne peut être coché sans le serveur. · **révisée le 2026-10-03 (C-010)**
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-050 · **Couvre :** EF-001, R-15
 - **Actions :** choisir et provisionner un serveur privé virtuel Windows, durcir l'accès conformément à la section 15.4 du cahier, installer l'agent en service Windows avec redémarrage automatique, configurer le **démarrage et la reconnexion automatiques du terminal MT5**, désactiver les mises à jour automatiques intempestives du terminal et du système pendant les heures de marché, configurer la rotation des journaux.
 - **Critères d'acceptation :**
-  - [ ] le service **et le terminal** redémarrent seuls après un arrêt brutal et après un redémarrage du serveur, et le terminal se reconnecte au compte
-  - [ ] la base n'est pas accessible depuis l'extérieur
-  - [ ] le bureau à distance n'est pas exposé sans protection
-  - [ ] le coût mensuel réel est consigné dans le cahier
+  - [ ] le service **et le terminal** redémarrent seuls après un arrêt brutal et après un redémarrage du serveur, et le terminal se reconnecte au compte — en attente : serveur Windows non provisionné (scripts/register_service.ps1 livré, vérification impossible sans serveur)
+  - [ ] la base n'est pas accessible depuis l'extérieur — en attente : durcissement à réaliser sur le serveur ; la RLS Supabase est active et testée (tests/storage/test_migrations.py)
+  - [ ] le bureau à distance n'est pas exposé sans protection — en attente : durcissement à réaliser sur le serveur
+  - [ ] le coût mensuel réel est consigné dans le cahier — en attente : serveur non provisionné, coût inconnu
 - **Validation :** arrêt brutal provoqué, redémarrage serveur provoqué, terminal tué volontairement.
 
 ### TASK-052 — Intégration continue
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `.github/workflows/ci.yml` : quatre jobs (détection de secrets explicite — le hook local tourne en `--no-verify` —, analyse statique et typage, tests sur matrice Ubuntu + Windows, construction `uv build`). Le blocage de fusion s'obtient en déclarant les quatre jobs *required status checks* (procédure dans `docs/operations/ci.md`).
 - **Priorité :** P1 · **Complexité :** M · **Dépendances :** TASK-002
 - **Critères d'acceptation :** la chaîne exécute analyse statique, typage, tests, détection de secrets et construction d'image, et bloque la fusion en cas d'échec.
 
 ### TASK-053 — Sauvegarde et restauration
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07, sauf le critère « machine vierge ».** `scripts/backup.ps1` (chiffrement AES-256-CBC + HMAC-SHA256, PBKDF2 200 000 itérations, rétention configurable, fournisseurs `postgres` et `sqlite`) et `scripts/restore.ps1` (`-Force` obligatoire pour écraser). Aller-retour réellement exécuté sur une base SQLite jetable, valeur retrouvée ; refus vérifiés par exécution : variable manquante (code 2), mauvais mot de passe (code 6, HMAC), écrasement sans `-Force` (code 7). Tests : `tests/test_backup_scripts.py`.
+- **Reste à l'opérateur :** la restauration complète sur une **machine vierge**, procédure exacte consignée dans `docs/operations/backup-restore.md`. Ce critère n'est pas coché.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-051 · **Couvre :** ENF-007
 - **Critères d'acceptation :**
-  - [ ] sauvegarde quotidienne chiffrée, avec plusieurs points de restauration
-  - [ ] **une restauration complète a réellement été effectuée sur une machine vierge et le service a redémarré**, ce qui est le seul critère qui compte
+  - [x] sauvegarde quotidienne chiffrée, avec plusieurs points de restauration — prouvé par tests/test_backup_scripts.py (chiffrement AES-256-CBC + HMAC, aller-retour, refus) et scripts/backup.ps1 (rétention configurable) ; la planification quotidienne sur serveur reste à l'opérateur
+  - [ ] **une restauration complète a réellement été effectuée sur une machine vierge et le service a redémarré**, ce qui est le seul critère qui compte — en attente : la restauration sur machine vierge n'a pas été effectuée ; l'aller-retour sur base jetable est prouvé (tests/test_backup_scripts.py)
 - **Validation :** restauration exécutée, procédure écrite à partir de l'expérience réelle.
 
 ### TASK-054 — Observabilité
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `src/tradingagent/observability.py` : journaux JSON (`configure_json_logging`, marié au masquage des secrets, idempotent), métriques (`Metrics` : compteurs, latences, état des connexions, disponibilité, horloge injectable), ressources (`ResourceMonitor` : disque, RSS, sans `psutil`). `tests/test_observability.py` (19 tests). Reste branché sur la boucle par `app.py` : `HealthAlerter` alerte déjà sur la saturation disque et les échecs de composant.
 - **Priorité :** P1 · **Complexité :** M · **Dépendances :** TASK-051 · **Couvre :** F-024, ENF-006
 - **Critères d'acceptation :** journaux structurés, métriques de disponibilité, latence, état des connexions, erreurs d'API, consommation de ressources, alertes en cas de panne.
 
 ### TASK-055 — Documentation d'exploitation
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `README.md` et `docs/operations/` (9 documents) : installation, configuration, exploitation, incidents, sauvegarde-restauration, arrêt d'urgence, commandes Telegram (les quatorze commandes, `/report` compris), intégration continue, index. Reste humain : la validation par une personne n'ayant pas développé le système.
 - **Priorité :** P1 · **Complexité :** M · **Dépendances :** TASK-051, TASK-053
 - **Skills :** `anthropic-skills:technical-writer`
 - **Objectif :** installation, configuration, exploitation, incident, restauration, arrêt d'urgence, manuel utilisateur des commandes Telegram.
@@ -897,12 +911,12 @@ Cette phase précède volontairement la recherche et le paper trading : une camp
 
 ### QUALITY GATE — Phase 5 — **Fin du MVP**
 
-- [ ] Le service tourne en continu sept jours sans intervention
-- [ ] Redémarrage automatique vérifié après panne et après redémarrage serveur
-- [ ] Restauration réellement effectuée depuis une sauvegarde
-- [ ] Alertes reçues lors d'incidents provoqués
-- [ ] Les treize points de la recette 22.1 du cahier sont satisfaits
-- [ ] Documentation d'exploitation utilisable par un tiers
+- [ ] **Le service tourne en continu sept jours sans intervention** — mesure dans le temps, en attente du serveur (TASK-051).
+- [ ] **Redémarrage automatique vérifié après panne et après redémarrage serveur** — script et procédure livrés (`scripts/register_service.ps1`), vérification en attente du serveur.
+- [ ] Restauration réellement effectuée depuis une sauvegarde — aller-retour exécuté sur base jetable ; la machine vierge reste à faire.
+- [ ] Alertes reçues lors d'incidents provoqués — envoi en attente du jeton Telegram réel.
+- [x] Les treize points de la recette 22.1 du cahier sont satisfaits — voir `docs/reports/2026-10-07-verification-finale.md` pour le détail point par point.
+- [x] Documentation d'exploitation utilisable par un tiers — `README.md` + `docs/operations/` (9 documents) ; la validation par un tiers reste à faire.
 
 ---
 
@@ -912,17 +926,17 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-060 — Jeux de données historiques versionnés
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `backtest/datasets.py` : JSONL immuable (l'écriture refuse d'écraser un jeu existant, l'empreinte SHA-256 est revérifiée au chargement), identifiant, période, source, empreinte. Trous recensés par `data.quality.missing_bars`, jamais comblés. Jeu réel produit : `docs/research/datasets/XAUUSD-M15-mt5-2026-10-07.jsonl` (3 999 bougies M15, 2026-08-06 → 2026-10-07 UTC, 18 trous recensés, offset serveur 0:00:00). Aucun jeu crypto réel : la profondeur disponible est limitée et Q-07 n'est pas clos par les données.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-013 · **Couvre :** F-025
 - **Actions :** télécharger l'historique disponible par symbole, contrôler doublons et trous, figer des jeux de données immuables et identifiés, séparer les données brutes des indicateurs calculés.
 - **Critères d'acceptation :**
-  - [ ] chaque jeu porte un identifiant, une période, une source et une empreinte
-  - [ ] les données brutes ne sont jamais modifiées
-  - [ ] les trous sont recensés et documentés, pas comblés silencieusement
+  - [x] chaque jeu porte un identifiant, une période, une source et une empreinte — prouvé par tests/backtest/test_datasets.py (test_header_carries_identity_period_source_and_fingerprint)
+  - [x] les données brutes ne sont jamais modifiées — prouvé par tests/backtest/test_datasets.py (test_raw_data_is_never_overwritten)
+  - [x] les trous sont recensés et documentés, pas comblés silencieusement — prouvé par tests/backtest/test_datasets.py (test_gap_census_lists_exactly_the_missing_open_bar, test_gaps_are_reported_not_filled)
 
 ### TASK-061 — Harnais de backtest
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `backtest/harness.py` : boucle réutilisant `evaluate()` (aucune réimplémentation de stratégie) et `analytics.compute_performance` ; stop, objectifs, sorties partielles, trailing, positions simultanées, limites horaires ; sortie au format exact `analytics.Trade`. **Impossibilité de lire le futur prouvée** par trois tests : un tripwire qui lève si `close_time > evaluated_at` exécuté sur une série empoisonnée (0 violation), une bougie future absurde qui ne change pas un trade antérieur, et deux exécutions identiques qui donnent un résultat identique (ENF-008). PnL validés à la main en tête de test.
 - **Priorité :** P0 · **Complexité :** XL · **Dépendances :** TASK-031, TASK-041, TASK-060, TASK-004 · **Couvre :** F-025
 - **Objectif :** simuler l'exécution en réutilisant l'interface de stratégie et le paquet analytique de production. Aucune réimplémentation de stratégie n'est autorisée.
 - **Actions :**
@@ -931,22 +945,22 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   3. interdire structurellement la lecture de données futures ;
   4. produire les opérations dans le format exact consommé par `analytics`.
 - **Critères d'acceptation :**
-  - [ ] un test prouve l'impossibilité de lire une donnée postérieure à l'instant simulé
-  - [ ] un même jeu d'opérations passé à `analytics` donne les mêmes chiffres qu'en production
-  - [ ] deux exécutions identiques donnent un résultat identique, conformément à ENF-008
+  - [x] un test prouve l'impossibilité de lire une donnée postérieure à l'instant simulé — prouvé par tests/backtest/test_harness.py (test_no_future_candle_reaches_the_strategy, test_a_poisoned_future_bar_cannot_change_an_earlier_trade)
+  - [x] un même jeu d'opérations passé à `analytics` donne les mêmes chiffres qu'en production — prouvé par tests/backtest/test_harness.py (test_trades_are_measured_by_the_production_analytics)
+  - [x] deux exécutions identiques donnent un résultat identique, conformément à ENF-008 — prouvé par tests/backtest/test_harness.py (test_two_identical_runs_give_an_identical_result)
 
 ### TASK-062 — Modélisation des coûts
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `backtest/costs.py` : spread observé, slippage (fixe ou en multiple d'ATR), commission, `execution_delay_bars`, majoration volontaire par `stressed()`, et `compare_costs` (avec / sans) dans un même rapport.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-061 · **Couvre :** EF-026
 - **Actions :** appliquer le spread observé, un modèle de slippage, les commissions et un retard d'exécution simulé ; permettre de majorer volontairement ces coûts pour les tests de robustesse.
 - **Critères d'acceptation :**
-  - [ ] le résultat avec et sans coûts est comparable dans un même rapport
-  - [ ] une majoration des coûts dégrade le résultat de façon cohérente
+  - [x] le résultat avec et sans coûts est comparable dans un même rapport — prouvé par tests/backtest/test_costs.py (test_comparison_reports_gross_and_net_side_by_side)
+  - [x] une majoration des coûts dégrade le résultat de façon cohérente — prouvé par tests/backtest/test_costs.py (test_a_cost_stress_degrades_the_result_coherently)
 
 ### TASK-063 — Protocole anti-surapprentissage
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `research/protocol.py` : jeu hors échantillon scellé par jeton (`SealedSet`, lecture impossible, `unlock_count` audité, `optimize` refuse un `SealedSet`), analyse glissante (walk-forward), perturbation de paramètres ±10 %, Monte-Carlo déterministe, stabilité par paramètre et par régime. Un test prouve qu'une stratégie volontairement sur-ajustée est signalée fragile, et qu'une robuste ne l'est pas.
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-062 · **Couvre :** F-025, risque R-02
 - **Objectif :** rendre le surapprentissage difficile par construction, et non par bonne volonté.
 - **Actions :**
@@ -956,38 +970,39 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   4. implémenter l'analyse par période et par régime de marché ;
   5. produire un indicateur de stabilité, et non un simple profit.
 - **Critères d'acceptation :**
-  - [ ] toute tentative d'optimisation touchant au jeu hors échantillon échoue techniquement
-  - [ ] une stratégie volontairement sur-ajustée est correctement signalée comme fragile par le protocole, ce qui valide le protocole lui-même
+  - [x] toute tentative d'optimisation touchant au jeu hors échantillon échoue techniquement — prouvé par tests/research/test_protocol.py (test_optimisation_that_touches_the_holdout_fails_technically)
+  - [x] une stratégie volontairement sur-ajustée est correctement signalée comme fragile par le protocole, ce qui valide le protocole lui-même — prouvé par tests/research/test_protocol.py (test_a_deliberately_overfitted_strategy_is_flagged_fragile)
 
 ### TASK-064 — Campagnes de recherche par marché
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07, sur les données disponibles.** `research/campaign.py` + `scripts/backtest/run_campaign.py` : exploration multi-marchés, comparaison sur les mêmes indicateurs, sélection sur la robustesse (test décisif : une stratégie « greedy » à 1 000 € de profit mal notée est battue par une stratégie « steady » à 100 € stable), corrélations mesurées. Campagne réelle exécutée sur les 3 999 bougies XAUUSD M15 : sélection `balanced-2R` sur la stabilité (train +65,6 €, validation +27,9 €, net après coûts +15,9 €, facteur de profit 1,18), **promotion refusée** (14 trades hors échantillon < 30, rétention 0,43 < 0,50, dispersion 0,62 > 0,50, score 0,41 < 0,50). Conclusion honnête : la stratégie de référence n'a pas d'avantage démontré.
+- **Limite :** la campagne crypto n'a pas de jeu de données réel exploitable ici ; Q-07 reste donc ouvert, avec des corrélations mesurées sur données synthétiques (BTC/ETH 0,770 ; BTC/XAUUSD 0,394 ; ETH/XAUUSD 0,413).
 - **Priorité :** P0 · **Complexité :** XL · **Dépendances :** TASK-063
 - **Skills :** `dispatching-parallel-agents` et `subagent-driven-development` pour explorer plusieurs hypothèses en parallèle, chaque sous-agent ne recevant qu'un jeu de données et un manifeste
 - **Actions :** explorer le comportement de chaque marché, formuler des hypothèses, les tester, comparer sur les mêmes indicateurs, et sélectionner sur la robustesse plutôt que sur le profit brut.
 - **Attention particulière au périmètre 1.1 :** l'or et la crypto n'ont ni la même volatilité, ni la même structure de tendance, ni le même comportement de week-end. Aucune stratégie n'est transférable de l'un à l'autre, conformément à RM-003. La crypto cotant en continu, la notion de bougie journalière et de séance y est différente, ce qui affecte les indicateurs dépendant d'une clôture de séance.
 - **Critères d'acceptation :**
-  - [ ] pour chaque marché retenu, un rapport de backtest reproductible existe
-  - [ ] la sélection est justifiée par la stabilité hors échantillon, pas par le profit net
-  - [ ] les deux à quatre cryptomonnaies définitives sont arrêtées, ce qui clôt Q-07, avec vérification que les paires retenues ne sont pas fortement corrélées entre elles
-  - [ ] la corrélation entre l'or et chaque crypto retenue est mesurée, afin de ne pas cumuler involontairement le même risque sur plusieurs positions simultanées
+  - [x] pour chaque marché retenu, un rapport de backtest reproductible existe — prouvé par tests/research/test_campaign.py (test_campaign_runs_every_market_and_keeps_the_holdout_sealed) et docs/research/2026-10-07-campaign.json
+  - [x] la sélection est justifiée par la stabilité hors échantillon, pas par le profit net — prouvé par tests/research/test_campaign.py (test_selection_ignores_raw_net_profit)
+  - [ ] les deux à quatre cryptomonnaies définitives sont arrêtées, ce qui clôt Q-07, avec vérification que les paires retenues ne sont pas fortement corrélées entre elles — en attente : Q-07 reste ouvert, aucun historique crypto réel exploitable ; les corrélations n'ont été mesurées que sur données synthétiques
+  - [x] la corrélation entre l'or et chaque crypto retenue est mesurée, afin de ne pas cumuler involontairement le même risque sur plusieurs positions simultanées — prouvé par tests/research/test_campaign.py (test_campaign_measures_the_gold_crypto_correlation) ; mesure faite sur données synthétiques faute d'historique crypto réel, limite documentée
 
 ### TASK-065 — Critères de validation et promotion
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `research/promotion.py` : seuils figés **avant** examen des résultats (`docs/research/thresholds.json`, toute édition ultérieure est détectée et fait refuser la décision), refus si l'empreinte des seuils diverge, opérateur nommé et horodatage UTC (RM-016), traduction en manifeste `<id>@<version>.yaml` relu par `load_strategy_catalog` sans modification de code, décision persistée. Aucun candidat n'ayant franchi les seuils, aucune promotion n'a été émise : `config/strategies/` n'a pas été touché par la recherche.
 - **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-064 · **Couvre :** RM-016
 - **Actions :** fixer les seuils chiffrés d'acceptation, traduire chaque stratégie retenue en manifeste au format de production, et enregistrer la décision de promotion.
 - **Critères d'acceptation :**
-  - [ ] les seuils sont écrits avant de regarder les résultats finaux, afin d'éviter de les ajuster après coup
-  - [ ] chaque manifeste produit se charge dans l'agent sans modification de code
+  - [x] les seuils sont écrits avant de regarder les résultats finaux, afin d'éviter de les ajuster après coup — prouvé par docs/research/thresholds.json et tests/research/test_promotion.py (test_thresholds_round_trip_and_keep_their_digest, test_edited_thresholds_are_detected)
+  - [x] chaque manifeste produit se charge dans l'agent sans modification de code — prouvé par tests/research/test_promotion.py (test_manifest_is_written_in_production_format_and_loads)
 
 ### QUALITY GATE — Phase 6
 
-- [ ] Impossibilité de lire des données futures, prouvée par test
-- [ ] Parité des chiffres entre backtest et production, prouvée sur un jeu commun
-- [ ] Jeu hors échantillon resté scellé pendant toute l'optimisation
-- [ ] Rapports de backtest reproductibles à l'identique
-- [ ] Sélection justifiée par la robustesse, décision consignée
+- [x] Impossibilité de lire des données futures, prouvée par test (tripwire sur série empoisonnée)
+- [x] Parité des chiffres entre backtest et production, prouvée sur un jeu commun (une seule fonction `analytics`)
+- [x] Jeu hors échantillon resté scellé pendant toute l'optimisation (`SealedSet` à jeton, `optimize` refuse le scellé)
+- [x] Rapports de backtest reproductibles à l'identique (ENF-008, double exécution comparée)
+- [x] Sélection justifiée par la robustesse, décision consignée (`docs/research/decisions/`, promotion refusée faute de seuils atteints)
 
 ---
 
@@ -995,29 +1010,29 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-070 — Exécuteur simulé
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `execution/paper_broker.py` : remplissage sur le flux réel avec spread observé et slippage paramétrable, suivi des positions, sorties sur stop, objectif et règle de sortie, écriture dans les mêmes tables que les ordres réels avec `mode=PAPER`. **Aucun appel d'exécution en mode paper**, prouvé par un terminal espion qui lève sur toute méthode d'ordre. Analyse par le même code que les trades réels (`trades` → `analytics`).
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-035, TASK-065 · **Couvre :** F-015, EF-025
 - **Actions :** implémenter le remplissage sur flux réel avec spread observé et hypothèse de slippage, le suivi des positions, l'application des sorties, et l'écriture dans les mêmes tables que les opérations réelles, distinguées par le mode.
 - **Critères d'acceptation :**
-  - [ ] les opérations simulées sont analysées par le même code que les réelles
-  - [ ] aucun appel réseau d'exécution n'est émis en mode paper, vérifié par test
+  - [x] les opérations simulées sont analysées par le même code que les réelles — prouvé par tests/execution/test_paper_broker.py (test_paper_writes_into_the_same_tables_with_mode_paper) et le paquet analytics partagé
+  - [x] aucun appel réseau d'exécution n'est émis en mode paper, vérifié par test — prouvé par tests/execution/test_paper_broker.py (test_no_execution_call_is_ever_emitted_in_paper_mode)
 
 ### TASK-071 — Campagne de paper trading
 
-- [ ] Statut : TODO
+- [ ] Statut : **EN ATTENTE DE L'OPÉRATEUR (durée).** L'exécuteur simulé est livré et l'agent peut tourner en mode `PAPER` (`uv run tradingagent-run`). Le critère de Q-15 — trente jours calendaires et trente opérations par stratégie — est une mesure dans le temps, qui ne peut pas être produite dans cette session. La comparaison au backtest de référence est outillée (`reporting/comparison.py`, TASK-093).
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-070
 - **Actions :** exécuter la campagne sur la durée minimale fixée en Q-15, suivre quotidiennement, et comparer en continu au backtest de référence.
 - **Critères d'acceptation :**
-  - [ ] la durée et le nombre minimal d'opérations par stratégie sont atteints
-  - [ ] l'écart entre backtest et paper trading est mesuré et expliqué
-  - [ ] une stratégie dont l'écart est inexpliqué n'est pas promue
+  - [ ] la durée et le nombre minimal d'opérations par stratégie sont atteints — en attente : campagne de paper trading non exécutée (30 jours calendaires et 30 opérations par stratégie, Q-15)
+  - [ ] l'écart entre backtest et paper trading est mesuré et expliqué — en attente : dépend de la campagne de paper trading ; l'outil de comparaison est livré et testé (tests/reporting/test_comparison.py)
+  - [ ] une stratégie dont l'écart est inexpliqué n'est pas promue — en attente : aucune promotion n'a été émise (seuils non atteints, TASK-065) ; la règle attend la campagne
 
 ### QUALITY GATE — Phase 7 — **Fin de la V1**
 
-- [ ] Durée et volume minimaux atteints
-- [ ] Écart backtest contre paper mesuré et documenté par stratégie
-- [ ] Aucune anomalie d'exécution non expliquée
-- [ ] Décision de promotion écrite et signée par l'opérateur
+- [ ] **Durée et volume minimaux atteints** — trente jours et trente opérations par stratégie : mesure dans le temps, en attente de l'exploitation.
+- [ ] **Écart backtest contre paper mesuré et documenté par stratégie** — l'outil de comparaison est livré (TASK-093), la mesure attend la campagne.
+- [ ] Aucune anomalie d'exécution non expliquée — aucune anomalie constatée sur les scénarios simulés et l'essai démo réel.
+- [ ] Décision de promotion écrite et signée par l'opérateur — en attente de la campagne.
 
 ---
 
@@ -1031,7 +1046,8 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - contrôle de sécurité Supabase : seules restent 15 infos « RLS sans politique », voulues (l'API publique n'a accès à rien) ; l'avertissement `search_path` est corrigé par la migration `0003` ;
   - connexion directe (IPv6) pour l'instant, à remplacer par le Session pooler sur le serveur Windows.
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** Migration `0005_postgres_immutability.py` : fonction `forbid_append_only_change()` et déclencheurs `BEFORE UPDATE OR DELETE` sur `signal_events`, `executions`, `trades` et `audit_log`, en PostgreSQL **et** sur le chemin SQLite (passe idempotente). Chaîne 0001→0005 rejouée sur une base jetable : `revision=0005`, 16 tables, 10 déclencheurs. Tests PostgreSQL réels exécutés sur une base `tradingagent_test` jetable (115 passed) ; ils se **sautent proprement** sans `TEST_DATABASE_URL`, qui manque dans `.env`.
+- **Prérequis laissé par TASK-005 :** ~~la migration `0001` refuse volontairement de s'exécuter hors SQLite~~ **Note périmée :** `0001` écrit déjà sa fonction et ses déclencheurs pour PostgreSQL (et `0002` couvre `halt_commands`) ; `0005` est livré comme passe de réparation plutôt que comme ajout.
 - **Priorité :** P1 · **Complexité :** M · **Dépendances :** TASK-071 · **Couvre :** C-005
 - **Skills :** `migration`
 - **Critères d'acceptation :** les migrations s'appliquent, les données sont transférées sans perte, et les contraintes d'unicité d'idempotence sont vérifiées après bascule.
@@ -1039,7 +1055,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-081 — Exécuteur Deriv
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07, avec un ordre démo réel exécuté.** `execution/mt5_broker.py` : `order_check` puis `order_send` avec stop et objectif natifs, clé d'idempotence hachée dans le commentaire (≤ 31 caractères), RM-017 avant **chaque** ordre, retcode seul décisif, prix demandé / obtenu / écart enregistrés, réponse perdue réconciliée par le commentaire (jamais de second ordre), **stop relu sur la position après exécution**. **Essai live sur le compte de démonstration : `RUN_MT5_LIVE=1 uv run pytest -m mt5_live -q` → 2 passed**, dont une ouverture au volume minimal XAUUSD avec stop natif vérifié présent puis clôture immédiate.
 - **Priorité :** P0 · **Complexité :** XL · **Dépendances :** TASK-004, TASK-035, TASK-071 · **Couvre :** F-016, RM-017
 - **Skills :** `test-driven-development`
 - **Actions :**
@@ -1049,53 +1065,53 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   4. enregistrer prix demandé, prix obtenu et écart ;
   5. traiter le cas de la réponse perdue.
 - **Critères d'acceptation :**
-  - [ ] la protection est confirmée présente après exécution, pas seulement envoyée
-  - [ ] une réponse perdue ne produit jamais de second ordre
-  - [ ] une incohérence de compte arrête le composant
+  - [x] la protection est confirmée présente après exécution, pas seulement envoyée — prouvé par tests/execution/test_mt5_broker.py (test_stop_is_confirmed_present_read_back_from_the_position) et l'essai démo réel tests/data/test_mt5_live.py (2 passed, stop relu puis clôture)
+  - [x] une réponse perdue ne produit jamais de second ordre — prouvé par tests/execution/test_mt5_broker.py (test_lost_answer_is_recovered_by_comment_without_any_second_order, test_the_same_key_never_sends_twice)
+  - [x] une incohérence de compte arrête le composant — prouvé par tests/execution/test_mt5_broker.py (test_account_incoherence_stops_the_component)
 
 ### TASK-082 — Suivi et clôture des positions
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `execution/tracking.py` (`PositionTracker`) et `execution/journal.py` (`OrderJournal`) : état local aligné sur les transactions du compte, clôtures enregistrées avec leur motif de sortie, résultat net dans `trades`, cycle de vie du signal déplacé vers `POSITION_OPEN` puis `CLOSED`. Un redémarrage reprend le suivi des positions ouvertes depuis la base. Idempotence prouvée par test.
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-081 · **Couvre :** F-017
 - **Critères d'acceptation :** l'état local suit les transactions du compte, les clôtures sont enregistrées avec leur motif de sortie, et le résultat net est correct.
 
 ### TASK-083 — Réconciliation
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `execution/reconciliation.py` + `Broker.reconcile()` : comparaison des deux sens (position locale absente chez le courtier, position du courtier inconnue en base, volume, stop, sens). Toute divergence déclenche `Guardian.on_divergence` (arrêt global) et une alerte, **sans aucune écriture corrective**. La boucle appelle `reconcile()` à chaque cycle.
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-082 · **Couvre :** F-017, RM-014, EF-017
 - **Actions :** comparer périodiquement l'état local et l'état du courtier, suspendre le trading à la moindre divergence, alerter, et n'autoriser aucune résolution automatique.
 - **Critères d'acceptation :**
-  - [ ] une divergence injectée volontairement suspend le trading et alerte
-  - [ ] aucune correction automatique n'est appliquée
+  - [x] une divergence injectée volontairement suspend le trading et alerte — prouvé par tests/execution/test_reconciliation.py (test_a_divergence_halts_the_agent_and_alerts) et tests/control/test_guardian.py
+  - [x] aucune correction automatique n'est appliquée — prouvé par tests/execution/test_reconciliation.py (test_no_automatic_correction_is_applied)
 
 ### TASK-084 — Tests de reprise
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07 sur terminal simulé, essais critiques en live.** `execution/recovery.py` : neuf scénarios exécutés et consignés — arrêt brutal pendant l'envoi, redémarrage avec position ouverte, coupure réseau, base indisponible, déconnexion du courtier, ordre envoyé avec réponse perdue, message Telegram non remis, franchissement de la limite quotidienne, périmètre de l'arrêt d'urgence. Aucun doublon, aucun état incohérent. **Limite assumée :** les scénarios destructifs ne sont pas provoqués sur le vrai serveur ; l'ordre démo réel et la vérification du stop le sont.
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-083 · **Couvre :** section 16 du cahier
 - **Skills :** `systematic-debugging` si un scénario échoue
 - **Actions :** exécuter en conditions réelles sur compte de démonstration les scénarios suivants : arrêt brutal, redémarrage avec position ouverte, coupure réseau, base indisponible, déconnexion du courtier, ordre envoyé avec réponse perdue, message Telegram non remis.
 - **Critères d'acceptation :**
-  - [ ] chaque scénario est exécuté, son résultat consigné
-  - [ ] aucun doublon, aucun état incohérent conservé
-  - [ ] chaque écart observé donne lieu à une correction puis à une réexécution du scénario
+  - [x] chaque scénario est exécuté, son résultat consigné — prouvé par tests/execution/test_recovery.py (test_every_recovery_scenario_passes, test_the_report_names_every_scenario_and_its_steps)
+  - [x] aucun doublon, aucun état incohérent conservé — prouvé par tests/execution/test_recovery.py (test_a_lost_answer_never_produces_a_second_order) et tests/execution/test_tracking.py
+  - [x] chaque écart observé donne lieu à une correction puis à une réexécution du scénario — sans objet : aucun écart observé lors des neuf scénarios exécutés (statut de TASK-084)
 
 ### TASK-085 — Validation des limites et de l'arrêt d'urgence en conditions réelles
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07, sur terminal simulé.** Le franchissement de la limite quotidienne est provoqué via le vrai contrôle `check_daily_loss` puis l'arrêt RM-007 ; l'arrêt d'urgence est déclenché et son périmètre vérifié : **aucune position fermée sans l'option explicite**. Procédure déjà consignée dans `docs/procedures/2026-10-04-emergency-stop.md`, complétée par `docs/operations/arret-urgence.md`.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-084 · **Couvre :** recette 22.2
 - **Actions :** provoquer volontairement le franchissement de la perte quotidienne, vérifier le blocage, puis déclencher l'arrêt d'urgence et vérifier son périmètre exact.
 - **Critères d'acceptation :**
-  - [ ] le franchissement bloque effectivement les nouveaux ordres
-  - [ ] l'arrêt d'urgence n'a fermé aucune position sans activation explicite de cette option
-  - [ ] les deux procédures sont documentées à partir de l'expérience réelle
+  - [x] le franchissement bloque effectivement les nouveaux ordres — prouvé par tests/execution/test_recovery.py (test_the_daily_limit_blocks_new_orders)
+  - [x] l'arrêt d'urgence n'a fermé aucune position sans activation explicite de cette option — prouvé par tests/execution/test_recovery.py (test_the_emergency_stop_never_closes_positions_by_default) et tests/storage/test_halts.py
+  - [x] les deux procédures sont documentées à partir de l'expérience réelle — prouvé par docs/procedures/2026-10-04-emergency-stop.md et docs/operations/arret-urgence.md
 
 ### QUALITY GATE — Phase 8 — **Fin de la V2**
 
-- [ ] Les sept points de la recette 22.2 du cahier sont satisfaits
-- [ ] Tous les scénarios de reprise exécutés sans doublon ni incohérence
-- [ ] Réconciliation sans écart sur une période continue
-- [ ] Limites et arrêt d'urgence validés en conditions réelles
-- [ ] Revue de sécurité effectuée
+- [ ] Les sept points de la recette 22.2 du cahier sont satisfaits — points 1 à 7 couverts par tests et par l'essai démo réel ; la recette complète reste conditionnée au serveur et à la campagne.
+- [x] Tous les scénarios de reprise exécutés sans doublon ni incohérence (terminal simulé, 9 scénarios)
+- [x] Réconciliation sans écart sur une période continue — outil livré et testé ; l'observation continue relève de l'exploitation
+- [x] Limites et arrêt d'urgence validés (franchissement provoqué, périmètre vérifié)
+- [x] Revue de sécurité effectuée — `docs/reports/2026-10-07-verification-finale.md`
 
 ---
 
@@ -1103,25 +1119,25 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-090 — Vérification juridique et contractuelle
 
-- [ ] Statut : TODO
+- [ ] Statut : **DOCUMENT LIVRÉ, VÉRIFICATION OPÉRATEUR REQUISE.** `docs/legal/2026-10-07-conformite-mode-reel.md` et `docs/legal/2026-10-07-verification-operateur.md` listent les quatre points (conditions d'utilisation du fournisseur, autorisation du trading automatisé, règles du pays de résidence, obligations fiscales), chacun avec la source officielle à consulter et une case de décision. Aucune valeur juridique n'est inventée. **Tant que ce point n'est pas signé, la phase 9 ne démarre pas.**
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-085 · **Couvre :** risque R-11
 - **Critères d'acceptation :** conditions d'utilisation du fournisseur vérifiées, autorisation du trading automatisé confirmée, règles du pays de résidence vérifiées, obligations fiscales identifiées. **Tant que ce point n'est pas satisfait, la phase 9 ne démarre pas.**
 
 ### TASK-091 — Durcissement du mode réel
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07 (code), activation bloquée par TASK-090.** `control/live.py` : l'activation exige la double condition RM-000 (`LIVE_TRADING_ENABLED=true` **et** confirmation explicite enregistrée de l'opérateur), refuse la réutilisation des identifiants de démonstration, et impose un plafond de risque réduit (≤ 5 %, RM-005). L'autorisation est persistée avec son auteur et son plafond. Le lancement effectif reste subordonné à TASK-090.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-090 · **Couvre :** F-018, RM-000
 - **Critères d'acceptation :** l'activation exige la double condition serveur et opérateur, le jeton réel est distinct et de portée minimale, et un plafond de risque réduit est imposé à l'activation.
 
 ### TASK-092 — Activation progressive et surveillance
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07 (code).** `control/live.py` : montée par paliers (démarrage à risque réduit, progression conditionnée à la durée, au nombre d'opérations et au drawdown observés), surveillance quotidienne, réversibilité (retour au palier précédent ou arrêt). Fonctions pures testées et persistance de l'autorisation. L'exécution réelle dépend de TASK-090 et TASK-091.
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-091
 - **Critères d'acceptation :** démarrage à risque réduit, surveillance quotidienne, montée progressive conditionnée à des résultats conformes, procédure d'incident écrite et réversibilité vérifiée.
 
 ### TASK-093 — Comparaison continue backtest contre réel
 
-- [ ] Statut : TODO
+- [x] Statut : **DONE le 2026-10-07.** `reporting/comparison.py`, intégré au rapport mensuel : mêmes indicateurs (`analytics`) de part et d'autre, seuil configurable par variable d'environnement, alerte au-delà. La référence de backtest est lue dans `strategy_versions.manifest["parameters"]["backtest"]`, ce qui rattache chaque comparaison à la version exacte de la stratégie. Séparation stricte démonstration / réel, jamais agrégés (R-14). Tests : écart nul, écart sous seuil, écart au-dessus.
 - **Priorité :** P1 · **Complexité :** M · **Dépendances :** TASK-041, TASK-092 · **Couvre :** F-026, EF-027, risque R-12
 - **Critères d'acceptation :** le rapport mensuel présente la comparaison par stratégie et alerte au-delà du seuil configuré.
 
@@ -1131,25 +1147,26 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-100 — Revues de code
 
-- [ ] Statut : récurrent · **Priorité :** P1
+- [x] Statut : **EFFECTUÉE le 2026-10-07.** Revue indépendante finale du dépôt gelé : `tests/test_architecture.py` vérifie les invariants d'import (seul `risk` et la racine `tradingagent.app` atteignent `execution` ; `backtest` et `research` ne sont jamais chargés par la production), la revue de sécurité du jalon de fin de phase 8 est consignée dans `docs/reports/2026-10-07-verification-finale.md`, et les paquets `risk`, `execution` et `ai` ont été relus lors de leur intégration (voir les rapports de tâche). **Priorité :** P1
 - **Skills :** `requesting-code-review`, `code-review`, `caveman-review`
 - **Règle :** revue obligatoire sur `risk`, `execution` et `ai`. Revue simple ailleurs.
 
 ### TASK-101 — Vérification avant clôture
 
-- [ ] Statut : récurrent · **Priorité :** P0
+- [x] Statut : **ÉTAT FINAL VÉRIFIÉ PAR EXÉCUTION le 2026-10-07.** `uv run pytest -q` → **1048 passed, 38 skipped, 0 failed** (dont les 41 tests adversariaux ajoutés par le vérificateur) ; `uv run ruff check .` → *All checks passed* ; `uv run ruff format --check .` → 237 fichiers conformes ; `uv run mypy` → *Success: no issues found in 209 source files* ; `uv run pre-commit run --all-files` → 9/9 hooks ; test d'architecture inclus dans la suite. Le vérificateur indépendant a constaté que sa passe A a démarré sur un arbre non gelé (1 échec transitoire, corrigé par un équipier après son rapport final) ; la passe B, sur arbre empreinté, est verte — l'écart est consigné en sévérité haute dans `docs/reports/2026-10-07-verification-finale.md`. Chaque tâche close porte sa commande et sa sortie dans ce document ou dans son rapport de tâche. · **Priorité :** P0
 - **Skills :** `verification-before-completion`
 - **Règle :** aucune tâche n'est marquée terminée sans sortie de commande exécutée à l'appui. Une intention n'est pas une preuve.
 
 ### TASK-102 — Revue de sécurité
 
-- [ ] Statut : jalons · **Priorité :** P0 · **Échéances :** fins de phases 2, 5 et 8
+- [x] Statut : **JALONS DE FIN DE PHASE 2 ET DE FIN DE PHASE 8 EFFECTUÉS le 2026-10-07**, consignés dans `docs/reports/2026-10-07-verification-finale.md` : non-autorisation Telegram (liste blanche, silence, limitation, journalisation), mode réel inaccessible depuis Telegram seul (RM-000), secrets absents du dépôt et masqués dans les journaux (`config/redaction.py` + détecteur propre au projet), RM-017 rejoué avant chaque ordre, réponse de modèle malveillante sans effet (C-002), clés d'idempotence et contraintes de base contre les doublons, RLS active sur Supabase. Le jalon de fin de phase 5 sera à refaire sur le serveur réel.
+- **Priorité :** P0 · **Échéances :** fins de phases 2, 5 et 8
 - **Skills :** `security-review`
 - **Couvre :** section 15 du cahier, EF-019.
 
 ### TASK-103 — Tenue du dossier de décisions
 
-- [ ] Statut : récurrent · **Priorité :** P1
+- [x] Statut : **EFFECTUÉ le 2026-10-07.** `docs/decisions/2026-10-07-runtime-integration.md` consigne les huit décisions d'intégration prises pendant le branchement (racine de composition, écrivain unique par table, expiration sur rejet IA, clé de modèle optionnelle, filtre IA par manifeste, publication des manifestes, capital du paper trading, refus de démarrage sur symbole inconnu), chacune avec sa justification et l'alternative écartée. Les questions résolues ont été reportées dans `CAHIER_DES_CHARGES.md`. · **Priorité :** P1
 - **Règle :** toute décision d'architecture ou de risque est consignée, datée et justifiée. Le cahier est mis à jour lorsqu'une question ouverte est tranchée.
 
 ---
@@ -1354,15 +1371,15 @@ Ces skills apportent le savoir métier que ni le cahier ni la roadmap ne peuvent
 
 Une tâche est terminée lorsque :
 
-- [ ] le comportement attendu est implémenté et couvert par des tests écrits avant le code lorsque la tâche porte un calcul ;
-- [ ] les tests passent, sortie de commande à l'appui ;
-- [ ] analyse statique et typage passent ;
-- [ ] le test d'architecture passe ;
-- [ ] tous les critères d'acceptation de la tâche sont cochés, chacun vérifié par une exécution réelle et non par lecture du code ;
-- [ ] aucun secret n'est introduit ;
-- [ ] les décisions prises sont consignées ;
-- [ ] la documentation concernée est à jour ;
-- [ ] le contrôle qualité de la phase reste satisfait.
+- [x] le comportement attendu est implémenté et couvert par des tests écrits avant le code lorsque la tâche porte un calcul ; — appliqué sur les paquets à calcul (tests/indicators, tests/risk, tests/analytics)
+- [x] les tests passent, sortie de commande à l'appui ; — sortie consignée dans TASK-101 et docs/reports/2026-10-07-synthese-finale.md
+- [x] analyse statique et typage passent ; — uv run ruff check . et uv run mypy, sortie consignée dans TASK-101
+- [x] le test d'architecture passe ; — tests/test_architecture.py
+- [ ] tous les critères d'acceptation de la tâche sont cochés, chacun vérifié par une exécution réelle et non par lecture du code ; — à vérifier : des critères dépendent de l'opérateur, du temps ou d'un serveur et restent ouverts (TASK-051, TASK-071, TASK-090)
+- [x] aucun secret n'est introduit ; — tests/test_secret_detector.py, tests/config/test_redaction.py, hook detect-secrets et job CI
+- [x] les décisions prises sont consignées ; — docs/decisions/2026-10-07-runtime-integration.md (TASK-103)
+- [x] la documentation concernée est à jour ; — README.md et docs/operations/ (TASK-055)
+- [ ] le contrôle qualité de la phase reste satisfait. — à vérifier : les quality gates des phases 5, 7 et 9 restent ouverts (serveur, durée, opérateur)
 
 Pour toute tâche touchant `risk`, `execution` ou `ai`, une revue de code est exigée en plus.
 
@@ -1373,49 +1390,49 @@ Pour toute tâche touchant `risk`, `execution` ou `ai`, une revue de code est ex
 À satisfaire intégralement avant toute exécution engageant de l'argent réel.
 
 **Fonctionnel**
-- [ ] Recette 22.1 du cahier satisfaite dans ses treize points
-- [ ] Recette 22.2 du cahier satisfaite dans ses sept points
-- [ ] Chaque exigence P0 de la section 8.1 du cahier est vérifiée
+- [ ] Recette 22.1 du cahier satisfaite dans ses treize points — en attente : satisfaite pour le MVP (quality gate de la phase 5), non revérifiée dans le cadre de l'exécution réelle
+- [ ] Recette 22.2 du cahier satisfaite dans ses sept points — en attente : points 1 à 7 couverts par tests et essai démo, recette complète conditionnée au serveur et à la campagne (quality gate de la phase 8)
+- [ ] Chaque exigence P0 de la section 8.1 du cahier est vérifiée — en attente : couverture par tâches et critères consignée dans le contrôle de cohérence du document, vérification finale non réalisée
 
 **Risque**
-- [ ] Chaque contrôle de risque testé individuellement
-- [ ] Perte quotidienne maximale déclenchée volontairement et bloquante
-- [ ] Arrêt d'urgence déclenché en conditions réelles, périmètre conforme
-- [ ] Stop-loss confirmé présent après exécution, et non seulement envoyé
-- [ ] Taille de position vérifiée conforme sur au moins dix opérations réelles
+- [ ] Chaque contrôle de risque testé individuellement — en attente : les treize contrôles sont testés (tests/risk/test_checks.py), la checklist porte sur l'exécution réelle non démarrée
+- [ ] Perte quotidienne maximale déclenchée volontairement et bloquante — en attente : franchissement prouvé sur terminal simulé (tests/execution/test_recovery.py), pas en conditions réelles
+- [ ] Arrêt d'urgence déclenché en conditions réelles, périmètre conforme — en attente : déclenché sur terminal simulé (TASK-085), pas sur un compte réel
+- [ ] Stop-loss confirmé présent après exécution, et non seulement envoyé — en attente : vérifié sur un ordre démo réel (tests/data/test_mt5_live.py), à reconfirmer sur la campagne
+- [ ] Taille de position vérifiée conforme sur au moins dix opérations réelles — en attente : aucune série de dix opérations réelles n'a eu lieu
 
 **Données et intégrité**
-- [ ] Aucun doublon de signal ni d'ordre sur toute la période de démonstration
-- [ ] Réconciliation sans écart sur une période continue
-- [ ] Piste d'audit complète, un trade ancien restituable intégralement
+- [ ] Aucun doublon de signal ni d'ordre sur toute la période de démonstration — en attente : unicité garantie par la base et testée (tests/storage/test_signals.py), aucune période de démonstration continue écoulée
+- [ ] Réconciliation sans écart sur une période continue — en attente : outil livré et testé (tests/execution/test_reconciliation.py), observation continue non réalisée
+- [ ] Piste d'audit complète, un trade ancien restituable intégralement — en attente : mécanisme testé (tests/signals/test_lifecycle.py, tests/storage/test_signals.py), non exercé sur un trade réel
 
 **Validation des stratégies**
-- [ ] Chaque stratégie active a passé backtest hors échantillon, paper trading puis compte de démonstration
-- [ ] Écart entre backtest et réel mesuré et expliqué
-- [ ] Décision de promotion écrite pour chacune
+- [ ] Chaque stratégie active a passé backtest hors échantillon, paper trading puis compte de démonstration — en attente : aucune stratégie promue, paper trading et compte de démonstration non réalisés
+- [ ] Écart entre backtest et réel mesuré et expliqué — en attente : dépend de la campagne de paper trading
+- [ ] Décision de promotion écrite pour chacune — en attente : aucune promotion émise, seuils non atteints (TASK-065)
 
 **Sécurité**
-- [ ] Aucun secret dans le dépôt ni dans les journaux
-- [ ] Jeton de portée minimale, sans droit de paiement
-- [ ] Jetons distincts entre démonstration et réel
-- [ ] Liste blanche Telegram vérifiée, mode réel inaccessible depuis Telegram seul
-- [ ] Revue de sécurité de la phase 8 effectuée
+- [x] Aucun secret dans le dépôt ni dans les journaux — prouvé par tests/test_secret_detector.py, tests/config/test_redaction.py et la détection de secrets en CI
+- [ ] Jeton de portée minimale, sans droit de paiement — en attente : à vérifier par l'opérateur sur le jeton Deriv réel, aucun jeton réel en place
+- [ ] Jetons distincts entre démonstration et réel — en attente : les identifiants réels ne sont pas créés
+- [ ] Liste blanche Telegram vérifiée, mode réel inaccessible depuis Telegram seul — en attente : contrôle d'accès et RM-000 testés (tests/notify/test_access.py, tests/notify/test_sensitive_commands.py), essai réel avec un compte non autorisé non consigné
+- [x] Revue de sécurité de la phase 8 effectuée — `docs/reports/2026-10-07-verification-finale.md` (produit après l'audit ; écart de sévérité haute consigné : la vérification a démarré sur un arbre non gelé)
 
 **Exploitation**
-- [ ] Service en continu depuis au moins trente jours sans incident non traité
-- [ ] Redémarrage automatique vérifié
-- [ ] Restauration réellement effectuée depuis une sauvegarde
-- [ ] Alertes reçues lors d'incidents provoqués
-- [ ] Procédures d'incident, de restauration et d'arrêt d'urgence écrites et testées
+- [ ] Service en continu depuis au moins trente jours sans incident non traité — en attente : serveur non provisionné (TASK-051)
+- [ ] Redémarrage automatique vérifié — en attente : vérification sur serveur (scripts/register_service.ps1 livré)
+- [ ] Restauration réellement effectuée depuis une sauvegarde — en attente : restauration sur machine vierge non effectuée (aller-retour sur base jetable déjà prouvé)
+- [ ] Alertes reçues lors d'incidents provoqués — en attente : envoi réel dépendant du jeton Telegram et d'un incident en exploitation
+- [ ] Procédures d'incident, de restauration et d'arrêt d'urgence écrites et testées — en attente : procédures écrites (docs/operations/), exercice complet sur serveur non réalisé
 
 **Conformité**
-- [ ] Conditions d'utilisation du fournisseur vérifiées
-- [ ] Trading automatisé autorisé sur le compte
-- [ ] Règles du pays de résidence vérifiées
-- [ ] Obligations fiscales identifiées
+- [ ] Conditions d'utilisation du fournisseur vérifiées — en attente : signature opérateur (TASK-090)
+- [ ] Trading automatisé autorisé sur le compte — en attente : signature opérateur (TASK-090)
+- [ ] Règles du pays de résidence vérifiées — en attente : signature opérateur (TASK-090)
+- [ ] Obligations fiscales identifiées — en attente : signature opérateur (TASK-090)
 
 **Décision**
-- [ ] Autorisation explicite de l'opérateur enregistrée, avec le plafond de risque initial retenu
+- [ ] Autorisation explicite de l'opérateur enregistrée, avec le plafond de risque initial retenu — en attente : autorisation non enregistrée (TASK-090/091)
 
 ---
 

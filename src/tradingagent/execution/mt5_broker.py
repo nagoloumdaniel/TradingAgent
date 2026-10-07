@@ -1,0 +1,625 @@
+"""Order entry on the real MT5 terminal (TASK-081, F-016, RM-012, RM-017).
+
+The rules this module enforces, in order, for every single order:
+
+1. RM-017 — the account the terminal is logged into is checked against the configured
+   login and mode *before* the order. A mismatch raises, and the guardian halts the whole
+   agent: this is never an ordinary refusal.
+2. The idempotency key is looked up first. If the order already exists — accepted, refused
+   or of unknown outcome — nothing is ever sent again. A lost answer is recovered by the
+   hash of the key carried in the order comment, never by resending.
+3. `order_check` runs for information only. It approves orders the server later refuses for
+   jurisdiction (measured on this account, section 12.1): only the `order_send` return code
+   counts.
+4. The stop and the target are sent natively, then **read back from the position**; a stop
+   that is not there triggers an immediate close and an alert.
+5. Requested price, executed price and the gap between them are recorded, and the order,
+   the fill and the position are journalled by the executor (the single writer of `orders`,
+   `positions`, `executions` and `trades`, PAPER and DEMO alike).
+"""
+
+import asyncio
+import hashlib
+import logging
+from collections.abc import Callable
+from datetime import UTC, datetime
+from decimal import Decimal
+from typing import TypeVar
+
+from tradingagent.core.account import AccountModeMismatchError, verify_account_mode
+from tradingagent.core.halt import HaltStatus
+from tradingagent.core.market import Candle, Direction
+from tradingagent.core.mode import TradingMode
+from tradingagent.data.terminal import (
+    MAGIC,
+    PositionInfo,
+    TerminalError,
+    TradeRequest,
+    TradingTerminal,
+)
+from tradingagent.execution.ports import (
+    Alert,
+    BrokerUnavailableError,
+    LocalPosition,
+    OrderRefusedError,
+    TradeLog,
+)
+from tradingagent.execution.reconciliation import reconcile_state
+from tradingagent.execution.tracking import BROKER, STOP_LOSS, STOP_MISSING, TAKE_PROFIT
+from tradingagent.risk.model import (
+    AccountState,
+    BrokerPosition,
+    ClosedPosition,
+    CloseResult,
+    InstrumentSpec,
+    MarketQuote,
+    OpenPosition,
+    OrderRequest,
+    OrderResult,
+)
+
+log = logging.getLogger(__name__)
+
+# MT5 truncates order comments; the hash keeps the key recoverable inside that budget.
+COMMENT_LIMIT = 31
+HASH_LENGTH = 16
+DONE_RETCODES = (10008, 10009)  # placed, done
+STOP_TOLERANCE = Decimal("0.01")
+T = TypeVar("T")
+
+
+def key_comment(idempotency_key: str, prefix: str = "ta") -> str:
+    """A short, stable, non-reversible comment for one key.
+
+    The whole key is hashed, so the comment stays under MT5's limit and leaks nothing.
+    """
+    digest = hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()[:HASH_LENGTH]
+    return f"{prefix}-{digest}"[:COMMENT_LIMIT]
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+class MT5Broker:
+    """The DEMO and LIVE executor. PAPER is refused here and handled by PaperBroker."""
+
+    def __init__(
+        self,
+        terminal: TradingTerminal,
+        log_: TradeLog,
+        *,
+        login: int,
+        mode: TradingMode,
+        magic: int = MAGIC,
+        deviation: int = 50,
+        now: Callable[[], datetime] = _utc_now,
+        alert: Alert | None = None,
+        status: Callable[[], HaltStatus] | None = None,
+        guardian_alarm: Callable[[AccountModeMismatchError], None] | None = None,
+    ) -> None:
+        if mode is TradingMode.PAPER:
+            raise ValueError("PAPER mode uses PaperBroker, never the terminal")
+        self._terminal = terminal
+        self._log = log_
+        self._login = login
+        self._mode = mode
+        self._magic = magic
+        self._deviation = deviation
+        self._now = now
+        self._alert = alert
+        self._status = status
+        self._guardian_alarm = guardian_alarm
+        self._known: set[int] = set()
+        self._deal_cursor = 0
+        self._seeded = False
+
+    # -- Broker surface ----------------------------------------------------------------
+
+    async def initialize(self) -> None:
+        """Start-up only: RM-017 is checked once so a wrong account stops the agent at once.
+
+        The constructor performs no I/O. The terminal connection itself belongs to the
+        market data client; this method only reads the account the terminal is already on.
+        """
+        await self._reverify()
+
+    async def account(self) -> AccountState:
+        snapshot = await self._call(self._terminal.account)
+        self._verify(snapshot.login, snapshot.is_demo)
+        funds = await self._call(self._terminal.funds)
+        return AccountState(
+            login=snapshot.login,
+            is_demo=snapshot.is_demo,
+            currency=snapshot.currency,
+            equity=Decimal(str(funds.equity)),
+            free_margin=Decimal(str(funds.free_margin)),
+        )
+
+    async def instrument(self, symbol: str) -> InstrumentSpec:
+        spec = await self._call(self._terminal.symbol_spec, symbol)
+        if spec is None:
+            raise BrokerUnavailableError(f"no contract specification for {symbol}")
+        return InstrumentSpec(
+            symbol=symbol,
+            contract_size=Decimal(str(spec.contract_size)),
+            volume_min=Decimal(str(spec.volume_min)),
+            volume_step=Decimal(str(spec.volume_step)),
+            volume_max=Decimal(str(spec.volume_max)),
+            point=Decimal(str(spec.point)),
+            stops_level=spec.stops_level,
+        )
+
+    async def quote(
+        self, symbol: str, direction: Direction, stop_loss: Decimal | None
+    ) -> MarketQuote:
+        spec = await self.instrument(symbol)
+        tick = await self._call(self._terminal.last_tick, symbol)
+        if tick is None:
+            raise BrokerUnavailableError(f"no quote for {symbol}")
+        bid, ask = Decimal(str(tick.bid)), Decimal(str(tick.ask))
+        entry = ask if direction is Direction.BUY else bid
+        loss_one_lot: Decimal | None = None
+        rate: Decimal | None = None
+        if stop_loss is not None:
+            raw = await self._call(
+                self._terminal.calc_profit, direction, symbol, 1.0, float(entry), float(stop_loss)
+            )
+            distance = abs(entry - stop_loss)
+            independent = spec.contract_size * distance
+            if raw is not None and independent > 0:
+                loss_one_lot = abs(Decimal(str(raw)))
+                rate = loss_one_lot / independent
+        margin = await self._call(self._terminal.calc_margin, direction, symbol, 1.0, float(entry))
+        margin_one_lot = None if margin is None else Decimal(str(margin))
+        return MarketQuote(bid, ask, loss_one_lot, margin_one_lot, rate)
+
+    async def open_positions(self) -> tuple[OpenPosition, ...]:
+        positions = await self.positions()
+        return tuple(
+            OpenPosition(symbol=position.symbol, volume=position.volume) for position in positions
+        )
+
+    async def positions(self) -> tuple[BrokerPosition, ...]:
+        raw = await self._call(self._terminal.positions)
+        self._known.update(item.ticket for item in raw)
+        return tuple(self._position(item) for item in raw)
+
+    async def place(self, request: OrderRequest) -> OrderResult:
+        self._check_mode(request.mode)
+        self._ensure_trading()
+        await self._reverify()
+        price = await self._quote_price(request.symbol, request.direction)
+
+        existing = self._log.find_order(request.idempotency_key)
+        if existing is not None:
+            if existing.ticket is None and existing.state in ("sent", "error"):
+                # The outcome of a previous attempt is unknown: look for our comment at the
+                # broker before concluding anything. Never send a second order.
+                recovered = await self._find_by_comment(request.idempotency_key)
+                if recovered is not None:
+                    return await self._recovered(existing.order_id, request, price, recovered)
+                return OrderResult(
+                    accepted=False,
+                    ticket=None,
+                    retcode=None,
+                    requested_price=price,
+                    executed_price=None,
+                    slippage=None,
+                    stop_present=False,
+                    message="a previous attempt has an unknown outcome: reconcile, never resend",
+                )
+            return self._replay(existing.ticket, existing.state, existing.retcode, price)
+        # The intent is journalled before anything leaves the process (R-05).
+        order_id = self._log.record_request(request, price, self._now())
+
+        trade = TradeRequest(
+            symbol=request.symbol,
+            direction=request.direction,
+            volume=float(request.volume),
+            price=float(price),
+            stop_loss=float(request.stop_loss),
+            take_profit=None if request.take_profit is None else float(request.take_profit),
+            comment=key_comment(request.idempotency_key, request.comment),
+            deviation=self._deviation,
+            magic=self._magic,
+        )
+        check = await self._call(self._terminal.order_check, trade)
+        log.info(
+            "order_check %s retcode=%s margin=%s (informative only)",
+            request.symbol,
+            check.retcode,
+            check.margin,
+        )
+
+        try:
+            raw = await self._call(self._terminal.order_send, trade)
+        except TerminalError as error:
+            return await self._after_send_failure(order_id, request, price, error)
+
+        if raw is None:
+            return await self._after_lost_answer(order_id, request, price)
+        if raw.retcode not in DONE_RETCODES:
+            refused = OrderResult(
+                accepted=False,
+                ticket=None,
+                retcode=raw.retcode,
+                requested_price=price,
+                executed_price=None,
+                slippage=None,
+                stop_present=False,
+                message=f"refused by the server: {raw.retcode} {raw.comment}",
+            )
+            self._log.record_result(order_id, refused, self._now())
+            return refused
+
+        executed = Decimal(str(raw.price)) if raw.price else price
+        ticket = raw.order_ticket or raw.deal_ticket
+        result = OrderResult(
+            accepted=True,
+            ticket=ticket,
+            retcode=raw.retcode,
+            requested_price=price,
+            executed_price=executed,
+            slippage=abs(executed - price),
+            stop_present=True,
+            message=raw.comment,
+        )
+        self._log.record_result(order_id, result, self._now())
+        self._log.record_fill(
+            order_id, request, result, deal_ticket=raw.deal_ticket, at=self._now()
+        )
+        self._known.add(ticket)
+        if not await self._stop_present(ticket, request):
+            return await self._close_unprotected(order_id, request, result)
+        return result
+
+    async def close(self, ticket: int, reason: str) -> CloseResult:
+        await self._reverify()
+        raw_positions = await self._call(self._terminal.positions)
+        position = next((item for item in raw_positions if item.ticket == ticket), None)
+        if position is None:
+            return CloseResult(
+                closed=False,
+                position_ticket=ticket,
+                exit_price=None,
+                pnl_eur=None,
+                exit_reason=reason,
+                message="position is not open at the broker",
+            )
+        tick = await self._call(self._terminal.last_tick, position.symbol)
+        if tick is None:
+            raise BrokerUnavailableError(f"no quote to close {position.symbol}")
+        closing = Direction.SELL if position.direction is Direction.BUY else Direction.BUY
+        price = Decimal(str(tick.bid if position.direction is Direction.BUY else tick.ask))
+        trade = TradeRequest(
+            symbol=position.symbol,
+            direction=closing,
+            volume=position.volume,
+            price=float(price),
+            comment=key_comment(f"close:{ticket}:{reason}", "tc"),
+            deviation=self._deviation,
+            position_ticket=ticket,
+            magic=self._magic,
+        )
+        try:
+            raw = await self._call(self._terminal.order_send, trade)
+        except TerminalError as error:
+            raise BrokerUnavailableError(f"closing {ticket} failed: {error}") from error
+        if raw is None or raw.retcode not in DONE_RETCODES:
+            retcode = None if raw is None else raw.retcode
+            return CloseResult(
+                closed=False,
+                position_ticket=ticket,
+                exit_price=None,
+                pnl_eur=None,
+                exit_reason=reason,
+                message=f"close refused: retcode={retcode}",
+            )
+        self._known.discard(ticket)
+        closed = await self._closure_for(ticket, reason)
+        if closed is None:
+            closed = ClosedPosition(
+                ticket=ticket,
+                symbol=position.symbol,
+                exit_price=price,
+                pnl_eur=Decimal(0),
+                exit_reason=reason,
+                closed_at=self._now(),
+            )
+        self._log.record_closures((closed,), self._now())
+        return CloseResult(
+            closed=True,
+            position_ticket=ticket,
+            exit_price=closed.exit_price,
+            pnl_eur=closed.pnl_eur,
+            exit_reason=reason,
+            message=f"closed at {closed.exit_price}",
+        )
+
+    async def on_candle(self, symbol: str, candle: Candle) -> tuple[ClosedPosition, ...]:
+        return await self._collect_closures()
+
+    async def on_tick(self, symbol: str, bid: Decimal, ask: Decimal) -> tuple[ClosedPosition, ...]:
+        return await self._collect_closures()
+
+    # -- internals ---------------------------------------------------------------------
+
+    def _replay(
+        self, ticket: int | None, state: str, retcode: int | None, price: Decimal
+    ) -> OrderResult:
+        """An order already recorded for this key: never a second one."""
+        if ticket is not None:
+            return OrderResult(
+                accepted=True,
+                ticket=ticket,
+                retcode=retcode,
+                requested_price=price,
+                executed_price=None,
+                slippage=None,
+                stop_present=True,
+                message="already sent under this idempotency key",
+            )
+        if state == "error":
+            return OrderResult(
+                accepted=False,
+                ticket=None,
+                retcode=None,
+                requested_price=price,
+                executed_price=None,
+                slippage=None,
+                stop_present=False,
+                message="a previous attempt has an unknown outcome: reconcile before any retry",
+            )
+        return OrderResult(
+            accepted=False,
+            ticket=None,
+            retcode=retcode,
+            requested_price=price,
+            executed_price=None,
+            slippage=None,
+            stop_present=False,
+            message="already refused under this idempotency key",
+        )
+
+    async def _after_send_failure(
+        self, order_id: int, request: OrderRequest, price: Decimal, error: TerminalError
+    ) -> OrderResult:
+        position = await self._find_by_comment(request.idempotency_key)
+        if position is not None:
+            return await self._recovered(order_id, request, price, position)
+        result = OrderResult(
+            accepted=False,
+            ticket=None,
+            retcode=None,
+            requested_price=price,
+            executed_price=None,
+            slippage=None,
+            stop_present=False,
+            message=f"send failed with an unknown outcome: {error}",
+        )
+        self._log.record_result(order_id, result, self._now())
+        return result
+
+    async def _after_lost_answer(
+        self, order_id: int, request: OrderRequest, price: Decimal
+    ) -> OrderResult:
+        position = await self._find_by_comment(request.idempotency_key)
+        if position is not None:
+            return await self._recovered(order_id, request, price, position)
+        result = OrderResult(
+            accepted=False,
+            ticket=None,
+            retcode=None,
+            requested_price=price,
+            executed_price=None,
+            slippage=None,
+            stop_present=False,
+            message="answer lost: reconcile by comment before any retry, never resend",
+        )
+        self._log.record_result(order_id, result, self._now())
+        return result
+
+    async def _recovered(
+        self, order_id: int, request: OrderRequest, price: Decimal, position: PositionInfo
+    ) -> OrderResult:
+        """The order did reach the server: adopt its ticket instead of sending another."""
+        executed = Decimal(str(position.price_open))
+        result = OrderResult(
+            accepted=True,
+            ticket=position.ticket,
+            retcode=None,
+            requested_price=price,
+            executed_price=executed,
+            slippage=abs(executed - price),
+            stop_present=bool(position.stop_loss),
+            message="recovered by idempotency comment, no second order sent",
+        )
+        self._log.record_result(order_id, result, self._now())
+        self._log.record_fill(
+            order_id, request, result, deal_ticket=position.ticket, at=self._now()
+        )
+        self._known.add(position.ticket)
+        if not result.stop_present:
+            return await self._close_unprotected(order_id, request, result)
+        return result
+
+    async def _close_unprotected(
+        self, order_id: int, request: OrderRequest, result: OrderResult
+    ) -> OrderResult:
+        ticket = result.ticket
+        if ticket is None:
+            raise BrokerUnavailableError("cannot close an order without a ticket")
+        self._alarm(
+            f"position {ticket} {request.symbol} opened without its stop-loss: closing it now "
+            "(TASK-081)"
+        )
+        closed = await self.close(ticket, STOP_MISSING)
+        outcome = "ok" if closed.closed else "failed"
+        final = OrderResult(
+            accepted=result.accepted,
+            ticket=ticket,
+            retcode=result.retcode,
+            requested_price=result.requested_price,
+            executed_price=result.executed_price,
+            slippage=result.slippage,
+            stop_present=False,
+            message=f"stop-loss absent after execution; close={outcome}",
+        )
+        self._log.record_result(order_id, final, self._now())
+        return final
+
+    async def _stop_present(self, ticket: int, request: OrderRequest) -> bool:
+        positions = await self._call(self._terminal.positions, request.symbol)
+        for position in positions:
+            if position.ticket != ticket:
+                continue
+            if not position.stop_loss:
+                return False
+            spec = await self.instrument(request.symbol)
+            tolerance = max(spec.point * 2, STOP_TOLERANCE)
+            return abs(Decimal(str(position.stop_loss)) - request.stop_loss) <= tolerance
+        return False  # gone or unreadable: not confirmed is not confirmed
+
+    async def _find_by_comment(self, idempotency_key: str) -> PositionInfo | None:
+        comment = key_comment(idempotency_key)
+        positions = await self._call(self._terminal.positions)
+        for position in positions:
+            if position.comment == comment:
+                return position
+        return None
+
+    async def _collect_closures(self) -> tuple[ClosedPosition, ...]:
+        await self._seed_known()
+        raw_positions = await self._call(self._terminal.positions)
+        live = {position.ticket for position in raw_positions}
+        self._known.update(live)
+        missing = {ticket for ticket in self._known if ticket not in live}
+        if not missing:
+            return ()
+        closed: list[ClosedPosition] = []
+        for ticket in sorted(missing):
+            item = await self._closure_for(ticket, None)
+            if item is not None:
+                closed.append(item)
+        if closed:
+            self._log.record_closures(closed, self._now())
+        return tuple(closed)
+
+    async def _closure_for(self, ticket: int, reason: str | None) -> ClosedPosition | None:
+        deals = await self._call(self._terminal.deals_since, self._deal_cursor)
+        if deals:
+            self._deal_cursor = max(self._deal_cursor, max(deal.server_epoch for deal in deals))
+        closed_deals = [
+            deal for deal in deals if not deal.is_entry and deal.position_ticket == ticket
+        ]
+        if not closed_deals:
+            return None
+        self._known.discard(ticket)
+        last = closed_deals[-1]
+        pnl = sum((Decimal(str(deal.profit)) for deal in closed_deals), Decimal(0))
+        exit_price = Decimal(str(last.price))
+        local = self._local(ticket)
+        return ClosedPosition(
+            ticket=ticket,
+            symbol=last.symbol,
+            exit_price=exit_price,
+            pnl_eur=pnl,
+            exit_reason=reason or self._reason_for(ticket, exit_price),
+            closed_at=datetime.fromtimestamp(last.server_epoch, tz=UTC),
+            signal_id=None if local is None else local.signal_id,
+        )
+
+    def _reason_for(self, ticket: int, exit_price: Decimal) -> str:
+        position = self._local(ticket)
+        if position is None:
+            return BROKER
+        if position.stop_loss is not None and abs(position.stop_loss - exit_price) <= (
+            STOP_TOLERANCE
+        ):
+            return STOP_LOSS
+        if position.take_profit is not None and abs(position.take_profit - exit_price) <= (
+            STOP_TOLERANCE
+        ):
+            return TAKE_PROFIT
+        return BROKER
+
+    def _local(self, ticket: int) -> LocalPosition | None:
+        return self._log.position_for_ticket(ticket)
+
+    async def _seed_known(self) -> None:
+        if self._seeded:
+            return
+        self._seeded = True
+        for position in self._log.local_positions(self._mode):
+            self._known.add(position.ticket)
+
+    async def reconcile(self) -> tuple[str, ...]:
+        """RM-014: compare the local state to the account's, describe every difference.
+
+        It never corrects anything: a divergence means the operator must look, so the
+        caller halts the agent. Both directions are checked — a local position the broker
+        does not have, and a broker position the base does not know.
+        """
+        positions = await self.positions()
+        return await asyncio.to_thread(reconcile_state, self._log, self._mode, positions)
+
+    async def _quote_price(self, symbol: str, direction: Direction) -> Decimal:
+        tick = await self._call(self._terminal.last_tick, symbol)
+        if tick is None:
+            raise BrokerUnavailableError(f"no quote for {symbol}")
+        return Decimal(str(tick.ask if direction is Direction.BUY else tick.bid))
+
+    async def _reverify(self) -> None:
+        snapshot = await self._call(self._terminal.account)
+        self._verify(snapshot.login, snapshot.is_demo)
+
+    def _verify(self, login: int, is_demo: bool) -> None:
+        try:
+            verify_account_mode(login, is_demo, self._login, self._mode)
+        except AccountModeMismatchError as error:
+            if self._guardian_alarm is not None:
+                self._guardian_alarm(error)
+            self._alarm(f"RM-017 violation, execution stops: {error}")
+            raise
+
+    def _ensure_trading(self) -> None:
+        if self._status is None:
+            return
+        status = self._status()
+        if status.halted:
+            raise OrderRefusedError(f"trading is halted: {'; '.join(status.reasons)}")
+
+    def _check_mode(self, mode: TradingMode) -> None:
+        if mode is not self._mode:
+            raise OrderRefusedError(
+                f"order carries mode {mode}, this executor runs in {self._mode}: refused"
+            )
+
+    def _alarm(self, message: str) -> None:
+        log.critical("%s", message)
+        if self._alert is None:
+            return
+        try:
+            self._alert(message)
+        except Exception:
+            log.exception("alert could not be delivered")
+
+    @staticmethod
+    async def _call(function: Callable[..., T], *args: object) -> T:
+        return await asyncio.to_thread(function, *args)
+
+    def _position(self, item: PositionInfo) -> BrokerPosition:
+        return BrokerPosition(
+            ticket=item.ticket,
+            symbol=item.symbol,
+            direction=item.direction,
+            volume=Decimal(str(item.volume)),
+            open_price=Decimal(str(item.price_open)),
+            stop_loss=Decimal(str(item.stop_loss)) if item.stop_loss else None,
+            take_profit=Decimal(str(item.take_profit)) if item.take_profit else None,
+            mode=self._mode,
+        )
+
+
+__all__ = ["BROKER", "COMMENT_LIMIT", "MT5Broker", "key_comment"]

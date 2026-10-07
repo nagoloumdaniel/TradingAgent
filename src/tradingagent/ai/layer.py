@@ -178,10 +178,17 @@ class AiFilterLayer:
         return self._config.ai_filter
 
     async def review(
-        self, context: ReviewContext, at: datetime, signal_id: int | None = None
+        self,
+        context: ReviewContext,
+        at: datetime,
+        signal_id: int | None = None,
+        ai_filter: AiFilter | None = None,
     ) -> ReviewOutcome:
+        """`ai_filter` overrides the layer default for this call: the manifest of the
+        strategy that produced the signal is the authority (RM-016, TASK-037)."""
+        effective = ai_filter if ai_filter is not None else self._config.ai_filter
         if self._calls.total_cost_eur() >= self._config.budget_eur:
-            return await self._unavailable(context, at, signal_id, "budget épuisé")
+            return await self._unavailable(context, at, signal_id, "budget épuisé", effective)
 
         request = _user_prompt(context)
         started = time.monotonic()
@@ -191,7 +198,7 @@ class AiFilterLayer:
             )
         except Exception as error:  # timeout, network, provider
             elapsed = int((time.monotonic() - started) * 1000)
-            return await self._unavailable(context, at, signal_id, str(error), elapsed)
+            return await self._unavailable(context, at, signal_id, str(error), effective, elapsed)
 
         latency_ms = int((time.monotonic() - started) * 1000)
         decision, reason, text, overruns = _parse(reply.text)
@@ -204,13 +211,15 @@ class AiFilterLayer:
                 {"model": reply.model, "fields": list(overruns)},
                 at,
             )
-        outcome = self._outcome(decision, reason, text, overruns, latency_ms, cost, reply.model)
+        outcome = self._outcome(
+            decision, reason, text, overruns, latency_ms, cost, reply.model, effective
+        )
         await asyncio.to_thread(
             self._calls.record,
             AiCall(
                 signal_id=signal_id,
                 purpose=self._config.purpose,
-                ai_filter=self._config.ai_filter,
+                ai_filter=effective,
                 request={"prompt": request, "system": SYSTEM_PROMPT},
                 response=reply.text,
                 verdict=outcome.verdict if outcome.verdict != "unavailable" else None,
@@ -229,15 +238,17 @@ class AiFilterLayer:
         at: datetime,
         signal_id: int | None,
         error: str,
+        ai_filter: AiFilter,
         latency_ms: int | None = None,
     ) -> ReviewOutcome:
-        log.warning("AI review unavailable (%s): %s", self._config.ai_filter, error)
+        del context
+        log.warning("AI review unavailable (%s): %s", ai_filter, error)
         await asyncio.to_thread(
             self._calls.record,
             AiCall(
                 signal_id=signal_id,
                 purpose=self._config.purpose,
-                ai_filter=self._config.ai_filter,
+                ai_filter=ai_filter,
                 request={"error": error},
                 response=None,
                 verdict=None,
@@ -250,10 +261,10 @@ class AiFilterLayer:
         )
         return ReviewOutcome(
             verdict="unavailable",
-            ai_filter=self._config.ai_filter,
+            ai_filter=ai_filter,
             applied=False,
-            blocks_signal=self._config.ai_filter is AiFilter.REQUIRED,
-            degraded=self._config.ai_filter is not AiFilter.REQUIRED,
+            blocks_signal=ai_filter is AiFilter.REQUIRED,
+            degraded=ai_filter is not AiFilter.REQUIRED,
             reason=_fallback_reason(error),
             text=_fallback_reason(error),
             model=self._model,
@@ -269,13 +280,14 @@ class AiFilterLayer:
         latency_ms: int,
         cost: Decimal,
         model: str,
+        ai_filter: AiFilter,
     ) -> ReviewOutcome:
         if decision is None:
             return ReviewOutcome(
                 verdict="unavailable",
-                ai_filter=self._config.ai_filter,
+                ai_filter=ai_filter,
                 applied=False,
-                blocks_signal=self._config.ai_filter is AiFilter.REQUIRED,
+                blocks_signal=ai_filter is AiFilter.REQUIRED,
                 degraded=True,
                 reason=_fallback_reason(reason),
                 text=_fallback_reason(reason),
@@ -285,10 +297,10 @@ class AiFilterLayer:
                 model=model,
             )
         rejected = decision == "reject"
-        shadow = self._config.ai_filter is AiFilter.SHADOW
+        shadow = ai_filter is AiFilter.SHADOW
         return ReviewOutcome(
             verdict="rejected" if rejected else "approved",
-            ai_filter=self._config.ai_filter,
+            ai_filter=ai_filter,
             applied=not shadow,
             blocks_signal=not shadow and rejected,
             degraded=False,

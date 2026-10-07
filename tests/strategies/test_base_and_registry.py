@@ -150,4 +150,5 @@ def test_registry_cannot_be_modified() -> None:
 
 
 def test_production_registry_lists_only_reviewed_strategies() -> None:
-    assert set(REGISTRY) == {"witness"}
+    # trend_breakout is reviewed for mechanics only, and its manifest stays capped at SIGNAL.
+    assert set(REGISTRY) == {"witness", "trend_breakout"}

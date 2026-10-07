@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from tradingagent.analytics import Performance, Trade, compute_performance, group
 from tradingagent.analytics.axes import Axis
+from tradingagent.reporting.comparison import ComparisonBuilder, ComparisonThresholds
 from tradingagent.reporting.schedule import Period, Window
 from tradingagent.storage.account import AccountStore, ReportData
 
@@ -40,9 +41,15 @@ def _advice(performance: Performance) -> str:
 
 
 class ReportGenerator:
-    def __init__(self, data: ReportData, account: AccountStore) -> None:
+    def __init__(
+        self,
+        data: ReportData,
+        account: AccountStore,
+        comparison: ComparisonBuilder | None = None,
+    ) -> None:
         self._data = data
         self._account = account
+        self._comparison = comparison
 
     def build(self, window: Window) -> str:
         trades = [trade for _, trade in self._data.trades_between(window.start, window.end)]
@@ -79,7 +86,20 @@ class ReportGenerator:
             lines += self._breakdown(trades, "Par stratégie", Axis.STRATEGY)
             lines += self._previous_comparison(window, performance)
             lines += self._recommendations(trades)
+            if window.period is Period.MONTHLY:
+                lines += self._backtest_comparison(window)
         return "\n".join(lines)
+
+    def _backtest_comparison(self, window: Window) -> list[str]:
+        """F-026: the monthly report compares production with the stored backtest reference.
+
+        The thresholds are re-read from the environment at each report so the operator can
+        adjust an alert level without touching the code.
+        """
+        builder = self._comparison or ComparisonBuilder(
+            self._data.engine, ComparisonThresholds.from_env()
+        )
+        return builder.build(window.start, window.end).render()
 
     def _breakdown(self, trades: list[Trade], title: str, axis: Axis) -> list[str]:
         lines = ["" + title + " :"]

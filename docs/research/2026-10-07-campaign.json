@@ -1,0 +1,94 @@
+{
+  "generated_at": "2026-10-07T02:45:26.784821+00:00",
+  "datasets": {
+    "XAUUSD": {
+      "dataset_id": "mt5-2026-10-07",
+      "fingerprint": "f0d6c90ff7671a7961ad6b1ae5593eb8fbb34cacaa7f3afe28ddf6930f701bc3",
+      "source": "deriv-mt5:2026-10-07T02:45:00+00:00",
+      "bars": 3999
+    }
+  },
+  "markets": [
+    {
+      "market": "XAUUSD",
+      "dataset_id": "mt5-2026-10-07",
+      "selected": "balanced-2R",
+      "selection_basis": "stability score, then out-of-sample profit factor",
+      "holdout_still_sealed": true,
+      "candidates": [
+        {
+          "label": "fast-1.5R",
+          "selected": false,
+          "stability_score": 0.1159956375476274,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -4.42 below 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.12 below 0.50"
+          ],
+          "train_net_profit": "11.036522477060",
+          "validation_net_profit": "-48.761872889670",
+          "cost_net_profit": "-66.824263536150",
+          "cost_net_profit_factor": 0.6060027863639247,
+          "parameters": {
+            "ema_fast": 10.0,
+            "ema_slow": 30.0,
+            "atr_period": 14.0,
+            "stop_atr_multiplier": 1.5,
+            "take_profit_rr": 1.5,
+            "entry_zone_atr": 0.1
+          }
+        },
+        {
+          "label": "balanced-2R",
+          "selected": true,
+          "stability_score": 0.41259756316976703,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention 0.43 below 0.50",
+            "parameter dispersion 0.62 above 0.50",
+            "stability score 0.41 below 0.50"
+          ],
+          "train_net_profit": "65.613419778810",
+          "validation_net_profit": "27.898506312420",
+          "cost_net_profit": "15.916086856640",
+          "cost_net_profit_factor": 1.1761991819024498,
+          "parameters": {
+            "ema_fast": 20.0,
+            "ema_slow": 50.0,
+            "atr_period": 14.0,
+            "stop_atr_multiplier": 1.5,
+            "take_profit_rr": 2.0,
+            "entry_zone_atr": 0.1
+          }
+        },
+        {
+          "label": "slow-2.5R",
+          "selected": false,
+          "stability_score": 0.0,
+          "fragile": true,
+          "reasons": [
+            "only 23 in-sample trade(s), below 30",
+            "out-of-sample retention -0.09 below 0.50",
+            "parameter dispersion 3.86 above 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.00 below 0.50"
+          ],
+          "train_net_profit": "64.939889911440",
+          "validation_net_profit": "-5.732883043300",
+          "cost_net_profit": "-11.518673329790",
+          "cost_net_profit_factor": 0.7957902772420777,
+          "parameters": {
+            "ema_fast": 30.0,
+            "ema_slow": 80.0,
+            "atr_period": 14.0,
+            "stop_atr_multiplier": 1.5,
+            "take_profit_rr": 2.5,
+            "entry_zone_atr": 0.1
+          }
+        }
+      ]
+    }
+  ],
+  "correlations": []
+}

@@ -1,0 +1,110 @@
+# Intégration continue (TASK-052, ENF-009).
+#
+# La fusion est bloquée par les protections de branche : chaque job ci-dessous doit
+# être coché comme « required status check » sur `main` (voir docs/operations/ci.md).
+#
+# Détection de secrets : le hook pre-commit du projet tourne en `--no-verify`, donc
+# l'étape dédiée ci-dessous invoque explicitement les mêmes analyseurs, hors ligne.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  secrets:
+    name: Détection de secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Installer Python et les dépendances verrouillées
+        run: |
+          uv python install "$PYTHON_VERSION"
+          uv sync --frozen
+      # `--no-verify` : les plugins stock enverraient les candidats à leur fournisseur
+      # et laisseraient passer ceux qui échouent ; le plugin du projet couvre les jetons
+      # courts à faible entropie. Le scan reste donc local et déterministe.
+      - name: detect-secrets (plugins du projet, sans appel réseau)
+        run: |
+          git ls-files -z | xargs -0 uv run detect-secrets-hook --no-verify \
+            --plugin tools/detect_secrets_plugins/project_tokens.py \
+            --baseline .secrets.baseline
+      - name: detect-private-key
+        run: git ls-files -z | xargs -0 uv run detect-private-key
+
+  static:
+    name: Analyse statique et typage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Installer Python et les dépendances verrouillées
+        run: |
+          uv python install "$PYTHON_VERSION"
+          uv sync --frozen
+      - name: ruff check
+        run: uv run ruff check .
+      - name: ruff format --check
+        run: uv run ruff format --check .
+      - name: mypy
+        run: uv run mypy
+
+  tests:
+    name: Tests (${{ matrix.os }})
+    # Windows exécute le paquet MetaTrader5 et les scripts d'exploitation pour de vrai ;
+    # Ubuntu couvre le reste et vérifie que rien ne dépend de Windows.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Installer Python et les dépendances verrouillées
+        run: |
+          uv python install "$PYTHON_VERSION"
+          uv sync --frozen
+      - name: pytest
+        run: uv run pytest -q
+
+  build:
+    name: Construction du paquet
+    # Pas de conteneur (C-010) : l'artefact livrable est la distribution Python, pas une image.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Installer Python et les dépendances verrouillées
+        run: |
+          uv python install "$PYTHON_VERSION"
+          uv sync --frozen
+      - name: Construire la distribution
+        run: uv build
+      - name: Conserver la distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradingagent-dist
+          path: dist/
+          if-no-files-found: error

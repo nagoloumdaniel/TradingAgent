@@ -76,6 +76,11 @@ class ReportData:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
 
+    @property
+    def engine(self) -> Engine:
+        """The engine this reader was built on; the monthly comparison reuses it (TASK-093)."""
+        return self._engine
+
     def trades_between(self, start: datetime, end: datetime) -> list[tuple[int, Trade]]:
         """Closed trades in [start, end), each keeping its producing signal id."""
         statement = (

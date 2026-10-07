@@ -1,0 +1,74 @@
+# Configuration
+
+Toute la configuration vient de l'environnement. Le fichier `.env` à la racine du dépôt
+est lu au démarrage (`Settings(_env_file=".env")`) ; il est **ignoré par git** et ne doit
+jamais être copié dans un ticket, un journal ou un message.
+
+> **Un fichier par environnement.** Les identifiants de démonstration et de compte réel
+> sont strictement séparés (section 15.2 du cahier). Ne mettez jamais un jeu réel dans le
+> fichier de démonstration.
+
+## Variables
+
+Le modèle à copier est [`.env.example`](../../.env.example).
+
+| Variable | Rôle | Remarque |
+|---|---|---|
+| `MT5_LOGIN` | Numéro de compte MT5 | Entier positif |
+| `MT5_SERVER` | Serveur du courtier | Doit correspondre à celui du terminal |
+| `MT5_PASSWORD` | Mot de passe **investisseur** (lecture seule) | Jamais le mot de passe de l'espace client Deriv ; mot de passe principal uniquement pour l'exécution (phase 8) |
+| `MT5_TERMINAL_PATH` | Chemin de `terminal64.exe` | Optionnel si un seul terminal installé |
+| `TELEGRAM_BOT_TOKEN` | Jeton du bot BotFather | Un bot par environnement |
+| `TELEGRAM_ALLOWED_USER_IDS` | Identifiants Telegram autorisés, séparés par des virgules | Liste blanche ; les inconnus sont refusés silencieusement |
+| `ANTHROPIC_API_KEY` | Clé du modèle de langage | Utilisée pour expliquer un signal, jamais pour le créer |
+| `DATABASE_URL` | URI PostgreSQL (Supabase, pooler session) | Obligatoire : aucun repli sur un fichier local |
+| `TRADING_MODE` | `OBSERVATION`, `SIGNAL`, `PAPER` ou `DEMO` | `LIVE` ne peut pas être posé ici seul |
+| `LIVE_TRADING_ENABLED` | Moitié serveur de la double condition du mode réel | Rester `false` hors phase 9 |
+
+Variables propres à l'exploitation (lues par les scripts, pas par l'agent) :
+
+| Variable | Utilisée par | Rôle |
+|---|---|---|
+| `BACKUP_PASSPHRASE` | `scripts/backup.ps1`, `scripts/restore.ps1` | Mot de passe de chiffrement des sauvegardes |
+| `BACKUP_DIR` | `scripts/backup.ps1` | Répertoire des sauvegardes (défaut : `<dépôt>\backups`) |
+| `TRADINGAGENT_ROOT` | tous les scripts | Racine du dépôt si elle diffère du dossier des scripts |
+
+## Modes de fonctionnement
+
+| Mode | Ce qui se passe | Argent engagé |
+|---|---|---|
+| `OBSERVATION` | Aucun signal envoyé, aucun ordre | Non |
+| `SIGNAL` | Signaux notifiés, aucun ordre | Non |
+| `PAPER` | Ordres simulés | Non |
+| `DEMO` | Ordres sur le compte de démonstration | Non |
+| `LIVE` | Ordres réels | **Oui** |
+
+Le passage en `LIVE` exige **les deux** conditions simultanées (RM-000) :
+`TRADING_MODE=LIVE` **et** `LIVE_TRADING_ENABLED=true`. Si l'une manque, le démarrage est
+refusé. `/mode` ne permet pas de passer en `LIVE`.
+
+## Vérifier une configuration
+
+```powershell
+# L'agent refuse de démarrer si une variable manque ou est vide.
+uv run tradingagent status
+
+# La présence des variables est contrôlée par nom, jamais par valeur.
+pwsh -File scripts/install_windows.ps1 -WhatIf
+```
+
+En cas d'erreur, le message liste uniquement les variables fautives, par exemple :
+
+```
+Invalid environment configuration:
+  MT5_SERVER: Field required
+  DATABASE_URL: must not be blank
+```
+
+## Règles
+
+- **UTC partout.** Les horodatages sont affichés en UTC ; un datetime naïf est une erreur.
+- **Aucun secret dans le dépôt.** Le contrôle est automatisé (pre-commit et CI).
+- **Moindre privilège.** Mot de passe investisseur en lecture seule jusqu'à la phase 8.
+- **Rotation des clés.** En cas de fuite : changer le mot de passe MT5, révoquer le jeton
+  Telegram, rotation de la clé Anthropic, puis redémarrer le service.

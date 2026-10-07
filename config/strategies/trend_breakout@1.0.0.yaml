@@ -1,0 +1,20 @@
+# Second production strategy, assigned to bitcoin so each market runs a genuinely
+# different rule (Donchian breakout + trend filter vs EMA crossover). NOT a trading
+# recommendation: max_mode stays SIGNAL until TASK-064/TASK-065 validate it out of sample.
+strategy_id: trend_breakout
+version: 1.0.0
+max_mode: SIGNAL
+allowed_symbols: [BTCUSD]
+timeframes: [M15]
+# 5 x trend_period: the EMA(100) is recursive and must be warmed up identically in
+# backtest and production.
+history_bars: 600
+expiry_bars: 1
+ai_filter: shadow
+parameters:
+  channel_period: 20
+  trend_period: 100
+  atr_period: 14
+  stop_atr_multiplier: 2.0
+  take_profit_rr: 2.0
+  entry_zone_atr: 0.1

@@ -72,17 +72,23 @@ def test_default_mode_is_signal_and_live_is_off(env: pytest.MonkeyPatch) -> None
 
 @pytest.mark.parametrize(
     "name",
-    ["MT5_LOGIN", "MT5_SERVER", "MT5_PASSWORD", "TELEGRAM_BOT_TOKEN", "ANTHROPIC_API_KEY"],
+    ["MT5_LOGIN", "MT5_SERVER", "MT5_PASSWORD", "TELEGRAM_BOT_TOKEN"],
 )
 def test_missing_variable_blocks_startup_and_is_named(env: pytest.MonkeyPatch, name: str) -> None:
     env.delenv(name)
     assert name in error_of(env)
 
 
+def test_the_ai_key_is_optional_so_the_agent_runs_without_it(env: pytest.MonkeyPatch) -> None:
+    # RM-011: an unavailable model must not stop the agent; the deterministic rules decide.
+    env.delenv("ANTHROPIC_API_KEY")
+    settings = load_settings()
+    assert settings.anthropic_api_key is None
+    assert ANTHROPIC_KEY not in settings.secret_values()
+
+
 @pytest.mark.parametrize("blank", ["", "   "])
-@pytest.mark.parametrize(
-    "name", ["MT5_SERVER", "MT5_PASSWORD", "TELEGRAM_BOT_TOKEN", "ANTHROPIC_API_KEY"]
-)
+@pytest.mark.parametrize("name", ["MT5_SERVER", "MT5_PASSWORD", "TELEGRAM_BOT_TOKEN"])
 def test_blank_secret_copied_from_template_blocks_startup(
     env: pytest.MonkeyPatch, name: str, blank: str
 ) -> None:

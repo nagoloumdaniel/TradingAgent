@@ -1,0 +1,16 @@
+{
+  "decided_at": "2026-10-07T02:45:26.827976+00:00",
+  "decided_by": "research-campaign",
+  "evidence_digest": "4f58699accc74eaf3858d031e383bea841a3a47b37fe2ca8886f98c5e7ac6c89",
+  "format": "tradingagent.promotion-decision/1",
+  "promoted": false,
+  "reasons": [
+    "14 out-of-sample trade(s), need 30",
+    "out-of-sample retention 0.43 below 0.50",
+    "parameter dispersion 0.62 above 0.50",
+    "stability score 0.41 below 0.50",
+    "net profit factor 1.18 below 1.20"
+  ],
+  "strategy_ref": "witness@1.0.0",
+  "thresholds_digest": "eb47c8e328c1361ca1a1701c3bc6b31fa2824cecd33129cfd19fe0b0ddf9f619"
+}

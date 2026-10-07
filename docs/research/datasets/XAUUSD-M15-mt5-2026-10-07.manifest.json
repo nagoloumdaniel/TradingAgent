@@ -1,0 +1,12 @@
+{
+  "dataset_id": "mt5-2026-10-07",
+  "symbol": "XAUUSD",
+  "timeframe": "M15",
+  "source": "deriv-mt5:2026-10-07T02:45:00+00:00",
+  "start": "2026-08-06T08:15:00+00:00",
+  "end": "2026-10-07T02:45:00+00:00",
+  "bars": 3999,
+  "fingerprint": "f0d6c90ff7671a7961ad6b1ae5593eb8fbb34cacaa7f3afe28ddf6930f701bc3",
+  "gap_count": 18,
+  "first_gap": "2026-09-07T18:30:00+00:00"
+}

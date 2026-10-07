@@ -19,18 +19,28 @@ class Settings(BaseSettings):
     mt5_terminal_path: Path | None = None
     telegram_bot_token: SecretStr
     telegram_allowed_user_ids: Annotated[tuple[int, ...], NoDecode] = Field(min_length=1)
-    anthropic_api_key: SecretStr
+    # Optional on purpose: RM-011 covers an unavailable model, so the agent must start
+    # without it. When absent, the AI filter is simply not wired and the deterministic
+    # rules decide alone — never the other way round.
+    anthropic_api_key: SecretStr | None = None
     # Hosted PostgreSQL, required: no silent fallback to a local file. The URL carries the
     # database password, so it is kept secret and redacted from logs.
     database_url: SecretStr
     trading_mode: TradingMode = TradingMode.SIGNAL
     live_trading_enabled: bool = False
 
-    @field_validator("mt5_password", "telegram_bot_token", "anthropic_api_key", "database_url")
+    @field_validator("mt5_password", "telegram_bot_token", "database_url")
     @classmethod
     def _secret_not_blank(cls, value: SecretStr) -> SecretStr:
         if not value.get_secret_value().strip():
             raise ValueError("must not be blank")
+        return value
+
+    @field_validator("anthropic_api_key", mode="before")
+    @classmethod
+    def _blank_key_is_absent(cls, value: Any) -> Any:
+        if isinstance(value, str) and not value.strip():
+            return None
         return value
 
     @field_validator("mt5_server")
@@ -64,6 +74,7 @@ class Settings(BaseSettings):
         secrets = [
             secret.get_secret_value()
             for secret in (self.mt5_password, self.telegram_bot_token, self.anthropic_api_key)
+            if secret is not None
         ]
         database_password = make_url(self.database_url.get_secret_value()).password
         if database_password:
