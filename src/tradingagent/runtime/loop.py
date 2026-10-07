@@ -185,15 +185,16 @@ class AgentLoop:
         report = CycleReport()
         now = self._now()
         self._cycles += 1
-        try:
-            await self._market.verify_clock()
-        except ClockMismatchError as error:
-            log.critical("server clock mismatch: %s", error)
-            self._events.record("clock_mismatch", Severity.CRITICAL, {"detail": str(error)}, now)
-            await self._alerts.connection_lost("server_clock", now)
-            return report
 
-        connected = await self._market.ensure_connected(max_attempts=1)
+        # The connection is restored BEFORE the clock is verified, and that order is not
+        # cosmetic: `connect()` verifies the clock itself, so checking it first made a
+        # terminal restart permanent. `last_tick` returned None on a handle whose terminal
+        # had been restarted, the cycle returned, and nothing ever reconnected — the agent
+        # could not survive the operator restarting MetaTrader. Observed live on 2026-10-07.
+        try:
+            connected = await self._market.ensure_connected(max_attempts=1)
+        except ClockMismatchError as error:
+            return await self._clock_failed(error, now, report)
         if not connected:
             report.connection_lost = True
             if self._connection_loss_since is None:
@@ -210,6 +211,11 @@ class AgentLoop:
             await self._alerts.connection_restored("terminal", now)
             report.reconnected = True
 
+        try:
+            await self._market.verify_clock()
+        except ClockMismatchError as error:
+            return await self._clock_failed(error, now, report)
+
         await self._retry_notifications()
         for subscription in self._subscriptions:
             await self._poll(subscription, now, report)
@@ -221,6 +227,20 @@ class AgentLoop:
         if self._cycles % SNAPSHOT_EVERY_CYCLES == 0:
             await self._snapshot(now)
         await self._run_reports(now)
+        return report
+
+    async def _clock_failed(
+        self, error: ClockMismatchError, now: datetime, report: CycleReport
+    ) -> CycleReport:
+        """Refuse the cycle when the server clock cannot be trusted.
+
+        Converting a timestamp with an offset we cannot verify would shift every candle, so
+        the agent stops rather than trade on a wrong clock. The state is recorded and the
+        operator alerted; the next cycle tries again.
+        """
+        log.critical("server clock mismatch: %s", error)
+        self._events.record("clock_mismatch", Severity.CRITICAL, {"detail": str(error)}, now)
+        await self._alerts.connection_lost("server_clock", now)
         return report
 
     async def _poll(self, subscription: Subscription, now: datetime, report: CycleReport) -> None:

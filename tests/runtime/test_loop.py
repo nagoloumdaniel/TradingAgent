@@ -198,6 +198,57 @@ def test_a_clock_mismatch_stops_the_cycle_without_publishing(engine: Engine) -> 
     assert len(events_of(engine, "clock_mismatch")) == 1
 
 
+class RestartableMarket(FakeMarket):
+    """A terminal the operator restarted: the handle is dead until something reconnects.
+
+    This is the shape of the real failure of 2026-10-07. MetaTrader was restarted, the
+    agent's `last_tick` returned None on the stale handle, and the clock check raised. With
+    the check running *before* the reconnection, every later cycle failed the same way and
+    the agent never recovered — it had to be restarted by hand.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.dead = True
+        self.calls: list[str] = []
+
+    async def ensure_connected(self, max_attempts: int | None = None) -> bool:
+        self.calls.append("ensure_connected")
+        del max_attempts
+        if self.dead:
+            self.dead = False  # the reconnect attempt succeeds, as it does in reality
+        return True
+
+    async def verify_clock(self) -> None:
+        self.calls.append("verify_clock")
+        if self.dead:
+            raise ClockMismatchError("no tick on BTCUSD to verify the server clock")
+
+
+def test_a_restarted_terminal_is_survivable(engine: Engine) -> None:
+    """The connection is restored before the clock is checked, so the agent heals itself."""
+    market = RestartableMarket()
+    loop, _, _, _ = build_loop(engine, market=market)
+
+    asyncio.run(loop.run_once())
+
+    assert market.calls[:2] == ["ensure_connected", "verify_clock"]
+    assert market.dead is False, "the reconnect never happened"
+    assert events_of(engine, "clock_mismatch") == []
+
+
+def test_a_second_cycle_after_a_restart_is_normal(engine: Engine) -> None:
+    """Once healed, the loop does its ordinary work again rather than staying wedged."""
+    market = RestartableMarket()
+    loop, _, _, _ = build_loop(engine, market=market)
+
+    asyncio.run(loop.run_once())  # heals
+    report = asyncio.run(loop.run_once())  # and carries on
+
+    assert report.connection_lost is False
+    assert "ensure_connected" in market.calls
+
+
 def test_a_divergence_halts_globally_and_alerts(engine: Engine) -> None:
     broker = FakeBroker()
     broker.divergences = ("local ticket 7 is missing at the broker",)
