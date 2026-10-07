@@ -85,3 +85,17 @@ uv run python scripts/preview_dashboard.py --port 8799     # base SQLite jetable
 
 Captures de référence versionnées dans `docs/web/screenshots/` :
 `overview-desktop.png`, `overview-mobile.png` (fenêtre 500 px) et `system.png`.
+
+## Le logo
+
+`src/tradingagent/web/static/nexagold.png` — glyphe blanc sur fond transparent,
+443 × 443, adopté le 2026-10-07. Il vient du projet **NexaGoldAI**
+(`apps/web/public/nexagold.png`), dont le dépôt local et le dépôt GitHub ont été
+supprimés le même jour à la demande de l'opérateur : cette copie est désormais la
+seule qui subsiste.
+
+Il est servi par un montage `/static` local, jamais par un CDN : le tableau de bord
+reste consultable hors ligne, comme le reste de l'interface. `StaticFiles` ne répond
+qu'à `GET` et `HEAD`, donc ce montage ne dessert pas la promesse de lecture seule —
+un test le vérifie (`tests/web/test_read_only.py`), et le chemin est inclus dans le
+test empirique qui compte les lignes de toutes les tables avant et après.
