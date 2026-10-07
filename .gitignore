@@ -27,6 +27,11 @@ htmlcov/
 *.db-wal
 *.db-shm
 
+# Backups: `scripts/backup.ps1` writes here by default. Encrypted or not, a dump is a
+# copy of the database and has no business in the repository — a plain `git add -A`
+# after a backup would have committed it.
+/backups/
+
 # Editors and OS
 .vscode/
 .idea/

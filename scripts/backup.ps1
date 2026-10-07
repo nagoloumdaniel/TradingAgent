@@ -42,6 +42,10 @@ param(
     # because `$PSScriptRoot` is empty while the defaults above are evaluated.
     [string]$EnvFile = '',
 
+    # The schema the project owns. Supabase also exposes `auth`, `storage` and `realtime`,
+    # which it manages itself and which must not end up in our archive.
+    [string]$Schema = 'public',
+
     [switch]$DryRun
 )
 
@@ -262,7 +266,7 @@ if ($DryRun) {
         Write-Output "  Chiffrement        : AES-256-CBC + HMAC-SHA256, PBKDF2-SHA256 ($Pbkdf2Iterations itérations)"
     }
     if ($resolvedProvider -eq 'postgres') {
-        Write-Output "  Commande           : pg_dump --format=custom --no-owner --no-privileges"
+        Write-Output "  Commande           : pg_dump --format=custom --no-owner --no-privileges --schema=$Schema"
     }
     else {
         Write-Output "  Commande           : sqlite3 backup API via python -c"
@@ -285,11 +289,17 @@ try {
         }
         $info = Set-PgEnvironment -Url $DatabaseUrl
         try {
-            & $pgDump.Source --format=custom --no-owner --no-privileges --file="$plainPath"
+            # `--schema=$Schema` and not the whole database: on Supabase the connection also
+            # sees `auth`, `storage` and `realtime`, which Supabase owns and manages. Dumping
+            # them produced an archive whose `--clean` restore tried to drop and recreate
+            # objects belonging to another role — a backup that could not be restored into a
+            # fresh Supabase project. The project's own tables all live in `public`.
+            & $pgDump.Source --format=custom --no-owner --no-privileges `
+                --schema=$Schema --file="$plainPath"
             if ($LASTEXITCODE -ne 0) { Fail "pg_dump a échoué (code $LASTEXITCODE)." 4 }
         }
         finally { Clear-PgEnvironment }
-        Write-Output "Dump PostgreSQL terminé : $($info.Database) sur $($info.Host)"
+        Write-Output "Dump PostgreSQL terminé : $($info.Database) sur $($info.Host) (schéma $Schema)"
     }
     else {
         $sqlitePath = Get-SqlitePath -Url $DatabaseUrl

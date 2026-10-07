@@ -14,11 +14,51 @@ suivant uniquement ce document.
 | Windows 10/11 ou Windows Server | `[System.Environment]::OSVersion.VersionString` | — |
 | uv | `uv --version` | `winget install --id astral-sh.uv -e` |
 | Git | `git --version` | `winget install --id Git.Git -e` |
+| **Outils client PostgreSQL** | `pg_dump --version` | Voir §1.1 — **obligatoire**, sans eux aucune sauvegarde ne tourne |
 | Terminal MetaTrader 5 | `Test-Path 'C:\Program Files\MetaTrader 5\terminal64.exe'` | Espace client Deriv |
 | Clés SSH (accès au serveur) | `ssh -V` | Paire de clés dédiée, jamais de mot de passe |
 
 PowerShell 7 (`pwsh`) est recommandé, mais les scripts fonctionnent aussi avec Windows
 PowerShell 5.1 (`powershell`), installé d'origine.
+
+### 1.1 Outils client PostgreSQL (`pg_dump`, `pg_restore`)
+
+Les sauvegardes passent par `pg_dump` : sans lui, `scripts/backup.ps1` s'arrête avec le
+code 3 et **rien n'est sauvegardé**. Seuls les outils *client* sont nécessaires — le serveur
+est chez Supabase, il n'y a rien à installer ni à laisser tourner en local.
+
+`winget install PostgreSQL.PostgreSQL.17` fonctionne mais installe un serveur complet et un
+service Windows. Pour n'avoir que les binaires, l'archive portable d'EDB est plus propre :
+**aucun droit administrateur, aucun service, désinstallation = supprimer un dossier.**
+
+```powershell
+# 1. Quelle version ? pg_dump doit être AU MOINS aussi récent que le serveur.
+#    uv run tradingagent doctor affiche la version du schéma ; la version du serveur se lit :
+uv run python -c "from pathlib import Path; from sqlalchemy import create_engine, text; from tradingagent.config.settings import load_database_settings as l; print(create_engine(l(Path('.env')).database_url.get_secret_value()).connect().execute(text('SHOW server_version')).scalar())"
+
+# 2. Télécharger la même version (adapter 17.11 à celle lue ci-dessus)
+$v = '17.11-1'
+Invoke-WebRequest "https://get.enterprisedb.com/postgresql/postgresql-$v-windows-x64-binaries.zip" -OutFile "$env:TEMP\pg.zip"
+
+# 3. Extraire dans le profil utilisateur, sans administrateur
+$root = "$env:LOCALAPPDATA\Programs\PostgreSQL"
+Expand-Archive "$env:TEMP\pg.zip" -DestinationPath $root -Force
+
+# 4. Ajouter au PATH utilisateur, puis rouvrir un terminal
+$bin = "$root\pgsql\bin"
+[Environment]::SetEnvironmentVariable('Path',
+  ([Environment]::GetEnvironmentVariable('Path','User').TrimEnd(';') + ';' + $bin), 'User')
+
+# 5. Vérifier
+pg_dump --version
+```
+
+Le seul point d'attention est la **version** : `pg_dump` refuse de dumper un serveur plus
+récent que lui. En cas de doute, prendre la version majeure du serveur, ou plus récente.
+
+L'archive occupe environ 1,4 Go une fois extraite ; seuls `pg_dump.exe`, `pg_restore.exe`
+et `psql.exe` sont réellement utilisés, mais ils dépendent des DLL du même dossier — donc on
+garde l'extraction entière.
 
 ## 2. Récupérer le dépôt
 

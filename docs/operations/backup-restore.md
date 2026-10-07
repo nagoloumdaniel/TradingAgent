@@ -37,11 +37,18 @@ pwsh -File scripts/backup.ps1 -BackupDir D:\sauvegardes -Retention 14
 Le script :
 
 1. refuse de démarrer si `DATABASE_URL` ou (hors simulation) `BACKUP_PASSPHRASE` manque ;
-2. pour PostgreSQL : `pg_dump --format=custom --no-owner --no-privileges`, identifiants
-   transmis par variables `PG*` — **jamais** sur la ligne de commande ;
+2. pour PostgreSQL : `pg_dump --format=custom --no-owner --no-privileges --schema=public`,
+   identifiants transmis par variables `PG*` — **jamais** sur la ligne de commande ;
 3. pour SQLite : copie cohérente par l'API de sauvegarde de `sqlite3` ;
 4. chiffre, écrit le sidecar `.sha256`, puis applique la **rotation** : seuls les
    `-Retention` fichiers les plus récents sont conservés (14 par défaut).
+
+> **Pourquoi un seul schéma ?** Sur Supabase, la même connexion voit aussi `auth`,
+> `storage` et `realtime`, que Supabase gère lui-même. Les inclure produisait une archive
+> que `pg_restore --clean` ne pouvait pas rejouer dans un projet neuf : il tentait de
+> supprimer puis recréer des objets appartenant à un autre rôle. Le projet ne possède que
+> `public`, et c'est ce que la sauvegarde contient. `-Schema` permet de viser un autre
+> schéma si besoin.
 
 `-Provider auto` déduit le type de base de l'URL ; `sqlite:///` sert aux tests et aux
 répétitions locales.

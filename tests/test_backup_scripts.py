@@ -211,6 +211,47 @@ def test_backup_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert not backup_dir.exists()
 
 
+def test_the_postgres_dump_is_scoped_to_the_project_schema(tmp_path: Path) -> None:
+    """A whole-database dump also carries Supabase's `auth`, `storage` and `realtime`.
+
+    Restoring that with `--clean` tried to drop and recreate objects owned by another role,
+    so the archive could not be restored into a fresh Supabase project. The project's tables
+    all live in `public`, and the scope is stated rather than implied.
+    """
+    result = run_script(
+        "backup.ps1",
+        "-DryRun",
+        "-BackupDir",
+        str(tmp_path / "backups"),
+        env=clean_environment(
+            # No credentials in the URL: the script only reads its scheme to pick the
+            # provider, and `-DryRun` prints the plan without connecting to anything.
+            DATABASE_URL="postgresql://example.invalid:5432/postgres",
+            BACKUP_PASSPHRASE=PASSPHRASE,
+        ),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--schema=public" in result.stdout
+    assert "pg_dump" in result.stdout
+
+
+def test_the_dump_schema_can_be_overridden(tmp_path: Path) -> None:
+    result = run_script(
+        "backup.ps1",
+        "-DryRun",
+        "-Schema",
+        "autre_schema",
+        "-BackupDir",
+        str(tmp_path / "backups"),
+        env=clean_environment(
+            DATABASE_URL="postgresql://example.invalid:5432/postgres",
+            BACKUP_PASSPHRASE=PASSPHRASE,
+        ),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--schema=autre_schema" in result.stdout
+
+
 def test_restore_refuses_a_missing_backup_file(tmp_path: Path) -> None:
     result = run_script(
         "restore.ps1",

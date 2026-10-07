@@ -35,6 +35,10 @@ param(
     # because `$PSScriptRoot` is empty while the defaults above are evaluated.
     [string]$EnvFile = '',
 
+    # The schema the project owns; mirrors the backup's scope. Supabase also exposes `auth`,
+    # `storage` and `realtime`, which it manages itself and which `--clean` must not touch.
+    [string]$Schema = 'public',
+
     [switch]$Force,
 
     [switch]$Migrate,
@@ -276,7 +280,7 @@ if ($DryRun) {
         Write-Output "  Déchiffrement      : HMAC-SHA256 vérifié avant écriture, AES-256-CBC"
     }
     if ($resolvedProvider -eq 'postgres') {
-        Write-Output "  Commande           : pg_restore --clean --if-exists --no-owner --no-privileges"
+        Write-Output "  Commande           : pg_restore --clean --if-exists --no-owner --no-privileges --schema=$Schema"
         Write-Output "  -Force requis      : oui (restauration destructive)"
     }
     else {
@@ -313,11 +317,15 @@ try {
         }
         $info = Set-PgEnvironment -Url $DatabaseUrl
         try {
-            & $pgRestore.Source --clean --if-exists --no-owner --no-privileges --dbname="$($info.Database)" "$plainPath"
+            # Scoped like the dump: `--clean` must never drop an object Supabase owns. An
+            # archive taken before that scoping existed still carries `auth`, `storage` and
+            # `realtime`, and this is what keeps it away from managed schemas.
+            & $pgRestore.Source --clean --if-exists --no-owner --no-privileges `
+                --schema=$Schema --dbname="$($info.Database)" "$plainPath"
             if ($LASTEXITCODE -ne 0) { Fail "pg_restore a échoué (code $LASTEXITCODE)." 4 }
         }
         finally { Clear-PgEnvironment }
-        Write-Output "Restauration PostgreSQL terminée : $($info.Database) sur $($info.Host)"
+        Write-Output "Restauration PostgreSQL terminée : $($info.Database) sur $($info.Host) (schéma $Schema)"
     }
     else {
         $targetPath = Get-SqlitePath -Url $DatabaseUrl
