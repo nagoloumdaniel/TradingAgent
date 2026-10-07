@@ -7,6 +7,8 @@ from tradingagent.core.market import Candle
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.market_calendar import (
     SlotStatus,
+    closure_ends_at,
+    closure_lasts_at_least,
     closure_started_at,
     is_open,
     learn_calendar,
@@ -177,3 +179,43 @@ def test_the_daily_break_is_its_own_closure() -> None:
     assert closure_started_at(gold, datetime(2026, 9, 30, 21, 10, tzinfo=UTC)) == datetime(
         2026, 9, 30, 21, 0, tzinfo=UTC
     )
+
+
+# --- which closures deserve a message ------------------------------------------------------
+#
+# The operator asked to hear about the weekend. Gold also breaks every day around 21:00 UTC,
+# and telling him twice a day is saturation — the stop stays, the announcement does not.
+
+
+def test_the_weekend_is_long_enough_to_announce() -> None:
+    gold = learn_calendar("XAUUSD", history(gold_like), NOW)
+
+    assert closure_lasts_at_least(gold, SATURDAY_NOON) is True
+    assert closure_lasts_at_least(gold, SUNDAY_NOON) is True
+
+
+def test_the_daily_break_is_too_short_to_announce() -> None:
+    """The market is still stopped; only the message is filtered."""
+    gold = learn_calendar("XAUUSD", history(gold_like), NOW)
+
+    assert closure_started_at(gold, datetime(2026, 9, 30, 21, 10, tzinfo=UTC)) is not None
+    assert closure_lasts_at_least(gold, datetime(2026, 9, 30, 21, 10, tzinfo=UTC)) is False
+
+
+def test_a_closure_we_cannot_measure_is_announced() -> None:
+    """Leaving the operator to discover a closure by himself is the worse failure."""
+    assert closure_lasts_at_least(None, MONDAY_NOON) is True
+
+
+def test_the_reopening_is_found_by_the_same_calendar() -> None:
+    gold = learn_calendar("XAUUSD", history(gold_like), NOW)
+
+    # The Sunday 22:00 UTC session: the first slot that trades again after the weekend.
+    assert closure_ends_at(gold, SATURDAY_NOON) == datetime(2026, 10, 4, 22, 0, tzinfo=UTC)
+    assert closure_ends_at(gold, MONDAY_NOON) == MONDAY_NOON  # already open
+
+
+def test_an_always_open_market_has_no_closure_to_measure() -> None:
+    bitcoin = learn_calendar("BTCUSD", history(lambda _: True), NOW)
+
+    assert closure_ends_at(bitcoin, SATURDAY_NOON) == SATURDAY_NOON

@@ -113,3 +113,44 @@ def closure_started_at(
     while start - SLOT >= limit and calendar.status_at(start - SLOT) is not SlotStatus.OPEN:
         start -= SLOT
     return start
+
+
+# Closures shorter than this are normal trading hours, not an incident. Gold breaks every
+# day around 21:00 UTC, and announcing that twice a day is saturation rather than
+# information — the operator asked to be told about the weekend, not about the lunch break.
+MIN_ANNOUNCED_CLOSURE = timedelta(hours=6)
+
+
+def closure_ends_at(
+    calendar: MarketCalendar | None, moment: datetime, *, horizon_days: int = 14
+) -> datetime | None:
+    """When the market next trades, or None when it does not within the horizon.
+
+    Pure, like the rest: the moment is an argument. Used to tell a weekend apart from a daily
+    break — the two are the same thing to `is_open`, and very different things to a person.
+    """
+    if calendar is None:
+        return None
+    probe = moment
+    limit = moment + timedelta(days=horizon_days)
+    while probe <= limit:
+        if is_open(calendar, probe):
+            return probe
+        probe += SLOT
+    return None
+
+
+def closure_lasts_at_least(
+    calendar: MarketCalendar | None,
+    moment: datetime,
+    minimum: timedelta = MIN_ANNOUNCED_CLOSURE,
+) -> bool:
+    """Whether the closure containing `moment` is long enough to be worth announcing.
+
+    An unknown reopening counts as long: telling the operator about a closure we cannot
+    measure is better than leaving them to discover it.
+    """
+    reopens = closure_ends_at(calendar, moment)
+    if reopens is None:
+        return True
+    return reopens - moment >= minimum

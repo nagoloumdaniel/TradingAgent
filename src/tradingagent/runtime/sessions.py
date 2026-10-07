@@ -22,7 +22,12 @@ from datetime import datetime
 
 from tradingagent.core.halt import session_scope
 from tradingagent.core.states import HaltAction, HaltSource
-from tradingagent.data.market_calendar import MarketCalendar, closure_started_at, is_open
+from tradingagent.data.market_calendar import (
+    MarketCalendar,
+    closure_lasts_at_least,
+    closure_started_at,
+    is_open,
+)
 from tradingagent.notify.health_alerts import HealthAlerter
 from tradingagent.storage.halts import HaltCommand, HaltStore
 
@@ -92,7 +97,11 @@ class MarketSessionGuard:
             )
         )
         log.info("%s session halted: %s", symbol, reason)
-        await self._alerts.market_closed(symbol, started, at)
+        # The stop is unconditional — gold must not be traded while its market is shut. Only
+        # the announcement is filtered: a daily break announced twice a day is noise, and the
+        # operator asked to hear about the weekend.
+        if closure_lasts_at_least(calendar, at):
+            await self._alerts.market_closed(symbol, started, at)
         return SessionOutcome(symbol, closed=True, changed=True, reason=reason)
 
     async def _resume(self, symbol: str, at: datetime) -> SessionOutcome | None:
