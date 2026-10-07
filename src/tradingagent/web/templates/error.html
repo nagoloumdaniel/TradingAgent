@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{# Gabarit commun des pages d'erreur. Une erreur n'est pas un cul-de-sac : elle dit ce qui
+   s'est passé, ce que cela ne veut PAS dire, et où aller ensuite.
+
+   Ces pages ne touchent jamais la base : c'est la seule façon d'être sûr qu'une erreur de
+   base ne se transforme pas en erreur de rendu. Le filigrane est donc absent, par
+   construction et non par oubli. #}
+
+{% block title %}{{ status }} — {{ headline }}{% endblock %}
+
+{% block content %}
+<div class="error-page">
+  <p class="error-code">{{ status }}</p>
+  <h1 class="error-title">{{ headline }}</h1>
+  <p class="error-text">{{ explanation }}</p>
+
+  {% block details %}{% endblock %}
+
+  {% if allow %}
+    <p class="muted">Méthodes acceptées sur cette adresse : <code>{{ allow }}</code>.</p>
+  {% endif %}
+
+  <div class="actions">
+    {% for label, href in links %}
+      <a href="{{ href }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

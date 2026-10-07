@@ -1,17 +1,13 @@
-{% extends "base.html" %}
-{% block title %}Base indisponible{% endblock %}
-{% block content %}
+{% extends "error.html" %}
 
-<h2>Base de données indisponible</h2>
-<div class="banner bad">
-  <strong>Lecture impossible.</strong>
-  <div>Le tableau de bord n'a pas pu lire la base ({{ reason }}).</div>
-</div>
-<p>
-  Rien n'a été écrit : le tableau de bord est en lecture seule. Vérifiez que l'agent tourne,
-  que <code>DATABASE_URL</code> est correct et que les migrations ont été appliquées
-  (<code>uv run tradingagent-run</code> les applique au démarrage).
+{% block details %}
+<p class="muted">
+  Le tableau de bord n'a pas pu lire la base ({{ reason }}). <strong>Rien n'a été écrit</strong> :
+  il est en lecture seule.
 </p>
-<p><a href="/healthz">Sonde de santé</a> · <a href="/">Réessayer</a></p>
-
+<p class="muted">
+  Vérifiez que l'agent tourne, que <code>DATABASE_URL</code> est correct et que les
+  migrations ont été appliquées — <code>uv run tradingagent-run</code> les applique au
+  démarrage.
+</p>
 {% endblock %}

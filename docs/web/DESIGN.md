@@ -32,6 +32,14 @@
 | Survol au doigt = faux positifs | `@media (hover: none)` neutralise les effets de survol |
 | N'animer que `transform` et `opacity` | les transitions ne touchent que `background-color`, `border-color` et `transform` |
 
+**`high-end-visual-design`** — ce qui sert un dashboard :
+
+- hiérarchie par l'échelle (un chiffre dominant) plutôt que par la couleur ;
+- grille bento : la carte « Solde » occupe deux colonnes, les autres une ;
+- rythme spatial : gouttières de 12 px entre cartes, 28 px entre sections ;
+- aucune bordure grise générique sur 1 px sans intention : chaque hairline sépare deux
+  surfaces de nature différente.
+
 ## Typographie — Geist, embarquée
 
 Le dashboard doit rester consultable **hors ligne** : aucune police n'est téléchargée à
@@ -112,14 +120,37 @@ Toutes les largeurs ont été vérifiées par capture. Deux pièges rencontrés 
 `nowrap` élargissait la page au-delà du viewport), et `grid-column: span 2` sur une grille
 retombée à une colonne fabrique une colonne fantôme — remplacé par `1 / -1`.
 
+## Les surfaces d'erreur
 
-**`high-end-visual-design`** — ce qui sert un dashboard :
+Un outil de monitoring qui répond `{"detail":"Internal Server Error"}` n'a rien dit à
+l'opérateur. Chaque erreur a donc une page : un code, une phrase, ce que cela **ne veut pas
+dire**, et où aller ensuite.
 
-- hiérarchie par l'échelle (un chiffre dominant) plutôt que par la couleur ;
-- grille bento : la carte « Solde » occupe deux colonnes, les autres une ;
-- rythme spatial : gouttières de 12 px entre cartes, 28 px entre sections ;
-- aucune bordure grise générique sur 1 px sans intention : chaque hairline sépare deux
-  surfaces de nature différente.
+| Code | Gabarit | Ce qu'elle dit |
+|---|---|---|
+| 400 | `error.html` | Les paramètres de l'adresse sont incomplets ou mal formés |
+| 403 | `error.html` | Cette ressource n'est pas accessible depuis cette session |
+| **404** | `404.html` | Page introuvable, **l'adresse demandée est rappelée** (échappée, tronquée à 120 caractères) |
+| **404 de domaine** | `trade_replay.html` | « Trade inconnu · Aucun signal *n* en base » — plus utile qu'une 404 générique, parce qu'elle dit *quel* identifiant manque |
+| **405** | `error.html` | « Lecture seule » : le tableau de bord ne répond qu'à `GET` et `HEAD`. L'en-tête `Allow` est conservé, et les méthodes acceptées sont écrites dans la page |
+| **500** | `500.html` | Erreur interne. La trace reste dans le journal, la page ne dit rien des internes |
+| **503** | `unavailable.html` | Base injoignable, avec les trois choses à vérifier |
+| **401** | `auth.py` | Page autonome : ni navigation, ni chiffre, ni écho de ce qui a été présenté |
+
+Trois règles tiennent l'ensemble :
+
+1. **Une page d'erreur ne lit jamais la base.** C'est la seule façon d'être certain qu'une
+   panne de base ne se transforme pas en panne de rendu. Le filigrane y est donc absent —
+   par construction, et non par oubli, ce qu'un test vérifie.
+2. **Aucune figure ne traverse une erreur.** Le tableau de bord peut afficher un résultat
+   net de 16,75 € : la 404 ne doit pas en laisser filtrer un centime.
+3. **Un client qui a demandé du JSON reçoit du JSON.** L'en-tête `Accept` décide : un
+   navigateur (`text/html`, ou `*/*`) a la page, un script qui demande
+   `application/json` garde la réponse machine.
+
+Un gabarit de base ne suppose jamais une clé de contexte : la 503, la 404 et la 401 sont
+rendues par des chemins différents de `page()`. C'est exactement le défaut qui avait
+transformé une 503 propre en 500 quand le filigrane a été introduit.
 
 ## Ce qui a été écarté, et pourquoi
 

@@ -13,6 +13,7 @@ Run it with::
 """
 
 import argparse
+import logging
 import os
 import sys
 from collections.abc import Awaitable, Callable, Sequence
@@ -24,6 +25,7 @@ import uvicorn
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import (
     HTMLResponse,
+    JSONResponse,
     PlainTextResponse,
     RedirectResponse,
     Response,
@@ -33,6 +35,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from tradingagent.analytics import Trade, compute_performance
 from tradingagent.config.errors import ConfigError
@@ -63,10 +66,54 @@ from tradingagent.web.views import (
 ROOT = Path(__file__).resolve().parents[3]
 ENV_FILE = ROOT / ".env"
 AGENT_CONFIG = ROOT / "config" / "agent.yaml"
+
+log = logging.getLogger(__name__)
+
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 # Served read-only. Its only file is the brand mark: a local mount means the browser fetches
 # it once and the dashboard keeps working with no CDN and no network.
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+# Error pages. A monitoring tool that says "Internal Server Error" in JSON has told the
+# operator nothing they can act on: each of these says what happened, what it does NOT mean,
+# and where to go next. The 401 is deliberately absent — it is rendered by `auth.py` as a
+# standalone page that reveals neither the navigation nor the existence of any figure.
+ERROR_TEXT: dict[int, tuple[str, str]] = {
+    400: (
+        "Requête invalide",
+        "Les paramètres de l'adresse sont incomplets ou mal formés.",
+    ),
+    403: (
+        "Accès refusé",
+        "Cette ressource n'est pas accessible depuis cette session.",
+    ),
+    404: (
+        "Page introuvable",
+        "Cette adresse ne correspond à aucune page du tableau de bord.",
+    ),
+    405: (
+        "Lecture seule",
+        "Le tableau de bord ne répond qu'à GET et HEAD. Aucune écriture n'est possible, "
+        "même par erreur.",
+    ),
+    500: (
+        "Erreur interne",
+        "Le tableau de bord n'a pas pu afficher cette page.",
+    ),
+    503: (
+        "Base de données indisponible",
+        "Le tableau de bord n'a pas pu lire la base de données.",
+    ),
+}
+# Where an error page may send the reader. Never a figure, never a mutation.
+ERROR_LINKS: tuple[tuple[str, str], ...] = (
+    ("Vue d'ensemble", "/"),
+    ("Positions", "/positions"),
+    ("Trades", "/trades"),
+    ("Système", "/system"),
+    ("Sonde de santé", "/healthz"),
+)
+ERROR_TEMPLATES = {404: "404.html", 500: "500.html", 503: "unavailable.html"}
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8787
 # The dashboard is a reader: this flag is part of its contract, not a configuration knob.
@@ -189,20 +236,84 @@ def create_app(
             )
             return response
 
+    def error_response(
+        status: int,
+        request: Request,
+        *,
+        headline: str | None = None,
+        explanation: str | None = None,
+        headers: dict[str, str] | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> HTMLResponse:
+        """One shape for every failure the dashboard can answer itself.
+
+        The error pages never read the database: that is the only way to be sure a database
+        failure cannot turn into a rendering failure. They carry no watermark for the same
+        reason — absence by construction, not by oversight.
+        """
+        default_headline, default_explanation = ERROR_TEXT.get(
+            status, (f"Erreur {status}", "La requête n'a pas pu être servie.")
+        )
+        context: dict[str, Any] = {
+            "request": request,
+            "page": ERROR_TEMPLATES.get(status, "error"),
+            "render_at": clock(),
+            "status": status,
+            "headline": headline or default_headline,
+            "explanation": explanation or default_explanation,
+            "links": ERROR_LINKS,
+            "allow": (headers or {}).get("allow"),
+        }
+        context.update(extra or {})
+        return templates.TemplateResponse(
+            request,
+            ERROR_TEMPLATES.get(status, "error.html"),
+            context,
+            status_code=status,
+            headers=headers,
+        )
+
+    def wants_html(request: Request) -> bool:
+        """Browsers get a page; a script that asked for JSON gets JSON.
+
+        `*/*` counts as HTML: this is a web application, and a plain `curl` that forgot its
+        Accept header is better served by the readable answer.
+        """
+        accept = request.headers.get("accept", "")
+        return not ("application/json" in accept and "text/html" not in accept)
+
+    @app.exception_handler(StarletteHTTPException)
+    def http_error(request: Request, error: StarletteHTTPException) -> Response:
+        """404, 405, 400… — answered in the dashboard's own voice."""
+        headers = dict(error.headers or {})
+        if not wants_html(request):
+            return JSONResponse(
+                {"detail": error.detail}, status_code=error.status_code, headers=headers
+            )
+        # A 405 must keep its `Allow`: dropping it would lie about the surface.
+        extra = (
+            # Echoing the path back is what makes a stale bookmark debuggable. It is
+            # escaped by Jinja and truncated: the dashboard echoes nothing else, and the
+            # 401 page echoes nothing at all, on purpose.
+            {"requested": request.url.path[:120]} if error.status_code == 404 else None
+        )
+        return error_response(error.status_code, request, headers=headers, extra=extra)
+
+    @app.exception_handler(Exception)
+    def unexpected_error(request: Request, error: Exception) -> Response:
+        """Last line of defence: an unhandled exception still renders something readable.
+
+        The trace goes to the log, where it belongs; the page says nothing about internals.
+        `SQLAlchemyError` never reaches here — it has its own handler, deeper in the stack.
+        """
+        log.exception("unhandled dashboard error on %s: %s", request.url.path, error)
+        return error_response(500, request)
+
     @app.exception_handler(SQLAlchemyError)
     def database_error(request: Request, error: SQLAlchemyError) -> HTMLResponse:
         """A monitoring page must state the failure, not vanish behind a stack trace."""
-        return templates.TemplateResponse(
-            request,
-            "unavailable.html",
-            {
-                "request": request,
-                "page": "unavailable",
-                "render_at": clock(),
-                "reason": type(error).__name__,
-            },
-            status_code=503,
-        )
+        log.warning("database unavailable while rendering %s: %s", request.url.path, error)
+        return error_response(503, request, extra={"reason": type(error).__name__})
 
     @app.get("/", response_class=HTMLResponse)
     def overview_page(request: Request) -> HTMLResponse:

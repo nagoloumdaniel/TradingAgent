@@ -3,12 +3,22 @@
 {% block content %}
 
 {% if not replay %}
-  <h2>Trade inconnu</h2>
-  <div class="banner warn">
-    <strong>Aucun signal {{ trade_id }} en base.</strong>
-    <div>Le replay se lit par identifiant de signal ; il n'existe aucune ligne correspondante.</div>
+  {# 404 de domaine : plus utile qu'une page générique, parce qu'elle dit QUEL identifiant
+     manque. Elle garde la mise en forme des autres erreurs, et ne montre aucune figure. #}
+  <div class="error-page">
+    <p class="error-code">404</p>
+    <h1 class="error-title">Trade inconnu</h1>
+    <p class="error-text">Aucun signal {{ trade_id }} en base.</p>
+    <p class="muted">
+      Le replay se lit par identifiant de signal ; il n'existe aucune ligne correspondante.
+      Un signal refusé par le risque, lui, se rejoue : c'est justement la réponse à
+      « pourquoi ce trade n'a pas été pris ? ».
+    </p>
+    <div class="actions">
+      <a href="/trades">Historique des trades</a>
+      <a href="/">Vue d'ensemble</a>
+    </div>
   </div>
-  <p><a href="/trades">← Historique des trades</a></p>
 {% else %}
 
 <p class="muted"><a href="/trades">← Historique des trades</a></p>

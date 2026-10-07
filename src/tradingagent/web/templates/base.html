@@ -390,6 +390,22 @@ code {
   color: var(--muted); font-size: 13.5px;
 }
 
+/* -- pages d'erreur ---------------------------------------------------------------------
+   Une erreur n'est pas un cul-de-sac : un code, une phrase, et la sortie. Le bloc reste
+   étroit (56ch) pour que l'œil ne balaie pas un écran vide. */
+.error-page { max-width: 56ch; padding: 8px 0 24px; }
+.error-code {
+  margin: 0; font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+  letter-spacing: 0.16em; color: var(--faint);
+}
+.error-title {
+  margin: 10px 0 14px; font-size: clamp(22px, 3.2vw, 30px); font-weight: 600;
+  letter-spacing: -0.025em; line-height: 1.2;
+}
+.error-text { margin: 0 0 14px; font-size: 15px; color: var(--text); }
+.error-page .muted { font-size: 13.5px; line-height: 1.6; }
+.error-page .actions { margin-top: 22px; }
+
 /* -- tableaux -------------------------------------------------------------------------- */
 .table-wrap {
   border: 1px solid var(--glass-line); border-radius: var(--radius);
