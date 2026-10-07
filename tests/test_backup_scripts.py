@@ -28,6 +28,7 @@ MANAGED_SCRIPTS = (
     "restore.ps1",
     "install_windows.ps1",
     "install_deps.ps1",
+    "install_ea.ps1",
     "register_service.ps1",
     "check_health.ps1",
 )

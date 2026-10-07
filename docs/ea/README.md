@@ -71,26 +71,53 @@ Journaux complets : `mt5/build/BTCUSD_Guardian.log` et `mt5/build/XAUUSD_Guardia
 
 ## 2. Installer
 
-1. **Copier les fichiers dans le terminal.** Dans MetaEditor, `Fichier` >
-   `Ouvrir le dossier de données`, puis copier le dossier `TradingAgent` de
-   `mt5/Experts/` dans `<données terminal>\MQL5\Experts\`. Recompiler dans MetaEditor une
-   fois les fichiers en place : c'est le `.ex5` du dossier de données que le terminal
-   charge.
-2. **Créer le graphique.** Ouvrir un graphique `BTCUSD` (au moins M1, n'importe quelle
-   unité de temps : l'EA ne lit aucune bougie), puis un graphique `XAUUSD`.
-3. **Attacher l'EA.** Glisser `BTCUSD_Guardian` sur le graphique `BTCUSD`, cocher
-   « Autoriser la modification des paramètres du compte » n'est pas nécessaire : aucun
-   réglage n'est fait par l'EA lui-même. L'EA **refuse de démarrer** sur un autre
-   graphique que le sien (`INIT_FAILED`) — c'est volontaire.
-4. **Activer Algo Trading.** Tant qu'il est désactivé, l'EA tourne, remonte
-   `trade_allowed: false`, et n'envoie rien. En démonstration (phase 7), l'activer est
+```powershell
+pwsh -File scripts/install_ea.ps1            # installe et compile
+pwsh -File scripts/install_ea.ps1 -WhatIf    # montre ce qui serait fait
+```
+
+Le script lit `EA_FILES_DIR` et `MT5_TERMINAL_PATH` dans `.env`, copie
+`mt5/Experts/TradingAgent` dans `<données terminal>\MQL5\Experts\`, puis **recompile sur
+place**. C'est le `.ex5` du dossier de données que le terminal charge : compiler dans le
+dépôt ne suffit pas, et un `.ex5` recopié peut être en retard sur ses sources.
+
+Il exige `0 errors` — et se fie à la ligne `Result:` du journal, pas au code de sortie,
+puisque MetaEditor rend toujours `1`. Relancer le script est sans danger, et c'est ce qu'il
+faut faire après toute modification d'un EA.
+
+> Piège vérifié en écrivant ce script : `EA_FILES_DIR` vaut
+> `<données>\MQL5\Files\TradingAgent`, donc la racine du dossier de données est **trois**
+> niveaux au-dessus, pas deux. Une version antérieure installait dans
+> `<données>\MQL5\MQL5\Experts\`.
+
+### À faire ensuite, dans le terminal
+
+Ces étapes demandent l'interface, elles ne se scriptent pas :
+
+1. **Ouvrir les graphiques.** Un graphique `BTCUSD` et un graphique `XAUUSD` (n'importe
+   quelle unité de temps : l'EA ne lit aucune bougie).
+2. **Attacher chaque EA au sien.** Glisser `BTCUSD_Guardian` sur `BTCUSD`,
+   `XAUUSD_Guardian` sur `XAUUSD`. Un EA **refuse de démarrer** sur le graphique d'un autre
+   symbole (`INIT_FAILED`) : c'est volontaire.
+3. **Activer Algo Trading** (le bouton de la barre d'outils). Tant qu'il est désactivé, l'EA
+   tourne, remonte `trade_allowed: false`, et n'envoie rien. En démonstration, l'activer est
    sans risque : sans état publié par le backend, il n'y a aucun ordre à exécuter.
-5. **Vérifier le battement de cœur.** Après quelques secondes :
+4. **Vérifier le battement de cœur.** Après quelques secondes :
+
    ```powershell
-   Get-Content "...\MQL5\Files\TradingAgent\reports\BTCUSD_report.json" | ConvertFrom-Json |
-     Select-Object symbol, updated_at, connected, trade_allowed, local_halt, applied_revision
+   Get-Content "$env:APPDATA\MetaQuotes\Terminal\<instance>\MQL5\Files\TradingAgent\reports\BTCUSD_report.json" |
+     ConvertFrom-Json | Select-Object symbol, updated_at, connected, trade_allowed, local_halt
    ```
-   Attendu : un `updated_at` de moins de deux secondes, `connected: true`.
+
+   Attendu : un `updated_at` de moins de deux secondes, `connected: true`. Le tableau de
+   bord le montre aussi, page **Système**.
+
+### Les mêmes étapes à la main
+
+Si vous préférez ne pas utiliser le script : dans MetaEditor, `Fichier` >
+`Ouvrir le dossier de données`, copier le dossier `TradingAgent` de `mt5/Experts/` dans
+`<données terminal>\MQL5\Experts\`, puis compiler (F7) chacun des deux `.mq5` **depuis ce
+dossier**. Le reste — graphiques, attachement, Algo Trading — est identique.
 
 ## 3. Le paramètre à connaître : le répertoire du pont
 
