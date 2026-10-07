@@ -1973,7 +1973,16 @@ void CTradingAgentGuardian::LogEvent(const string kind, const string severity,
    m_events[n].severity = severity;
    m_events[n].message  = message;
    m_events[n].ticket   = ticket;
-   m_events[n].data     = (StringLen(data) > 0) ? data : "{}";
+   //--- `data` doit etre un OBJET JSON, pas un fragment. Tous les appelants passent
+   //--- "cle":valeur,... ; emis tel quel, le rapport devenait du JSON invalide et le
+   //--- lecteur Python rejetait le fichier entier (l'EA paraissait hors ligne a jamais).
+   //--- Le defaut "{}" et tout appelant deja entre accolades restent intacts.
+   if(StringLen(data) == 0)
+      m_events[n].data = "{}";
+   else if(StringGetCharacter(data, 0) == '{')
+      m_events[n].data = data;
+   else
+      m_events[n].data = "{" + data + "}";
 
    string line = "{\"seq\":" + IntegerToString(m_eventSeq) +
                  ",\"at\":" + TaJsonString(TaIsoUtc(m_events[n].at)) +

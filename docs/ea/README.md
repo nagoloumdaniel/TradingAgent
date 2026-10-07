@@ -203,11 +203,34 @@ Un arrêt local **survit au redémarrage du terminal**. C'est voulu : il ne se l
 une action explicite de l'opérateur, comme l'arrêt d'urgence de
 [../operations/arret-urgence.md](../operations/arret-urgence.md).
 
+### Défaut corrigé le 2026-10-07 : le champ `data` rendait le rapport invalide
+
+`LogEvent` reçoit un **fragment** d'objet (`"symbol":"BTCUSD","magic":3031`) ou `"{}"` par
+défaut. Le fragment était écrit tel quel, sans accolades :
+
+```
+"data":"symbol":"BTCUSD","magic":3031,...
+```
+
+Ce n'est pas du JSON. `json.loads` échouait sur **tout le fichier**, `read_json` renvoyait
+`None`, et `ea_health` annonçait `OFFLINE` en permanence alors que l'EA tournait et écrivait
+un battement de cœur toutes les deux secondes. Le symptôme — « il tourne mais il est hors
+ligne » — ne désigne pas la cause ; c'eût été un piège durable.
+
+`LogEvent` normalise désormais : vide → `{}`, déjà entre accolades → inchangé, sinon le
+fragment est encadré. Aucune modification n'a été nécessaire côté Python, qui attendait déjà
+un objet (`EaEvent.data: Mapping`).
+
+**Leçon opérationnelle :** un EA déjà attaché continue d'exécuter le `.ex5` chargé au moment
+de l'attachement. Après `scripts/install_ea.ps1`, il faut **détacher et rattacher** l'EA, ou
+redémarrer le terminal.
+
 ## 5. Dépannage
 
 | Symptôme | Cause probable | Geste |
 |---|---|---|
 | `ea_health` ne renvoie rien | les EAs ne sont pas attachés, ou le mauvais `<instance>` | vérifier le dossier de données, puis les rapports |
+| `ea_health` renvoie `OFFLINE` alors que le rapport vient d'être écrit | rapport **illisible** : `read_json` refuse le fichier entier, donc absent et invalide se ressemblent | ouvrir le `.json` et vérifier qu'il est du JSON valide. C'est le symptôme qu'a produit le défaut `data` corrigé le 2026-10-07 (voir ci-dessous) |
 | `ea_health` renvoie `OFFLINE` | battement de cœur périmé (> 15 s) : EA retiré, terminal fermé, ou rapport corrompu | rouvrir le graphique, regarder l'onglet « Experts » |
 | `local_halt: true`, `halt_reason: divergence d'etat…` | l'état réel ne correspond plus à l'état attendu (RM-014) | réconcilier à la main, puis supprimer `control\<SYMBOLE>_halt.txt` |
 | `local_halt: true`, `halt_reason: backend silencieux…` | plus aucun `publish_state` depuis 30 s | relancer le backend |
