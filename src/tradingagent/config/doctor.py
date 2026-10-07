@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from tradingagent.ai.provider import DEFAULT_ANTHROPIC_MODEL, DEFAULT_DEEPSEEK_MODEL
 from tradingagent.config.settings import Settings
 
 GENERATE_WITH = 'uv run python -c "import secrets; print(secrets.token_urlsafe(32))"'
@@ -92,6 +93,33 @@ KEYS: tuple[KeySpec, ...] = (
         "commentaire du modèle sur les verdicts de l'AI Lab",
         "console.anthropic.com → Settings → API Keys → Create Key. OPTIONNELLE : sans elle "
         "l'agent tourne et l'analyse reste déterministe",
+        required=False,
+    ),
+    KeySpec(
+        "DEEPSEEK_API_KEY",
+        "fournisseur de modèle attendu sur ce projet",
+        "platform.deepseek.com → API Keys. DeepSeek sert un point d'entrée compatible "
+        "Anthropic : le même client dessert les deux fournisseurs",
+        required=False,
+    ),
+    KeySpec(
+        "AI_PROVIDER",
+        "quel fournisseur répond : auto, deepseek, anthropic ou none",
+        "Défaut auto : DeepSeek si sa clé est présente, sinon Anthropic, sinon aucun — et "
+        "l'analyse reste déterministe (RM-011)",
+        required=False,
+    ),
+    KeySpec(
+        "DEEPSEEK_MODEL",
+        "nom du modèle DeepSeek",
+        f"Défaut {DEFAULT_DEEPSEEK_MODEL}. Les fournisseurs retirent des noms : voir leur "
+        "page tarifs avant de changer",
+        required=False,
+    ),
+    KeySpec(
+        "ANTHROPIC_MODEL",
+        "nom du modèle Anthropic",
+        f"Défaut {DEFAULT_ANTHROPIC_MODEL}",
         required=False,
     ),
     KeySpec(

@@ -41,6 +41,29 @@ commenter un verdict déjà calculé : sa réponse est lue contre un schéma str
 champ est journalisé comme *tentative de dépassement* et ignoré. Une panne du modèle
 n'enlève rien à l'analyse déterministe (`findings["model_error"]`).
 
+## Quel fournisseur
+
+**DeepSeek est le fournisseur attendu**, et le choix tient en une phrase : il sert un point
+d'entrée **compatible Anthropic** (`https://api.deepseek.com/anthropic`), donc le même client
+et la même forme de requête atteignent les deux — seuls l'URL de base, le nom du modèle et le
+tarif changent. Écrire un client au format OpenAI aurait été un second chemin de code à
+maintenir correct, sans rien apporter.
+
+| `AI_PROVIDER` | Effet |
+|---|---|
+| `auto` (défaut) | DeepSeek si `DEEPSEEK_API_KEY` est présente, sinon Anthropic, sinon aucun |
+| `deepseek` | DeepSeek, ou **rien** si la clé manque — pas de repli silencieux |
+| `anthropic` | Anthropic, ou rien |
+| `none` | Aucun modèle, même avec des clés : le mode déterministe est complet, pas dégradé |
+
+Les noms de modèles sont de la configuration (`DEEPSEEK_MODEL`, `ANTHROPIC_MODEL`) : les
+fournisseurs en retirent, et un renommage ne doit pas demander une livraison de code.
+
+Le tarif sert au suivi de budget, jamais à une décision de trade. Les prix DeepSeek de
+`layer.PRICES_EUR_PER_MTOK` sont les tarifs **de pointe** convertis au taux documenté dans le
+module : sous-estimer un coût est la seule erreur qui compte quand le chiffre existe pour
+arrêter de dépenser.
+
 ## Décider une proposition
 
 `LabStore.decide_proposal(id, status, actor, reason, at)` est l'API du système de

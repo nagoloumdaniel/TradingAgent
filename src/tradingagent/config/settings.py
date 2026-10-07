@@ -5,6 +5,11 @@ from pydantic import Field, SecretStr, ValidationError, field_validator, model_v
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from sqlalchemy import make_url
 
+from tradingagent.ai.provider import (
+    DEFAULT_ANTHROPIC_MODEL,
+    DEFAULT_DEEPSEEK_MODEL,
+    AiProvider,
+)
 from tradingagent.config.errors import ConfigError
 from tradingagent.core.mode import TradingMode
 
@@ -23,6 +28,14 @@ class Settings(BaseSettings):
     # without it. When absent, the AI filter is simply not wired and the deterministic
     # rules decide alone — never the other way round.
     anthropic_api_key: SecretStr | None = None
+    # The provider this project is configured for. DeepSeek serves an Anthropic-compatible
+    # endpoint, so one client reaches both; only the base URL and the model name differ.
+    deepseek_api_key: SecretStr | None = None
+    ai_provider: AiProvider = AiProvider.AUTO
+    # Model names are configuration, not constants: providers retire them, and a rename
+    # should not require a code change and a release.
+    deepseek_model: str = DEFAULT_DEEPSEEK_MODEL
+    anthropic_model: str = DEFAULT_ANTHROPIC_MODEL
     # Hosted PostgreSQL, required: no silent fallback to a local file. The URL carries the
     # database password, so it is kept secret and redacted from logs.
     database_url: SecretStr

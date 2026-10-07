@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import Engine
+from tests.conftest import shared_server
 
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
@@ -17,7 +18,7 @@ from tradingagent.core.timeframe import Timeframe
 from tradingagent.execution.ports import LocalPosition, OrderSnapshot
 from tradingagent.risk.model import ClosedPosition, OrderRequest, OrderResult
 from tradingagent.storage.engine import create_database_engine
-from tradingagent.storage.migrate import upgrade
+from tradingagent.storage.migrate import downgrade, upgrade
 from tradingagent.storage.signals import SignalRecord, SignalRepository, idempotency_key, transition
 from tradingagent.strategies.manifest import StrategyManifest
 
@@ -36,17 +37,23 @@ MANIFEST = StrategyManifest(
 
 @pytest.fixture
 def database_url(tmp_path: Path) -> str:
-    if TEST_DATABASE_URL:
-        return TEST_DATABASE_URL
+    url = shared_server()
+    if url:
+        return url
     return f"sqlite:///{tmp_path / 'execution.db'}"
 
 
 @pytest.fixture
 def engine(database_url: str) -> Iterator[Engine]:
+    on_server = database_url.startswith("postgresql")
+    if on_server:
+        downgrade(database_url)  # a shared server keeps the previous test's rows otherwise
     upgrade(database_url)
     built = create_database_engine(database_url)
     yield built
     built.dispose()
+    if on_server:
+        downgrade(database_url)
 
 
 def make_signal(engine: Engine, mode: TradingMode = TradingMode.DEMO, at: datetime = NOW) -> int:

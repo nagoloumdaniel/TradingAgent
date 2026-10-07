@@ -7,14 +7,14 @@ test.
 """
 
 import json
-import os
 from collections.abc import Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, insert, make_url, select
+from sqlalchemy import Engine, insert, select
+from tests.conftest import shared_server
 from tests.web.seed import NOW, XAU, Seeded, seed
 
 from tradingagent.core.states import ExecutionEventKind, HaltAction, HaltSource
@@ -25,7 +25,6 @@ from tradingagent.storage.models import ExecutionEventRow, HaltCommandRow, Order
 from tradingagent.web.app import create_app
 from tradingagent.web.auth import ACCESS_ENV_VAR
 
-TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 # DEFAULT_HEARTBEAT_TIMEOUT_SECONDS: a heartbeat older than this is OFFLINE.
 HEARTBEAT_TIMEOUT = 15.0
 
@@ -41,32 +40,24 @@ def _no_ambient_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(ACCESS_ENV_VAR, raising=False)
 
 
-def _guard(url: str) -> str:
-    database = make_url(url).database or ""
-    if not database.endswith("_test"):
-        raise pytest.UsageError(
-            f"TEST_DATABASE_URL must name a database ending in _test, got {database!r}"
-        )
-    return url
-
-
 @pytest.fixture
 def database_url(tmp_path: Path) -> str:
-    if TEST_DATABASE_URL:
-        return _guard(TEST_DATABASE_URL)
+    url = shared_server()
+    if url:
+        return url
     return f"sqlite:///{tmp_path / 'web.db'}"
 
 
 @pytest.fixture
 def engine(database_url: str) -> Iterator[Engine]:
-    shared_server = TEST_DATABASE_URL is not None
-    if shared_server:
+    on_server = database_url.startswith("postgresql")
+    if on_server:
         downgrade(database_url)
     upgrade(database_url)
     built = create_database_engine(database_url)
     yield built
     built.dispose()
-    if shared_server:
+    if on_server:
         downgrade(database_url)
 
 

@@ -19,6 +19,8 @@ import pytest
 from sqlalchemy import Engine, make_url, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
+from tests._database_guard import guard_test_database
+from tests.conftest import env_value
 
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
@@ -57,18 +59,20 @@ pytestmark = pytest.mark.skipif(
 
 
 def _postgres_url() -> str:
-    """The `_test` database only; the production URL is never read for a connection."""
+    """The test database only; the production URL is never read for a connection.
+
+    The safety rule itself lives in `tests/_database_guard.py`, in one place: two copies of
+    it had already drifted, and the stricter one made a perfectly safe setup unrunnable.
+    """
     if not TEST_DATABASE_URL:
         pytest.skip("TEST_DATABASE_URL is not set")
     parsed = make_url(TEST_DATABASE_URL)
     if parsed.get_backend_name() != "postgresql":
         pytest.skip("TEST_DATABASE_URL does not name a PostgreSQL server")
-    if not (parsed.database or "").endswith("_test"):
-        raise pytest.UsageError(
-            f"TEST_DATABASE_URL must name a database ending in _test, got {parsed.database!r}: "
-            "these tests migrate and drop every table"
-        )
-    return TEST_DATABASE_URL
+    try:
+        return guard_test_database(TEST_DATABASE_URL, env_value("DATABASE_URL"))
+    except ValueError as error:
+        raise pytest.UsageError(str(error)) from error
 
 
 @pytest.fixture(scope="module")
@@ -260,8 +264,8 @@ def test_mutable_tables_still_accept_updates(engine: Engine) -> None:
 
 
 def test_the_test_url_is_never_the_production_url() -> None:
-    """A safety net, not a connection: the two names may coexist in the environment."""
-    production = os.environ.get("DATABASE_URL")
+    """A safety net, not a connection: the two may coexist in the operator's file."""
+    production = env_value("DATABASE_URL")
     if production is None:
         pytest.skip("no DATABASE_URL in this environment")
     assert production != TEST_DATABASE_URL, "refusing to run the suite against production"

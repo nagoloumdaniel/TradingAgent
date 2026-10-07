@@ -1,6 +1,9 @@
-"""The real model client (TASK-037). Blocking SDK calls are confined to a thread, like
-every other blocking boundary; the key comes from the environment via Settings and is
-never logged."""
+"""The real model client. Blocking SDK calls are confined to a thread, like every other
+blocking boundary; the key comes from the environment via Settings and is never logged.
+
+Written against the Anthropic SDK because DeepSeek serves an Anthropic-compatible endpoint:
+one request shape, one response shape, and the provider is nothing more than a base URL.
+"""
 
 import asyncio
 import logging
@@ -11,13 +14,17 @@ from tradingagent.storage.ai_calls import AiReply
 log = logging.getLogger(__name__)
 
 
-class AnthropicClient:
-    def __init__(self, api_key: str, model: str) -> None:
+class ModelClient:
+    def __init__(self, api_key: str, model: str, *, base_url: str | None = None) -> None:
         self._model = model
         # Imported lazily: tests and offline runs never pay for the import.
         import anthropic
 
-        self._client = anthropic.Anthropic(api_key=api_key)
+        self._client = (
+            anthropic.Anthropic(api_key=api_key)
+            if base_url is None
+            else anthropic.Anthropic(api_key=api_key, base_url=base_url)
+        )
 
     async def complete(self, system: str, user: str) -> AiReply:
 

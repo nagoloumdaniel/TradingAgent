@@ -26,8 +26,27 @@ from tradingagent.storage.events import SystemEventStore
 
 log = logging.getLogger(__name__)
 
+# Indicative rate, used only to express the USD prices below in the EUR table. It moves,
+# and the date matters more than the value; the budget check is a guard rail, not an
+# accounting entry.
+USD_TO_EUR = Decimal("0.92")
+
 # EUR per million tokens; a model outside the table is billed at the default rate.
-PRICES_EUR_PER_MTOK: dict[str, tuple[Decimal, Decimal]] = {}
+#
+# The figure is used for budget tracking and the operator's reports, never for a trade
+# decision — so an approximate rate is acceptable, but it must be stated rather than
+# implied. Rates are converted from the providers' USD prices at USD_TO_EUR below, and
+# DeepSeek's *peak* rates are used on purpose: understating a cost is the one error that
+# matters when the number exists to stop spending.
+#
+# Source, read on 2026-10-07: https://api-docs.deepseek.com/quick_start/pricing
+# Off-peak (outside 01:00-04:00 and 06:00-10:00 UTC, Mon-Fri) is half these prices.
+PRICES_EUR_PER_MTOK: dict[str, tuple[Decimal, Decimal]] = {
+    # deepseek-flash: $0.30 input (cache miss) / $1.20 output, peak.
+    "deepseek-flash": (Decimal("0.28"), Decimal("1.10")),
+    # deepseek-v4-pro: $1.32 input (cache miss) / $3.96 output, peak.
+    "deepseek-v4-pro": (Decimal("1.21"), Decimal("3.64")),
+}
 DEFAULT_INPUT_PRICE = Decimal("0.80")
 DEFAULT_OUTPUT_PRICE = Decimal("4.00")
 

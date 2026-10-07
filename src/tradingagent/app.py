@@ -29,10 +29,11 @@ from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, ContextTypes, MessageHandler, filters
 
 from tradingagent.ai.analyst import TradeAnalyst
-from tradingagent.ai.anthropic_client import AnthropicClient
 from tradingagent.ai.daily import DailyLab
 from tradingagent.ai.lab_store import LabStore
 from tradingagent.ai.layer import AiFilterLayer
+from tradingagent.ai.model_client import ModelClient
+from tradingagent.ai.provider import ModelTarget, resolve_target
 from tradingagent.ai.researcher import StrategyResearcher
 from tradingagent.config._yaml import read_yaml
 from tradingagent.config.agent import AgentConfig, load_agent_config
@@ -93,9 +94,6 @@ ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = ROOT / ".env"
 AGENT_CONFIG = ROOT / "config" / "agent.yaml"
 STRATEGY_DIR = ROOT / "config" / "strategies"
-# Chosen in TASK-037 and to confirm with the operator (Q-18): the model is never
-# authoritative, so a wrong pick costs money, never correctness.
-DEFAULT_MODEL = "claude-sonnet-4-5"
 PAPER_STARTING_CAPITAL = Decimal(1000)
 # Section 14: the ladder gates the mode. Executing modes require the matching rung, so a
 # strategy cannot trade a rung it never climbed. OBSERVATION and SIGNAL are absent on
@@ -256,24 +254,41 @@ def _build_telegram(settings: Settings, service: CommandService) -> Application:
     return application
 
 
-def _ai_client(settings: Settings) -> AnthropicClient | None:
-    """The model client, or None. Everything downstream must work without it (RM-011)."""
-    key = settings.anthropic_api_key
-    if key is None:
-        log.warning("no ANTHROPIC_API_KEY: AI commentary disabled, deterministic analysis kept")
-        return None
-    return AnthropicClient(key.get_secret_value(), DEFAULT_MODEL)
+def _model_target(settings: Settings) -> ModelTarget | None:
+    """Which provider answers, or None. Everything downstream works without one (RM-011).
+
+    The decision itself lives in `ai.provider`, as a pure function: it is asked here, by
+    the diagnostic and by the tests, and none of them should have to build a client to know
+    the answer.
+    """
+    deepseek = settings.deepseek_api_key
+    anthropic = settings.anthropic_api_key
+    target = resolve_target(
+        provider=settings.ai_provider,
+        deepseek_key=deepseek.get_secret_value() if deepseek is not None else None,
+        anthropic_key=anthropic.get_secret_value() if anthropic is not None else None,
+        deepseek_model=settings.deepseek_model,
+        anthropic_model=settings.anthropic_model,
+    )
+    if target is None:
+        log.warning(
+            "no model key for provider %s: AI commentary disabled, deterministic analysis kept",
+            settings.ai_provider.value,
+        )
+    else:
+        log.info("AI provider: %s (%s)", target.provider.value, target.model)
+    return target
 
 
 def _build_ai(engine: Engine, settings: Settings) -> AiFilterLayer | None:
-    client = _ai_client(settings)
-    if client is None:
+    target = _model_target(settings)
+    if target is None:
         return None
     return AiFilterLayer(
-        client,
+        ModelClient(target.api_key, target.model, base_url=target.base_url),
         AiCallStore(engine),
         SystemEventStore(engine),
-        model=DEFAULT_MODEL,
+        model=target.model,
         ai_filter=AiFilter.SHADOW,
     )
 
@@ -284,9 +299,14 @@ def _build_lab(engine: Engine, settings: Settings, notifier: Any, now: Any) -> D
     That is the point of the design: the long-term improvement loop does not depend on an
     API key, and the model only ever adds commentary to a verdict already computed.
     """
-    client = _ai_client(settings)
+    target = _model_target(settings)
     store = LabStore(engine)
-    model = DEFAULT_MODEL if client is not None else "deterministic"
+    client = (
+        ModelClient(target.api_key, target.model, base_url=target.base_url)
+        if target is not None
+        else None
+    )
+    model = target.model if target is not None else "deterministic"
     return DailyLab(
         engine,
         analyst=TradeAnalyst(store, client, model=model),
