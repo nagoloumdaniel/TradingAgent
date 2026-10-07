@@ -277,12 +277,33 @@ class DatasetStore:
         return self._directory
 
     def load_all(self) -> dict[str, CandleDataset]:
+        """Every dataset in the directory, keyed by symbol.
+
+        Keyed by **symbol**, not by `dataset_id`, and that distinction is the whole point of
+        this method. Two datasets fetched on the same day carry the same id — the fetch tool
+        derives it from the date — so keying by id silently dropped the second one. On
+        2026-10-07 that discarded the entire BTCUSD series while the campaign exited 0 and
+        printed "loaded 1 frozen dataset(s)": a two-market run that was quietly a
+        one-market run.
+
+        A genuine duplicate is now refused loudly rather than resolved by luck. Two datasets
+        for the same symbol would mean the campaign picked one by sort order, and no result
+        computed from an arbitrary choice is worth having.
+        """
         found: dict[str, CandleDataset] = {}
+        sources: dict[str, Path] = {}
         if not self._directory.is_dir():
             return found
         for path in sorted(self._directory.glob("*.jsonl")):
             dataset = load_dataset(path)
-            found[dataset.dataset_id] = dataset
+            if dataset.symbol in found:
+                raise ValueError(
+                    f"two datasets for {dataset.symbol}: {sources[dataset.symbol].name} and "
+                    f"{path.name}. Give them distinct symbols or move one aside — the "
+                    "campaign must never choose between them by file order."
+                )
+            found[dataset.symbol] = dataset
+            sources[dataset.symbol] = path
         return found
 
     def save(self, dataset: CandleDataset) -> Path:

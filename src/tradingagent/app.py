@@ -40,6 +40,12 @@ from tradingagent.config.agent import AgentConfig, load_agent_config
 from tradingagent.config.errors import ConfigError
 from tradingagent.config.settings import Settings, load_settings
 from tradingagent.config.strategy_catalog import StrategyCatalog
+from tradingagent.console import (
+    ConsoleNotifier,
+    configure_console_logging,
+    enable_ansi,
+    use_utf8_console,
+)
 from tradingagent.control.guardian import Guardian
 from tradingagent.control.quarantine import PersistentQuarantine
 from tradingagent.core.mode import AiFilter, TradingMode
@@ -326,10 +332,11 @@ def _build_lab(engine: Engine, settings: Settings, notifier: Any, now: Any) -> D
     )
 
 
-async def build(settings: Settings) -> Components:
+async def build(
+    settings: Settings, *, verbose: bool = False, json_logs: bool | None = None
+) -> Components:
     """Construct every component and warm the agent up. Never trades before returning."""
-    secrets = settings.secret_values()
-    configure_json_logging(logging.INFO, secrets)
+    _configure_output(settings, verbose=verbose, json_logs=json_logs)
     metrics = Metrics()
     resources = ResourceMonitor(ROOT)
 
@@ -388,7 +395,10 @@ async def build(settings: Settings) -> Components:
         )
         application = _build_telegram(settings, service)
         operator_id = settings.telegram_allowed_user_ids[0]
-        notifier = TelegramNotifier(application, operator_id)
+        # The console is a second reader of the same text, never a second source: the
+        # signal still goes to Telegram exactly as before. A human watching the terminal
+        # gets the message the operator was always meant to receive.
+        notifier = ConsoleNotifier(TelegramNotifier(application, operator_id))
 
     async def alert_sender(text: str) -> None:
         await notifier.send(text)
@@ -564,8 +574,39 @@ def _credentials(settings: Settings) -> Any:
     )
 
 
-async def run(settings: Settings, *, cycles: int | None = None) -> int:
-    components = await build(settings)
+def _configure_output(
+    settings: Settings, *, verbose: bool = False, json_logs: bool | None = None
+) -> None:
+    """Decide what the operator sees: signals and errors, or a machine-readable journal.
+
+    Three cases, and the default is the one a person wants:
+
+    * a terminal, unless told otherwise → framed signals, readable warnings, colour;
+    * `--verbose` → the same, at INFO, for a diagnosis;
+    * `--json-logs`, or a redirected stream (the scheduled task, a journal) → JSON.
+
+    A redirected stream implies JSON because that is what reads it: making a service
+    default to colour frames would trade a parseable journal for escape codes nobody sees.
+    """
+    secrets = settings.secret_values()
+    interactive = getattr(sys.stderr, "isatty", lambda: False)()
+    machine = json_logs if json_logs is not None else not interactive
+    if machine:
+        configure_json_logging(logging.INFO if verbose else logging.WARNING, secrets)
+        return
+    use_utf8_console()
+    enable_ansi()
+    configure_console_logging(logging.INFO if verbose else logging.WARNING)
+
+
+async def run(
+    settings: Settings,
+    *,
+    cycles: int | None = None,
+    verbose: bool = False,
+    json_logs: bool | None = None,
+) -> int:
+    components = await build(settings, verbose=verbose, json_logs=json_logs)
     loop = components.loop
     application = components.application
     try:
@@ -607,6 +648,17 @@ def _parse(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="tradingagent-run", description="Trading agent runtime")
     parser.add_argument("--once", action="store_true", help="run exactly one cycle and exit")
     parser.add_argument("--cycles", type=int, default=None, help="run a bounded number of cycles")
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="show every log line, not only warnings, errors and signals",
+    )
+    parser.add_argument(
+        "--json-logs",
+        action="store_true",
+        default=None,
+        help="machine-readable journal (implied when the output is redirected)",
+    )
     return parser.parse_args(argv)
 
 
@@ -620,7 +672,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     cycles = 1 if args.once else args.cycles
     try:
-        return asyncio.run(run(settings, cycles=cycles))
+        return asyncio.run(
+            run(settings, cycles=cycles, verbose=args.verbose, json_logs=args.json_logs)
+        )
     except KeyboardInterrupt:
         log.info("interrupted, shutting down")
         return 0

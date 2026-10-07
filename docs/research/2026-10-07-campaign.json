@@ -1,6 +1,12 @@
 {
-  "generated_at": "2026-10-07T02:45:26.784821+00:00",
+  "generated_at": "2026-10-07T22:11:23.673204+00:00",
   "datasets": {
+    "BTCUSD": {
+      "dataset_id": "mt5-2026-10-07",
+      "fingerprint": "d330537e34f96f2476ce3a21b67e561b7176a5457cf3d48170f154d48a1139a3",
+      "source": "deriv-mt5:2026-10-07T22:08:37+00:00",
+      "bars": 3999
+    },
     "XAUUSD": {
       "dataset_id": "mt5-2026-10-07",
       "fingerprint": "f0d6c90ff7671a7961ad6b1ae5593eb8fbb34cacaa7f3afe28ddf6930f701bc3",
@@ -9,6 +15,81 @@
     }
   },
   "markets": [
+    {
+      "market": "BTCUSD",
+      "dataset_id": "mt5-2026-10-07",
+      "selected": "fast-1.5R",
+      "selection_basis": "stability score, then out-of-sample profit factor",
+      "holdout_still_sealed": true,
+      "candidates": [
+        {
+          "label": "fast-1.5R",
+          "selected": true,
+          "stability_score": 0.8665744460378249,
+          "fragile": false,
+          "reasons": [],
+          "train_net_profit": "-124.903639432080",
+          "validation_net_profit": "68.039764809670",
+          "cost_net_profit": "46.353873380470",
+          "cost_net_profit_factor": 1.3417452051127947,
+          "parameters": {
+            "ema_fast": 10.0,
+            "ema_slow": 30.0,
+            "atr_period": 14.0,
+            "stop_atr_multiplier": 1.5,
+            "take_profit_rr": 1.5,
+            "entry_zone_atr": 0.1
+          }
+        },
+        {
+          "label": "balanced-2R",
+          "selected": false,
+          "stability_score": 0.13824062232728374,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention 0.00 below 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.14 below 0.50"
+          ],
+          "train_net_profit": "-81.804472929170",
+          "validation_net_profit": "-91.670449952200",
+          "cost_net_profit": "-101.028227172240",
+          "cost_net_profit_factor": 0.264091327582708,
+          "parameters": {
+            "ema_fast": 20.0,
+            "ema_slow": 50.0,
+            "atr_period": 14.0,
+            "stop_atr_multiplier": 1.5,
+            "take_profit_rr": 2.0,
+            "entry_zone_atr": 0.1
+          }
+        },
+        {
+          "label": "slow-2.5R",
+          "selected": false,
+          "stability_score": 0.22821513052675008,
+          "fragile": true,
+          "reasons": [
+            "only 18 in-sample trade(s), below 30",
+            "out-of-sample retention 0.00 below 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.23 below 0.50"
+          ],
+          "train_net_profit": "-18.361170486330",
+          "validation_net_profit": "-42.048945380740",
+          "cost_net_profit": "-48.163842489950",
+          "cost_net_profit_factor": 0.3872925070050985,
+          "parameters": {
+            "ema_fast": 30.0,
+            "ema_slow": 80.0,
+            "atr_period": 14.0,
+            "stop_atr_multiplier": 1.5,
+            "take_profit_rr": 2.5,
+            "entry_zone_atr": 0.1
+          }
+        }
+      ]
+    },
     {
       "market": "XAUUSD",
       "dataset_id": "mt5-2026-10-07",
@@ -90,5 +171,15 @@
       ]
     }
   ],
-  "correlations": []
+  "correlations": [
+    {
+      "markets": [
+        "BTCUSD",
+        "XAUUSD"
+      ],
+      "correlation": 0.33318591827601973,
+      "aligned_bars": 2637,
+      "high": false
+    }
+  ]
 }

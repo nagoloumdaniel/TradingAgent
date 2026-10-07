@@ -5,6 +5,7 @@ removed has exactly one hole, at the removed bar's open time, and `missing_bars`
 counts a bar when the calendar says the market was open.
 """
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -145,8 +146,43 @@ def test_store_loads_every_immutable_dataset(tmp_path) -> None:
     store = DatasetStore(tmp_path)
     store.save(gold_dataset())
     found = store.load_all()
-    assert set(found) == {"gold-m15-demo"}
-    assert found["gold-m15-demo"].fingerprint == gold_dataset().fingerprint
+    assert set(found) == {gold_dataset().symbol}
+    assert found[gold_dataset().symbol].fingerprint == gold_dataset().fingerprint
+
+
+def test_two_markets_fetched_the_same_day_are_both_loaded(tmp_path) -> None:
+    """The defect of 2026-10-07: one market silently vanished from a two-market run.
+
+    Both files carried the same `dataset_id` — the fetch tool derived it from the date — and
+    the store keyed its result by that id, so the second overwrote the first. The campaign
+    exited 0 and printed "loaded 1 frozen dataset(s)".
+    """
+    store = DatasetStore(tmp_path)
+    store.save(gold_dataset())
+    store.save(
+        replace(
+            gold_dataset(),
+            dataset_id="mt5-2026-10-07",  # same day, same id, different market
+            symbol="BTCUSD",
+        )
+    )
+
+    found = store.load_all()
+
+    assert set(found) == {GOLD, "BTCUSD"}
+
+
+def test_two_datasets_for_one_symbol_are_refused_not_arbitrated(tmp_path) -> None:
+    """Choosing between them by file order would make every result an accident."""
+    store = DatasetStore(tmp_path)
+    store.save(gold_dataset())
+    store.save(replace(gold_dataset(), dataset_id="a-second-fetch"))
+
+    with pytest.raises(ValueError) as caught:
+        store.load_all()
+
+    assert "two datasets for" in str(caught.value)
+    assert "file order" in str(caught.value)
 
 
 def test_synthetic_data_is_reproducible_per_seed() -> None:

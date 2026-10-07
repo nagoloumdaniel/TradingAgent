@@ -1,7 +1,7 @@
 {
-  "decided_at": "2026-10-07T02:45:26.827976+00:00",
+  "decided_at": "2026-10-07T22:11:23.732831+00:00",
   "decided_by": "research-campaign",
-  "evidence_digest": "4f58699accc74eaf3858d031e383bea841a3a47b37fe2ca8886f98c5e7ac6c89",
+  "evidence_digest": "1f8200c9ffe89a12c37d9a485dd30d1af4fc138143e5926da9a990d5fbfe2eb4",
   "format": "tradingagent.promotion-decision/1",
   "promoted": false,
   "reasons": [

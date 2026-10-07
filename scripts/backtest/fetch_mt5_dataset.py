@@ -70,7 +70,9 @@ async def fetch(client: MarketDataClient, symbol: str, bars: int) -> CandleDatas
         raise SystemExit(f"only {len(candles)} candle(s) returned for {symbol}")
     stamp = datetime.now(UTC).strftime("%Y-%m-%d")
     return CandleDataset(
-        dataset_id=f"mt5-{stamp}",
+        # The symbol belongs in the id: two markets fetched the same day are two datasets,
+        # and an id made of the date alone says they are one.
+        dataset_id=f"mt5-{symbol}-{stamp}",
         symbol=symbol,
         timeframe=Timeframe.M15,
         source=f"deriv-mt5:{datetime.now(UTC).isoformat(timespec='seconds')}",

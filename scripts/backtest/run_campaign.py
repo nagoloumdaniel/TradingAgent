@@ -232,10 +232,17 @@ def print_report(report: CampaignReport, datasets: Mapping[str, CandleDataset]) 
 
 
 def promotion_gate(report: CampaignReport, output: Path) -> None:
-    """TASK-065: thresholds are written first, then the decision, then the manifest."""
-    gold = next(
-        (market for market in report.markets if market.market == GOLD),
-        next((market for market in report.markets if market.selected is not None), None),
+    """TASK-065: thresholds are written first, then the decision, then the manifest.
+
+    The market to promote is found by name, not assumed: the constant below names the
+    *synthetic* gold series, and a real MT5 dataset is called `XAUUSD`. Matching only the
+    constant made the gate fall through to "the first market that selected something" —
+    right by luck here, arbitrary in general.
+    """
+    gold = (
+        next((market for market in report.markets if market.market == GOLD), None)
+        or next((market for market in report.markets if "XAU" in market.market.upper()), None)
+        or next((market for market in report.markets if market.selected is not None), None)
     )
     if gold is None or gold.selected is None:
         print("== Promotion ==")
@@ -255,7 +262,7 @@ def promotion_gate(report: CampaignReport, output: Path) -> None:
         (
             pair.correlation
             for pair in report.correlations
-            if GOLD in (pair.market_a, pair.market_b)
+            if gold.market in (pair.market_a, pair.market_b)
         ),
         None,
     )
