@@ -104,6 +104,69 @@ Mesuré le 2026-10-09 sur les mêmes campagnes, `mae_r` et `mfe_r` par opératio
    elle dit où chercher : pas dans le réglage des niveaux, mais dans la **sélection des
    entrées**.
 
+### 🎯 Le résultat le plus important : ces stratégies gagnent en cassure et perdent en range
+
+Mesuré le 2026-10-09 en croisant `Trade.features` avec le résultat (TASK-069). **C'est la
+première fois que le dépôt peut répondre à « ce contexte change-t-il le résultat ? »**, et la
+réponse est sans ambiguïté.
+
+**`witness` sur XAUUSD — 977 opérations, net total −1 167,75 €**
+
+| Contexte d'entrée | Opérations | Réussite | Net | Profit factor |
+|---|---|---|---|---|
+| **Structure = cassure haute** | 105 | **49,5 %** | **+387,62 €** | **1,652** |
+| **Structure = cassure basse** | 76 | **50,0 %** | **+283,55 €** | **1,656** |
+| Structure = range | **796** | 28,4 % | **−1 838,92 €** | 0,700 |
+| Tendance = hausse | 402 | 36,3 % | −7,27 € | 0,997 |
+| Tendance = baisse | 365 | 32,3 % | −434,07 € | 0,837 |
+| Tendance = neutre | 210 | 24,8 % | −726,41 € | 0,580 |
+| Tokyo | 319 | 36,4 % | **+10,89 €** | **1,005** |
+| Hors séance | 54 | 33,3 % | −25,42 € | 0,934 |
+
+**`trend_breakout` sur BTCUSD — 1 812 opérations, net total −1 437,77 €**
+
+| Contexte d'entrée | Opérations | Réussite | Net | Profit factor |
+|---|---|---|---|---|
+| **Structure = cassure basse** | 291 | **49,8 %** | **+1 150,14 €** | **1,719** |
+| **Structure = cassure haute** | 268 | **48,1 %** | **+974,81 €** | **1,658** |
+| Structure = range | **1 253** | 26,4 % | **−3 562,72 €** | 0,639 |
+
+**Ce que ces tableaux disent, et c'est le résultat à retenir de tout le projet :**
+
+1. **Sur les deux marchés et les deux stratégies, un seul filtre sépare la perte du gain : la
+   structure au moment de l'entrée.** Les entrées prises sur une cassure gagnent — 48 à 50 %
+   de réussite, profit factor de **1,66 à 1,72** — et celles prises en range perdent (26 à
+   28 %, PF 0,64 à 0,70). **181 entrées gagnantes contre 796 perdantes sur l'or ; 559 contre
+   1 253 sur le bitcoin.**
+
+2. **Le range n'est pas « un peu pire » : c'est là que tout l'argent part.** Sur l'or, les
+   796 entrées en range coûtent −1 838,92 € quand les 181 entrées en cassure rapportent
+   +671,17 €. Le solde négatif de la stratégie **est** le coût des entrées en range.
+
+3. **La tendance neutre est la pire des conditions** (PF 0,580 sur l'or, 0,368 sur le BTC) :
+   plus le marché est indécis, plus la règle perd. Cohérent avec ce que « range » signifie.
+
+4. **La volatilité ne discrimine rien ici, et il faut le dire** : 977 opérations sur 977
+   classées « normal » sur l'or, 1 807 sur 1 812 sur le BTC. Les observations sont trop
+   concentrées pour conclure — présenter ce tableau vide comme un résultat serait une faute.
+
+5. **Le meilleur chiffre du dépôt est déjà dans ces données :** `trend_breakout` filtré sur
+   cassure donne **PF 1,66 à 1,72 sur 559 opérations**, contre un seuil de 1,20. Ce n'est pas
+   une promotion — il faut passer les 9 portes et refaire la correction de sélection multiple
+   sur le nombre d'hypothèses réellement testées. Mais **c'est la première piste du projet qui
+   franchit un seuil, et elle vient d'un contexte, pas d'un paramètre.**
+
+**Ce qu'il faut en faire, concrètement :** un filtre d'entrée « **ne prendre que les
+cassures** », c'est-à-dire exiger `MarketStructure != RANGE` au moment de la décision. Il ne
+demande aucun calcul nouveau (la brique existe), il ne touche ni au stop ni à l'objectif, et
+il supprime 1 253 des 1 812 entrées du BTC et 796 des 977 de l'or.
+
+**Et la réserve, à ne pas oublier :** ce découpage est fait **après** avoir vu les résultats,
+sur les données qui les ont produits. Un filtre trouvé ainsi est une **hypothèse**, pas une
+preuve : il doit passer le walk-forward et le scellé comme n'importe quel candidat. Qu'il soit
+économiquement sensé — une règle de suivi de tendance qui n'entre que sur cassure — le rend
+plausible, **pas démontré**.
+
 ---
 
 ## 1. Blocages d'exécution
