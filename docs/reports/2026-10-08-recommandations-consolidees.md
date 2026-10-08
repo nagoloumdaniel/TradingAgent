@@ -70,6 +70,40 @@ signifie que chaque perte coûte 2 € sur un compte qui en porte 100.
 **Aucune promotion n'a été faite.** Les plafonds restent `DEMO` (dérogation datée) et `SIGNAL`.
 `config/strategies/` n'a pas été touché.
 
+### Et MAE/MFE dit où est le vrai problème — ce n'est pas le stop
+
+Mesuré le 2026-10-09 sur les mêmes campagnes, `mae_r` et `mfe_r` par opération (TASK-069) :
+
+| | `witness` sur XAUUSD (977 op.) | `trend_breakout` sur BTCUSD (1 812 op.) |
+|---|---|---|
+| MAE médiane, tous trades | 1,082 R | 1,071 R |
+| MFE médiane, tous trades | 1,021 R | 1,013 R |
+| MAE médiane des **gagnants** | 0,443 R | 0,402 R |
+| MFE médiane des **gagnants** | 2,244 R | 2,229 R |
+| **MFE médiane des perdants** | **0,538 R** | **0,538 R** |
+| Gagnants ayant failli être stoppés (MAE ≥ 0,5 R) | **141 / 316 (45 %)** | **253 / 605 (42 %)** |
+
+**Trois conclusions, toutes actionnables :**
+
+1. **Le stop n'est probablement pas trop serré.** 45 % des gagnants sont passés à moins d'un
+   demi-stop de la sortie perdante. Resserrer le stop supprimerait près de la moitié des
+   trades gagnants : le laisser tel quel est ce que la mesure recommande.
+
+2. **Le problème est l'objectif, et il est structurel.** Les gagnants vont en médiane jusqu'à
+   **2,244 R** d'excursion favorable alors que l'objectif est à **2,0 R** : il coupe les
+   gagnants *avant* leur extension médiane. Symétriquement, les perdants ont vu en médiane
+   **+0,538 R** avant de se retourner. Ces règles encaissent donc au moment où il faudrait
+   laisser courir, et laissent repartir un perdant depuis +0,5 R. **Un objectif plus lointain
+   et un break-even vers +0,5 R sont les deux pistes que ces chiffres désignent** — et non un
+   réglage du stop.
+
+3. **MAE et MFE médianes sont presque symétriques** (1,08 contre 1,02) : à l'entrée, ces
+   règles ne prédisent pas la direction mieux que le hasard. Leur résultat ne vient que de la
+   géométrie 1:2, qui exige 33 % de réussite pour survivre — et elles en font 32 à 33 %.
+   **Aucune marge.** C'est l'explication arithmétique du profit factor brut de 0,94 et 0,99, et
+   elle dit où chercher : pas dans le réglage des niveaux, mais dans la **sélection des
+   entrées**.
+
 ---
 
 ## 1. Blocages d'exécution
