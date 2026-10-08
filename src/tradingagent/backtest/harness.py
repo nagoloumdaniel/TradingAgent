@@ -136,6 +136,10 @@ class _Position:
     atr: float | None
     contributions: list[tuple[float, float]]
     adverse: list[float]
+    #: Excursions recorded while the position lives, in R. Seeded with the entry bar, whose
+    #: own range is real even though the barrier order inside that bar is unknowable.
+    worst_r: float = 0.0
+    best_r: float = 0.0
 
 
 def decision_prefix(series: Sequence[Candle], evaluated_at: datetime) -> Sequence[Candle]:
@@ -194,6 +198,7 @@ def run_backtest(
         for position in list(open_positions):
             if position.entry_index >= index:
                 continue
+            _record_excursion(position, bar)
             trade = _manage(position, bar, config)
             if trade is not None:
                 trades.append(trade)
@@ -339,6 +344,19 @@ def _try_enter(
         atr=entry.atr,
         contributions=[],
         adverse=[abs(fill - reference)],
+        # The entry bar counts for the excursion: its range is real, even though which
+        # barrier came first inside it is not knowable. Dropping it would shrink the MAE of
+        # every trade that dipped right after being filled.
+        worst_r=(
+            (fill - bar.low) / risk_price
+            if signal.direction is Direction.BUY
+            else (bar.high - fill) / risk_price
+        ),
+        best_r=(
+            (bar.high - fill) / risk_price
+            if signal.direction is Direction.BUY
+            else (fill - bar.low) / risk_price
+        ),
     )
 
 
@@ -409,6 +427,27 @@ def _trail(
         position.stop = min(position.stop, primary[index].low + distance)
 
 
+def _record_excursion(position: _Position, bar: Candle) -> None:
+    """Remember how far this bar took the trade against us and for us, in R.
+
+    Both numbers are measured against the price actually paid at entry and the risk the trade
+    was sized on, so they are comparable across instruments and across stop sizes. They are
+    only read when the trade closes: nothing here feeds a decision, which is what makes them
+    safe to compute from the real OHLC of the bars the position lived through.
+    """
+    if position.risk_price <= 0:
+        return
+    sign = 1 if position.signal.direction is Direction.BUY else -1
+    if sign > 0:
+        adverse = (position.entry_price - bar.low) / position.risk_price
+        favourable = (bar.high - position.entry_price) / position.risk_price
+    else:
+        adverse = (bar.high - position.entry_price) / position.risk_price
+        favourable = (position.entry_price - bar.low) / position.risk_price
+    position.worst_r = max(position.worst_r, adverse)
+    position.best_r = max(position.best_r, favourable)
+
+
 def _close(position: _Position, bar: Candle, config: BacktestConfig) -> Trade:
     sign = 1 if position.signal.direction is Direction.BUY else -1
     realized = sum(
@@ -429,6 +468,8 @@ def _close(position: _Position, bar: Candle, config: BacktestConfig) -> Trade:
         risk_eur=config.risk_eur,
         slippage=(sum(position.adverse) / len(position.adverse)) if position.adverse else None,
         spread=config.costs.spread * config.costs.multiplier,
+        mae_r=round(position.worst_r, 12),
+        mfe_r=round(position.best_r, 12),
     )
 
 

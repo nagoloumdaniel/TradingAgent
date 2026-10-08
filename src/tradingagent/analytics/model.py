@@ -28,6 +28,16 @@ class Trade:
     risk_eur: Decimal
     slippage: float | None = None
     spread: float | None = None
+    #: Maximum adverse excursion, in R: how far the trade went against us before it closed.
+    #: `1.0` means it reached the stop, whatever the stop's size in points -- which is what
+    #: makes two markets comparable, and what lets an analysis answer "was the stop too
+    #: tight?" with a number instead of an experiment.
+    mae_r: float | None = None
+    #: Maximum favourable excursion, in R: how far it went for us, hit or not.
+    #:
+    #: Both are only known once the trade is closed. Unlike an indicator, nobody decides
+    #: with them, so reading them afterwards cannot leak the future into a decision.
+    mfe_r: float | None = None
 
 
 # Below this size, ratio statistics are labelled insignificant instead of being shown.
