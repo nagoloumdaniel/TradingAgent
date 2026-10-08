@@ -1,0 +1,12 @@
+{
+  "dataset_id": "agg-m15-BTCUSD-H4-2026-10-08",
+  "symbol": "BTCUSD",
+  "timeframe": "H4",
+  "source": "aggregated-from-BTCUSD-M15-mt5-BTCUSD-M15-2026-10-08.jsonl#sha256:95e4e18b4bed#16-of-16-M15-legs",
+  "start": "2025-01-21T08:00:00+00:00",
+  "end": "2026-10-08T16:00:00+00:00",
+  "bars": 3739,
+  "fingerprint": "f78e350cdbd6da8894b6e9900978bc849f2c6522929e9a93fd5167fdb3a5100c",
+  "gap_count": 13,
+  "first_gap": "2025-03-29T12:00:00+00:00"
+}

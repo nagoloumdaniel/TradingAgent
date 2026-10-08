@@ -1,0 +1,244 @@
+{
+  "bars": 14992,
+  "calendar": {
+    "definition": "a slot is open only when the four-week calendar and the whole-span calendar (open_ratio 0.9) both mark it open",
+    "long_open_ratio": 0.9,
+    "long_weeks": 90,
+    "recent_weeks": 4,
+    "symbol": "BTCUSD"
+  },
+  "dataset": {
+    "bars": 14992,
+    "dataset_id": "agg-m15-BTCUSD-H1-2026-10-08",
+    "end": "2026-10-08T16:00:00+00:00",
+    "fingerprint": "a15b41b31cded31e11dc7b7ab37c9b312efc577ace99cf660fe2e3b5a3626ee3",
+    "start": "2025-01-21T07:00:00+00:00",
+    "timeframe": "H1"
+  },
+  "empty": {
+    "count": 4,
+    "runs": [
+      {
+        "buckets": 1,
+        "end": "2025-12-06T16:00:00+00:00",
+        "start": "2025-12-06T16:00:00+00:00"
+      },
+      {
+        "buckets": 2,
+        "end": "2026-02-28T08:00:00+00:00",
+        "start": "2026-02-28T07:00:00+00:00"
+      },
+      {
+        "buckets": 1,
+        "end": "2026-09-05T07:00:00+00:00",
+        "start": "2026-09-05T07:00:00+00:00"
+      }
+    ]
+  },
+  "expected_buckets": 15010,
+  "legs": {
+    "absent_runs": 12,
+    "conserved": true,
+    "expected_slots": 60040,
+    "folded": 59968,
+    "hole_slots": [
+      "2025-03-29T15:30:00+00:00",
+      "2025-04-06T08:00:00+00:00",
+      "2025-04-20T08:30:00+00:00",
+      "2025-05-03T01:15:00+00:00",
+      "2025-05-04T20:15:00+00:00",
+      "2025-05-04T20:30:00+00:00",
+      "2025-05-04T20:45:00+00:00",
+      "2025-06-07T05:15:00+00:00",
+      "2025-06-07T05:30:00+00:00",
+      "2025-12-06T15:45:00+00:00",
+      "2025-12-06T16:00:00+00:00",
+      "2025-12-06T16:15:00+00:00",
+      "2025-12-06T16:30:00+00:00",
+      "2025-12-06T16:45:00+00:00",
+      "2025-12-06T17:00:00+00:00",
+      "2025-12-06T17:30:00+00:00",
+      "2025-12-06T17:45:00+00:00",
+      "2026-02-28T06:15:00+00:00",
+      "2026-02-28T06:30:00+00:00",
+      "2026-02-28T06:45:00+00:00",
+      "2026-02-28T07:00:00+00:00",
+      "2026-02-28T07:15:00+00:00",
+      "2026-02-28T07:30:00+00:00",
+      "2026-02-28T07:45:00+00:00",
+      "2026-02-28T08:00:00+00:00",
+      "2026-02-28T08:15:00+00:00",
+      "2026-02-28T08:30:00+00:00",
+      "2026-02-28T08:45:00+00:00",
+      "2026-02-28T09:00:00+00:00",
+      "2026-08-07T21:30:00+00:00",
+      "2026-09-05T06:45:00+00:00",
+      "2026-09-05T07:00:00+00:00",
+      "2026-09-05T07:15:00+00:00",
+      "2026-09-05T07:30:00+00:00",
+      "2026-09-05T07:45:00+00:00",
+      "2026-09-05T08:00:00+00:00",
+      "2026-09-05T08:15:00+00:00",
+      "2026-09-05T08:30:00+00:00"
+    ],
+    "in_partial_buckets": 32,
+    "source": 60000,
+    "unfolded": 40,
+    "unfolded_boundary": 2,
+    "unfolded_closure": 0,
+    "unfolded_hole": 38,
+    "unfolded_shut": 0
+  },
+  "legs_per_bar": 4,
+  "partial": {
+    "buckets": [
+      {
+        "boundary": false,
+        "bucket": "2025-03-29T15:00:00+00:00",
+        "legs_missing": 1,
+        "legs_present": 3,
+        "missing_legs": [
+          "2025-03-29T15:30:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2025-04-06T08:00:00+00:00",
+        "legs_missing": 1,
+        "legs_present": 3,
+        "missing_legs": [
+          "2025-04-06T08:00:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2025-04-20T08:00:00+00:00",
+        "legs_missing": 1,
+        "legs_present": 3,
+        "missing_legs": [
+          "2025-04-20T08:30:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2025-05-03T01:00:00+00:00",
+        "legs_missing": 1,
+        "legs_present": 3,
+        "missing_legs": [
+          "2025-05-03T01:15:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2025-05-04T20:00:00+00:00",
+        "legs_missing": 3,
+        "legs_present": 1,
+        "missing_legs": [
+          "2025-05-04T20:15:00+00:00",
+          "2025-05-04T20:30:00+00:00",
+          "2025-05-04T20:45:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2025-06-07T05:00:00+00:00",
+        "legs_missing": 2,
+        "legs_present": 2,
+        "missing_legs": [
+          "2025-06-07T05:15:00+00:00",
+          "2025-06-07T05:30:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2025-12-06T15:00:00+00:00",
+        "legs_missing": 1,
+        "legs_present": 3,
+        "missing_legs": [
+          "2025-12-06T15:45:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2025-12-06T17:00:00+00:00",
+        "legs_missing": 3,
+        "legs_present": 1,
+        "missing_legs": [
+          "2025-12-06T17:00:00+00:00",
+          "2025-12-06T17:30:00+00:00",
+          "2025-12-06T17:45:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2026-02-28T06:00:00+00:00",
+        "legs_missing": 3,
+        "legs_present": 1,
+        "missing_legs": [
+          "2026-02-28T06:15:00+00:00",
+          "2026-02-28T06:30:00+00:00",
+          "2026-02-28T06:45:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2026-02-28T09:00:00+00:00",
+        "legs_missing": 1,
+        "legs_present": 3,
+        "missing_legs": [
+          "2026-02-28T09:00:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2026-08-07T21:00:00+00:00",
+        "legs_missing": 1,
+        "legs_present": 3,
+        "missing_legs": [
+          "2026-08-07T21:30:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2026-09-05T06:00:00+00:00",
+        "legs_missing": 1,
+        "legs_present": 3,
+        "missing_legs": [
+          "2026-09-05T06:45:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2026-09-05T08:00:00+00:00",
+        "legs_missing": 3,
+        "legs_present": 1,
+        "missing_legs": [
+          "2026-09-05T08:00:00+00:00",
+          "2026-09-05T08:15:00+00:00",
+          "2026-09-05T08:30:00+00:00"
+        ]
+      },
+      {
+        "boundary": true,
+        "bucket": "2026-10-08T16:00:00+00:00",
+        "legs_missing": 2,
+        "legs_present": 2,
+        "missing_legs": [
+          "2026-10-08T16:30:00+00:00",
+          "2026-10-08T16:45:00+00:00"
+        ]
+      }
+    ],
+    "count": 14
+  },
+  "rule": "a M15 bucket of 4 legs is written only when all 4 legs sit at their exact slot; otherwise the bucket is dropped, never filled",
+  "source": {
+    "bars": 60000,
+    "dataset_id": "mt5-BTCUSD-M15-2026-10-08",
+    "end": "2026-10-08T16:30:00+00:00",
+    "file": "BTCUSD-M15-mt5-BTCUSD-M15-2026-10-08.jsonl",
+    "fingerprint": "95e4e18b4bed1ef618f374a2c2c0c2f8c7d2503f651089e672f5072a2a40681d",
+    "start": "2025-01-21T07:00:00+00:00",
+    "timeframe": "M15"
+  }
+}

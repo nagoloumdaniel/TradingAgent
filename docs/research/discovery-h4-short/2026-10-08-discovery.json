@@ -1,0 +1,151 @@
+{
+  "generated_at": "2026-10-08T17:05:45.586789+00:00",
+  "source": "scripts/backtest/discover.py",
+  "datasets": {
+    "BTCUSD": {
+      "dataset_id": "agg-m15-BTCUSD-H4-2026-10-08",
+      "fingerprint": "4bedec02b7e6dc45b7c8cbd1407a51b05eec155a7385d706c96db98a52439431",
+      "source": "aggregated-from-BTCUSD-M15-mt5-BTCUSD-2026-10-08.jsonl#sha256:96f80664d572#16-of-16-M15-legs",
+      "bars": 747
+    },
+    "XAUUSD": {
+      "dataset_id": "agg-m15-XAUUSD-H4-2026-10-08",
+      "fingerprint": "4631ba0ecb9f9ed9ba379369b81c7d74d284967bbb237a5046b444935e4c19c0",
+      "source": "aggregated-from-XAUUSD-M15-mt5-XAUUSD-2026-10-08.jsonl#sha256:3906afa2c63d#16-of-16-M15-legs",
+      "bars": 651
+    }
+  },
+  "report": {
+    "protocol": {
+      "train_fraction": 0.6,
+      "validation_fraction": 0.2,
+      "perturbation": 0.1,
+      "min_trades": 30,
+      "min_walk_forward_ratio": 0.5,
+      "max_parameter_dispersion": 0.5,
+      "min_stability_score": 0.5,
+      "min_profitable_regime_ratio": 0.5,
+      "min_out_of_sample_retention": 0.5,
+      "false_discovery_rate": 0.1,
+      "monte_carlo_iterations": 1000,
+      "walk_forward": {
+        "train_bars": 350,
+        "validation_bars": 250,
+        "step_bars": 200,
+        "max_folds": 6
+      },
+      "costs": {
+        "spread_fraction": 5e-05,
+        "slippage_fraction": 2e-05,
+        "commission": "0.5"
+      }
+    },
+    "markets": [
+      {
+        "market": "BTCUSD",
+        "dataset_id": "agg-m15-BTCUSD-H4-2026-10-08",
+        "fingerprint": "4bedec02b7e6dc45b7c8cbd1407a51b05eec155a7385d706c96db98a52439431",
+        "bars": 747,
+        "train_bars": 0,
+        "validation_bars": 0,
+        "holdout_bars": 0,
+        "walk_forward_folds": 0,
+        "holdout_unlocks": 0,
+        "skipped": "no walk-forward fold fits in 597 bars (train 350, validation 250)"
+      },
+      {
+        "market": "XAUUSD",
+        "dataset_id": "agg-m15-XAUUSD-H4-2026-10-08",
+        "fingerprint": "4631ba0ecb9f9ed9ba379369b81c7d74d284967bbb237a5046b444935e4c19c0",
+        "bars": 651,
+        "train_bars": 0,
+        "validation_bars": 0,
+        "holdout_bars": 0,
+        "walk_forward_folds": 0,
+        "holdout_unlocks": 0,
+        "skipped": "no walk-forward fold fits in 520 bars (train 350, validation 250)"
+      }
+    ],
+    "families": [
+      {
+        "family": "trend_following",
+        "description": "suivi de tendance (croisement EMA)",
+        "tested": 0,
+        "retained_before_correction": 0,
+        "retained": 0,
+        "discarded": 0,
+        "expected_false_discoveries": 0.0,
+        "failures": []
+      },
+      {
+        "family": "momentum",
+        "description": "momentum normalis\u00e9 par l'ATR",
+        "tested": 0,
+        "retained_before_correction": 0,
+        "retained": 0,
+        "discarded": 0,
+        "expected_false_discoveries": 0.0,
+        "failures": []
+      },
+      {
+        "family": "mean_reversion",
+        "description": "retour \u00e0 la moyenne (RSI)",
+        "tested": 0,
+        "retained_before_correction": 0,
+        "retained": 0,
+        "discarded": 0,
+        "expected_false_discoveries": 0.0,
+        "failures": []
+      },
+      {
+        "family": "breakout",
+        "description": "cassure de canal Donchian",
+        "tested": 0,
+        "retained_before_correction": 0,
+        "retained": 0,
+        "discarded": 0,
+        "expected_false_discoveries": 0.0,
+        "failures": []
+      },
+      {
+        "family": "volatility_breakout",
+        "description": "cassure de volatilit\u00e9 (expansion ATR)",
+        "tested": 0,
+        "retained_before_correction": 0,
+        "retained": 0,
+        "discarded": 0,
+        "expected_false_discoveries": 0.0,
+        "failures": []
+      },
+      {
+        "family": "ensemble",
+        "description": "ensemble : consensus tendance + RSI",
+        "tested": 0,
+        "retained_before_correction": 0,
+        "retained": 0,
+        "discarded": 0,
+        "expected_false_discoveries": 0.0,
+        "failures": []
+      }
+    ],
+    "multiple_testing": {
+      "method": "benjamini_hochberg",
+      "alpha": 0.1,
+      "expected_false_discovery_rate": 0.1,
+      "expected_false_discoveries": 0.0,
+      "hypotheses": 0,
+      "bonferroni_threshold": 1.0,
+      "discoveries_before": 0,
+      "discoveries_after": 0,
+      "rejected_by_correction": 0
+    },
+    "totals": {
+      "tested": 0,
+      "retained_before_correction": 0,
+      "retained": 0,
+      "discarded": 0,
+      "failures": []
+    },
+    "candidates": []
+  }
+}

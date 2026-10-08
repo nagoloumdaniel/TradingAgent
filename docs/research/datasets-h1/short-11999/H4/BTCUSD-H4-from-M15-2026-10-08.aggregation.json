@@ -1,0 +1,112 @@
+{
+  "bars": 747,
+  "calendar": {
+    "definition": "a slot is open only when the four-week calendar and the whole-span calendar (open_ratio 0.9) both mark it open",
+    "long_open_ratio": 0.9,
+    "long_weeks": 18,
+    "recent_weeks": 4,
+    "symbol": "BTCUSD"
+  },
+  "dataset": {
+    "bars": 747,
+    "dataset_id": "agg-m15-BTCUSD-H4-2026-10-08",
+    "end": "2026-10-08T00:00:00+00:00",
+    "fingerprint": "4bedec02b7e6dc45b7c8cbd1407a51b05eec155a7385d706c96db98a52439431",
+    "start": "2026-06-05T00:00:00+00:00",
+    "timeframe": "H4"
+  },
+  "empty": {
+    "count": 0,
+    "runs": []
+  },
+  "expected_buckets": 751,
+  "legs": {
+    "absent_runs": 3,
+    "conserved": true,
+    "expected_slots": 12016,
+    "folded": 11952,
+    "hole_slots": [
+      "2026-08-07T21:30:00+00:00",
+      "2026-09-05T06:45:00+00:00",
+      "2026-09-05T07:00:00+00:00",
+      "2026-09-05T07:15:00+00:00",
+      "2026-09-05T07:30:00+00:00",
+      "2026-09-05T07:45:00+00:00",
+      "2026-09-05T08:00:00+00:00",
+      "2026-09-05T08:15:00+00:00",
+      "2026-09-05T08:30:00+00:00"
+    ],
+    "in_partial_buckets": 47,
+    "source": 11999,
+    "unfolded": 17,
+    "unfolded_boundary": 8,
+    "unfolded_closure": 0,
+    "unfolded_hole": 9,
+    "unfolded_shut": 0
+  },
+  "legs_per_bar": 16,
+  "partial": {
+    "buckets": [
+      {
+        "boundary": false,
+        "bucket": "2026-08-07T20:00:00+00:00",
+        "legs_missing": 1,
+        "legs_present": 15,
+        "missing_legs": [
+          "2026-08-07T21:30:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2026-09-05T04:00:00+00:00",
+        "legs_missing": 5,
+        "legs_present": 11,
+        "missing_legs": [
+          "2026-09-05T06:45:00+00:00",
+          "2026-09-05T07:00:00+00:00",
+          "2026-09-05T07:15:00+00:00",
+          "2026-09-05T07:30:00+00:00",
+          "2026-09-05T07:45:00+00:00"
+        ]
+      },
+      {
+        "boundary": false,
+        "bucket": "2026-09-05T08:00:00+00:00",
+        "legs_missing": 3,
+        "legs_present": 13,
+        "missing_legs": [
+          "2026-09-05T08:00:00+00:00",
+          "2026-09-05T08:15:00+00:00",
+          "2026-09-05T08:30:00+00:00"
+        ]
+      },
+      {
+        "boundary": true,
+        "bucket": "2026-10-08T00:00:00+00:00",
+        "legs_missing": 8,
+        "legs_present": 8,
+        "missing_legs": [
+          "2026-10-08T02:00:00+00:00",
+          "2026-10-08T02:15:00+00:00",
+          "2026-10-08T02:30:00+00:00",
+          "2026-10-08T02:45:00+00:00",
+          "2026-10-08T03:00:00+00:00",
+          "2026-10-08T03:15:00+00:00",
+          "2026-10-08T03:30:00+00:00",
+          "2026-10-08T03:45:00+00:00"
+        ]
+      }
+    ],
+    "count": 4
+  },
+  "rule": "a M15 bucket of 16 legs is written only when all 16 legs sit at their exact slot; otherwise the bucket is dropped, never filled",
+  "source": {
+    "bars": 11999,
+    "dataset_id": "mt5-BTCUSD-2026-10-08",
+    "end": "2026-10-08T02:00:00+00:00",
+    "file": "BTCUSD-M15-mt5-BTCUSD-2026-10-08.jsonl",
+    "fingerprint": "96f80664d572e28c8e5e560b70f1fdbea98a8512d8bec26ecac8ae4b861920c2",
+    "start": "2026-06-05T00:00:00+00:00",
+    "timeframe": "M15"
+  }
+}

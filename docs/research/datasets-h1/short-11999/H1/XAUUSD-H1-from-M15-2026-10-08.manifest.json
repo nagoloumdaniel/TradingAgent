@@ -1,0 +1,12 @@
+{
+  "dataset_id": "agg-m15-XAUUSD-H1-2026-10-08",
+  "symbol": "XAUUSD",
+  "timeframe": "H1",
+  "source": "aggregated-from-XAUUSD-M15-mt5-XAUUSD-2026-10-08.jsonl#sha256:3906afa2c63d#4-of-4-M15-legs",
+  "start": "2026-04-07T18:00:00+00:00",
+  "end": "2026-10-08T02:00:00+00:00",
+  "bars": 2980,
+  "fingerprint": "94c8cc28c24fd8d5b70cd053c029318c37d1b290d3d7a2acf5c02fc921e235ff",
+  "gap_count": 40,
+  "first_gap": "2026-04-10T20:00:00+00:00"
+}

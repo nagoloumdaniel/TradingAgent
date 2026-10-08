@@ -41,9 +41,17 @@ repos:
         # Frozen market datasets are the project's research evidence, and they are versioned
         # on purpose: a backtest is only reproducible if the exact bars it ran on are in the
         # repository. At 12 000 M15 bars a series is about a megabyte, over the general
-        # limit, so the exemption is scoped to that directory rather than raising the limit
-        # for every file in the project.
-        exclude: ^docs/research/datasets/
+        # limit, so the exemption is scoped to those directories rather than raising the
+        # limit for every file in the project.
+        #
+        # The scope was widened on 2026-10-08 to the sibling directories the first pattern
+        # never matched: `^docs/research/datasets/` ends in a literal slash, so `datasets-long/`
+        # and `datasets-h1/` -- the H1/H4 and 60 000-bar sets -- were refused at commit time
+        # while looking exempt. The three directories are named explicitly: a character class
+        # such as `[A-Z-]` matches one character and would silently miss `datasets-long`,
+        # which is exactly the failure being repaired here. A file such as
+        # `datasets-report.json` still goes through the 500 kB check.
+        exclude: ^docs/research/(datasets|datasets-long|datasets-h1|archive)/
       - id: end-of-file-fixer
         name: end-of-file-fixer
         entry: uv run end-of-file-fixer

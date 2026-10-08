@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-10-08T17:23:59.765706+00:00",
+  "generated_at": "2026-10-08T17:05:29.601737+00:00",
   "source": "scripts/backtest/discover.py",
   "datasets": {
     "BTCUSD": {
-      "dataset_id": "mt5-BTCUSD-M15-2026-10-08",
-      "fingerprint": "95e4e18b4bed1ef618f374a2c2c0c2f8c7d2503f651089e672f5072a2a40681d",
-      "source": "deriv-mt5:2026-10-08T16:32:36+00:00",
-      "bars": 60000
+      "dataset_id": "agg-m15-BTCUSD-H1-2026-10-08",
+      "fingerprint": "a15b41b31cded31e11dc7b7ab37c9b312efc577ace99cf660fe2e3b5a3626ee3",
+      "source": "aggregated-from-BTCUSD-M15-mt5-BTCUSD-M15-2026-10-08.jsonl#sha256:95e4e18b4bed#4-of-4-M15-legs",
+      "bars": 14992
     },
     "XAUUSD": {
-      "dataset_id": "mt5-XAUUSD-M15-2026-10-08",
-      "fingerprint": "06e1e39aaffb5b47cf96bc86f1fff78cdca54cc40d1db6b6bb2c7d7972dd278a",
-      "source": "deriv-mt5:2026-10-08T16:32:28+00:00",
-      "bars": 60000
+      "dataset_id": "agg-m15-XAUUSD-H1-2026-10-08",
+      "fingerprint": "7116718d458f70ddb3797e422ea67698971bf178fc2deca363f08fbf288cc84b",
+      "source": "aggregated-from-XAUUSD-M15-mt5-XAUUSD-M15-2026-10-08.jsonl#sha256:06e1e39aaffb#4-of-4-M15-legs",
+      "bars": 14894
     }
   },
   "report": {
@@ -43,26 +43,26 @@
     "markets": [
       {
         "market": "BTCUSD",
-        "dataset_id": "mt5-BTCUSD-M15-2026-10-08",
-        "fingerprint": "95e4e18b4bed1ef618f374a2c2c0c2f8c7d2503f651089e672f5072a2a40681d",
-        "bars": 60000,
-        "train_bars": 36000,
-        "validation_bars": 12000,
-        "holdout_bars": 12000,
+        "dataset_id": "agg-m15-BTCUSD-H1-2026-10-08",
+        "fingerprint": "a15b41b31cded31e11dc7b7ab37c9b312efc577ace99cf660fe2e3b5a3626ee3",
+        "bars": 14992,
+        "train_bars": 8995,
+        "validation_bars": 2998,
+        "holdout_bars": 2999,
         "walk_forward_folds": 6,
-        "holdout_unlocks": 0,
+        "holdout_unlocks": 1,
         "skipped": null
       },
       {
         "market": "XAUUSD",
-        "dataset_id": "mt5-XAUUSD-M15-2026-10-08",
-        "fingerprint": "06e1e39aaffb5b47cf96bc86f1fff78cdca54cc40d1db6b6bb2c7d7972dd278a",
-        "bars": 60000,
-        "train_bars": 36000,
-        "validation_bars": 12000,
-        "holdout_bars": 12000,
+        "dataset_id": "agg-m15-XAUUSD-H1-2026-10-08",
+        "fingerprint": "7116718d458f70ddb3797e422ea67698971bf178fc2deca363f08fbf288cc84b",
+        "bars": 14894,
+        "train_bars": 8936,
+        "validation_bars": 2978,
+        "holdout_bars": 2980,
         "walk_forward_folds": 6,
-        "holdout_unlocks": 0,
+        "holdout_unlocks": 2,
         "skipped": null
       }
     ],
@@ -71,25 +71,25 @@
         "family": "trend_following",
         "description": "suivi de tendance (croisement EMA)",
         "tested": 16,
-        "retained_before_correction": 0,
+        "retained_before_correction": 1,
         "retained": 0,
         "discarded": 16,
         "expected_false_discoveries": 1.6,
         "failures": [
           {
             "cause": "overfitting",
-            "count": 8,
+            "count": 10,
             "description": "walk-forward non profitable : surapprentissage"
           },
           {
             "cause": "parameter_dispersion",
-            "count": 4,
+            "count": 5,
             "description": "dispersion des param\u00e8tres : \u00eelot instable"
           },
           {
-            "cause": "unstable",
-            "count": 4,
-            "description": "score de stabilit\u00e9 insuffisant"
+            "cause": "false_discovery",
+            "count": 1,
+            "description": "survivant de la s\u00e9lection multiple : p-value au-dessus de la correction de Benjamini-Hochberg"
           }
         ]
       },
@@ -104,8 +104,13 @@
         "failures": [
           {
             "cause": "overfitting",
-            "count": 4,
+            "count": 3,
             "description": "walk-forward non profitable : surapprentissage"
+          },
+          {
+            "cause": "out_of_sample_negative",
+            "count": 1,
+            "description": "hors-\u00e9chantillon scell\u00e9 n\u00e9gatif ou r\u00e9tention nulle"
           }
         ]
       },
@@ -141,13 +146,8 @@
         "failures": [
           {
             "cause": "overfitting",
-            "count": 2,
+            "count": 4,
             "description": "walk-forward non profitable : surapprentissage"
-          },
-          {
-            "cause": "unstable",
-            "count": 2,
-            "description": "score de stabilit\u00e9 insuffisant"
           }
         ]
       },
@@ -162,13 +162,13 @@
         "failures": [
           {
             "cause": "overfitting",
-            "count": 1,
+            "count": 3,
             "description": "walk-forward non profitable : surapprentissage"
           },
           {
-            "cause": "unstable",
-            "count": 3,
-            "description": "score de stabilit\u00e9 insuffisant"
+            "cause": "out_of_sample_negative",
+            "count": 1,
+            "description": "hors-\u00e9chantillon scell\u00e9 n\u00e9gatif ou r\u00e9tention nulle"
           }
         ]
       },
@@ -201,30 +201,40 @@
       "expected_false_discoveries": 3.4000000000000004,
       "hypotheses": 34,
       "bonferroni_threshold": 0.0029411764705882353,
-      "discoveries_before": 0,
+      "discoveries_before": 1,
       "discoveries_after": 0,
-      "rejected_by_correction": 0
+      "rejected_by_correction": 1
     },
     "totals": {
       "tested": 34,
-      "retained_before_correction": 0,
+      "retained_before_correction": 1,
       "retained": 0,
       "discarded": 34,
       "failures": [
         {
           "cause": "overfitting",
-          "count": 17,
+          "count": 22,
           "description": "walk-forward non profitable : surapprentissage"
         },
         {
           "cause": "parameter_dispersion",
-          "count": 5,
+          "count": 6,
           "description": "dispersion des param\u00e8tres : \u00eelot instable"
         },
         {
           "cause": "unstable",
-          "count": 12,
+          "count": 3,
           "description": "score de stabilit\u00e9 insuffisant"
+        },
+        {
+          "cause": "out_of_sample_negative",
+          "count": 2,
+          "description": "hors-\u00e9chantillon scell\u00e9 n\u00e9gatif ou r\u00e9tention nulle"
+        },
+        {
+          "cause": "false_discovery",
+          "count": 1,
+          "description": "survivant de la s\u00e9lection multiple : p-value au-dessus de la correction de Benjamini-Hochberg"
         }
       ]
     },
@@ -236,7 +246,7 @@
         "strategy_id": "witness",
         "version": "0.1.0",
         "retained": false,
-        "cause": "overfitting",
+        "cause": "parameter_dispersion",
         "detail": "out-of-sample retention 0.00 below 0.50",
         "p_value": null,
         "parameters": {
@@ -247,29 +257,29 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 1.5
         },
-        "train_net_profit": "-604.891743470480",
-        "validation_net_profit": "-584.624700121280",
+        "train_net_profit": "-548.170568631870",
+        "validation_net_profit": "-23.942543874080",
         "out_of_sample_net_profit": null,
-        "train_trades": 945,
+        "train_trades": 237,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 2,
-        "walk_forward_ratio": 0.3333333333333333,
+        "walk_forward_profitable_folds": 3,
+        "walk_forward_ratio": 0.5,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.2598632055603808,
+          "score": 0.1,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.13356132406603202,
-          "profitable_regime_ratio": 0.2,
-          "trades": 317,
+          "parameter_dispersion": 26.67530820234303,
+          "profitable_regime_ratio": 0.5,
+          "trades": 74,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
-            "only 20% of periods profitable, below 50%",
-            "stability score 0.26 below 0.50"
+            "parameter dispersion 26.68 above 0.50",
+            "stability score 0.10 below 0.50"
           ]
         }
       },
@@ -281,7 +291,7 @@
         "version": "0.1.0",
         "retained": false,
         "cause": "overfitting",
-        "detail": "out-of-sample retention -8.92 below 0.50",
+        "detail": "parameter dispersion 1.55 above 0.50",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -291,29 +301,27 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.5
         },
-        "train_net_profit": "27.740699400480",
-        "validation_net_profit": "-247.434679007170",
+        "train_net_profit": "-539.427399038450",
+        "validation_net_profit": "57.876583052360",
         "out_of_sample_net_profit": null,
-        "train_trades": 832,
+        "train_trades": 216,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 1,
-        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.19325879876901933,
-          "out_of_sample_retention": -8.91955445805698,
-          "parameter_dispersion": 0.24456866871830113,
-          "profitable_regime_ratio": 0.2,
-          "trades": 283,
+          "score": 0.65,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 1.550743484008275,
+          "profitable_regime_ratio": 0.75,
+          "trades": 69,
           "fragile": true,
           "reasons": [
-            "out-of-sample retention -8.92 below 0.50",
-            "only 20% of periods profitable, below 50%",
-            "stability score 0.19 below 0.50"
+            "parameter dispersion 1.55 above 0.50"
           ]
         }
       },
@@ -324,7 +332,7 @@
         "strategy_id": "witness",
         "version": "0.1.0",
         "retained": false,
-        "cause": "unstable",
+        "cause": "overfitting",
         "detail": "out-of-sample retention 0.00 below 0.50",
         "p_value": null,
         "parameters": {
@@ -335,29 +343,30 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 1.5
         },
-        "train_net_profit": "-113.380900160980",
-        "validation_net_profit": "-218.050537216830",
+        "train_net_profit": "-347.227626117440",
+        "validation_net_profit": "-9.389966540840",
         "out_of_sample_net_profit": null,
-        "train_trades": 694,
+        "train_trades": 177,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 4,
-        "walk_forward_ratio": 0.6666666666666666,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.20401995163730852,
+          "score": 0.08000000000000002,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.2933000806044858,
+          "parameter_dispersion": 2.642339312046586,
           "profitable_regime_ratio": 0.4,
-          "trades": 219,
+          "trades": 56,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
+            "parameter dispersion 2.64 above 0.50",
             "only 40% of periods profitable, below 50%",
-            "stability score 0.20 below 0.50"
+            "stability score 0.08 below 0.50"
           ]
         }
       },
@@ -369,7 +378,7 @@
         "version": "0.1.0",
         "retained": false,
         "cause": "overfitting",
-        "detail": "out-of-sample retention 0.00 below 0.50",
+        "detail": "parameter dispersion 12.34 above 0.50",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -379,29 +388,28 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.5
         },
-        "train_net_profit": "-88.843774903140",
-        "validation_net_profit": "-317.864893153140",
+        "train_net_profit": "-153.776839797620",
+        "validation_net_profit": "1.854750112610",
         "out_of_sample_net_profit": null,
-        "train_trades": 611,
+        "train_trades": 172,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 0,
-        "walk_forward_ratio": 0.0,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.21284125075669783,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.21193124873883692,
-          "profitable_regime_ratio": 0.2,
-          "trades": 206,
+          "score": 0.5800000000000001,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 12.3428887454347,
+          "profitable_regime_ratio": 0.4,
+          "trades": 52,
           "fragile": true,
           "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "only 20% of periods profitable, below 50%",
-            "stability score 0.21 below 0.50"
+            "parameter dispersion 12.34 above 0.50",
+            "only 40% of periods profitable, below 50%"
           ]
         }
       },
@@ -413,7 +421,7 @@
         "version": "0.1.0",
         "retained": false,
         "cause": "overfitting",
-        "detail": "out-of-sample retention -0.91 below 0.50",
+        "detail": "",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -423,10 +431,10 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 1.5
         },
-        "train_net_profit": "384.256458877620",
-        "validation_net_profit": "-350.158029914430",
+        "train_net_profit": "-418.036268756090",
+        "validation_net_profit": "35.925593235660",
         "out_of_sample_net_profit": null,
-        "train_trades": 734,
+        "train_trades": 168,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
         "walk_forward_profitable_folds": 2,
@@ -436,17 +444,13 @@
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.23925299568112474,
-          "out_of_sample_retention": -0.9112612731018536,
-          "parameter_dispersion": 0.16791167386479208,
-          "profitable_regime_ratio": 0.2,
-          "trades": 224,
-          "fragile": true,
-          "reasons": [
-            "out-of-sample retention -0.91 below 0.50",
-            "only 20% of periods profitable, below 50%",
-            "stability score 0.24 below 0.50"
-          ]
+          "score": 0.7913550337603034,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 0.2810749437328277,
+          "profitable_regime_ratio": 0.8,
+          "trades": 60,
+          "fragile": false,
+          "reasons": []
         }
       },
       {
@@ -457,7 +461,7 @@
         "version": "0.1.0",
         "retained": false,
         "cause": "overfitting",
-        "detail": "out-of-sample retention -0.50 below 0.50",
+        "detail": "",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -467,30 +471,26 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.5
         },
-        "train_net_profit": "265.134663659990",
-        "validation_net_profit": "-133.738423756830",
+        "train_net_profit": "-367.067617838950",
+        "validation_net_profit": "151.206131492470",
         "out_of_sample_net_profit": null,
-        "train_trades": 660,
+        "train_trades": 159,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 1,
-        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.1256302740692694,
-          "out_of_sample_retention": -0.5044169702696318,
-          "parameter_dispersion": 0.42394954321788436,
-          "profitable_regime_ratio": 0.4,
-          "trades": 201,
-          "fragile": true,
-          "reasons": [
-            "out-of-sample retention -0.50 below 0.50",
-            "only 40% of periods profitable, below 50%",
-            "stability score 0.13 below 0.50"
-          ]
+          "score": 0.8575275020802287,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 0.23745416319961882,
+          "profitable_regime_ratio": 1.0,
+          "trades": 58,
+          "fragile": false,
+          "reasons": []
         }
       },
       {
@@ -500,8 +500,8 @@
         "strategy_id": "witness",
         "version": "0.1.0",
         "retained": false,
-        "cause": "unstable",
-        "detail": "out-of-sample retention 0.00 below 0.50",
+        "cause": "parameter_dispersion",
+        "detail": "parameter dispersion 1.19 above 0.50",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -511,10 +511,10 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 1.5
         },
-        "train_net_profit": "-170.345753115570",
-        "validation_net_profit": "-121.764913996600",
+        "train_net_profit": "-290.997738563890",
+        "validation_net_profit": "12.477795113890",
         "out_of_sample_net_profit": null,
-        "train_trades": 523,
+        "train_trades": 138,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
         "walk_forward_profitable_folds": 3,
@@ -524,15 +524,14 @@
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.24159938063352485,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.2973343656107919,
+          "score": 0.62,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 1.1858165172305684,
           "profitable_regime_ratio": 0.6,
-          "trades": 166,
+          "trades": 41,
           "fragile": true,
           "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "stability score 0.24 below 0.50"
+            "parameter dispersion 1.19 above 0.50"
           ]
         }
       },
@@ -543,9 +542,9 @@
         "strategy_id": "witness",
         "version": "0.1.0",
         "retained": false,
-        "cause": "overfitting",
-        "detail": "out-of-sample retention 0.00 below 0.50",
-        "p_value": null,
+        "cause": "false_discovery",
+        "detail": "p=0.3616 > seuil de Benjamini-Hochberg 0.0029 au rang 1 sur 34 test(s) \u00e0 alpha=0.10",
+        "p_value": 0.36163836163836166,
         "parameters": {
           "atr_period": 14.0,
           "ema_fast": 20.0,
@@ -554,30 +553,26 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.5
         },
-        "train_net_profit": "-91.982839439610",
-        "validation_net_profit": "-225.516749195660",
-        "out_of_sample_net_profit": null,
-        "train_trades": 497,
-        "out_of_sample_trades": null,
+        "train_net_profit": "-278.874930043070",
+        "validation_net_profit": "52.053658365990",
+        "out_of_sample_net_profit": "29.542345058900",
+        "train_trades": 135,
+        "out_of_sample_trades": 30,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 1,
-        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_profitable_folds": 3,
+        "walk_forward_ratio": 0.5,
         "walk_forward_skipped_folds": 0,
-        "holdout_was_read": false,
+        "holdout_was_read": true,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.15274651877356757,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.37875580204405407,
-          "profitable_regime_ratio": 0.4,
-          "trades": 157,
-          "fragile": true,
-          "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "only 40% of periods profitable, below 50%",
-            "stability score 0.15 below 0.50"
-          ]
+          "score": 0.6688745518484963,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 0.41854241358583943,
+          "profitable_regime_ratio": 0.6,
+          "trades": 41,
+          "fragile": false,
+          "reasons": []
         }
       },
       {
@@ -598,29 +593,30 @@
           "take_profit_rr": 2.0,
           "threshold_atr": 1.0
         },
-        "train_net_profit": "-2092.159320183450",
-        "validation_net_profit": "-776.144511870150",
+        "train_net_profit": "-449.477712524510",
+        "validation_net_profit": "-68.467520463690",
         "out_of_sample_net_profit": null,
-        "train_trades": 2415,
+        "train_trades": 650,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 1,
-        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.23118188158772365,
+          "score": 0.08000000000000002,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.18136353068712724,
-          "profitable_regime_ratio": 0.2,
-          "trades": 835,
+          "parameter_dispersion": 0.5950586254059654,
+          "profitable_regime_ratio": 0.4,
+          "trades": 217,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
-            "only 20% of periods profitable, below 50%",
-            "stability score 0.23 below 0.50"
+            "parameter dispersion 0.60 above 0.50",
+            "only 40% of periods profitable, below 50%",
+            "stability score 0.08 below 0.50"
           ]
         }
       },
@@ -642,10 +638,10 @@
           "take_profit_rr": 2.0,
           "threshold_atr": 1.0
         },
-        "train_net_profit": "-2441.457040106580",
-        "validation_net_profit": "-760.435431501950",
+        "train_net_profit": "-180.565164513580",
+        "validation_net_profit": "-47.390317864860",
         "out_of_sample_net_profit": null,
-        "train_trades": 2398,
+        "train_trades": 674,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
         "walk_forward_profitable_folds": 2,
@@ -655,16 +651,17 @@
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.31049241092974106,
+          "score": 0.08000000000000002,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.11584598178376494,
+          "parameter_dispersion": 2.0145808300659205,
           "profitable_regime_ratio": 0.4,
-          "trades": 837,
+          "trades": 202,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
+            "parameter dispersion 2.01 above 0.50",
             "only 40% of periods profitable, below 50%",
-            "stability score 0.31 below 0.50"
+            "stability score 0.08 below 0.50"
           ]
         }
       },
@@ -687,10 +684,10 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.0
         },
-        "train_net_profit": "-583.974294634730",
-        "validation_net_profit": "-765.492756964990",
+        "train_net_profit": "-506.397718268680",
+        "validation_net_profit": "-183.171008470220",
         "out_of_sample_net_profit": null,
-        "train_trades": 1022,
+        "train_trades": 314,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
         "walk_forward_profitable_folds": 3,
@@ -700,16 +697,16 @@
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.28304180736819107,
+          "score": 0.1220989095496099,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.09493032105301492,
+          "parameter_dispersion": 0.3631684840839835,
           "profitable_regime_ratio": 0.2,
-          "trades": 359,
+          "trades": 100,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
             "only 20% of periods profitable, below 50%",
-            "stability score 0.28 below 0.50"
+            "stability score 0.12 below 0.50"
           ]
         }
       },
@@ -720,8 +717,8 @@
         "strategy_id": "mean_reversion",
         "version": "0.1.0",
         "retained": false,
-        "cause": "unstable",
-        "detail": "out-of-sample retention 0.00 below 0.50",
+        "cause": "overfitting",
+        "detail": "parameter dispersion 2.89 above 0.50",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -732,29 +729,27 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.0
         },
-        "train_net_profit": "-848.225060402970",
-        "validation_net_profit": "-624.899211086880",
+        "train_net_profit": "-389.101868017650",
+        "validation_net_profit": "32.786635097320",
         "out_of_sample_net_profit": null,
-        "train_trades": 528,
+        "train_trades": 167,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 3,
-        "walk_forward_ratio": 0.5,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.2063863325080074,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.15602277915332102,
-          "profitable_regime_ratio": 0.0,
-          "trades": 178,
+          "score": 0.66,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 2.886219765768802,
+          "profitable_regime_ratio": 0.8,
+          "trades": 56,
           "fragile": true,
           "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "only 0% of periods profitable, below 50%",
-            "stability score 0.21 below 0.50"
+            "parameter dispersion 2.89 above 0.50"
           ]
         }
       },
@@ -765,7 +760,7 @@
         "strategy_id": "trend_breakout",
         "version": "0.1.0",
         "retained": false,
-        "cause": "unstable",
+        "cause": "overfitting",
         "detail": "out-of-sample retention 0.00 below 0.50",
         "p_value": null,
         "parameters": {
@@ -776,29 +771,30 @@
           "take_profit_rr": 2.0,
           "trend_period": 50.0
         },
-        "train_net_profit": "-1547.659037026270",
-        "validation_net_profit": "-876.307717082190",
+        "train_net_profit": "-508.687296586110",
+        "validation_net_profit": "-27.618070729190",
         "out_of_sample_net_profit": null,
-        "train_trades": 1614,
+        "train_trades": 413,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 3,
-        "walk_forward_ratio": 0.5,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.27188712976736035,
+          "score": 0.08000000000000002,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.046854783721066114,
-          "profitable_regime_ratio": 0.0,
-          "trades": 552,
+          "parameter_dispersion": 0.7191085543708767,
+          "profitable_regime_ratio": 0.4,
+          "trades": 132,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
-            "only 0% of periods profitable, below 50%",
-            "stability score 0.27 below 0.50"
+            "parameter dispersion 0.72 above 0.50",
+            "only 40% of periods profitable, below 50%",
+            "stability score 0.08 below 0.50"
           ]
         }
       },
@@ -809,8 +805,8 @@
         "strategy_id": "trend_breakout",
         "version": "0.1.0",
         "retained": false,
-        "cause": "unstable",
-        "detail": "out-of-sample retention 0.00 below 0.50",
+        "cause": "overfitting",
+        "detail": "parameter dispersion 10.12 above 0.50",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -820,29 +816,27 @@
           "take_profit_rr": 2.0,
           "trend_period": 50.0
         },
-        "train_net_profit": "-1177.050207177380",
-        "validation_net_profit": "-466.035640306630",
+        "train_net_profit": "-255.434449520760",
+        "validation_net_profit": "5.686931364710",
         "out_of_sample_net_profit": null,
-        "train_trades": 1199,
+        "train_trades": 297,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 3,
-        "walk_forward_ratio": 0.5,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.3099405735481837,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.11676571075302718,
-          "profitable_regime_ratio": 0.4,
-          "trades": 374,
+          "score": 0.62,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 10.116261014719775,
+          "profitable_regime_ratio": 0.6,
+          "trades": 98,
           "fragile": true,
           "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "only 40% of periods profitable, below 50%",
-            "stability score 0.31 below 0.50"
+            "parameter dispersion 10.12 above 0.50"
           ]
         }
       },
@@ -854,7 +848,7 @@
         "version": "0.1.0",
         "retained": false,
         "cause": "overfitting",
-        "detail": "out-of-sample retention 0.00 below 0.50",
+        "detail": "parameter dispersion 1.00 above 0.50",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -863,10 +857,10 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.0
         },
-        "train_net_profit": "-3022.111625123000",
-        "validation_net_profit": "-1096.803696754500",
+        "train_net_profit": "-366.954184992320",
+        "validation_net_profit": "142.059423648480",
         "out_of_sample_net_profit": null,
-        "train_trades": 2543,
+        "train_trades": 683,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
         "walk_forward_profitable_folds": 2,
@@ -876,16 +870,14 @@
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.17069388215075082,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.28217686308208195,
-          "profitable_regime_ratio": 0.2,
-          "trades": 856,
+          "score": 0.62,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 1.001253094378551,
+          "profitable_regime_ratio": 0.6,
+          "trades": 205,
           "fragile": true,
           "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "only 20% of periods profitable, below 50%",
-            "stability score 0.17 below 0.50"
+            "parameter dispersion 1.00 above 0.50"
           ]
         }
       },
@@ -896,7 +888,7 @@
         "strategy_id": "volatility_breakout",
         "version": "0.1.0",
         "retained": false,
-        "cause": "unstable",
+        "cause": "overfitting",
         "detail": "out-of-sample retention 0.00 below 0.50",
         "p_value": null,
         "parameters": {
@@ -906,29 +898,30 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.0
         },
-        "train_net_profit": "-665.287056337690",
-        "validation_net_profit": "-453.464169105810",
+        "train_net_profit": "-132.177919292200",
+        "validation_net_profit": "-22.539659616910",
         "out_of_sample_net_profit": null,
-        "train_trades": 1899,
+        "train_trades": 482,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 3,
-        "walk_forward_ratio": 0.5,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.22827210847391352,
+          "score": 0.08000000000000002,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.11954648587681076,
-          "profitable_regime_ratio": 0.0,
-          "trades": 649,
+          "parameter_dispersion": 8.912135925164248,
+          "profitable_regime_ratio": 0.4,
+          "trades": 148,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
-            "only 0% of periods profitable, below 50%",
-            "stability score 0.23 below 0.50"
+            "parameter dispersion 8.91 above 0.50",
+            "only 40% of periods profitable, below 50%",
+            "stability score 0.08 below 0.50"
           ]
         }
       },
@@ -939,7 +932,7 @@
         "strategy_id": "consensus_ensemble",
         "version": "0.1.0",
         "retained": false,
-        "cause": "overfitting",
+        "cause": "parameter_dispersion",
         "detail": "out-of-sample retention 0.00 below 0.50",
         "p_value": null,
         "parameters": {
@@ -953,29 +946,30 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.0
         },
-        "train_net_profit": "-2148.470372628110",
-        "validation_net_profit": "-516.606184991090",
+        "train_net_profit": "-224.636887701060",
+        "validation_net_profit": "-105.215136387080",
         "out_of_sample_net_profit": null,
-        "train_trades": 2379,
+        "train_trades": 622,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 2,
-        "walk_forward_ratio": 0.3333333333333333,
+        "walk_forward_profitable_folds": 3,
+        "walk_forward_ratio": 0.5,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.21053218253886496,
+          "score": 0.08000000000000002,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.2157796957685584,
-          "profitable_regime_ratio": 0.2,
-          "trades": 777,
+          "parameter_dispersion": 0.507820471887977,
+          "profitable_regime_ratio": 0.4,
+          "trades": 202,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
-            "only 20% of periods profitable, below 50%",
-            "stability score 0.21 below 0.50"
+            "parameter dispersion 0.51 above 0.50",
+            "only 40% of periods profitable, below 50%",
+            "stability score 0.08 below 0.50"
           ]
         }
       },
@@ -987,7 +981,7 @@
         "version": "0.1.0",
         "retained": false,
         "cause": "parameter_dispersion",
-        "detail": "out-of-sample retention 0.00 below 0.50",
+        "detail": "parameter dispersion 0.98 above 0.50",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -997,10 +991,10 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 1.5
         },
-        "train_net_profit": "-1004.185889912320",
-        "validation_net_profit": "-176.401407871020",
+        "train_net_profit": "-374.688504448490",
+        "validation_net_profit": "65.128977758880",
         "out_of_sample_net_profit": null,
-        "train_trades": 933,
+        "train_trades": 222,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
         "walk_forward_profitable_folds": 3,
@@ -1010,16 +1004,14 @@
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.11428571428571428,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.6555435525782566,
+          "score": 0.6142857142857143,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 0.9821747673157142,
           "profitable_regime_ratio": 0.5714285714285714,
-          "trades": 296,
+          "trades": 64,
           "fragile": true,
           "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "parameter dispersion 0.66 above 0.50",
-            "stability score 0.11 below 0.50"
+            "parameter dispersion 0.98 above 0.50"
           ]
         }
       },
@@ -1030,7 +1022,7 @@
         "strategy_id": "witness",
         "version": "0.1.0",
         "retained": false,
-        "cause": "parameter_dispersion",
+        "cause": "overfitting",
         "detail": "out-of-sample retention 0.00 below 0.50",
         "p_value": null,
         "parameters": {
@@ -1041,14 +1033,14 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.5
         },
-        "train_net_profit": "-833.190537831230",
-        "validation_net_profit": "-21.469956025160",
+        "train_net_profit": "-90.525287471450",
+        "validation_net_profit": "-21.562904189900",
         "out_of_sample_net_profit": null,
-        "train_trades": 863,
+        "train_trades": 212,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 4,
-        "walk_forward_ratio": 0.6666666666666666,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
@@ -1056,13 +1048,13 @@
         "stability": {
           "score": 0.05714285714285714,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 3.8884986489385036,
+          "parameter_dispersion": 2.2742916306625474,
           "profitable_regime_ratio": 0.2857142857142857,
-          "trades": 251,
+          "trades": 57,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
-            "parameter dispersion 3.89 above 0.50",
+            "parameter dispersion 2.27 above 0.50",
             "only 29% of periods profitable, below 50%",
             "stability score 0.06 below 0.50"
           ]
@@ -1086,10 +1078,10 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 1.5
         },
-        "train_net_profit": "-823.251496209650",
-        "validation_net_profit": "-191.864654239180",
+        "train_net_profit": "-208.558022728390",
+        "validation_net_profit": "-11.920847651350",
         "out_of_sample_net_profit": null,
-        "train_trades": 676,
+        "train_trades": 156,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
         "walk_forward_profitable_folds": 1,
@@ -1099,16 +1091,16 @@
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.20915323877879613,
+          "score": 0.11428571428571428,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.2942684115591493,
-          "profitable_regime_ratio": 0.42857142857142855,
-          "trades": 217,
+          "parameter_dispersion": 1.8966897003598695,
+          "profitable_regime_ratio": 0.5714285714285714,
+          "trades": 53,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
-            "only 43% of periods profitable, below 50%",
-            "stability score 0.21 below 0.50"
+            "parameter dispersion 1.90 above 0.50",
+            "stability score 0.11 below 0.50"
           ]
         }
       },
@@ -1119,7 +1111,7 @@
         "strategy_id": "witness",
         "version": "0.1.0",
         "retained": false,
-        "cause": "parameter_dispersion",
+        "cause": "overfitting",
         "detail": "out-of-sample retention 0.00 below 0.50",
         "p_value": null,
         "parameters": {
@@ -1130,14 +1122,14 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.5
         },
-        "train_net_profit": "-612.477989314360",
-        "validation_net_profit": "-60.825581631710",
+        "train_net_profit": "-123.877353741800",
+        "validation_net_profit": "-53.382980579830",
         "out_of_sample_net_profit": null,
-        "train_trades": 639,
+        "train_trades": 148,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 3,
-        "walk_forward_ratio": 0.5,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
@@ -1145,13 +1137,13 @@
         "stability": {
           "score": 0.08571428571428572,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 1.0183757474204689,
+          "parameter_dispersion": 1.1147645893098033,
           "profitable_regime_ratio": 0.42857142857142855,
-          "trades": 200,
+          "trades": 48,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
-            "parameter dispersion 1.02 above 0.50",
+            "parameter dispersion 1.11 above 0.50",
             "only 43% of periods profitable, below 50%",
             "stability score 0.09 below 0.50"
           ]
@@ -1175,185 +1167,10 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 1.5
         },
-        "train_net_profit": "-440.059166054360",
-        "validation_net_profit": "-227.532762195660",
+        "train_net_profit": "-278.275794939080",
+        "validation_net_profit": "-63.383714517220",
         "out_of_sample_net_profit": null,
-        "train_trades": 695,
-        "out_of_sample_trades": null,
-        "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 1,
-        "walk_forward_ratio": 0.16666666666666666,
-        "walk_forward_skipped_folds": 0,
-        "holdout_was_read": false,
-        "invalid_perturbations": 0,
-        "strategy_errors": [],
-        "stability": {
-          "score": 0.2468758033919583,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.23139747053721232,
-          "profitable_regime_ratio": 0.42857142857142855,
-          "trades": 214,
-          "fragile": true,
-          "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "only 43% of periods profitable, below 50%",
-            "stability score 0.25 below 0.50"
-          ]
-        }
-      },
-      {
-        "market": "XAUUSD",
-        "family": "trend_following",
-        "label": "witness:05",
-        "strategy_id": "witness",
-        "version": "0.1.0",
-        "retained": false,
-        "cause": "parameter_dispersion",
-        "detail": "parameter dispersion 33.48 above 0.50",
-        "p_value": null,
-        "parameters": {
-          "atr_period": 14.0,
-          "ema_fast": 20.0,
-          "ema_slow": 30.0,
-          "entry_zone_atr": 0.1,
-          "stop_atr_multiplier": 1.5,
-          "take_profit_rr": 2.5
-        },
-        "train_net_profit": "-426.711558492410",
-        "validation_net_profit": "5.748985698170",
-        "out_of_sample_net_profit": null,
-        "train_trades": 660,
-        "out_of_sample_trades": null,
-        "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 3,
-        "walk_forward_ratio": 0.5,
-        "walk_forward_skipped_folds": 0,
-        "holdout_was_read": false,
-        "invalid_perturbations": 0,
-        "strategy_errors": [],
-        "stability": {
-          "score": 0.5857142857142857,
-          "out_of_sample_retention": 1.0,
-          "parameter_dispersion": 33.47672912275017,
-          "profitable_regime_ratio": 0.42857142857142855,
-          "trades": 200,
-          "fragile": true,
-          "reasons": [
-            "parameter dispersion 33.48 above 0.50",
-            "only 43% of periods profitable, below 50%"
-          ]
-        }
-      },
-      {
-        "market": "XAUUSD",
-        "family": "trend_following",
-        "label": "witness:06",
-        "strategy_id": "witness",
-        "version": "0.1.0",
-        "retained": false,
-        "cause": "unstable",
-        "detail": "out-of-sample retention 0.00 below 0.50",
-        "p_value": null,
-        "parameters": {
-          "atr_period": 14.0,
-          "ema_fast": 20.0,
-          "ema_slow": 60.0,
-          "entry_zone_atr": 0.1,
-          "stop_atr_multiplier": 1.5,
-          "take_profit_rr": 1.5
-        },
-        "train_net_profit": "-585.678697005830",
-        "validation_net_profit": "-311.638532092180",
-        "out_of_sample_net_profit": null,
-        "train_trades": 476,
-        "out_of_sample_trades": null,
-        "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 4,
-        "walk_forward_ratio": 0.6666666666666666,
-        "walk_forward_skipped_folds": 0,
-        "holdout_was_read": false,
-        "invalid_perturbations": 0,
-        "strategy_errors": [],
-        "stability": {
-          "score": 0.12543386037656698,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.33856261365810264,
-          "profitable_regime_ratio": 0.14285714285714285,
-          "trades": 164,
-          "fragile": true,
-          "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "only 14% of periods profitable, below 50%",
-            "stability score 0.13 below 0.50"
-          ]
-        }
-      },
-      {
-        "market": "XAUUSD",
-        "family": "trend_following",
-        "label": "witness:07",
-        "strategy_id": "witness",
-        "version": "0.1.0",
-        "retained": false,
-        "cause": "unstable",
-        "detail": "out-of-sample retention 0.00 below 0.50",
-        "p_value": null,
-        "parameters": {
-          "atr_period": 14.0,
-          "ema_fast": 20.0,
-          "ema_slow": 60.0,
-          "entry_zone_atr": 0.1,
-          "stop_atr_multiplier": 1.5,
-          "take_profit_rr": 2.5
-        },
-        "train_net_profit": "-360.898852142430",
-        "validation_net_profit": "-267.970561767530",
-        "out_of_sample_net_profit": null,
-        "train_trades": 462,
-        "out_of_sample_trades": null,
-        "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 3,
-        "walk_forward_ratio": 0.5,
-        "walk_forward_skipped_folds": 0,
-        "holdout_was_read": false,
-        "invalid_perturbations": 0,
-        "strategy_errors": [],
-        "stability": {
-          "score": 0.18438233390091285,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.28793420540324044,
-          "profitable_regime_ratio": 0.2857142857142857,
-          "trades": 159,
-          "fragile": true,
-          "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "only 29% of periods profitable, below 50%",
-            "stability score 0.18 below 0.50"
-          ]
-        }
-      },
-      {
-        "market": "XAUUSD",
-        "family": "momentum",
-        "label": "momentum:00",
-        "strategy_id": "momentum",
-        "version": "0.1.0",
-        "retained": false,
-        "cause": "overfitting",
-        "detail": "out-of-sample retention 0.00 below 0.50",
-        "p_value": null,
-        "parameters": {
-          "atr_period": 14.0,
-          "entry_zone_atr": 0.1,
-          "momentum_period": 10.0,
-          "stop_atr_multiplier": 1.5,
-          "take_profit_rr": 2.0,
-          "threshold_atr": 1.0
-        },
-        "train_net_profit": "-1683.041749443890",
-        "validation_net_profit": "-223.502869975830",
-        "out_of_sample_net_profit": null,
-        "train_trades": 2578,
+        "train_trades": 165,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
         "walk_forward_profitable_folds": 2,
@@ -1365,16 +1182,191 @@
         "stability": {
           "score": 0.08571428571428572,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.6341953153372398,
+          "parameter_dispersion": 1.0762719013580877,
           "profitable_regime_ratio": 0.42857142857142855,
-          "trades": 890,
+          "trades": 57,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
-            "parameter dispersion 0.63 above 0.50",
+            "parameter dispersion 1.08 above 0.50",
             "only 43% of periods profitable, below 50%",
             "stability score 0.09 below 0.50"
           ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "trend_following",
+        "label": "witness:05",
+        "strategy_id": "witness",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention 0.00 below 0.50",
+        "p_value": null,
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 20.0,
+          "ema_slow": 30.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.5
+        },
+        "train_net_profit": "-161.863312430660",
+        "validation_net_profit": "-23.633130825690",
+        "out_of_sample_net_profit": null,
+        "train_trades": 161,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.08571428571428572,
+          "out_of_sample_retention": 0.0,
+          "parameter_dispersion": 1.78270803487645,
+          "profitable_regime_ratio": 0.42857142857142855,
+          "trades": 51,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention 0.00 below 0.50",
+            "parameter dispersion 1.78 above 0.50",
+            "only 43% of periods profitable, below 50%",
+            "stability score 0.09 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "trend_following",
+        "label": "witness:06",
+        "strategy_id": "witness",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "parameter_dispersion",
+        "detail": "out-of-sample retention 0.00 below 0.50",
+        "p_value": null,
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 20.0,
+          "ema_slow": 60.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 1.5
+        },
+        "train_net_profit": "-58.872487435190",
+        "validation_net_profit": "-72.388655282700",
+        "out_of_sample_net_profit": null,
+        "train_trades": 120,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 5,
+        "walk_forward_ratio": 0.8333333333333334,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.08571428571428572,
+          "out_of_sample_retention": 0.0,
+          "parameter_dispersion": 0.7390915672902858,
+          "profitable_regime_ratio": 0.42857142857142855,
+          "trades": 33,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention 0.00 below 0.50",
+            "parameter dispersion 0.74 above 0.50",
+            "only 43% of periods profitable, below 50%",
+            "stability score 0.09 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "trend_following",
+        "label": "witness:07",
+        "strategy_id": "witness",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "parameter_dispersion",
+        "detail": "out-of-sample retention -0.32 below 0.50",
+        "p_value": null,
+        "parameters": {
+          "atr_period": 14.0,
+          "ema_fast": 20.0,
+          "ema_slow": 60.0,
+          "entry_zone_atr": 0.1,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.5
+        },
+        "train_net_profit": "204.033140556870",
+        "validation_net_profit": "-66.204876225380",
+        "out_of_sample_net_profit": null,
+        "train_trades": 115,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 3,
+        "walk_forward_ratio": 0.5,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.05714285714285714,
+          "out_of_sample_retention": -0.32448099384583445,
+          "parameter_dispersion": 1.1928136749760605,
+          "profitable_regime_ratio": 0.2857142857142857,
+          "trades": 33,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.32 below 0.50",
+            "parameter dispersion 1.19 above 0.50",
+            "only 29% of periods profitable, below 50%",
+            "stability score 0.06 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "XAUUSD",
+        "family": "momentum",
+        "label": "momentum:00",
+        "strategy_id": "momentum",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "out_of_sample_negative",
+        "detail": "",
+        "p_value": null,
+        "parameters": {
+          "atr_period": 14.0,
+          "entry_zone_atr": 0.1,
+          "momentum_period": 10.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.0,
+          "threshold_atr": 1.0
+        },
+        "train_net_profit": "182.657852395570",
+        "validation_net_profit": "282.731907974820",
+        "out_of_sample_net_profit": "-18.175997386100",
+        "train_trades": 688,
+        "out_of_sample_trades": 234,
+        "walk_forward_folds": 6,
+        "walk_forward_profitable_folds": 4,
+        "walk_forward_ratio": 0.6666666666666666,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": true,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.810940960301025,
+          "out_of_sample_retention": 1.547877106112724,
+          "parameter_dispersion": 0.17224125664114878,
+          "profitable_regime_ratio": 0.5714285714285714,
+          "trades": 214,
+          "fragile": false,
+          "reasons": []
         }
       },
       {
@@ -1385,7 +1377,7 @@
         "version": "0.1.0",
         "retained": false,
         "cause": "overfitting",
-        "detail": "parameter dispersion 7.28 above 0.50",
+        "detail": "",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -1395,29 +1387,26 @@
           "take_profit_rr": 2.0,
           "threshold_atr": 1.0
         },
-        "train_net_profit": "-1573.056628957150",
-        "validation_net_profit": "96.392254946590",
+        "train_net_profit": "92.443996675000",
+        "validation_net_profit": "311.654209821920",
         "out_of_sample_net_profit": null,
-        "train_trades": 2630,
+        "train_trades": 711,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 1,
-        "walk_forward_ratio": 0.16666666666666666,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.5857142857142857,
-          "out_of_sample_retention": 1.0,
-          "parameter_dispersion": 7.276288689921063,
-          "profitable_regime_ratio": 0.42857142857142855,
-          "trades": 842,
-          "fragile": true,
-          "reasons": [
-            "parameter dispersion 7.28 above 0.50",
-            "only 43% of periods profitable, below 50%"
-          ]
+          "score": 0.8505286843582596,
+          "out_of_sample_retention": 3.3712758105600376,
+          "parameter_dispersion": 0.2014998117838531,
+          "profitable_regime_ratio": 0.8571428571428571,
+          "trades": 226,
+          "fragile": false,
+          "reasons": []
         }
       },
       {
@@ -1439,29 +1428,29 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.0
         },
-        "train_net_profit": "-1257.962796825200",
-        "validation_net_profit": "-540.514580891520",
+        "train_net_profit": "-606.588060747540",
+        "validation_net_profit": "-346.724622086050",
         "out_of_sample_net_profit": null,
-        "train_trades": 1260,
+        "train_trades": 350,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 5,
-        "walk_forward_ratio": 0.8333333333333334,
+        "walk_forward_profitable_folds": 4,
+        "walk_forward_ratio": 0.6666666666666666,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.2435858675274388,
+          "score": 0.26447525091121593,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.18926164935903056,
+          "parameter_dispersion": 0.15444601038606864,
           "profitable_regime_ratio": 0.2857142857142857,
-          "trades": 403,
+          "trades": 122,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
             "only 29% of periods profitable, below 50%",
-            "stability score 0.24 below 0.50"
+            "stability score 0.26 below 0.50"
           ]
         }
       },
@@ -1472,7 +1461,7 @@
         "strategy_id": "mean_reversion",
         "version": "0.1.0",
         "retained": false,
-        "cause": "overfitting",
+        "cause": "unstable",
         "detail": "out-of-sample retention 0.00 below 0.50",
         "p_value": null,
         "parameters": {
@@ -1484,29 +1473,29 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.0
         },
-        "train_net_profit": "-786.710528321380",
-        "validation_net_profit": "-428.032450615740",
+        "train_net_profit": "-244.624556513270",
+        "validation_net_profit": "-254.943326588610",
         "out_of_sample_net_profit": null,
-        "train_trades": 680,
+        "train_trades": 198,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 2,
-        "walk_forward_ratio": 0.3333333333333333,
+        "walk_forward_profitable_folds": 3,
+        "walk_forward_ratio": 0.5,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.19208031149661317,
+          "score": 0.15754768312303435,
           "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.22748519512469237,
-          "profitable_regime_ratio": 0.14285714285714285,
-          "trades": 222,
+          "parameter_dispersion": 0.3326586233663713,
+          "profitable_regime_ratio": 0.2857142857142857,
+          "trades": 67,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
-            "only 14% of periods profitable, below 50%",
-            "stability score 0.19 below 0.50"
+            "only 29% of periods profitable, below 50%",
+            "stability score 0.16 below 0.50"
           ]
         }
       },
@@ -1518,7 +1507,7 @@
         "version": "0.1.0",
         "retained": false,
         "cause": "overfitting",
-        "detail": "out-of-sample retention 0.00 below 0.50",
+        "detail": "out-of-sample retention 0.12 below 0.50",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -1528,10 +1517,10 @@
           "take_profit_rr": 2.0,
           "trend_period": 50.0
         },
-        "train_net_profit": "-1161.382444388860",
-        "validation_net_profit": "-244.400240261380",
+        "train_net_profit": "51.111214171080",
+        "validation_net_profit": "6.213250864160",
         "out_of_sample_net_profit": null,
-        "train_trades": 1716,
+        "train_trades": 439,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
         "walk_forward_profitable_folds": 2,
@@ -1541,17 +1530,16 @@
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.05714285714285714,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.5560299996119482,
-          "profitable_regime_ratio": 0.2857142857142857,
-          "trades": 566,
+          "score": 0.17506739365810153,
+          "out_of_sample_retention": 0.12156335874477449,
+          "parameter_dispersion": 2.339686565381904,
+          "profitable_regime_ratio": 0.5714285714285714,
+          "trades": 138,
           "fragile": true,
           "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "parameter dispersion 0.56 above 0.50",
-            "only 29% of periods profitable, below 50%",
-            "stability score 0.06 below 0.50"
+            "out-of-sample retention 0.12 below 0.50",
+            "parameter dispersion 2.34 above 0.50",
+            "stability score 0.18 below 0.50"
           ]
         }
       },
@@ -1563,7 +1551,7 @@
         "version": "0.1.0",
         "retained": false,
         "cause": "overfitting",
-        "detail": "out-of-sample retention 0.00 below 0.50",
+        "detail": "out-of-sample retention 0.24 below 0.50",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -1573,10 +1561,10 @@
           "take_profit_rr": 2.0,
           "trend_period": 50.0
         },
-        "train_net_profit": "-885.420569596710",
-        "validation_net_profit": "-271.340671038440",
+        "train_net_profit": "400.041207984350",
+        "validation_net_profit": "95.641902867500",
         "out_of_sample_net_profit": null,
-        "train_trades": 1293,
+        "train_trades": 329,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
         "walk_forward_profitable_folds": 2,
@@ -1586,16 +1574,15 @@
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.15012433120659016,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.29741182894139734,
-          "profitable_regime_ratio": 0.14285714285714285,
-          "trades": 395,
+          "score": 0.39362231416320165,
+          "out_of_sample_retention": 0.23908012714340568,
+          "parameter_dispersion": 0.23367243949035907,
+          "profitable_regime_ratio": 0.5714285714285714,
+          "trades": 107,
           "fragile": true,
           "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "only 14% of periods profitable, below 50%",
-            "stability score 0.15 below 0.50"
+            "out-of-sample retention 0.24 below 0.50",
+            "stability score 0.39 below 0.50"
           ]
         }
       },
@@ -1606,8 +1593,8 @@
         "strategy_id": "volatility_breakout",
         "version": "0.1.0",
         "retained": false,
-        "cause": "unstable",
-        "detail": "out-of-sample retention 0.00 below 0.50",
+        "cause": "overfitting",
+        "detail": "only 43% of periods profitable, below 50%",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -1616,29 +1603,27 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.0
         },
-        "train_net_profit": "-501.507936628340",
-        "validation_net_profit": "-489.955238291890",
+        "train_net_profit": "-316.984990668450",
+        "validation_net_profit": "199.894541370360",
         "out_of_sample_net_profit": null,
-        "train_trades": 2561,
+        "train_trades": 739,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 4,
-        "walk_forward_ratio": 0.6666666666666666,
+        "walk_forward_profitable_folds": 2,
+        "walk_forward_ratio": 0.3333333333333333,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.1365034646002073,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.36773232090441643,
-          "profitable_regime_ratio": 0.2857142857142857,
-          "trades": 891,
+          "score": 0.7086132822942591,
+          "out_of_sample_retention": 1.0,
+          "parameter_dispersion": 0.2951683390333776,
+          "profitable_regime_ratio": 0.42857142857142855,
+          "trades": 196,
           "fragile": true,
           "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "only 29% of periods profitable, below 50%",
-            "stability score 0.14 below 0.50"
+            "only 43% of periods profitable, below 50%"
           ]
         }
       },
@@ -1649,8 +1634,8 @@
         "strategy_id": "volatility_breakout",
         "version": "0.1.0",
         "retained": false,
-        "cause": "unstable",
-        "detail": "out-of-sample retention 0.00 below 0.50",
+        "cause": "out_of_sample_negative",
+        "detail": "",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -1659,30 +1644,26 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.0
         },
-        "train_net_profit": "-1072.000262457020",
-        "validation_net_profit": "-508.451623445970",
-        "out_of_sample_net_profit": null,
-        "train_trades": 2001,
-        "out_of_sample_trades": null,
+        "train_net_profit": "55.379964891270",
+        "validation_net_profit": "132.137921021570",
+        "out_of_sample_net_profit": "-142.830852970540",
+        "train_trades": 547,
+        "out_of_sample_trades": 165,
         "walk_forward_folds": 6,
         "walk_forward_profitable_folds": 3,
         "walk_forward_ratio": 0.5,
         "walk_forward_skipped_folds": 0,
-        "holdout_was_read": false,
+        "holdout_was_read": true,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.08691229038534697,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.402765230310136,
-          "profitable_regime_ratio": 0.14285714285714285,
-          "trades": 683,
-          "fragile": true,
-          "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "only 14% of periods profitable, below 50%",
-            "stability score 0.09 below 0.50"
-          ]
+          "score": 0.6687691542969778,
+          "out_of_sample_retention": 2.3860239218461476,
+          "parameter_dispersion": 0.4091942666478941,
+          "profitable_regime_ratio": 0.5714285714285714,
+          "trades": 153,
+          "fragile": false,
+          "reasons": []
         }
       },
       {
@@ -1692,8 +1673,8 @@
         "strategy_id": "consensus_ensemble",
         "version": "0.1.0",
         "retained": false,
-        "cause": "parameter_dispersion",
-        "detail": "out-of-sample retention 0.00 below 0.50",
+        "cause": "overfitting",
+        "detail": "",
         "p_value": null,
         "parameters": {
           "atr_period": 14.0,
@@ -1706,31 +1687,26 @@
           "stop_atr_multiplier": 1.5,
           "take_profit_rr": 2.0
         },
-        "train_net_profit": "-1678.880402501520",
-        "validation_net_profit": "-210.608423607290",
+        "train_net_profit": "23.680571392060",
+        "validation_net_profit": "229.432879777000",
         "out_of_sample_net_profit": null,
-        "train_trades": 2489,
+        "train_trades": 651,
         "out_of_sample_trades": null,
         "walk_forward_folds": 6,
-        "walk_forward_profitable_folds": 4,
-        "walk_forward_ratio": 0.6666666666666666,
+        "walk_forward_profitable_folds": 1,
+        "walk_forward_ratio": 0.16666666666666666,
         "walk_forward_skipped_folds": 0,
         "holdout_was_read": false,
         "invalid_perturbations": 0,
         "strategy_errors": [],
         "stability": {
-          "score": 0.08571428571428572,
-          "out_of_sample_retention": 0.0,
-          "parameter_dispersion": 0.5728826296269423,
-          "profitable_regime_ratio": 0.42857142857142855,
-          "trades": 819,
-          "fragile": true,
-          "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "parameter dispersion 0.57 above 0.50",
-            "only 43% of periods profitable, below 50%",
-            "stability score 0.09 below 0.50"
-          ]
+          "score": 0.8097161609070714,
+          "out_of_sample_retention": 9.688654719451911,
+          "parameter_dispersion": 0.1742825889644048,
+          "profitable_regime_ratio": 0.5714285714285714,
+          "trades": 208,
+          "fragile": false,
+          "reasons": []
         }
       }
     ]
