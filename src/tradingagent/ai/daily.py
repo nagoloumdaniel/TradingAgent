@@ -132,6 +132,16 @@ class DailyLab:
         self._trigger = trigger
         self._now = now
 
+    @property
+    def cycle(self) -> ImprovementRunner | None:
+        """The improvement chain this pass runs, if one was wired.
+
+        Exposed because "the chain is injected" is a claim about the composition, and the
+        composition is checked without a terminal: a reader can see which chain, if any, the
+        daily pass will hand each escalation to.
+        """
+        return self._cycle
+
     async def run_once(self, now: datetime) -> LabRun:
         day = day_floor(now)
         if self._already_ran(day):

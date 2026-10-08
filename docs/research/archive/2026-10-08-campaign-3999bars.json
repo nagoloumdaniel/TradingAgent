@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-10-08T02:02:16.062846+00:00",
+  "generated_at": "2026-10-08T01:34:38.133428+00:00",
   "datasets": {
     "BTCUSD": {
-      "dataset_id": "mt5-BTCUSD-2026-10-08",
-      "fingerprint": "96f80664d572e28c8e5e560b70f1fdbea98a8512d8bec26ecac8ae4b861920c2",
-      "source": "deriv-mt5:2026-10-08T02:01:36+00:00",
-      "bars": 11999
+      "dataset_id": "mt5-2026-10-07",
+      "fingerprint": "d330537e34f96f2476ce3a21b67e561b7176a5457cf3d48170f154d48a1139a3",
+      "source": "deriv-mt5:2026-10-07T22:08:37+00:00",
+      "bars": 3999
     },
     "XAUUSD": {
-      "dataset_id": "mt5-XAUUSD-2026-10-08",
-      "fingerprint": "3906afa2c63dab5317e63d32b15bbfc7199c3cf218bf45a7cf642e5bd79961f0",
-      "source": "deriv-mt5:2026-10-08T02:01:32+00:00",
-      "bars": 11999
+      "dataset_id": "mt5-2026-10-07",
+      "fingerprint": "f0d6c90ff7671a7961ad6b1ae5593eb8fbb34cacaa7f3afe28ddf6930f701bc3",
+      "source": "deriv-mt5:2026-10-07T02:45:00+00:00",
+      "bars": 3999
     }
   },
   "thresholds": {
@@ -51,27 +51,31 @@
       "evaluated": true,
       "passed": true,
       "evaluator": "campaign._run_candidate -> harness.run_backtest (in-sample window)",
-      "reason": "backtest cleared on every market: 208 in-sample trade(s) clear 30; 185 in-sample trade(s) clear 30",
+      "reason": "backtest cleared on every market: 60 in-sample trade(s) clear 30; 38 in-sample trade(s) clear 30",
       "threshold": 30.0,
       "evidence": {
         "markets": {
           "BTCUSD": {
-            "in_sample_trades": 208,
-            "in_sample_net_profit": "-329.583093482060",
-            "in_sample_profit_factor": 0.7656618331753472,
+            "in_sample_trades": 60,
+            "in_sample_net_profit": "-124.903639432080",
+            "in_sample_profit_factor": 0.701571890421259,
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
-            "other_candidates_that_failed_this_hard_gate": []
+            "other_candidates_that_failed_this_hard_gate": [
+              "slow-2.5R"
+            ]
           },
           "XAUUSD": {
-            "in_sample_trades": 185,
-            "in_sample_net_profit": "-8.424119543790",
-            "in_sample_profit_factor": 0.992678837166523,
+            "in_sample_trades": 38,
+            "in_sample_net_profit": "65.613419778810",
+            "in_sample_profit_factor": 1.2786929008224601,
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
-            "other_candidates_that_failed_this_hard_gate": []
+            "other_candidates_that_failed_this_hard_gate": [
+              "slow-2.5R"
+            ]
           }
         },
         "failed_markets": []
@@ -83,15 +87,15 @@
       "evaluated": true,
       "passed": false,
       "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-      "reason": "costs failed on: BTCUSD, XAUUSD",
+      "reason": "costs failed on: XAUUSD",
       "threshold": 1.2,
       "evidence": {
         "markets": {
           "BTCUSD": {
-            "net_profit": "-70.600459091020",
-            "profit_factor": 0.8121974704824612,
-            "max_drawdown": "135.083607475970",
-            "trades": 57,
+            "net_profit": "46.353873380470",
+            "profit_factor": 1.3417452051127947,
+            "max_drawdown": "44.914427819340",
+            "trades": 26,
             "measurement": "validation window with charged costs",
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
@@ -102,16 +106,64 @@
             ]
           },
           "XAUUSD": {
-            "net_profit": "-39.019163823570",
-            "profit_factor": 0.901626406884966,
-            "max_drawdown": "118.113684769630",
-            "trades": 63,
+            "net_profit": "15.916086856640",
+            "profit_factor": 1.1761991819024498,
+            "max_drawdown": "49.820490696870",
+            "trades": 14,
             "measurement": "validation window with charged costs",
             "market": "XAUUSD",
+            "candidate": "balanced-2R",
+            "candidates_tried": 3,
+            "other_candidates_that_failed_this_hard_gate": [
+              "fast-1.5R",
+              "slow-2.5R"
+            ]
+          }
+        },
+        "failed_markets": [
+          "XAUUSD"
+        ]
+      }
+    },
+    {
+      "stage": "walk_forward",
+      "status": "failed",
+      "evaluated": true,
+      "passed": false,
+      "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
+      "reason": "walk_forward failed on: BTCUSD, XAUUSD",
+      "threshold": 0.5,
+      "evidence": {
+        "markets": {
+          "BTCUSD": {
+            "folds": 6,
+            "profitable_folds": 1,
+            "ratio": 0.16666666666666666,
+            "trades": 28,
+            "net_profit": "-94.386311756340",
+            "skipped_folds": 0,
+            "measurement": "validation blocks of the rolling origin, never the sealed set",
+            "market": "BTCUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
               "balanced-2R",
+              "slow-2.5R"
+            ]
+          },
+          "XAUUSD": {
+            "folds": 6,
+            "profitable_folds": 2,
+            "ratio": 0.3333333333333333,
+            "trades": 13,
+            "net_profit": "-10.205852032790",
+            "skipped_folds": 0,
+            "measurement": "validation blocks of the rolling origin, never the sealed set",
+            "market": "XAUUSD",
+            "candidate": "balanced-2R",
+            "candidates_tried": 3,
+            "other_candidates_that_failed_this_hard_gate": [
+              "fast-1.5R",
               "slow-2.5R"
             ]
           }
@@ -123,23 +175,22 @@
       }
     },
     {
-      "stage": "walk_forward",
-      "status": "passed",
+      "stage": "out_of_sample",
+      "status": "failed",
       "evaluated": true,
-      "passed": true,
-      "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-      "reason": "walk_forward cleared on every market: 3/6 fold(s) profitable (50%) at or above 50%; 3/6 fold(s) profitable (50%) at or above 50%",
+      "passed": false,
+      "evaluator": "campaign._confirm_holdout -> protocol.confirm (one audited unlock)",
+      "reason": "out_of_sample failed on: BTCUSD, XAUUSD",
       "threshold": 0.5,
       "evidence": {
         "markets": {
           "BTCUSD": {
-            "folds": 6,
-            "profitable_folds": 3,
-            "ratio": 0.5,
-            "trades": 29,
-            "net_profit": "-12.842922625750",
-            "skipped_folds": 0,
-            "measurement": "validation blocks of the rolling origin, never the sealed set",
+            "net_profit": "-68.882075243260",
+            "profit_factor": 0.5010382542279614,
+            "trades": 18,
+            "retention": 1.0,
+            "holdout_read": true,
+            "measurement": "sealed out-of-sample window, after selection",
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
@@ -149,18 +200,68 @@
             ]
           },
           "XAUUSD": {
-            "folds": 6,
-            "profitable_folds": 3,
-            "ratio": 0.5,
-            "trades": 25,
-            "net_profit": "-4.732833999560",
-            "skipped_folds": 0,
-            "measurement": "validation blocks of the rolling origin, never the sealed set",
+            "net_profit": "-57.556112463920",
+            "profit_factor": 0.4951191730397457,
+            "trades": 14,
+            "retention": 0.42519512633953405,
+            "holdout_read": true,
+            "measurement": "sealed out-of-sample window, after selection",
             "market": "XAUUSD",
+            "candidate": "balanced-2R",
+            "candidates_tried": 3,
+            "other_candidates_that_failed_this_hard_gate": [
+              "fast-1.5R",
+              "slow-2.5R"
+            ]
+          }
+        },
+        "failed_markets": [
+          "BTCUSD",
+          "XAUUSD"
+        ]
+      }
+    },
+    {
+      "stage": "monte_carlo",
+      "status": "passed",
+      "evaluated": true,
+      "passed": true,
+      "evaluator": "campaign._run_candidate -> protocol.monte_carlo (bootstrap of the realized P&L) and protocol.monte_carlo_p_value (sign-flip null)",
+      "reason": "monte_carlo cleared on every market: resampled probability of profit 0.83 clears 0.50; resampled probability of profit 0.62 clears 0.50",
+      "threshold": 0.5,
+      "evidence": {
+        "markets": {
+          "BTCUSD": {
+            "probability_of_profit": 0.833,
+            "p_value": 0.16383616383616384,
+            "iterations": 1000,
+            "trades": 26,
+            "net_profit_p05": -31.285382674100997,
+            "net_profit_median": 68.20883869632999,
+            "worst_max_drawdown": 156.20957106343997,
+            "measurement": "validation window, measured before any holdout was opened",
+            "market": "BTCUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
               "balanced-2R",
+              "slow-2.5R"
+            ]
+          },
+          "XAUUSD": {
+            "probability_of_profit": 0.616,
+            "p_value": 0.2957042957042957,
+            "iterations": 1000,
+            "trades": 14,
+            "net_profit_p05": -60.621714632275506,
+            "net_profit_median": 27.929215526989996,
+            "worst_max_drawdown": 138.7611697054,
+            "measurement": "validation window, measured before any holdout was opened",
+            "market": "XAUUSD",
+            "candidate": "balanced-2R",
+            "candidates_tried": 3,
+            "other_candidates_that_failed_this_hard_gate": [
+              "fast-1.5R",
               "slow-2.5R"
             ]
           }
@@ -169,116 +270,21 @@
       }
     },
     {
-      "stage": "out_of_sample",
-      "status": "failed",
-      "evaluated": true,
-      "passed": false,
-      "evaluator": "campaign._confirm_holdout -> protocol.confirm (one audited unlock)",
-      "reason": "out_of_sample failed on: BTCUSD",
-      "threshold": 0.5,
-      "evidence": {
-        "markets": {
-          "BTCUSD": {
-            "net_profit": "-18.983652360380",
-            "profit_factor": 0.9506753724724398,
-            "trades": 62,
-            "retention": 0.0,
-            "holdout_read": true,
-            "measurement": "sealed out-of-sample window, after selection",
-            "market": "BTCUSD",
-            "candidate": "fast-1.5R",
-            "candidates_tried": 3,
-            "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
-              "slow-2.5R"
-            ]
-          },
-          "XAUUSD": {
-            "net_profit": "56.784565290610",
-            "profit_factor": 1.1463773980851744,
-            "trades": 68,
-            "retention": 1.0,
-            "holdout_read": true,
-            "measurement": "sealed out-of-sample window, after selection",
-            "market": "XAUUSD",
-            "candidate": "fast-1.5R",
-            "candidates_tried": 3,
-            "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
-              "slow-2.5R"
-            ]
-          }
-        },
-        "failed_markets": [
-          "BTCUSD"
-        ]
-      }
-    },
-    {
-      "stage": "monte_carlo",
-      "status": "failed",
-      "evaluated": true,
-      "passed": false,
-      "evaluator": "campaign._run_candidate -> protocol.monte_carlo (bootstrap of the realized P&L) and protocol.monte_carlo_p_value (sign-flip null)",
-      "reason": "monte_carlo failed on: BTCUSD",
-      "threshold": 0.5,
-      "evidence": {
-        "markets": {
-          "BTCUSD": {
-            "probability_of_profit": 0.369,
-            "p_value": 0.6343656343656343,
-            "iterations": 1000,
-            "trades": 57,
-            "net_profit_p05": -166.64980272126246,
-            "net_profit_median": -29.396220613470003,
-            "worst_max_drawdown": 311.76959241907,
-            "measurement": "validation window, measured before any holdout was opened",
-            "market": "BTCUSD",
-            "candidate": "fast-1.5R",
-            "candidates_tried": 3,
-            "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
-              "slow-2.5R"
-            ]
-          },
-          "XAUUSD": {
-            "probability_of_profit": 0.538,
-            "p_value": 0.4565434565434565,
-            "iterations": 1000,
-            "trades": 63,
-            "net_profit_p05": -155.26733607207,
-            "net_profit_median": 14.550121092335,
-            "worst_max_drawdown": 320.1468157195,
-            "measurement": "validation window, measured before any holdout was opened",
-            "market": "XAUUSD",
-            "candidate": "fast-1.5R",
-            "candidates_tried": 3,
-            "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R"
-            ]
-          }
-        },
-        "failed_markets": [
-          "BTCUSD"
-        ]
-      }
-    },
-    {
       "stage": "stress",
       "status": "failed",
       "evaluated": true,
       "passed": false,
       "evaluator": "campaign._run_candidate -> CostModel.stressed(2.0) replayed by run_backtest",
-      "reason": "stress failed on: BTCUSD, XAUUSD",
+      "reason": "stress failed on: XAUUSD",
       "threshold": 1.2,
       "evidence": {
         "markets": {
           "BTCUSD": {
             "cost_multiplier": 2.0,
-            "net_profit": "-70.600459091020",
-            "profit_factor": 0.8121974704824612,
-            "trades": 57,
-            "max_drawdown": "135.083607475970",
+            "net_profit": "46.353873380470",
+            "profit_factor": 1.3417452051127947,
+            "trades": 26,
+            "max_drawdown": "44.914427819340",
             "criteria_borrowed_from": "costs",
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
@@ -290,22 +296,21 @@
           },
           "XAUUSD": {
             "cost_multiplier": 2.0,
-            "net_profit": "-39.019163823570",
-            "profit_factor": 0.901626406884966,
-            "trades": 63,
-            "max_drawdown": "118.113684769630",
+            "net_profit": "15.916086856640",
+            "profit_factor": 1.1761991819024498,
+            "trades": 14,
+            "max_drawdown": "49.820490696870",
             "criteria_borrowed_from": "costs",
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
+              "fast-1.5R",
               "slow-2.5R"
             ]
           }
         },
         "failed_markets": [
-          "BTCUSD",
           "XAUUSD"
         ]
       }
@@ -321,53 +326,50 @@
       "evidence": {
         "markets": {
           "BTCUSD": {
-            "parameter_dispersion": 0.4434795430734574,
+            "parameter_dispersion": 0.22237592327029193,
             "variants": 13,
             "net_profits": [
-              "-29.902304372220",
-              "-29.900026207410",
-              "-29.907985866350",
-              "-40.579870507010",
-              "-90.648922600510",
-              "-81.152678451900",
-              "-68.217652415810",
-              "-29.902304372220",
-              "-29.902304372220",
-              "-70.681670184310",
-              "-38.771005918130",
-              "-37.601217733820",
-              "-40.760157180840"
+              "68.039764809670",
+              "54.499897003030",
+              "67.996254092720",
+              "43.764906647000",
+              "54.483045373570",
+              "43.766258509090",
+              "46.831319392240",
+              "68.039764809670",
+              "68.039764809670",
+              "30.458815181300",
+              "42.368474988210",
+              "62.540503262920",
+              "47.343414867160"
             ],
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
-            "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R"
-            ]
+            "other_candidates_that_failed_this_hard_gate": []
           },
           "XAUUSD": {
-            "parameter_dispersion": 1.1730772555538787,
+            "parameter_dispersion": 0.6202497914963221,
             "variants": 13,
             "net_profits": [
-              "14.955379002170",
-              "15.012727075420",
-              "63.830826133370",
-              "4.317870703960",
-              "18.378679281080",
-              "2.939814426800",
-              "32.044153045800",
-              "14.955379002170",
-              "14.955379002170",
-              "-16.930063532020",
-              "50.171689379220",
-              "-10.829934747480",
-              "42.894090029820"
+              "27.898506312420",
+              "27.901530489710",
+              "27.897960355840",
+              "27.528818571080",
+              "46.809112745750",
+              "-20.394028722830",
+              "14.123900293840",
+              "27.898506312420",
+              "27.898506312420",
+              "28.354907055320",
+              "27.342642147810",
+              "39.703433373050",
+              "16.093579251760"
             ],
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
               "slow-2.5R"
             ]
           }
@@ -400,7 +402,7 @@
   ],
   "passing_gates": [
     "backtest",
-    "walk_forward"
+    "monte_carlo"
   ],
   "multiple_testing": {
     "method": "benjamini_hochberg",
@@ -414,42 +416,44 @@
     "hypotheses_detail": [
       {
         "label": "BTCUSD:fast-1.5R",
-        "p_value": 0.6343656343656343
+        "p_value": 0.16383616383616384
       },
       {
         "label": "BTCUSD:balanced-2R",
-        "p_value": 0.5814185814185814
+        "p_value": 0.978021978021978
       },
       {
         "label": "BTCUSD:slow-2.5R",
-        "p_value": 0.8631368631368631
+        "p_value": 0.8031968031968032
       },
       {
         "label": "XAUUSD:fast-1.5R",
-        "p_value": 0.4565434565434565
+        "p_value": 0.8021978021978022
       },
       {
         "label": "XAUUSD:balanced-2R",
-        "p_value": 0.7502497502497503
+        "p_value": 0.2957042957042957
       },
       {
         "label": "XAUUSD:slow-2.5R",
-        "p_value": 0.34965034965034963
+        "p_value": 0.4865134865134865
       }
     ]
   },
   "markets": [
     {
       "market": "BTCUSD",
-      "dataset_id": "mt5-BTCUSD-2026-10-08",
+      "dataset_id": "mt5-2026-10-07",
       "selected": "fast-1.5R",
       "selection_basis": "stability score, then out-of-sample profit factor",
       "holdout_still_sealed": false,
       "holdout_unlocks": 1,
-      "out_of_sample_net_profit": "-18.983652360380",
+      "out_of_sample_net_profit": "-68.882075243260",
       "passing_gates": [
         "backtest",
-        "walk_forward",
+        "costs",
+        "monte_carlo",
+        "stress",
         "parameter_robustness"
       ],
       "gates": [
@@ -459,31 +463,33 @@
           "evaluated": true,
           "passed": true,
           "evaluator": "campaign._run_candidate -> harness.run_backtest (in-sample window)",
-          "reason": "208 in-sample trade(s) clear 30",
+          "reason": "60 in-sample trade(s) clear 30",
           "threshold": 30.0,
           "evidence": {
-            "in_sample_trades": 208,
-            "in_sample_net_profit": "-329.583093482060",
-            "in_sample_profit_factor": 0.7656618331753472,
+            "in_sample_trades": 60,
+            "in_sample_net_profit": "-124.903639432080",
+            "in_sample_profit_factor": 0.701571890421259,
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
-            "other_candidates_that_failed_this_hard_gate": []
+            "other_candidates_that_failed_this_hard_gate": [
+              "slow-2.5R"
+            ]
           }
         },
         {
           "stage": "costs",
-          "status": "failed",
+          "status": "passed",
           "evaluated": true,
-          "passed": false,
+          "passed": true,
           "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-          "reason": "net profit factor 0.81 below 1.20",
+          "reason": "costs are survivable",
           "threshold": 1.2,
           "evidence": {
-            "net_profit": "-70.600459091020",
-            "profit_factor": 0.8121974704824612,
-            "max_drawdown": "135.083607475970",
-            "trades": 57,
+            "net_profit": "46.353873380470",
+            "profit_factor": 1.3417452051127947,
+            "max_drawdown": "44.914427819340",
+            "trades": 26,
             "measurement": "validation window with charged costs",
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
@@ -496,18 +502,18 @@
         },
         {
           "stage": "walk_forward",
-          "status": "passed",
+          "status": "failed",
           "evaluated": true,
-          "passed": true,
+          "passed": false,
           "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-          "reason": "3/6 fold(s) profitable (50%) at or above 50%",
+          "reason": "1/6 fold(s) profitable (17%) below 50%",
           "threshold": 0.5,
           "evidence": {
             "folds": 6,
-            "profitable_folds": 3,
-            "ratio": 0.5,
-            "trades": 29,
-            "net_profit": "-12.842922625750",
+            "profitable_folds": 1,
+            "ratio": 0.16666666666666666,
+            "trades": 28,
+            "net_profit": "-94.386311756340",
             "skipped_folds": 0,
             "measurement": "validation blocks of the rolling origin, never the sealed set",
             "market": "BTCUSD",
@@ -525,13 +531,13 @@
           "evaluated": true,
           "passed": false,
           "evaluator": "campaign._confirm_holdout -> protocol.confirm (one audited unlock)",
-          "reason": "out-of-sample net profit -18.983652360380 is not positive; retention 0.00 below 0.50",
+          "reason": "18 out-of-sample trade(s), need 30; out-of-sample net profit -68.882075243260 is not positive",
           "threshold": 0.5,
           "evidence": {
-            "net_profit": "-18.983652360380",
-            "profit_factor": 0.9506753724724398,
-            "trades": 62,
-            "retention": 0.0,
+            "net_profit": "-68.882075243260",
+            "profit_factor": 0.5010382542279614,
+            "trades": 18,
+            "retention": 1.0,
             "holdout_read": true,
             "measurement": "sealed out-of-sample window, after selection",
             "market": "BTCUSD",
@@ -545,20 +551,20 @@
         },
         {
           "stage": "monte_carlo",
-          "status": "failed",
+          "status": "passed",
           "evaluated": true,
-          "passed": false,
+          "passed": true,
           "evaluator": "campaign._run_candidate -> protocol.monte_carlo (bootstrap of the realized P&L) and protocol.monte_carlo_p_value (sign-flip null)",
-          "reason": "resampled probability of profit 0.37 below 0.50",
+          "reason": "resampled probability of profit 0.83 clears 0.50",
           "threshold": 0.5,
           "evidence": {
-            "probability_of_profit": 0.369,
-            "p_value": 0.6343656343656343,
+            "probability_of_profit": 0.833,
+            "p_value": 0.16383616383616384,
             "iterations": 1000,
-            "trades": 57,
-            "net_profit_p05": -166.64980272126246,
-            "net_profit_median": -29.396220613470003,
-            "worst_max_drawdown": 311.76959241907,
+            "trades": 26,
+            "net_profit_p05": -31.285382674100997,
+            "net_profit_median": 68.20883869632999,
+            "worst_max_drawdown": 156.20957106343997,
             "measurement": "validation window, measured before any holdout was opened",
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
@@ -571,18 +577,18 @@
         },
         {
           "stage": "stress",
-          "status": "failed",
+          "status": "passed",
           "evaluated": true,
-          "passed": false,
+          "passed": true,
           "evaluator": "campaign._run_candidate -> CostModel.stressed(2.0) replayed by run_backtest",
-          "reason": "net profit -70.600459091020 is not positive at 2x costs; net profit factor 0.81 below 1.20 at 2x costs",
+          "reason": "the rule survives doubled costs",
           "threshold": 1.2,
           "evidence": {
             "cost_multiplier": 2.0,
-            "net_profit": "-70.600459091020",
-            "profit_factor": 0.8121974704824612,
-            "trades": 57,
-            "max_drawdown": "135.083607475970",
+            "net_profit": "46.353873380470",
+            "profit_factor": 1.3417452051127947,
+            "trades": 26,
+            "max_drawdown": "44.914427819340",
             "criteria_borrowed_from": "costs",
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
@@ -599,32 +605,30 @@
           "evaluated": true,
           "passed": true,
           "evaluator": "campaign._run_candidate -> protocol.perturb_parameters (+-10%) then protocol.parameter_dispersion",
-          "reason": "parameter dispersion 0.44 within 0.50",
+          "reason": "parameter dispersion 0.22 within 0.50",
           "threshold": 0.5,
           "evidence": {
-            "parameter_dispersion": 0.4434795430734574,
+            "parameter_dispersion": 0.22237592327029193,
             "variants": 13,
             "net_profits": [
-              "-29.902304372220",
-              "-29.900026207410",
-              "-29.907985866350",
-              "-40.579870507010",
-              "-90.648922600510",
-              "-81.152678451900",
-              "-68.217652415810",
-              "-29.902304372220",
-              "-29.902304372220",
-              "-70.681670184310",
-              "-38.771005918130",
-              "-37.601217733820",
-              "-40.760157180840"
+              "68.039764809670",
+              "54.499897003030",
+              "67.996254092720",
+              "43.764906647000",
+              "54.483045373570",
+              "43.766258509090",
+              "46.831319392240",
+              "68.039764809670",
+              "68.039764809670",
+              "30.458815181300",
+              "42.368474988210",
+              "62.540503262920",
+              "47.343414867160"
             ],
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
-            "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R"
-            ]
+            "other_candidates_that_failed_this_hard_gate": []
           }
         },
         {
@@ -668,16 +672,13 @@
         {
           "label": "fast-1.5R",
           "selected": true,
-          "stability_score": 0.13391227415592558,
-          "fragile": true,
-          "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "stability score 0.13 below 0.50"
-          ],
-          "train_net_profit": "-329.583093482060",
-          "validation_net_profit": "-29.902304372220",
-          "cost_net_profit": "-70.600459091020",
-          "cost_net_profit_factor": 0.8121974704824612,
+          "stability_score": 0.8665744460378249,
+          "fragile": false,
+          "reasons": [],
+          "train_net_profit": "-124.903639432080",
+          "validation_net_profit": "68.039764809670",
+          "cost_net_profit": "46.353873380470",
+          "cost_net_profit_factor": 1.3417452051127947,
           "parameters": {
             "ema_fast": 10.0,
             "ema_slow": 30.0,
@@ -688,36 +689,38 @@
           },
           "walk_forward": {
             "folds": 6,
-            "profitable_folds": 3,
-            "ratio": 0.5,
-            "trades": 29,
-            "net_profit": "-12.842922625750"
+            "profitable_folds": 1,
+            "ratio": 0.16666666666666666,
+            "trades": 28,
+            "net_profit": "-94.386311756340"
           },
           "monte_carlo": {
-            "probability_of_profit": 0.369,
-            "p_value": 0.6343656343656343,
+            "probability_of_profit": 0.833,
+            "p_value": 0.16383616383616384,
             "iterations": 1000,
-            "trades": 57,
-            "net_profit_p05": -166.64980272126246,
-            "net_profit_median": -29.396220613470003,
-            "net_profit_p95": 120.69252384016897,
-            "worst_max_drawdown": 311.76959241907
+            "trades": 26,
+            "net_profit_p05": -31.285382674100997,
+            "net_profit_median": 68.20883869632999,
+            "net_profit_p95": 167.21656613527048,
+            "worst_max_drawdown": 156.20957106343997
           },
           "stressed": {
             "cost_multiplier": 2.0,
-            "net_profit": "-70.600459091020",
-            "profit_factor": 0.8121974704824612,
-            "trades": 57
+            "net_profit": "46.353873380470",
+            "profit_factor": 1.3417452051127947,
+            "trades": 26
           },
           "out_of_sample": {
-            "net_profit": "-18.983652360380",
-            "profit_factor": 0.9506753724724398,
-            "trades": 62
+            "net_profit": "-68.882075243260",
+            "profit_factor": 0.5010382542279614,
+            "trades": 18
           },
           "false_discovery_significant": false,
           "passing_gates": [
             "backtest",
-            "walk_forward",
+            "costs",
+            "monte_carlo",
+            "stress",
             "parameter_robustness"
           ],
           "gates": [
@@ -727,44 +730,44 @@
               "evaluated": true,
               "passed": true,
               "evaluator": "campaign._run_candidate -> harness.run_backtest (in-sample window)",
-              "reason": "208 in-sample trade(s) clear 30",
+              "reason": "60 in-sample trade(s) clear 30",
               "threshold": 30.0,
               "evidence": {
-                "in_sample_trades": 208,
-                "in_sample_net_profit": "-329.583093482060",
-                "in_sample_profit_factor": 0.7656618331753472
+                "in_sample_trades": 60,
+                "in_sample_net_profit": "-124.903639432080",
+                "in_sample_profit_factor": 0.701571890421259
               }
             },
             {
               "stage": "costs",
-              "status": "failed",
+              "status": "passed",
               "evaluated": true,
-              "passed": false,
+              "passed": true,
               "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 0.81 below 1.20",
+              "reason": "costs are survivable",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "-70.600459091020",
-                "profit_factor": 0.8121974704824612,
-                "max_drawdown": "135.083607475970",
-                "trades": 57,
+                "net_profit": "46.353873380470",
+                "profit_factor": 1.3417452051127947,
+                "max_drawdown": "44.914427819340",
+                "trades": 26,
                 "measurement": "validation window with charged costs"
               }
             },
             {
               "stage": "walk_forward",
-              "status": "passed",
+              "status": "failed",
               "evaluated": true,
-              "passed": true,
+              "passed": false,
               "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-              "reason": "3/6 fold(s) profitable (50%) at or above 50%",
+              "reason": "1/6 fold(s) profitable (17%) below 50%",
               "threshold": 0.5,
               "evidence": {
                 "folds": 6,
-                "profitable_folds": 3,
-                "ratio": 0.5,
-                "trades": 29,
-                "net_profit": "-12.842922625750",
+                "profitable_folds": 1,
+                "ratio": 0.16666666666666666,
+                "trades": 28,
+                "net_profit": "-94.386311756340",
                 "skipped_folds": 0,
                 "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
@@ -775,50 +778,50 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._confirm_holdout -> protocol.confirm (one audited unlock)",
-              "reason": "out-of-sample net profit -18.983652360380 is not positive; retention 0.00 below 0.50",
+              "reason": "18 out-of-sample trade(s), need 30; out-of-sample net profit -68.882075243260 is not positive",
               "threshold": 0.5,
               "evidence": {
-                "net_profit": "-18.983652360380",
-                "profit_factor": 0.9506753724724398,
-                "trades": 62,
-                "retention": 0.0,
+                "net_profit": "-68.882075243260",
+                "profit_factor": 0.5010382542279614,
+                "trades": 18,
+                "retention": 1.0,
                 "holdout_read": true,
                 "measurement": "sealed out-of-sample window, after selection"
               }
             },
             {
               "stage": "monte_carlo",
-              "status": "failed",
+              "status": "passed",
               "evaluated": true,
-              "passed": false,
+              "passed": true,
               "evaluator": "campaign._run_candidate -> protocol.monte_carlo (bootstrap of the realized P&L) and protocol.monte_carlo_p_value (sign-flip null)",
-              "reason": "resampled probability of profit 0.37 below 0.50",
+              "reason": "resampled probability of profit 0.83 clears 0.50",
               "threshold": 0.5,
               "evidence": {
-                "probability_of_profit": 0.369,
-                "p_value": 0.6343656343656343,
+                "probability_of_profit": 0.833,
+                "p_value": 0.16383616383616384,
                 "iterations": 1000,
-                "trades": 57,
-                "net_profit_p05": -166.64980272126246,
-                "net_profit_median": -29.396220613470003,
-                "worst_max_drawdown": 311.76959241907,
+                "trades": 26,
+                "net_profit_p05": -31.285382674100997,
+                "net_profit_median": 68.20883869632999,
+                "worst_max_drawdown": 156.20957106343997,
                 "measurement": "validation window, measured before any holdout was opened"
               }
             },
             {
               "stage": "stress",
-              "status": "failed",
+              "status": "passed",
               "evaluated": true,
-              "passed": false,
+              "passed": true,
               "evaluator": "campaign._run_candidate -> CostModel.stressed(2.0) replayed by run_backtest",
-              "reason": "net profit -70.600459091020 is not positive at 2x costs; net profit factor 0.81 below 1.20 at 2x costs",
+              "reason": "the rule survives doubled costs",
               "threshold": 1.2,
               "evidence": {
                 "cost_multiplier": 2.0,
-                "net_profit": "-70.600459091020",
-                "profit_factor": 0.8121974704824612,
-                "trades": 57,
-                "max_drawdown": "135.083607475970",
+                "net_profit": "46.353873380470",
+                "profit_factor": 1.3417452051127947,
+                "trades": 26,
+                "max_drawdown": "44.914427819340",
                 "criteria_borrowed_from": "costs"
               }
             },
@@ -828,25 +831,25 @@
               "evaluated": true,
               "passed": true,
               "evaluator": "campaign._run_candidate -> protocol.perturb_parameters (+-10%) then protocol.parameter_dispersion",
-              "reason": "parameter dispersion 0.44 within 0.50",
+              "reason": "parameter dispersion 0.22 within 0.50",
               "threshold": 0.5,
               "evidence": {
-                "parameter_dispersion": 0.4434795430734574,
+                "parameter_dispersion": 0.22237592327029193,
                 "variants": 13,
                 "net_profits": [
-                  "-29.902304372220",
-                  "-29.900026207410",
-                  "-29.907985866350",
-                  "-40.579870507010",
-                  "-90.648922600510",
-                  "-81.152678451900",
-                  "-68.217652415810",
-                  "-29.902304372220",
-                  "-29.902304372220",
-                  "-70.681670184310",
-                  "-38.771005918130",
-                  "-37.601217733820",
-                  "-40.760157180840"
+                  "68.039764809670",
+                  "54.499897003030",
+                  "67.996254092720",
+                  "43.764906647000",
+                  "54.483045373570",
+                  "43.766258509090",
+                  "46.831319392240",
+                  "68.039764809670",
+                  "68.039764809670",
+                  "30.458815181300",
+                  "42.368474988210",
+                  "62.540503262920",
+                  "47.343414867160"
                 ]
               }
             },
@@ -875,17 +878,17 @@
         {
           "label": "balanced-2R",
           "selected": false,
-          "stability_score": 0.1,
+          "stability_score": 0.13824062232728374,
           "fragile": true,
           "reasons": [
             "out-of-sample retention 0.00 below 0.50",
-            "parameter dispersion 1.12 above 0.50",
-            "stability score 0.10 below 0.50"
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.14 below 0.50"
           ],
-          "train_net_profit": "-176.027504850080",
-          "validation_net_profit": "-12.352505847300",
-          "cost_net_profit": "-35.127772539240",
-          "cost_net_profit_factor": 0.8513376679392156,
+          "train_net_profit": "-81.804472929170",
+          "validation_net_profit": "-91.670449952200",
+          "cost_net_profit": "-101.028227172240",
+          "cost_net_profit_factor": 0.264091327582708,
           "parameters": {
             "ema_fast": 20.0,
             "ema_slow": 50.0,
@@ -899,28 +902,29 @@
             "profitable_folds": 2,
             "ratio": 0.3333333333333333,
             "trades": 13,
-            "net_profit": "32.059604176750"
+            "net_profit": "-9.042694733250"
           },
           "monte_carlo": {
-            "probability_of_profit": 0.439,
-            "p_value": 0.5814185814185814,
+            "probability_of_profit": 0.01,
+            "p_value": 0.978021978021978,
             "iterations": 1000,
-            "trades": 33,
-            "net_profit_p05": -132.819602142964,
-            "net_profit_median": -12.388877359505006,
-            "net_profit_p95": 125.95484390473999,
-            "worst_max_drawdown": 250.39640249671004
+            "trades": 14,
+            "net_profit_p05": -151.29985998828002,
+            "net_profit_median": -91.733771727005,
+            "net_profit_p95": -29.8563807284345,
+            "worst_max_drawdown": 158.17791391306
           },
           "stressed": {
             "cost_multiplier": 2.0,
-            "net_profit": "-35.127772539240",
-            "profit_factor": 0.8513376679392156,
-            "trades": 33
+            "net_profit": "-101.028227172240",
+            "profit_factor": 0.264091327582708,
+            "trades": 14
           },
           "out_of_sample": null,
           "false_discovery_significant": false,
           "passing_gates": [
-            "backtest"
+            "backtest",
+            "parameter_robustness"
           ],
           "gates": [
             {
@@ -929,12 +933,12 @@
               "evaluated": true,
               "passed": true,
               "evaluator": "campaign._run_candidate -> harness.run_backtest (in-sample window)",
-              "reason": "121 in-sample trade(s) clear 30",
+              "reason": "30 in-sample trade(s) clear 30",
               "threshold": 30.0,
               "evidence": {
-                "in_sample_trades": 121,
-                "in_sample_net_profit": "-176.027504850080",
-                "in_sample_profit_factor": 0.8067621038304029
+                "in_sample_trades": 30,
+                "in_sample_net_profit": "-81.804472929170",
+                "in_sample_profit_factor": 0.6502946421618784
               }
             },
             {
@@ -943,13 +947,13 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 0.85 below 1.20",
+              "reason": "net profit factor 0.26 below 1.20",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "-35.127772539240",
-                "profit_factor": 0.8513376679392156,
-                "max_drawdown": "91.745394725470",
-                "trades": 33,
+                "net_profit": "-101.028227172240",
+                "profit_factor": 0.264091327582708,
+                "max_drawdown": "114.989339751430",
+                "trades": 14,
                 "measurement": "validation window with charged costs"
               }
             },
@@ -966,7 +970,7 @@
                 "profitable_folds": 2,
                 "ratio": 0.3333333333333333,
                 "trades": 13,
-                "net_profit": "32.059604176750",
+                "net_profit": "-9.042694733250",
                 "skipped_folds": 0,
                 "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
@@ -990,16 +994,16 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> protocol.monte_carlo (bootstrap of the realized P&L) and protocol.monte_carlo_p_value (sign-flip null)",
-              "reason": "resampled probability of profit 0.44 below 0.50",
+              "reason": "resampled probability of profit 0.01 below 0.50",
               "threshold": 0.5,
               "evidence": {
-                "probability_of_profit": 0.439,
-                "p_value": 0.5814185814185814,
+                "probability_of_profit": 0.01,
+                "p_value": 0.978021978021978,
                 "iterations": 1000,
-                "trades": 33,
-                "net_profit_p05": -132.819602142964,
-                "net_profit_median": -12.388877359505006,
-                "worst_max_drawdown": 250.39640249671004,
+                "trades": 14,
+                "net_profit_p05": -151.29985998828002,
+                "net_profit_median": -91.733771727005,
+                "worst_max_drawdown": 158.17791391306,
                 "measurement": "validation window, measured before any holdout was opened"
               }
             },
@@ -1009,42 +1013,42 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> CostModel.stressed(2.0) replayed by run_backtest",
-              "reason": "net profit -35.127772539240 is not positive at 2x costs; net profit factor 0.85 below 1.20 at 2x costs",
+              "reason": "net profit -101.028227172240 is not positive at 2x costs; net profit factor 0.26 below 1.20 at 2x costs",
               "threshold": 1.2,
               "evidence": {
                 "cost_multiplier": 2.0,
-                "net_profit": "-35.127772539240",
-                "profit_factor": 0.8513376679392156,
-                "trades": 33,
-                "max_drawdown": "91.745394725470",
+                "net_profit": "-101.028227172240",
+                "profit_factor": 0.264091327582708,
+                "trades": 14,
+                "max_drawdown": "114.989339751430",
                 "criteria_borrowed_from": "costs"
               }
             },
             {
               "stage": "parameter_robustness",
-              "status": "failed",
+              "status": "passed",
               "evaluated": true,
-              "passed": false,
+              "passed": true,
               "evaluator": "campaign._run_candidate -> protocol.perturb_parameters (+-10%) then protocol.parameter_dispersion",
-              "reason": "parameter dispersion 1.12 above 0.50",
+              "reason": "parameter dispersion 0.27 within 0.50",
               "threshold": 0.5,
               "evidence": {
-                "parameter_dispersion": 1.1155288767351046,
+                "parameter_dispersion": 0.26959896278786044,
                 "variants": 13,
                 "net_profits": [
-                  "-12.352505847300",
-                  "-12.340639687300",
-                  "-12.364223837550",
-                  "-32.194677713390",
-                  "-55.205173809820",
-                  "-10.839374150430",
-                  "-65.867533119200",
-                  "-12.352505847300",
-                  "-12.352505847300",
-                  "17.038121426980",
-                  "-23.414337372330",
-                  "9.464654258620",
-                  "-34.169665953230"
+                  "-91.670449952200",
+                  "-91.694401700440",
+                  "-91.624450890700",
+                  "-36.547586662460",
+                  "-54.395195133420",
+                  "-68.551055522600",
+                  "-65.074016251250",
+                  "-91.670449952200",
+                  "-91.670449952200",
+                  "-120.075970450710",
+                  "-104.030555163520",
+                  "-119.368796002410",
+                  "-95.626343125210"
                 ]
               }
             },
@@ -1073,17 +1077,18 @@
         {
           "label": "slow-2.5R",
           "selected": false,
-          "stability_score": 0.007558562423689241,
+          "stability_score": 0.22821513052675008,
           "fragile": true,
           "reasons": [
+            "only 18 in-sample trade(s), below 30",
             "out-of-sample retention 0.00 below 0.50",
             "only 0% of periods profitable, below 50%",
-            "stability score 0.01 below 0.50"
+            "stability score 0.23 below 0.50"
           ],
-          "train_net_profit": "-106.287867731310",
-          "validation_net_profit": "-67.459363796660",
-          "cost_net_profit": "-77.925685578240",
-          "cost_net_profit_factor": 0.4724980116867805,
+          "train_net_profit": "-18.361170486330",
+          "validation_net_profit": "-42.048945380740",
+          "cost_net_profit": "-48.163842489950",
+          "cost_net_profit_factor": 0.3872925070050985,
           "parameters": {
             "ema_fast": 30.0,
             "ema_slow": 80.0,
@@ -1094,46 +1099,45 @@
           },
           "walk_forward": {
             "folds": 6,
-            "profitable_folds": 0,
-            "ratio": 0.0,
-            "trades": 5,
-            "net_profit": "-40.057721657830"
+            "profitable_folds": 2,
+            "ratio": 0.3333333333333333,
+            "trades": 7,
+            "net_profit": "2.515167555750"
           },
           "monte_carlo": {
-            "probability_of_profit": 0.154,
-            "p_value": 0.8631368631368631,
+            "probability_of_profit": 0.131,
+            "p_value": 0.8031968031968032,
             "iterations": 1000,
-            "trades": 16,
-            "net_profit_p05": -138.890445581897,
-            "net_profit_median": -67.512668370165,
-            "net_profit_p95": 35.11135982535149,
-            "worst_max_drawdown": 175.69488343295004
+            "trades": 9,
+            "net_profit_p05": -95.5643512865295,
+            "net_profit_median": -42.10327984199,
+            "net_profit_p95": 27.252650713205497,
+            "worst_max_drawdown": 96.03936781914999
           },
           "stressed": {
             "cost_multiplier": 2.0,
-            "net_profit": "-77.925685578240",
-            "profit_factor": 0.4724980116867805,
-            "trades": 16
+            "net_profit": "-48.163842489950",
+            "profit_factor": 0.3872925070050985,
+            "trades": 9
           },
           "out_of_sample": null,
           "false_discovery_significant": false,
           "passing_gates": [
-            "backtest",
             "parameter_robustness"
           ],
           "gates": [
             {
               "stage": "backtest",
-              "status": "passed",
+              "status": "failed",
               "evaluated": true,
-              "passed": true,
+              "passed": false,
               "evaluator": "campaign._run_candidate -> harness.run_backtest (in-sample window)",
-              "reason": "65 in-sample trade(s) clear 30",
+              "reason": "18 in-sample trade(s), need 30",
               "threshold": 30.0,
               "evidence": {
-                "in_sample_trades": 65,
-                "in_sample_net_profit": "-106.287867731310",
-                "in_sample_profit_factor": 0.7922716129931171
+                "in_sample_trades": 18,
+                "in_sample_net_profit": "-18.361170486330",
+                "in_sample_profit_factor": 0.867424072479189
               }
             },
             {
@@ -1142,13 +1146,13 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 0.47 below 1.20",
+              "reason": "net profit factor 0.39 below 1.20",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "-77.925685578240",
-                "profit_factor": 0.4724980116867805,
-                "max_drawdown": "136.160396777530",
-                "trades": 16,
+                "net_profit": "-48.163842489950",
+                "profit_factor": 0.3872925070050985,
+                "max_drawdown": "67.463849619310",
+                "trades": 9,
                 "measurement": "validation window with charged costs"
               }
             },
@@ -1158,14 +1162,14 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-              "reason": "0/6 fold(s) profitable (0%) below 50%",
+              "reason": "2/6 fold(s) profitable (33%) below 50%",
               "threshold": 0.5,
               "evidence": {
                 "folds": 6,
-                "profitable_folds": 0,
-                "ratio": 0.0,
-                "trades": 5,
-                "net_profit": "-40.057721657830",
+                "profitable_folds": 2,
+                "ratio": 0.3333333333333333,
+                "trades": 7,
+                "net_profit": "2.515167555750",
                 "skipped_folds": 0,
                 "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
@@ -1189,16 +1193,16 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> protocol.monte_carlo (bootstrap of the realized P&L) and protocol.monte_carlo_p_value (sign-flip null)",
-              "reason": "resampled probability of profit 0.15 below 0.50",
+              "reason": "resampled probability of profit 0.13 below 0.50",
               "threshold": 0.5,
               "evidence": {
-                "probability_of_profit": 0.154,
-                "p_value": 0.8631368631368631,
+                "probability_of_profit": 0.131,
+                "p_value": 0.8031968031968032,
                 "iterations": 1000,
-                "trades": 16,
-                "net_profit_p05": -138.890445581897,
-                "net_profit_median": -67.512668370165,
-                "worst_max_drawdown": 175.69488343295004,
+                "trades": 9,
+                "net_profit_p05": -95.5643512865295,
+                "net_profit_median": -42.10327984199,
+                "worst_max_drawdown": 96.03936781914999,
                 "measurement": "validation window, measured before any holdout was opened"
               }
             },
@@ -1208,14 +1212,14 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> CostModel.stressed(2.0) replayed by run_backtest",
-              "reason": "net profit -77.925685578240 is not positive at 2x costs; net profit factor 0.47 below 1.20 at 2x costs",
+              "reason": "net profit -48.163842489950 is not positive at 2x costs; net profit factor 0.39 below 1.20 at 2x costs",
               "threshold": 1.2,
               "evidence": {
                 "cost_multiplier": 2.0,
-                "net_profit": "-77.925685578240",
-                "profit_factor": 0.4724980116867805,
-                "trades": 16,
-                "max_drawdown": "136.160396777530",
+                "net_profit": "-48.163842489950",
+                "profit_factor": 0.3872925070050985,
+                "trades": 9,
+                "max_drawdown": "67.463849619310",
                 "criteria_borrowed_from": "costs"
               }
             },
@@ -1225,25 +1229,25 @@
               "evaluated": true,
               "passed": true,
               "evaluator": "campaign._run_candidate -> protocol.perturb_parameters (+-10%) then protocol.parameter_dispersion",
-              "reason": "parameter dispersion 0.49 within 0.50",
+              "reason": "parameter dispersion 0.12 within 0.50",
               "threshold": 0.5,
               "evidence": {
-                "parameter_dispersion": 0.48740239596051793,
+                "parameter_dispersion": 0.11964144912208317,
                 "variants": 13,
                 "net_profits": [
-                  "-67.459363796660",
-                  "-67.476065899690",
-                  "-67.444756558890",
-                  "27.549350183740",
-                  "-76.010191347810",
-                  "-78.320893604700",
-                  "-108.270979887490",
-                  "-67.459363796660",
-                  "-67.459363796660",
-                  "-31.463195202560",
-                  "-69.050476005450",
-                  "-60.021257414640",
-                  "-74.897470178680"
+                  "-42.048945380740",
+                  "-42.023016155090",
+                  "-42.088760966310",
+                  "-31.480039914880",
+                  "-52.647107967860",
+                  "-41.430709774570",
+                  "-52.562971989110",
+                  "-42.048945380740",
+                  "-42.048945380740",
+                  "-42.719786838940",
+                  "-41.230780725690",
+                  "-39.577908761880",
+                  "-44.519981999600"
                 ]
               }
             },
@@ -1273,16 +1277,14 @@
     },
     {
       "market": "XAUUSD",
-      "dataset_id": "mt5-XAUUSD-2026-10-08",
-      "selected": "fast-1.5R",
+      "dataset_id": "mt5-2026-10-07",
+      "selected": "balanced-2R",
       "selection_basis": "stability score, then out-of-sample profit factor",
       "holdout_still_sealed": false,
       "holdout_unlocks": 1,
-      "out_of_sample_net_profit": "56.784565290610",
+      "out_of_sample_net_profit": "-57.556112463920",
       "passing_gates": [
         "backtest",
-        "walk_forward",
-        "out_of_sample",
         "monte_carlo"
       ],
       "gates": [
@@ -1292,16 +1294,18 @@
           "evaluated": true,
           "passed": true,
           "evaluator": "campaign._run_candidate -> harness.run_backtest (in-sample window)",
-          "reason": "185 in-sample trade(s) clear 30",
+          "reason": "38 in-sample trade(s) clear 30",
           "threshold": 30.0,
           "evidence": {
-            "in_sample_trades": 185,
-            "in_sample_net_profit": "-8.424119543790",
-            "in_sample_profit_factor": 0.992678837166523,
+            "in_sample_trades": 38,
+            "in_sample_net_profit": "65.613419778810",
+            "in_sample_profit_factor": 1.2786929008224601,
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
-            "other_candidates_that_failed_this_hard_gate": []
+            "other_candidates_that_failed_this_hard_gate": [
+              "slow-2.5R"
+            ]
           }
         },
         {
@@ -1310,68 +1314,68 @@
           "evaluated": true,
           "passed": false,
           "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-          "reason": "net profit factor 0.90 below 1.20",
+          "reason": "net profit factor 1.18 below 1.20",
           "threshold": 1.2,
           "evidence": {
-            "net_profit": "-39.019163823570",
-            "profit_factor": 0.901626406884966,
-            "max_drawdown": "118.113684769630",
-            "trades": 63,
+            "net_profit": "15.916086856640",
+            "profit_factor": 1.1761991819024498,
+            "max_drawdown": "49.820490696870",
+            "trades": 14,
             "measurement": "validation window with charged costs",
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
+              "fast-1.5R",
               "slow-2.5R"
             ]
           }
         },
         {
           "stage": "walk_forward",
-          "status": "passed",
+          "status": "failed",
           "evaluated": true,
-          "passed": true,
+          "passed": false,
           "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-          "reason": "3/6 fold(s) profitable (50%) at or above 50%",
+          "reason": "2/6 fold(s) profitable (33%) below 50%",
           "threshold": 0.5,
           "evidence": {
             "folds": 6,
-            "profitable_folds": 3,
-            "ratio": 0.5,
-            "trades": 25,
-            "net_profit": "-4.732833999560",
+            "profitable_folds": 2,
+            "ratio": 0.3333333333333333,
+            "trades": 13,
+            "net_profit": "-10.205852032790",
             "skipped_folds": 0,
             "measurement": "validation blocks of the rolling origin, never the sealed set",
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
+              "fast-1.5R",
               "slow-2.5R"
             ]
           }
         },
         {
           "stage": "out_of_sample",
-          "status": "passed",
+          "status": "failed",
           "evaluated": true,
-          "passed": true,
+          "passed": false,
           "evaluator": "campaign._confirm_holdout -> protocol.confirm (one audited unlock)",
-          "reason": "the sealed set confirms the candidate",
+          "reason": "14 out-of-sample trade(s), need 30; out-of-sample net profit -57.556112463920 is not positive; retention 0.43 below 0.50",
           "threshold": 0.5,
           "evidence": {
-            "net_profit": "56.784565290610",
-            "profit_factor": 1.1463773980851744,
-            "trades": 68,
-            "retention": 1.0,
+            "net_profit": "-57.556112463920",
+            "profit_factor": 0.4951191730397457,
+            "trades": 14,
+            "retention": 0.42519512633953405,
             "holdout_read": true,
             "measurement": "sealed out-of-sample window, after selection",
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
+              "fast-1.5R",
               "slow-2.5R"
             ]
           }
@@ -1382,22 +1386,23 @@
           "evaluated": true,
           "passed": true,
           "evaluator": "campaign._run_candidate -> protocol.monte_carlo (bootstrap of the realized P&L) and protocol.monte_carlo_p_value (sign-flip null)",
-          "reason": "resampled probability of profit 0.54 clears 0.50",
+          "reason": "resampled probability of profit 0.62 clears 0.50",
           "threshold": 0.5,
           "evidence": {
-            "probability_of_profit": 0.538,
-            "p_value": 0.4565434565434565,
+            "probability_of_profit": 0.616,
+            "p_value": 0.2957042957042957,
             "iterations": 1000,
-            "trades": 63,
-            "net_profit_p05": -155.26733607207,
-            "net_profit_median": 14.550121092335,
-            "worst_max_drawdown": 320.1468157195,
+            "trades": 14,
+            "net_profit_p05": -60.621714632275506,
+            "net_profit_median": 27.929215526989996,
+            "worst_max_drawdown": 138.7611697054,
             "measurement": "validation window, measured before any holdout was opened",
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R"
+              "fast-1.5R",
+              "slow-2.5R"
             ]
           }
         },
@@ -1407,20 +1412,20 @@
           "evaluated": true,
           "passed": false,
           "evaluator": "campaign._run_candidate -> CostModel.stressed(2.0) replayed by run_backtest",
-          "reason": "net profit -39.019163823570 is not positive at 2x costs; net profit factor 0.90 below 1.20 at 2x costs",
+          "reason": "net profit factor 1.18 below 1.20 at 2x costs",
           "threshold": 1.2,
           "evidence": {
             "cost_multiplier": 2.0,
-            "net_profit": "-39.019163823570",
-            "profit_factor": 0.901626406884966,
-            "trades": 63,
-            "max_drawdown": "118.113684769630",
+            "net_profit": "15.916086856640",
+            "profit_factor": 1.1761991819024498,
+            "trades": 14,
+            "max_drawdown": "49.820490696870",
             "criteria_borrowed_from": "costs",
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
+              "fast-1.5R",
               "slow-2.5R"
             ]
           }
@@ -1431,31 +1436,30 @@
           "evaluated": true,
           "passed": false,
           "evaluator": "campaign._run_candidate -> protocol.perturb_parameters (+-10%) then protocol.parameter_dispersion",
-          "reason": "parameter dispersion 1.17 above 0.50",
+          "reason": "parameter dispersion 0.62 above 0.50",
           "threshold": 0.5,
           "evidence": {
-            "parameter_dispersion": 1.1730772555538787,
+            "parameter_dispersion": 0.6202497914963221,
             "variants": 13,
             "net_profits": [
-              "14.955379002170",
-              "15.012727075420",
-              "63.830826133370",
-              "4.317870703960",
-              "18.378679281080",
-              "2.939814426800",
-              "32.044153045800",
-              "14.955379002170",
-              "14.955379002170",
-              "-16.930063532020",
-              "50.171689379220",
-              "-10.829934747480",
-              "42.894090029820"
+              "27.898506312420",
+              "27.901530489710",
+              "27.897960355840",
+              "27.528818571080",
+              "46.809112745750",
+              "-20.394028722830",
+              "14.123900293840",
+              "27.898506312420",
+              "27.898506312420",
+              "28.354907055320",
+              "27.342642147810",
+              "39.703433373050",
+              "16.093579251760"
             ],
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
               "slow-2.5R"
             ]
           }
@@ -1470,10 +1474,10 @@
           "threshold": null,
           "evidence": {
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
+              "fast-1.5R",
               "slow-2.5R"
             ]
           }
@@ -1488,10 +1492,10 @@
           "threshold": null,
           "evidence": {
             "market": "XAUUSD",
-            "candidate": "fast-1.5R",
+            "candidate": "balanced-2R",
             "candidates_tried": 3,
             "other_candidates_that_failed_this_hard_gate": [
-              "balanced-2R",
+              "fast-1.5R",
               "slow-2.5R"
             ]
           }
@@ -1500,16 +1504,18 @@
       "candidates": [
         {
           "label": "fast-1.5R",
-          "selected": true,
-          "stability_score": 0.6333333333333333,
+          "selected": false,
+          "stability_score": 0.1159956375476274,
           "fragile": true,
           "reasons": [
-            "parameter dispersion 1.17 above 0.50"
+            "out-of-sample retention -4.42 below 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.12 below 0.50"
           ],
-          "train_net_profit": "-8.424119543790",
-          "validation_net_profit": "14.955379002170",
-          "cost_net_profit": "-39.019163823570",
-          "cost_net_profit_factor": 0.901626406884966,
+          "train_net_profit": "11.036522477060",
+          "validation_net_profit": "-48.761872889670",
+          "cost_net_profit": "-66.824263536150",
+          "cost_net_profit_factor": 0.6060027863639247,
           "parameters": {
             "ema_fast": 10.0,
             "ema_slow": 30.0,
@@ -1520,38 +1526,32 @@
           },
           "walk_forward": {
             "folds": 6,
-            "profitable_folds": 3,
-            "ratio": 0.5,
-            "trades": 25,
-            "net_profit": "-4.732833999560"
+            "profitable_folds": 1,
+            "ratio": 0.16666666666666666,
+            "trades": 20,
+            "net_profit": "-6.266036076140"
           },
           "monte_carlo": {
-            "probability_of_profit": 0.538,
-            "p_value": 0.4565434565434565,
+            "probability_of_profit": 0.201,
+            "p_value": 0.8021978021978022,
             "iterations": 1000,
-            "trades": 63,
-            "net_profit_p05": -155.26733607207,
-            "net_profit_median": 14.550121092335,
-            "net_profit_p95": 163.4711858674125,
-            "worst_max_drawdown": 320.1468157195
+            "trades": 23,
+            "net_profit_p05": -146.34567164979802,
+            "net_profit_median": -48.81251254727,
+            "net_profit_p95": 49.0172263362485,
+            "worst_max_drawdown": 221.07761957396005
           },
           "stressed": {
             "cost_multiplier": 2.0,
-            "net_profit": "-39.019163823570",
-            "profit_factor": 0.901626406884966,
-            "trades": 63
+            "net_profit": "-66.824263536150",
+            "profit_factor": 0.6060027863639247,
+            "trades": 23
           },
-          "out_of_sample": {
-            "net_profit": "56.784565290610",
-            "profit_factor": 1.1463773980851744,
-            "trades": 68
-          },
+          "out_of_sample": null,
           "false_discovery_significant": false,
           "passing_gates": [
             "backtest",
-            "walk_forward",
-            "out_of_sample",
-            "monte_carlo"
+            "parameter_robustness"
           ],
           "gates": [
             {
@@ -1560,12 +1560,12 @@
               "evaluated": true,
               "passed": true,
               "evaluator": "campaign._run_candidate -> harness.run_backtest (in-sample window)",
-              "reason": "185 in-sample trade(s) clear 30",
+              "reason": "59 in-sample trade(s) clear 30",
               "threshold": 30.0,
               "evidence": {
-                "in_sample_trades": 185,
-                "in_sample_net_profit": "-8.424119543790",
-                "in_sample_profit_factor": 0.992678837166523
+                "in_sample_trades": 59,
+                "in_sample_net_profit": "11.036522477060",
+                "in_sample_profit_factor": 1.0313961599549648
               }
             },
             {
@@ -1574,67 +1574,63 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 0.90 below 1.20",
+              "reason": "net profit factor 0.61 below 1.20",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "-39.019163823570",
-                "profit_factor": 0.901626406884966,
-                "max_drawdown": "118.113684769630",
-                "trades": 63,
+                "net_profit": "-66.824263536150",
+                "profit_factor": 0.6060027863639247,
+                "max_drawdown": "86.357193971570",
+                "trades": 23,
                 "measurement": "validation window with charged costs"
               }
             },
             {
               "stage": "walk_forward",
-              "status": "passed",
+              "status": "failed",
               "evaluated": true,
-              "passed": true,
+              "passed": false,
               "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-              "reason": "3/6 fold(s) profitable (50%) at or above 50%",
+              "reason": "1/6 fold(s) profitable (17%) below 50%",
               "threshold": 0.5,
               "evidence": {
                 "folds": 6,
-                "profitable_folds": 3,
-                "ratio": 0.5,
-                "trades": 25,
-                "net_profit": "-4.732833999560",
+                "profitable_folds": 1,
+                "ratio": 0.16666666666666666,
+                "trades": 20,
+                "net_profit": "-6.266036076140",
                 "skipped_folds": 0,
                 "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
             },
             {
               "stage": "out_of_sample",
-              "status": "passed",
-              "evaluated": true,
-              "passed": true,
-              "evaluator": "campaign._confirm_holdout -> protocol.confirm (one audited unlock)",
-              "reason": "the sealed set confirms the candidate",
-              "threshold": 0.5,
+              "status": "not_evaluable",
+              "evaluated": false,
+              "passed": false,
+              "evaluator": "campaign._confirm_holdout -> protocol.confirm, called once per market for the selected candidate",
+              "reason": "the sealed set was never unlocked: this candidate was not the one its market selected",
+              "threshold": null,
               "evidence": {
-                "net_profit": "56.784565290610",
-                "profit_factor": 1.1463773980851744,
-                "trades": 68,
-                "retention": 1.0,
-                "holdout_read": true,
-                "measurement": "sealed out-of-sample window, after selection"
+                "selected": false,
+                "holdout_read": false
               }
             },
             {
               "stage": "monte_carlo",
-              "status": "passed",
+              "status": "failed",
               "evaluated": true,
-              "passed": true,
+              "passed": false,
               "evaluator": "campaign._run_candidate -> protocol.monte_carlo (bootstrap of the realized P&L) and protocol.monte_carlo_p_value (sign-flip null)",
-              "reason": "resampled probability of profit 0.54 clears 0.50",
+              "reason": "resampled probability of profit 0.20 below 0.50",
               "threshold": 0.5,
               "evidence": {
-                "probability_of_profit": 0.538,
-                "p_value": 0.4565434565434565,
+                "probability_of_profit": 0.201,
+                "p_value": 0.8021978021978022,
                 "iterations": 1000,
-                "trades": 63,
-                "net_profit_p05": -155.26733607207,
-                "net_profit_median": 14.550121092335,
-                "worst_max_drawdown": 320.1468157195,
+                "trades": 23,
+                "net_profit_p05": -146.34567164979802,
+                "net_profit_median": -48.81251254727,
+                "worst_max_drawdown": 221.07761957396005,
                 "measurement": "validation window, measured before any holdout was opened"
               }
             },
@@ -1644,42 +1640,42 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> CostModel.stressed(2.0) replayed by run_backtest",
-              "reason": "net profit -39.019163823570 is not positive at 2x costs; net profit factor 0.90 below 1.20 at 2x costs",
+              "reason": "net profit -66.824263536150 is not positive at 2x costs; net profit factor 0.61 below 1.20 at 2x costs",
               "threshold": 1.2,
               "evidence": {
                 "cost_multiplier": 2.0,
-                "net_profit": "-39.019163823570",
-                "profit_factor": 0.901626406884966,
-                "trades": 63,
-                "max_drawdown": "118.113684769630",
+                "net_profit": "-66.824263536150",
+                "profit_factor": 0.6060027863639247,
+                "trades": 23,
+                "max_drawdown": "86.357193971570",
                 "criteria_borrowed_from": "costs"
               }
             },
             {
               "stage": "parameter_robustness",
-              "status": "failed",
+              "status": "passed",
               "evaluated": true,
-              "passed": false,
+              "passed": true,
               "evaluator": "campaign._run_candidate -> protocol.perturb_parameters (+-10%) then protocol.parameter_dispersion",
-              "reason": "parameter dispersion 1.17 above 0.50",
+              "reason": "parameter dispersion 0.31 within 0.50",
               "threshold": 0.5,
               "evidence": {
-                "parameter_dispersion": 1.1730772555538787,
+                "parameter_dispersion": 0.306673937420621,
                 "variants": 13,
                 "net_profits": [
-                  "14.955379002170",
-                  "15.012727075420",
-                  "63.830826133370",
-                  "4.317870703960",
-                  "18.378679281080",
-                  "2.939814426800",
-                  "32.044153045800",
-                  "14.955379002170",
-                  "14.955379002170",
-                  "-16.930063532020",
-                  "50.171689379220",
-                  "-10.829934747480",
-                  "42.894090029820"
+                  "-48.761872889670",
+                  "-48.754075053090",
+                  "-48.766644498000",
+                  "-73.526430856650",
+                  "-84.043612366030",
+                  "-70.156916384180",
+                  "-84.082191334510",
+                  "-48.761872889670",
+                  "-48.761872889670",
+                  "-23.467264186530",
+                  "-74.270803820640",
+                  "-36.980898028610",
+                  "-60.542847750730"
                 ]
               }
             },
@@ -1707,19 +1703,18 @@
         },
         {
           "label": "balanced-2R",
-          "selected": false,
-          "stability_score": 0.0,
+          "selected": true,
+          "stability_score": 0.41259756316976703,
           "fragile": true,
           "reasons": [
-            "out-of-sample retention 0.00 below 0.50",
-            "parameter dispersion 0.65 above 0.50",
-            "only 0% of periods profitable, below 50%",
-            "stability score 0.00 below 0.50"
+            "out-of-sample retention 0.43 below 0.50",
+            "parameter dispersion 0.62 above 0.50",
+            "stability score 0.41 below 0.50"
           ],
-          "train_net_profit": "-210.779944013730",
-          "validation_net_profit": "-56.558534107190",
-          "cost_net_profit": "-88.133055260190",
-          "cost_net_profit_factor": 0.7043914539170326,
+          "train_net_profit": "65.613419778810",
+          "validation_net_profit": "27.898506312420",
+          "cost_net_profit": "15.916086856640",
+          "cost_net_profit_factor": 1.1761991819024498,
           "parameters": {
             "ema_fast": 20.0,
             "ema_slow": 50.0,
@@ -1732,29 +1727,34 @@
             "folds": 6,
             "profitable_folds": 2,
             "ratio": 0.3333333333333333,
-            "trades": 14,
-            "net_profit": "-18.687257123380"
+            "trades": 13,
+            "net_profit": "-10.205852032790"
           },
           "monte_carlo": {
-            "probability_of_profit": 0.262,
-            "p_value": 0.7502497502497503,
+            "probability_of_profit": 0.616,
+            "p_value": 0.2957042957042957,
             "iterations": 1000,
-            "trades": 38,
-            "net_profit_p05": -182.4664768613415,
-            "net_profit_median": -56.68109845116001,
-            "net_profit_p95": 65.64708395143,
-            "worst_max_drawdown": 324.7152844843399
+            "trades": 14,
+            "net_profit_p05": -60.621714632275506,
+            "net_profit_median": 27.929215526989996,
+            "net_profit_p95": 116.51647092338149,
+            "worst_max_drawdown": 138.7611697054
           },
           "stressed": {
             "cost_multiplier": 2.0,
-            "net_profit": "-88.133055260190",
-            "profit_factor": 0.7043914539170326,
-            "trades": 38
+            "net_profit": "15.916086856640",
+            "profit_factor": 1.1761991819024498,
+            "trades": 14
           },
-          "out_of_sample": null,
+          "out_of_sample": {
+            "net_profit": "-57.556112463920",
+            "profit_factor": 0.4951191730397457,
+            "trades": 14
+          },
           "false_discovery_significant": false,
           "passing_gates": [
-            "backtest"
+            "backtest",
+            "monte_carlo"
           ],
           "gates": [
             {
@@ -1763,12 +1763,12 @@
               "evaluated": true,
               "passed": true,
               "evaluator": "campaign._run_candidate -> harness.run_backtest (in-sample window)",
-              "reason": "112 in-sample trade(s) clear 30",
+              "reason": "38 in-sample trade(s) clear 30",
               "threshold": 30.0,
               "evidence": {
-                "in_sample_trades": 112,
-                "in_sample_net_profit": "-210.779944013730",
-                "in_sample_profit_factor": 0.7532641149256223
+                "in_sample_trades": 38,
+                "in_sample_net_profit": "65.613419778810",
+                "in_sample_profit_factor": 1.2786929008224601
               }
             },
             {
@@ -1777,13 +1777,13 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 0.70 below 1.20",
+              "reason": "net profit factor 1.18 below 1.20",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "-88.133055260190",
-                "profit_factor": 0.7043914539170326,
-                "max_drawdown": "89.778051477830",
-                "trades": 38,
+                "net_profit": "15.916086856640",
+                "profit_factor": 1.1761991819024498,
+                "max_drawdown": "49.820490696870",
+                "trades": 14,
                 "measurement": "validation window with charged costs"
               }
             },
@@ -1799,41 +1799,45 @@
                 "folds": 6,
                 "profitable_folds": 2,
                 "ratio": 0.3333333333333333,
-                "trades": 14,
-                "net_profit": "-18.687257123380",
+                "trades": 13,
+                "net_profit": "-10.205852032790",
                 "skipped_folds": 0,
                 "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
             },
             {
               "stage": "out_of_sample",
-              "status": "not_evaluable",
-              "evaluated": false,
+              "status": "failed",
+              "evaluated": true,
               "passed": false,
-              "evaluator": "campaign._confirm_holdout -> protocol.confirm, called once per market for the selected candidate",
-              "reason": "the sealed set was never unlocked: this candidate was not the one its market selected",
-              "threshold": null,
+              "evaluator": "campaign._confirm_holdout -> protocol.confirm (one audited unlock)",
+              "reason": "14 out-of-sample trade(s), need 30; out-of-sample net profit -57.556112463920 is not positive; retention 0.43 below 0.50",
+              "threshold": 0.5,
               "evidence": {
-                "selected": false,
-                "holdout_read": false
+                "net_profit": "-57.556112463920",
+                "profit_factor": 0.4951191730397457,
+                "trades": 14,
+                "retention": 0.42519512633953405,
+                "holdout_read": true,
+                "measurement": "sealed out-of-sample window, after selection"
               }
             },
             {
               "stage": "monte_carlo",
-              "status": "failed",
+              "status": "passed",
               "evaluated": true,
-              "passed": false,
+              "passed": true,
               "evaluator": "campaign._run_candidate -> protocol.monte_carlo (bootstrap of the realized P&L) and protocol.monte_carlo_p_value (sign-flip null)",
-              "reason": "resampled probability of profit 0.26 below 0.50",
+              "reason": "resampled probability of profit 0.62 clears 0.50",
               "threshold": 0.5,
               "evidence": {
-                "probability_of_profit": 0.262,
-                "p_value": 0.7502497502497503,
+                "probability_of_profit": 0.616,
+                "p_value": 0.2957042957042957,
                 "iterations": 1000,
-                "trades": 38,
-                "net_profit_p05": -182.4664768613415,
-                "net_profit_median": -56.68109845116001,
-                "worst_max_drawdown": 324.7152844843399,
+                "trades": 14,
+                "net_profit_p05": -60.621714632275506,
+                "net_profit_median": 27.929215526989996,
+                "worst_max_drawdown": 138.7611697054,
                 "measurement": "validation window, measured before any holdout was opened"
               }
             },
@@ -1843,14 +1847,14 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> CostModel.stressed(2.0) replayed by run_backtest",
-              "reason": "net profit -88.133055260190 is not positive at 2x costs; net profit factor 0.70 below 1.20 at 2x costs",
+              "reason": "net profit factor 1.18 below 1.20 at 2x costs",
               "threshold": 1.2,
               "evidence": {
                 "cost_multiplier": 2.0,
-                "net_profit": "-88.133055260190",
-                "profit_factor": 0.7043914539170326,
-                "trades": 38,
-                "max_drawdown": "89.778051477830",
+                "net_profit": "15.916086856640",
+                "profit_factor": 1.1761991819024498,
+                "trades": 14,
+                "max_drawdown": "49.820490696870",
                 "criteria_borrowed_from": "costs"
               }
             },
@@ -1860,25 +1864,25 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> protocol.perturb_parameters (+-10%) then protocol.parameter_dispersion",
-              "reason": "parameter dispersion 0.65 above 0.50",
+              "reason": "parameter dispersion 0.62 above 0.50",
               "threshold": 0.5,
               "evidence": {
-                "parameter_dispersion": 0.6529830062975166,
+                "parameter_dispersion": 0.6202497914963221,
                 "variants": 13,
                 "net_profits": [
-                  "-56.558534107190",
-                  "-27.128517833440",
-                  "-56.443203132220",
-                  "-48.778746128400",
-                  "-74.012970587780",
-                  "6.212330722940",
-                  "-46.403487847060",
-                  "-56.558534107190",
-                  "-56.558534107190",
-                  "-62.263988849240",
-                  "18.135579462070",
-                  "-33.031962856340",
-                  "-25.061152407390"
+                  "27.898506312420",
+                  "27.901530489710",
+                  "27.897960355840",
+                  "27.528818571080",
+                  "46.809112745750",
+                  "-20.394028722830",
+                  "14.123900293840",
+                  "27.898506312420",
+                  "27.898506312420",
+                  "28.354907055320",
+                  "27.342642147810",
+                  "39.703433373050",
+                  "16.093579251760"
                 ]
               }
             },
@@ -1907,16 +1911,19 @@
         {
           "label": "slow-2.5R",
           "selected": false,
-          "stability_score": 0.5666666666666667,
+          "stability_score": 0.0,
           "fragile": true,
           "reasons": [
-            "parameter dispersion 1.25 above 0.50",
-            "only 33% of periods profitable, below 50%"
+            "only 23 in-sample trade(s), below 30",
+            "out-of-sample retention -0.09 below 0.50",
+            "parameter dispersion 3.86 above 0.50",
+            "only 0% of periods profitable, below 50%",
+            "stability score 0.00 below 0.50"
           ],
-          "train_net_profit": "-41.609719716410",
-          "validation_net_profit": "29.868887403060",
-          "cost_net_profit": "10.264626193380",
-          "cost_net_profit_factor": 1.0603528730727783,
+          "train_net_profit": "64.939889911440",
+          "validation_net_profit": "-5.732883043300",
+          "cost_net_profit": "-11.518673329790",
+          "cost_net_profit_factor": 0.7957902772420777,
           "parameters": {
             "ema_fast": 30.0,
             "ema_slow": 80.0,
@@ -1929,44 +1936,41 @@
             "folds": 6,
             "profitable_folds": 1,
             "ratio": 0.16666666666666666,
-            "trades": 6,
-            "net_profit": "-26.038397944210"
+            "trades": 9,
+            "net_profit": "3.399580262740"
           },
           "monte_carlo": {
-            "probability_of_profit": 0.588,
-            "p_value": 0.34965034965034963,
+            "probability_of_profit": 0.327,
+            "p_value": 0.4865134865134865,
             "iterations": 1000,
-            "trades": 23,
-            "net_profit_p05": -107.416440398943,
-            "net_profit_median": 29.920169256530006,
-            "net_profit_p95": 167.89121386405301,
-            "worst_max_drawdown": 213.46807123300997
+            "trades": 7,
+            "net_profit_p05": -74.5039543401645,
+            "net_profit_median": -5.740468067540002,
+            "net_profit_p95": 63.11073599265,
+            "worst_max_drawdown": 74.95680927408999
           },
           "stressed": {
             "cost_multiplier": 2.0,
-            "net_profit": "10.264626193380",
-            "profit_factor": 1.0603528730727783,
-            "trades": 23
+            "net_profit": "-11.518673329790",
+            "profit_factor": 0.7957902772420777,
+            "trades": 7
           },
           "out_of_sample": null,
           "false_discovery_significant": false,
-          "passing_gates": [
-            "backtest",
-            "monte_carlo"
-          ],
+          "passing_gates": [],
           "gates": [
             {
               "stage": "backtest",
-              "status": "passed",
+              "status": "failed",
               "evaluated": true,
-              "passed": true,
+              "passed": false,
               "evaluator": "campaign._run_candidate -> harness.run_backtest (in-sample window)",
-              "reason": "62 in-sample trade(s) clear 30",
+              "reason": "23 in-sample trade(s), need 30",
               "threshold": 30.0,
               "evidence": {
-                "in_sample_trades": 62,
-                "in_sample_net_profit": "-41.609719716410",
-                "in_sample_profit_factor": 0.9112618901725342
+                "in_sample_trades": 23,
+                "in_sample_net_profit": "64.939889911440",
+                "in_sample_profit_factor": 1.435411058230953
               }
             },
             {
@@ -1975,13 +1979,13 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 1.06 below 1.20",
+              "reason": "net profit factor 0.80 below 1.20",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "10.264626193380",
-                "profit_factor": 1.0603528730727783,
-                "max_drawdown": "56.680088933530",
-                "trades": 23,
+                "net_profit": "-11.518673329790",
+                "profit_factor": 0.7957902772420777,
+                "max_drawdown": "44.977611725000",
+                "trades": 7,
                 "measurement": "validation window with charged costs"
               }
             },
@@ -1997,8 +2001,8 @@
                 "folds": 6,
                 "profitable_folds": 1,
                 "ratio": 0.16666666666666666,
-                "trades": 6,
-                "net_profit": "-26.038397944210",
+                "trades": 9,
+                "net_profit": "3.399580262740",
                 "skipped_folds": 0,
                 "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
@@ -2018,20 +2022,20 @@
             },
             {
               "stage": "monte_carlo",
-              "status": "passed",
+              "status": "failed",
               "evaluated": true,
-              "passed": true,
+              "passed": false,
               "evaluator": "campaign._run_candidate -> protocol.monte_carlo (bootstrap of the realized P&L) and protocol.monte_carlo_p_value (sign-flip null)",
-              "reason": "resampled probability of profit 0.59 clears 0.50",
+              "reason": "resampled probability of profit 0.33 below 0.50",
               "threshold": 0.5,
               "evidence": {
-                "probability_of_profit": 0.588,
-                "p_value": 0.34965034965034963,
+                "probability_of_profit": 0.327,
+                "p_value": 0.4865134865134865,
                 "iterations": 1000,
-                "trades": 23,
-                "net_profit_p05": -107.416440398943,
-                "net_profit_median": 29.920169256530006,
-                "worst_max_drawdown": 213.46807123300997,
+                "trades": 7,
+                "net_profit_p05": -74.5039543401645,
+                "net_profit_median": -5.740468067540002,
+                "worst_max_drawdown": 74.95680927408999,
                 "measurement": "validation window, measured before any holdout was opened"
               }
             },
@@ -2041,14 +2045,14 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> CostModel.stressed(2.0) replayed by run_backtest",
-              "reason": "net profit factor 1.06 below 1.20 at 2x costs",
+              "reason": "net profit -11.518673329790 is not positive at 2x costs; net profit factor 0.80 below 1.20 at 2x costs",
               "threshold": 1.2,
               "evidence": {
                 "cost_multiplier": 2.0,
-                "net_profit": "10.264626193380",
-                "profit_factor": 1.0603528730727783,
-                "trades": 23,
-                "max_drawdown": "56.680088933530",
+                "net_profit": "-11.518673329790",
+                "profit_factor": 0.7957902772420777,
+                "trades": 7,
+                "max_drawdown": "44.977611725000",
                 "criteria_borrowed_from": "costs"
               }
             },
@@ -2058,25 +2062,25 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._run_candidate -> protocol.perturb_parameters (+-10%) then protocol.parameter_dispersion",
-              "reason": "parameter dispersion 1.25 above 0.50",
+              "reason": "parameter dispersion 3.86 above 0.50",
               "threshold": 0.5,
               "evidence": {
-                "parameter_dispersion": 1.249228656201029,
+                "parameter_dispersion": 3.857731138356822,
                 "variants": 13,
                 "net_profits": [
-                  "29.868887403060",
-                  "-4.697094004120",
-                  "29.898328189990",
-                  "-4.222108387020",
-                  "8.042064986570",
-                  "30.801790565750",
-                  "39.125294537840",
-                  "29.868887403060",
-                  "29.868887403060",
-                  "30.640715018790",
-                  "-39.965643236210",
-                  "49.529172574440",
-                  "10.208602231650"
+                  "-5.732883043300",
+                  "-5.737606507740",
+                  "-5.725963148980",
+                  "-5.817848280630",
+                  "30.506268276720",
+                  "41.522771027950",
+                  "7.308258564650",
+                  "-5.732883043300",
+                  "-5.732883043300",
+                  "29.111364300830",
+                  "-5.976357306760",
+                  "-0.815121159570",
+                  "-10.650644927020"
                 ]
               }
             },
@@ -2111,8 +2115,8 @@
         "BTCUSD",
         "XAUUSD"
       ],
-      "correlation": 0.32465136574083886,
-      "aligned_bars": 8129,
+      "correlation": 0.33318591827601973,
+      "aligned_bars": 2637,
       "high": false
     }
   ]

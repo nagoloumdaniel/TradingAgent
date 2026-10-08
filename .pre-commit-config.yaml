@@ -38,6 +38,12 @@ repos:
         name: check-added-large-files
         entry: uv run check-added-large-files --maxkb=500
         language: system
+        # Frozen market datasets are the project's research evidence, and they are versioned
+        # on purpose: a backtest is only reproducible if the exact bars it ran on are in the
+        # repository. At 12 000 M15 bars a series is about a megabyte, over the general
+        # limit, so the exemption is scoped to that directory rather than raising the limit
+        # for every file in the project.
+        exclude: ^docs/research/datasets/
       - id: end-of-file-fixer
         name: end-of-file-fixer
         entry: uv run end-of-file-fixer
