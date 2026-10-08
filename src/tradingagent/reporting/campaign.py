@@ -37,15 +37,21 @@ from tradingagent.core.mode import TradingMode
 from tradingagent.storage.account import ReportData
 from tradingagent.storage.daily import DailyPerformance, DailyPerformanceStore, day_floor
 
-# Only the simulated mode belongs to the campaign: demo and live are separate runs (R-14).
-CAMPAIGN_MODE = TradingMode.PAPER
+#: The venues the campaign counts: the two where no real money is at stake. PAPER fills
+#: against the live feed, DEMO fills at the broker on fictitious money — a rehearsal is a
+#: rehearsal in both, and the operator asked for the thirty days to run in either.
+#:
+#: LIVE is never part of it (R-14): a real-money run is a different object, judged by its own
+#: figures, and the report names the venues each strategy was measured on so a blend is
+#: visible rather than silent.
+CAMPAIGN_MODES = frozenset({TradingMode.PAPER, TradingMode.DEMO})
 
-# Q-15, cahier des charges v3 (tableau des questions ouvertes) : durée du paper trading.
+# Q-15, cahier des charges v3 (tableau des questions ouvertes) : durée de la campagne.
 Q15_MIN_DAYS = 30
 Q15_MIN_TRADES = 30
 Q15_RULE = (
-    "Q-15 — la campagne de paper trading dure au moins trente jours calendaires et "
-    "produit au moins trente opérations par stratégie."
+    "Q-15 — la campagne dure au moins trente jours calendaires et produit au moins trente "
+    "opérations par stratégie, en mode PAPER ou DEMO (jamais en réel, R-14)."
 )
 
 # 5 % of PAPER_STARTING_CAPITAL (1 000 €, décision D-07), the same ceiling as RM-005.
@@ -124,6 +130,9 @@ class StrategyProgress:
     max_drawdown: Decimal
     criteria: tuple[Criterion, ...]
     verdict: Verdict
+    #: Which venues the pair was actually measured on ("DEMO", "PAPER", or both). Shown so a
+    #: blend is visible: the counts cover the two venues, the reader still knows which.
+    venues: tuple[str, ...] = ()
 
     @property
     def satisfied(self) -> tuple[Criterion, ...]:
@@ -145,6 +154,7 @@ class StrategyProgress:
             "trades": self.trades,
             "net_profit": _money(self.net_profit),
             "max_drawdown": _money(self.max_drawdown),
+            "venues": list(self.venues),
             "criteria": [criterion.to_dict() for criterion in self.criteria],
         }
 
@@ -187,6 +197,7 @@ def evaluate(
     performance: Performance,
     at: datetime,
     plan: CampaignPlan = PLAN,
+    venues: tuple[str, ...] = (),
 ) -> StrategyProgress:
     """One verdict from aggregates already computed: pure, no clock and no I/O."""
     elapsed, remaining = calendar_days(first_trade_day, at, plan)
@@ -223,6 +234,7 @@ def evaluate(
         max_drawdown=performance.max_drawdown,
         criteria=(duration, operations, drawdown),
         verdict=_verdict(duration, operations, drawdown),
+        venues=venues,
     )
 
 
@@ -273,8 +285,8 @@ def progress(
     """Read the paper campaign up to `at`: the day calendar from `daily_performance`, the
     figures from the closed `trades` through `analytics`. Read-only, never writes."""
     _require_aware(at)
-    days = _paper_days(engine, at=at, market=market)
-    trades = _paper_trades(engine, at=at, market=market, start=_first_day(days))
+    days = _campaign_days(engine, at=at, market=market)
+    trades = _campaign_trades(engine, at=at, market=market, start=_first_day(days))
     by_strategy = _by_market_and_strategy(trades)
     calendar = _calendar(days, trades)
 
@@ -291,6 +303,7 @@ def progress(
                 performance=compute_performance(bucket),
                 at=at,
                 plan=plan,
+                venues=venues_of(bucket),
             )
         )
     ordered = tuple(strategies)
@@ -307,7 +320,7 @@ def render(state: CampaignProgress) -> str:
     """The report, in French, ready for Telegram or for an operator's screen."""
     scope = "tous marchés" if state.market is None else state.market
     lines = [
-        f"Campagne de paper trading — état au {_stamp(state.at)} ({scope})",
+        f"Campagne PAPER + DEMO — état au {_stamp(state.at)} ({scope})",
         f"Règle Q-15 : {state.plan.rule}",
         (
             f"Critères figés : {state.plan.min_days} jours calendaires minimum, "
@@ -319,7 +332,7 @@ def render(state: CampaignProgress) -> str:
     if not state.strategies:
         lines.append("")
         lines.append(
-            "Aucune opération de paper trading enregistrée : la campagne n'a pas commencé."
+            "Aucune opération de campagne (PAPER ou DEMO) enregistrée : elle n'a pas commencé."
         )
         return "\n".join(lines)
     for strategy in state.strategies:
@@ -330,13 +343,15 @@ def render(state: CampaignProgress) -> str:
             f"{state.plan.min_days} ({strategy.remaining_days} restant(s))"
         )
         lines.append(f"  opérations cumulées : {strategy.trades} / {state.plan.min_trades}")
+        if strategy.venues:
+            lines.append(f"  mesurée sur : {', '.join(strategy.venues)}")
         lines.append(f"  résultat net : {_signed(strategy.net_profit)} EUR")
         lines.append(
             f"  drawdown maximal observé : {_money(strategy.max_drawdown)} EUR "
             f"(toléré {_money(state.plan.max_drawdown_eur)} EUR)"
         )
         if strategy.first_trade_day is not None:
-            lines.append(f"  premier trade paper : {_stamp(strategy.first_trade_day)}")
+            lines.append(f"  premier trade de la campagne : {_stamp(strategy.first_trade_day)}")
         if strategy.satisfied:
             lines.append(
                 "  critères satisfaits : "
@@ -350,13 +365,13 @@ def render(state: CampaignProgress) -> str:
     return "\n".join(lines)
 
 
-def _paper_days(engine: Engine, *, at: datetime, market: str | None) -> list[DailyPerformance]:
-    """The daily paper buckets up to `at`; the day of `at` itself is included."""
+def _campaign_days(engine: Engine, *, at: datetime, market: str | None) -> list[DailyPerformance]:
+    """The daily buckets of the campaign venues up to `at`; the day of `at` included."""
     rows = DailyPerformanceStore(engine).between(_EPOCH, at + timedelta(days=1))
     return [
         row
         for row in rows
-        if row.mode is CAMPAIGN_MODE and (market is None or row.market == market)
+        if row.mode in CAMPAIGN_MODES and (market is None or row.market == market)
     ]
 
 
@@ -369,17 +384,22 @@ def _first_day(days: Iterable[DailyPerformance]) -> datetime | None:
     return first
 
 
-def _paper_trades(
+def _campaign_trades(
     engine: Engine, *, at: datetime, market: str | None, start: datetime | None
 ) -> list[Trade]:
-    """Closed paper trades in [start, at); the first paper day bounds the read."""
+    """Closed campaign trades in [start, at); the first counted day bounds the read."""
     window_start = start if start is not None else _EPOCH
     read = ReportData(engine).trades_between(window_start, at)
     return [
         trade
         for _, trade in read
-        if trade.mode is CAMPAIGN_MODE and (market is None or trade.symbol == market)
+        if trade.mode in CAMPAIGN_MODES and (market is None or trade.symbol == market)
     ]
+
+
+def venues_of(trades: Iterable[Trade]) -> tuple[str, ...]:
+    """Which venues a strategy was actually measured on, for the report to say it."""
+    return tuple(sorted({str(trade.mode.value) for trade in trades}))
 
 
 def _by_market_and_strategy(trades: list[Trade]) -> dict[tuple[str, str], list[Trade]]:

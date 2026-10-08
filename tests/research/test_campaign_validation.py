@@ -299,18 +299,26 @@ def test_the_campaign_reports_the_two_gates_it_cannot_measure() -> None:
 
 
 def test_the_default_walk_forward_plan_gives_every_fold_enough_bars_to_trade() -> None:
-    # A validation block shorter than the manifest's history is *skipped*: the gate then says
-    # `NOT_EVALUABLE`, which is honest but useless. The default plan must therefore have a
-    # block wide enough for the reference strategy to trade, or the gate measures the window.
-    from tradingagent.research.campaign import DEFAULT_WALK_FORWARD_PLAN
+    # The default block measures the *trading* window; the candidate's declared warm-up is
+    # added to it before any fold is played (`walk_forward_plan_for`). Without that, a
+    # strategy declaring 300 bars reported `0/0, 45 skipped` and the gate was mute — the
+    # defect found on both deployed strategies on 2026-10-08.
+    from tradingagent.research.campaign import (
+        DEFAULT_WALK_FORWARD_PLAN,
+        walk_forward_plan_for,
+    )
 
-    assert DEFAULT_WALK_FORWARD_PLAN.validation_bars > witness_manifest().history_bars
+    effective = walk_forward_plan_for(witness_manifest())
+    assert (
+        effective.validation_bars
+        >= witness_manifest().history_bars + DEFAULT_WALK_FORWARD_PLAN.validation_bars
+    )
     report = campaign(datasets=two_markets(), walk_forward_plan=DEFAULT_WALK_FORWARD_PLAN)
     verdict = report.verdict(ValidationStage.WALK_FORWARD)
     assert verdict is not None
     assert verdict.status is not GateStatus.NOT_EVALUABLE
     for market in verdict.evidence["markets"].values():
-        assert market["folds"] >= 2
+        assert market["folds"] >= 1
         assert market["skipped_folds"] == 0
 
 
@@ -352,9 +360,10 @@ def test_the_default_plan_walks_the_rolling_origin_to_its_newest_bar() -> None:
         assert outcome.skipped_folds == 0
         rolling = windows["train"].bars + windows["validation"].bars
         assert rolling == 2_400
-        # 10 folds of a 200-bar step reach the end of a 2 400-bar rolling window
-        # (600 + 9 * 200 + 600 == 2 400): a 6-fold ceiling would have hidden four of them.
-        assert outcome.folds == (rolling - 600) // 200 + 1 == 10
+        # No ceiling: the origin advances until the rolling window runs out, so the count is a
+        # function of the tape and of the widened fold — never of a constant. The old
+        # `max_folds=6` would have hidden everything past the sixth.
+        assert outcome.folds > 6, "a six-fold ceiling would have stopped at six"
         verdict = winner.verdict(ValidationStage.WALK_FORWARD)
         assert verdict is not None
         assert verdict.evidence["folds"] == outcome.folds
@@ -404,23 +413,25 @@ def test_a_campaign_reports_the_dataset_window_it_measured_over() -> None:
     assert sum(window.bars for window in market.split_windows) == BARS
 
 
-def test_folds_too_short_to_trade_are_skipped_rather_than_counted_as_losses() -> None:
+def test_a_plan_narrower_than_the_warm_up_is_widened_rather_than_obeyed() -> None:
+    """The caller's step and ceiling are honoured; its block size is not, because it cannot be.
+
+    A 60-bar validation block cannot feed the 300 the manifest declares. Obeying it would skip
+    every fold and turn the gate into a silence — which is what happened to both deployed
+    strategies on 2026-10-08. The fold is widened to the warm-up plus the window asked for, the
+    caller's `max_folds` still bounds the count, and the gate speaks.
+    """
     narrow = WalkForwardPlan(train_bars=60, validation_bars=60, step_bars=10, max_folds=4)
     report = campaign(walk_forward_plan=narrow)
     for market in report.markets:
         assert market.winner is not None
         assert market.winner.gates is not None
         outcome = market.winner.gates.walk_forward
-        assert outcome.folds == 0
-        assert outcome.skipped_folds == 4  # counted, not scored
-        assert outcome.ratio == 0.0
+        assert outcome.folds == 4, "the caller's ceiling is honoured"
+        assert outcome.skipped_folds == 0, "and nothing is skipped for the warm-up"
         verdict = market.verdict(ValidationStage.WALK_FORWARD)
         assert verdict is not None
-        assert verdict.status is GateStatus.NOT_EVALUABLE
-        assert "fewer bars than the manifest" in verdict.reason
-    campaign_level = report.verdict(ValidationStage.WALK_FORWARD)
-    assert campaign_level is not None
-    assert campaign_level.status is GateStatus.NOT_EVALUABLE
+        assert verdict.status is not GateStatus.NOT_EVALUABLE, "the gate is no longer mute"
 
 
 # --------------------------------------------------------------------------------------

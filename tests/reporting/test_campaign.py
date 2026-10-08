@@ -190,7 +190,7 @@ def test_an_empty_campaign_has_not_started(engine: Engine) -> None:
     assert state.verdict is Verdict.EN_COURS
     text = render(state)
     assert "EN COURS" in text
-    assert "Aucune opération de paper trading enregistrée" in text
+    assert "Aucune opération de campagne (PAPER ou DEMO) enregistrée" in text
 
 
 # --- a campaign that just started -------------------------------------------------
@@ -338,7 +338,8 @@ def test_each_market_and_strategy_is_measured_separately(engine: Engine) -> None
         ref=BREAKOUT,
         index_base=100,
     )
-    # A demo trade never enters the paper campaign (R-14).
+    # A demo trade now counts too: both venues are rehearsals, and the operator asked for the
+    # thirty days to run in either. The report names the venues so the blend is visible.
     _chain(
         engine,
         index=200,
@@ -355,8 +356,9 @@ def test_each_market_and_strategy_is_measured_separately(engine: Engine) -> None
     assert keys == {(XAU, WITNESS), (BTC, BREAKOUT)}
     assert state.markets == (BTC, XAU)
     by_key = {(s.market, s.strategy_ref): s for s in state.strategies}
-    assert by_key[(XAU, WITNESS)].trades == 2
-    assert by_key[(XAU, WITNESS)].net_profit == Decimal("15.00")
+    assert by_key[(XAU, WITNESS)].trades == 3, "two paper trades and one demo trade"
+    assert by_key[(XAU, WITNESS)].net_profit == Decimal("115.00")
+    assert by_key[(XAU, WITNESS)].venues == ("DEMO", "PAPER")
     assert by_key[(BTC, BREAKOUT)].trades == 1
     assert by_key[(BTC, BREAKOUT)].net_profit == Decimal("-4.00")
 

@@ -86,6 +86,34 @@ MIN_WALK_FORWARD_RATIO = 0.5
 #: the oldest slice of each, and not the same slice. The fold count is now a function of the
 #: history available, and the last fold's validation block is the newest one there is.
 DEFAULT_WALK_FORWARD_PLAN = WalkForwardPlan(train_bars=350, validation_bars=250, step_bars=200)
+
+
+def walk_forward_plan_for(
+    manifest: StrategyManifest, base: WalkForwardPlan = DEFAULT_WALK_FORWARD_PLAN
+) -> WalkForwardPlan:
+    """The rolling plan a candidate's own warm-up demands.
+
+    The default block was measured as *the trading window* — 250 bars is the shortest stretch
+    the reference strategy actually trades on — and that is all it is. The harness is fed the
+    validation block alone, and it refuses a block that cannot first serve the history the
+    manifest declares. So a candidate declaring 300 or 600 bars never got a single fold
+    played: on 2026-10-08 both deployed strategies reported `walk_forward 0/0, 45 skipped`,
+    and the gate that should have judged them was mute.
+
+    A fold therefore holds the warm-up **and** the window it measures:
+    `history_bars + validation_bars`. Nothing else moves — same step, same rolling origin,
+    same train width where it already fits — so folds stay comparable with the ones already
+    published for candidates whose history happened to fit inside 250 bars.
+    """
+    needed = manifest.history_bars + base.validation_bars
+    return WalkForwardPlan(
+        train_bars=max(base.train_bars, manifest.history_bars),
+        validation_bars=needed,
+        step_bars=base.step_bars,
+        max_folds=base.max_folds,
+    )
+
+
 #: The cost multiplier of the `stress` gate. TASK-062 ships `CostModel.stressed` for exactly
 #: this: the same rule replayed on execution twice as expensive as the one already charged.
 STRESS_COST_MULTIPLIER = 2.0
@@ -578,11 +606,13 @@ def _walk_forward_folds(
 ) -> tuple[tuple[Performance, ...], int]:
     """One validation block per fold, on the rolling origin of `protocol.walk_forward`.
 
-    A block too short to feed the manifest's declared history is *skipped*, not scored: the
-    harness refuses it with a `ValueError`, and counting that refusal as a losing fold would
-    turn the size of the window into a verdict on the strategy. Skipped folds are counted
-    separately, and `_walk_forward_gate` reports `NOT_EVALUABLE` when every fold was skipped.
+    The plan is widened to the candidate's own declared history first (`walk_forward_plan_for`):
+    a fold that cannot serve the warm-up would be refused by the harness, and a gate that
+    refuses every fold says nothing about the strategy. What remains skipped is a genuine
+    shortage of tape, and it is counted separately: `_walk_forward_gate` reports
+    `NOT_EVALUABLE` only when every fold was skipped.
     """
+    plan = walk_forward_plan_for(candidate.manifest, plan)
     performances: list[Performance] = []
     skipped = 0
     for fold in walk_forward(rolling, plan):
@@ -765,8 +795,9 @@ def _walk_forward_gate(gates: CandidateGates, thresholds: AcceptanceThresholds) 
             reason=(
                 "no walk-forward fold could be played: "
                 + (
-                    f"all {outcome.skipped_folds} fold(s) held fewer bars than the manifest's "
-                    "declared history"
+                    f"all {outcome.skipped_folds} fold(s) held a validation block too short to "
+                    "serve the history the manifest declares, even after the plan was widened "
+                    "to it: there is not enough tape for this strategy"
                     if outcome.skipped_folds
                     else "no fold fits in the rolling window"
                 )

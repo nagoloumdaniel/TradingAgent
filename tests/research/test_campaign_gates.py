@@ -236,7 +236,7 @@ def test_a_walk_forward_gate_with_no_played_fold_is_not_evaluable() -> None:
     skipped_items = verdicts(candidate(walk_forward=skipped))
     assert skipped_items[ValidationStage.WALK_FORWARD].status is GateStatus.NOT_EVALUABLE
     assert skipped_items[ValidationStage.WALK_FORWARD].evidence["skipped_folds"] == 4
-    assert "fewer bars than the manifest" in skipped_items[ValidationStage.WALK_FORWARD].reason
+    assert "not enough tape for this strategy" in skipped_items[ValidationStage.WALK_FORWARD].reason
 
 
 def test_the_out_of_sample_gate_is_not_evaluable_while_the_holdout_stays_sealed() -> None:
