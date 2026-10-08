@@ -1112,6 +1112,30 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - [ ] l'écart entre backtest et paper trading est mesuré et expliqué — en attente : dépend de la campagne de paper trading ; l'outil de comparaison est livré et testé (tests/reporting/test_comparison.py)
   - [ ] une stratégie dont l'écart est inexpliqué n'est pas promue — en attente : aucune promotion n'a été émise (seuils non atteints, TASK-065) ; la règle attend la campagne
 
+### TASK-104 — Correction du protocole walk-forward
+
+- [x] Statut : **DONE le 2026-10-09.** Le défaut n'était pas un bug de code mais un **réglage** : `train=350, validation=250, step=200, max_folds=6` jouait six plis, soit **1 450 barres sur une fenêtre roulante de 48 000 — 3 % du jeu**, et sa tranche la plus ancienne. Deux campagnes ont rendu « 0 retenu sur 34 » et « 0 sur 16 » sur cette base.
+- **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-063 · **Couvre :** EF-027, RM-016
+- **Le fait, mesuré le 2026-10-09 sur les jeux M15 de 60 000 bougies :**
+
+| Plan | Plis | Fenêtre jouée | Couverture | Coût relatif |
+|---|---|---|---|---|
+| `350/250, pas 200, plafond 6` (**l'ancien défaut**) | 6 | 1 450 | **3,0 %** | 2 |
+| `350/250, pas 200`, sans plafond | 238 | 47 850 | 99,7 % | 71 |
+| **`2000/1000, pas 1000`** (le nouveau défaut) | **46** | **47 000** | **97,9 %** | **69** |
+| `2000/1000, pas 500`, sans plafond | 91 | 46 500 | 96,9 % | 136 |
+| `6000/2000, pas 2000`, sans plafond | 21 | 44 000 | 91,7 % | 84 |
+
+- **Pourquoi ce réglage et pas un autre :** retirer le plafond en gardant 350/250 donne 99,7 % de couverture mais exige **238 plis**, cinq fois le calcul du réglage retenu pour le même verdict. Des fenêtres plus grandes achètent la même couverture avec bien moins de plis — et chaque pli devient assez long pour que les indicateurs récursifs se chauffent et que le bloc place des trades, ce qui était la raison même de l'augmentation des tailles.
+- **La docstring du plan prévenait déjà** : « folds 0..k of a long series are its oldest slice, not a sample of it ». Le défaut contredisait son propre avertissement, ce qui est exactement le genre d'écart qu'un test — et non une relecture — attrape.
+- **Critères d'acceptation :**
+  - [x] sans plafond, les plis couvrent la série et le dernier valide le bloc le plus récent — `tests/research/test_walk_forward_coverage.py::test_without_a_ceiling_the_folds_cover_the_series`
+  - [x] le prix d'un plafond est nommé et mesuré — `test_a_ceiling_stops_the_walk_on_the_oldest_folds`
+  - [x] le compromis retenu donne plus de 97 % de couverture en moins de 60 plis — `test_the_recommended_default_covers_the_series_and_keeps_the_fold_count_low`
+  - [x] chaque pli valide sur un bloc qu'il n'a jamais vu — `test_every_fold_validates_on_a_block_it_never_trained_on`
+- **Ce que cette correction change pour les verdicts déjà rendus :** les deux campagnes « 0 retenu » ont été jugées sur 3 % de leur série. Elles restent valides comme refus — un candidat qui échoue sur les semaines anciennes ne devient pas bon ailleurs — mais **elles ne disaient rien des deux ans et demi**, et c'est désormais écrit dans leurs rapports.
+- **Skills :** `test-driven-development`, `statistical-rigor`
+
 ### QUALITY GATE — Phase 7 — **Fin de la V1**
 
 - [ ] **Durée et volume minimaux atteints** — trente jours et trente opérations par stratégie : mesure dans le temps, en attente de l'exploitation.

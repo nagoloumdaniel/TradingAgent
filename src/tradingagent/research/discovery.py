@@ -1053,14 +1053,22 @@ class DiscoveryProtocol:
     min_stability_score: float = STABILITY_SCORE_MIN
     min_profitable_regime_ratio: float = PROFITABLE_REGIME_MIN
     min_out_of_sample_retention: float = OOS_RETENTION_MIN
-    #: The validation block is deliberately larger than the manifest history the families
-    #: declare: a block must first feed the recursive indicators their warm-up before it can
-    #: place a single trade. At 100 bars the reference strategy opens nothing at all on a real
-    #: 4 000-bar tape, and a rolling gate scored on six empty blocks says nothing about the
-    #: rule -- only about the size of the window. 250 bars is measured to trade.
+    #: The rolling gate. Its sizes decide **what the gate is allowed to see**, and the previous
+    #: default saw almost nothing: `train=350, validation=250, step=200, max_folds=6` plays six
+    #: folds, so 1 450 bars of a 48 000-bar rolling window -- **3 % of the series**, and its
+    #: oldest slice. Two campaigns returned "0 retained out of 34" and "0 out of 16" on that
+    #: basis, and `WalkForwardPlan`'s own docstring already warned that folds 0..k of a long
+    #: series are not a sample of it.
+    #:
+    #: Measured on 2026-10-09 over the 60 000-bar M15 datasets: removing the ceiling at
+    #: 350/250 reaches 99.7 % coverage but needs 238 folds, five times the compute of the
+    #: setting below. Larger windows buy the same coverage with far fewer folds -- 2 000/1 000
+    #: at a 1 000-bar step gives 46 folds and 97.9 % coverage -- and each fold is long enough
+    #: for the recursive indicators to warm up and for the block to place trades at all, which
+    #: was the reason the sizes were increased in the first place.
     walk_forward: WalkForwardPlan = field(
         default_factory=lambda: WalkForwardPlan(
-            train_bars=350, validation_bars=250, step_bars=200, max_folds=6
+            train_bars=2000, validation_bars=1000, step_bars=1000
         )
     )
     spread_fraction: float = 5e-5

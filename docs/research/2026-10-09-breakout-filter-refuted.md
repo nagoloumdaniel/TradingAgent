@@ -106,13 +106,63 @@ avec **ces** paramètres et **ce** protocole :
 Autrement dit : le fait est solide, la règle ne l'est pas. La distinction compte, et c'est
 elle qu'il faut retenir.
 
-## 5. Ce qu'il faudrait pour rouvrir la question
+## 5. Reprise après correction du protocole (2026-10-09)
+
+Les 16 candidats ont été rejoués avec le plan walk-forward corrigé (TASK-104) : **46 plis au
+lieu de 6**, couvrant **97,9 % de la fenêtre roulante au lieu de 3,0 %**. Le verdict final ne
+change pas — 16 rejetés, 14 pour surapprentissage, 2 pour dispersion — mais **son fondement
+change du tout au tout**, et c'est ce qu'il faut lire.
+
+| | Avant (plafond 6) | Après (46 plis) |
+|---|---|---|
+| Plis joués | 6 | **46** |
+| Couverture de la série roulante | **3,0 %** | **97,9 %** |
+| Plis rentables, **médiane** | **1 / 6 (16,7 %)** | **18 / 46 (39,1 %)** |
+| Plis rentables, amplitude | 0 à 3 | **11 à 24** |
+| Plis ignorés (bloc trop court) | 0 | 0 |
+| Candidats rentables en apprentissage | 1 / 16 | 1 / 16 |
+| Ouvertures du scellé | 0 | 0 |
+
+**Ce que la correction révèle, et qui n'était pas visible :**
+
+1. **Le filtre n'échoue pas « partout » — il échoue de justesse.** Médiane passée de **17 % à
+   39 %** de plis rentables, pour une exigence de **50 %** (23 plis sur 46). L'écart n'est plus
+   « le filtre ne marche pas », c'est « il manque une dizaine de plis sur 46 ». Conclusion
+   **plus utile et plus fragile à la fois** : un candidat à 39 % n'est pas à jeter comme un
+   candidat à 17 %, il est à retravailler.
+
+2. **La variante 04 du BTC est le meilleur candidat jamais mesuré par ce dépôt** :
+   **24 plis rentables sur 46 (52,2 %)**, au-dessus de l'exigence, avec +307,29 € en
+   apprentissage. Elle tombe malgré tout, sur la **rétention hors échantillon (−0,08)** et sur
+   la **dispersion des paramètres**. La porte qui la refuse n'est donc plus le walk-forward,
+   c'est la robustesse — deux diagnostics qui appellent deux remèdes différents.
+
+3. **Deux candidats franchissent l'exigence de plis sans être retenus** (04 et 05 du BTC, 24 et
+   23 plis rentables) : le walk-forward n'est pas la barrière qui les arrête, c'est la
+   dispersion pour l'un et la rétention pour l'autre. **La hiérarchie des portes compte autant
+   que leur verdict.**
+
+4. **L'ancien rapport était donc trop sévère.** « 1 pli rentable sur 6 » laissait croire à un
+   filtre sans mérite. En vérité il approche du seuil sur 46 plis, et sa variante 04 le
+   dépasse. **L'artefact de protocole ne créait pas un faux positif : il créait un faux
+   négatif**, ce qui est tout aussi coûteux — on jetait une piste qui méritait d'être
+   retravaillée.
+
+**Ce qui ne change pas, et qui reste la conclusion :** aucun candidat n'est retenu, le jeu
+scellé n'a **jamais** été ouvert (0 sur les deux marchés), et rien n'est promu. Le filtre
+« cassures seulement » **n'est pas validé**. Il est simplement **moins réfuté qu'on ne le
+croyait**, et la piste à rouvrir est maintenant précise : la variante 04 du BTC et sa
+dispersion, plutôt que le filtre en général.
+
+---
+
+## 6. Ce qu'il faudrait pour rouvrir la question
 
 | Piste | Pourquoi |
 |---|---|
-| Refaire le walk-forward en ancrant les plis **sur la fin** de l'historique | les 6 plis actuels jugent 3 semaines de 2024 au lieu de deux ans et demi |
+| **Comprendre la dispersion de la variante 04 du BTC** | elle franchit l'exigence de plis (24 sur 46) et n'est refusée que pour dispersion : c'est là qu'est la piste, pas dans le filtre en général |
 | Tester le canal de cassure comme **paramètre libre** | il vaut aujourd'hui `ema_slow`, ce qui lie deux choix qui n'ont pas de raison de l'être |
-| Explorer en **H1**, où l'historique remonte à 2011 | 87 573 bougies contre 3 259 en H4, et un rapport coût/ATR plus favorable |
+| Explorer en **H1**, où l'historique remonte à 2011 | 87 573 bougies, et un rapport coût/ATR plus favorable qu'en M15 |
 | Mesurer le filtre sur une **autre règle parente** | ici il n'a été testé qu'autour du croisement EMA |
 
 **Rien n'a été promu.** `config/strategies/` n'a pas été touché, `strategies/registry.py` non
