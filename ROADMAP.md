@@ -1033,13 +1033,18 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-068 — VWAP de session ancré à 00:00 UTC
 
-- [ ] Statut : **À FAIRE.** Décision d'opérateur du 2026-10-08 : le BTC cote 24/7, donc l'ancre est la **journée UTC** commençant à 00:00, exposée en paramètre pour pouvoir être changée sans réécrire l'indicateur.
+- [x] Statut : **DONE le 2026-10-08.** `indicators/vwap.py` : VWAP aligné sur les entrées, remis à zéro selon un horodatage, **ancre en paramètre** (défaut 00:00 UTC). 11 tests. **Réserve importante :** le VWAP lit le volume, et `storage/candles.py` ne stocke pas encore le volume (voir TASK-066) : en production, un VWAP calculé depuis la base verrait `volume=None` partout et rendrait `None`. Il fonctionne sur un flux vivant et sur les jeux gelés, pas encore sur l'historique lu en base.
 - **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-066
-- **Pourquoi l'ancre est une décision et pas un détail :** un VWAP n'est pas une moyenne mobile. Sa valeur dépend entièrement du point de départ, et deux ancres différentes donnent deux indicateurs différents sur la même série. L'ancre doit donc être un paramètre explicite et testé, jamais un choix implicite caché dans une boucle.
+- **Décision d'opérateur du 2026-10-08 :** l'ancre est la **journée UTC** commençant à 00:00, exposée en paramètre pour pouvoir être changée sans réécrire l'indicateur.
+- **Pourquoi l'ancre est une décision et pas un détail :** un VWAP n'est pas une moyenne mobile. Sa valeur dépend entièrement du point de départ, et deux ancres différentes donnent deux indicateurs différents sur la même série.
+- **Deux règles de lecture, tirées d'un défaut réel :**
+  1. `volume is None` (« non enregistré ») rend **`None`** : pondérer par des poids inconnus ne donne pas une approximation, ça donne un nombre qui n'a pas de sens. C'est le cas des 8 jeux gelés et de tout `Candle` relu de la base ;
+  2. `volume == 0.0` (« aucun échange ») est **une mesure** : la barre ne pèse rien et ne remet pas le cumul à zéro, parce qu'aucun prix n'a été traité entre-temps.
 - **Critères d'acceptation :**
-  - [ ] la remise à zéro se fait à 00:00 UTC, prouvée par un test qui franchit minuit
-  - [ ] une série sans volume rend `None` sur toute sa longueur (aucune pondération inventée)
-  - [ ] l'ancre est un paramètre, et deux ancres différentes sur la même série donnent deux résultats différents — c'est le test qui prouve qu'elle est bien lue
+  - [x] la remise à zéro suit l'horodatage, prouvée en comparant deux ancres sur la même série — `tests/indicators/test_vwap.py::test_the_anchor_resets_the_accumulation` (volumes inégaux : à volume uniforme, l'égalité serait tautologique et le test ne prouverait rien)
+  - [x] une série sans volume rend `None` sur toute sa longueur — `test_a_series_without_volume_has_no_vwap_at_all`
+  - [x] un volume nul ne déplace pas la moyenne et ne la remet pas à zéro — `test_a_zero_volume_bar_does_not_move_the_average_nor_reset_it`
+  - [x] un instant décalé en fuseau reste le même instant — `test_the_timezone_offset_is_honoured`
 - **Skills :** `test-driven-development`
 
 ### QUALITY GATE — Phase 6
