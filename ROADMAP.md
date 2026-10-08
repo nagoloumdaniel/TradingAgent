@@ -1048,6 +1048,30 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - [x] un instant décalé en fuseau reste le même instant — `test_the_timezone_offset_is_honoured`
 - **Skills :** `test-driven-development`
 
+### TASK-069 — Feature Engine : séance et régime de marché
+
+- [x] Statut : **EN COURS au 2026-10-08.** Deux briques livrées et testées : `indicators/session.py` (séance en cours) et `indicators/regime.py` (tendance, volatilité, structure). Restent la structure de swing (HH/HL/LH/LL, break of structure) et l'instantané des conditions à l'entrée.
+- **Priorité :** P1 · **Complexité :** M · **Dépendances :** aucune · **Couvre :** spec d'opérateur du 2026-10-08 §2, §3, §4, §15
+- **Pourquoi cette tâche existe :** la découverte la plus utile qu'une analyse puisse faire — « cette stratégie gagne en tendance forte et perd en range » — est **indétectable** dans le dépôt. Rien ne dit si le marché tend, oscille, casse ou s'endort, et un opérateur ne lit pas la même chose à 03:00 et à 14:00.
+- **Décisions de conception, chacune pour une raison :**
+  1. **la pente est normalisée par l'ATR**, et la normalisation vit dans `slope_in_atr`, pas dans le seuil. Une pente de 2 points vaut beaucoup sur l'or à 4 000 et rien sur le bitcoin à 80 000 : un seuil en points serait absurde sur l'un ou trop strict sur l'autre ;
+  2. **le régime de volatilité est un rapport**, ATR courant sur sa propre moyenne. Un ATR de 3 points ne dit rien seul ;
+  3. **le canal de structure exclut la barre courante.** L'y inclure rendrait toute cassure impossible, le plus haut courant contenant par construction la clôture courante ;
+  4. **les séances sont en UTC**, donc en heure d'hiver pour Londres et New York. C'est assumé et nommé : la dérive d'une heure une partie de l'année vaut mieux qu'une correction non mesurée ;
+  5. **l'overlap Londres/New York est classé avant les deux séances qui le contiennent.** L'ordre des fenêtres est significatif et documenté, sinon l'étiquette de 13:00 dépendrait de l'ordre d'écriture de la liste. Corollaire trouvé en testant : Londres doit passer **avant** Tokyo, sinon la séance européenne est invisible de 07:00 à 09:00.
+- **Ce que chaque fonction rend quand elle ne sait pas :** `NEUTRAL`, `NORMAL` ou `RANGE`. Ce n'est pas une valeur par défaut commode, c'est l'aveu qu'avec trop peu de barres on ne sait pas — et il vaut mieux qu'affirmer une direction tirée du bruit.
+- **Critères d'acceptation :**
+  - [x] la normalisation par l'ATR change le verdict pour une même pente en points — `tests/indicators/test_regime.py::test_the_same_slope_is_not_a_trend_when_the_market_is_wild`
+  - [x] l'overlap gagne sur les séances qui le contiennent, bornes demi-ouvertes — `tests/indicators/test_session.py`
+  - [x] une cassure ne peut exister que si le canal exclut la barre courante — `test_a_close_above_the_previous_high_is_a_breakout_up`
+  - [x] un contact exact n'est pas une cassure — `test_touching_the_boundary_without_breaking_it_is_still_a_range`
+  - [x] un instant décalé en fuseau tombe dans la même séance — `test_a_timezone_offset_does_not_change_the_session`
+  - [x] les seuils de volatilité sont lus depuis les paramètres, pas figés — `test_the_two_bounds_are_read_from_the_parameters`
+  - [ ] structure de swing (HH/HL/LH/LL, break of structure) — **à faire**
+  - [ ] instantané des conditions à l'entrée, et MAE/MFE par trade — **à faire**
+- **Note de calibrage :** le nombre de barres nécessaires pour qu'une contraction de volatilité soit lue comme « calme » a été **mesuré**, pas choisi : le lissage de Wilder garde une mémoire longue (facteur 13/14 par barre), donc 40 barres étroites ne font tomber le rapport qu'à 0,98 alors qu'il en faut 120 pour atteindre 0,62.
+- **Skills :** `test-driven-development`
+
 ### QUALITY GATE — Phase 6
 
 - [x] Impossibilité de lire des données futures, prouvée par test (tripwire sur série empoisonnée)
