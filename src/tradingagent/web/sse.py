@@ -19,6 +19,8 @@ from datetime import UTC, datetime
 from sqlalchemy import Engine
 
 from tradingagent.core.states import Severity
+from tradingagent.web import format as display
+from tradingagent.web import paging
 from tradingagent.web.queries import open_positions, recent_events
 from tradingagent.web.views import (
     ALERT_COLUMNS,
@@ -73,21 +75,31 @@ class EventStream:
         self._sleep = sleep if sleep is not None else time.sleep
         self._alert_limit = alert_limit
 
-    def poll(self, at: datetime, since: datetime | None) -> list[Frame]:
-        """One cycle: the open positions, then the alerts recorded after ``since``."""
-        positions = open_positions(self._engine, at)
+    def poll(
+        self, at: datetime, since: datetime | None, market: str = paging.ALL_MARKETS
+    ) -> list[Frame]:
+        """One cycle: the open positions of one market, then the alerts recorded after ``since``.
+
+        ``market`` is the page's own filter, carried into the stream: a live count that
+        ignored it would contradict the table it sits above. Everything the frame carries is
+        already formatted by :mod:`tradingagent.web.views` and :mod:`tradingagent.web.format`,
+        including the timestamp — the browser writes nothing of its own, so the line rendered
+        on page load and the line pushed a second later read identically.
+        """
+        positions = open_positions(self._engine, at, market=market)
         alerts = recent_events(
             self._engine, since=since, minimum=Severity.WARNING, limit=self._alert_limit
         )
         # Stored newest-first; the frame is sent oldest-first, because the client inserts a
         # frame at the top in reverse and the list then reads newest-first throughout.
         ordered = list(reversed(alerts))
+        rendered_at = display.precise(at)
         return [
             Frame(
                 "positions",
                 json.dumps(
                     {
-                        "at": at.isoformat(),
+                        "at": rendered_at,
                         "columns": list(POSITION_COLUMNS),
                         "rows": [position_cells(position) for position in positions],
                     },
@@ -98,7 +110,7 @@ class EventStream:
                 "alerts",
                 json.dumps(
                     {
-                        "at": at.isoformat(),
+                        "at": rendered_at,
                         "columns": list(ALERT_COLUMNS),
                         "rows": [alert_cells(event) for event in ordered],
                         # The badge class travels with the row: the browser colours what the
@@ -110,14 +122,16 @@ class EventStream:
             ),
         ]
 
-    def frames(self, *, cycles: int | None = None) -> Iterator[str]:
+    def frames(
+        self, *, cycles: int | None = None, market: str = paging.ALL_MARKETS
+    ) -> Iterator[str]:
         """The stream body. ``cycles`` bounds it; ``None`` streams until the client leaves."""
         yield RETRY_HINT
         since: datetime | None = None
         produced = 0
         while cycles is None or produced < cycles:
             at = self._now()
-            for frame in self.poll(at, since):
+            for frame in self.poll(at, since, market=market):
                 yield frame.render()
             since = at
             produced += 1

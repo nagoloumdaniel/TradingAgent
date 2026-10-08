@@ -22,7 +22,6 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
 
 from pydantic import ValidationError
 from sqlalchemy import Engine, String, cast, desc, func, or_, select, text
@@ -94,6 +93,8 @@ from tradingagent.storage.positions import OpenPosition, PositionReader
 from tradingagent.storage.scalping import ExecutionCosts, execution_costs, size_of
 from tradingagent.storage.telemetry import ExecutionEventStore, LatencyStats
 from tradingagent.web import format as display
+from tradingagent.web import paging
+from tradingagent.web.paging import Page
 
 log = logging.getLogger(__name__)
 
@@ -195,6 +196,170 @@ def selectable_markets(trades: Iterable[Trade]) -> list[str]:
 
 def selectable_strategies(trades: Iterable[Trade]) -> list[str]:
     return sorted({trade.strategy_ref for trade in trades})
+
+
+TRADE_PAGE_SIZE = paging.PAGE_SIZE
+TRADE_SEARCH_FIELDS: tuple[str, ...] = (
+    "symbole",
+    "stratégie",
+    "mode",
+    "motif de sortie",
+    "ticket",
+)
+
+
+@dataclass(frozen=True)
+class TradeListing:
+    """One page of closed trades, plus the figures the selection produces.
+
+    ``page`` is the paginated listing — bounded in SQL, ten rows at a time. ``performance``
+    covers the *whole* filtered selection, not the visible page: a KPI card that described
+    ten rows out of 400 would be a lie. Amounts are stored as text under SQLite, so that
+    aggregation happens in :mod:`tradingagent.analytics` after a SQL-side filter, never in
+    the browser and never on the full table when a filter is active.
+    """
+
+    page: Page[TradeEntry]
+    performance: Performance
+    markets: tuple[str, ...]
+    strategies: tuple[str, ...]
+
+
+def _trade_statement(conditions: Sequence[Any]) -> Any:
+    """The five-table join a closed trade needs, with the page's own filters applied."""
+    return (
+        select(TradeRow, PositionRow, SignalRow, StrategyVersionRow)
+        .join(PositionRow, TradeRow.position_id == PositionRow.id)
+        .join(OrderRow, PositionRow.order_id == OrderRow.id)
+        .join(SignalRow, OrderRow.signal_id == SignalRow.id)
+        .join(StrategyVersionRow, SignalRow.strategy_version_id == StrategyVersionRow.id)
+        .where(*conditions)
+    )
+
+
+def _trade_entry(
+    trade: TradeRow, position: PositionRow, signal: SignalRow, version: StrategyVersionRow
+) -> TradeEntry:
+    return TradeEntry(
+        signal_id=int(signal.id),
+        trade=Trade(
+            symbol=position.symbol,
+            strategy_ref=version.ref,
+            direction=position.direction,
+            timeframe=signal.timeframe,
+            mode=trade.mode,
+            opened_at=position.opened_at,
+            closed_at=trade.closed_at,
+            pnl_eur=trade.pnl_eur,
+            risk_eur=trade.risk_eur,
+        ),
+    )
+
+
+def _trade_conditions(
+    *,
+    market: str,
+    strategy: str,
+    mode: TradingMode | None,
+    needle: str,
+) -> list[Any]:
+    """Every filter as a SQL condition, so the filtering never happens in memory."""
+    conditions: list[Any] = []
+    if market:
+        conditions.append(PositionRow.symbol == market)
+    if strategy:
+        conditions.append(StrategyVersionRow.ref == strategy)
+    if mode is not None:
+        conditions.append(TradeRow.mode == mode)
+    conditions.extend(
+        paging.text_search(
+            needle,
+            (
+                PositionRow.symbol,
+                StrategyVersionRow.ref,
+                TradeRow.exit_reason,
+                TradeRow.mode,
+                PositionRow.direction,
+                PositionRow.broker_position_ticket,
+                OrderRow.broker_order_ticket,
+            ),
+        )
+    )
+    return conditions
+
+
+def trade_page(
+    engine: Engine,
+    *,
+    market: str = paging.ALL_MARKETS,
+    strategy: str = "",
+    mode: TradingMode | None = None,
+    query: str = "",
+    page: int = 1,
+    page_size: int = TRADE_PAGE_SIZE,
+) -> TradeListing:
+    """The closed trades, newest first, one page, filtered and bounded in the database."""
+    needle = query.strip()
+    size = max(1, page_size)
+    conditions = _trade_conditions(
+        market=market, strategy=strategy.strip(), mode=mode, needle=needle
+    )
+    count_statement = (
+        select(func.count())
+        .select_from(TradeRow)
+        .join(PositionRow, TradeRow.position_id == PositionRow.id)
+        .join(OrderRow, PositionRow.order_id == OrderRow.id)
+        .join(SignalRow, OrderRow.signal_id == SignalRow.id)
+        .join(StrategyVersionRow, SignalRow.strategy_version_id == StrategyVersionRow.id)
+        .where(*conditions)
+    )
+    with Session(engine) as session:
+        total = int(session.scalar(count_statement) or 0)
+        current, pages = paging.page_bounds(total, page, size)
+        rows = session.execute(
+            _trade_statement(conditions)
+            .order_by(desc(TradeRow.closed_at), desc(TradeRow.id))
+            .limit(size)
+            .offset((current - 1) * size)
+        ).all()
+        # The selection behind the KPI cards, filtered in SQL and aggregated by `analytics`.
+        selected = session.execute(_trade_statement(conditions)).all()
+    entries = [_trade_entry(*row) for row in rows]
+    every = [_trade_entry(*row) for row in selected]
+    return TradeListing(
+        page=Page(
+            rows=tuple(entries),
+            total=total,
+            page=current,
+            pages=pages,
+            page_size=size,
+            query=needle,
+            market=market,
+            path="/trades",
+            filters=(("strategy", strategy.strip()), ("mode", "" if mode is None else mode.value)),
+            noun="trade",
+        ),
+        performance=compute_performance([entry.trade for entry in every]),
+        # The selectors list what the database holds, never just what the current filter
+        # returned: a selector that narrowed to its own choice would trap the operator.
+        markets=available_markets(engine),
+        strategies=traded_strategies(engine),
+    )
+
+
+def traded_strategies(engine: Engine) -> tuple[str, ...]:
+    """Every strategy reference that has produced a trade, sorted, read with one DISTINCT."""
+    statement = (
+        select(StrategyVersionRow.ref)
+        .distinct()
+        .select_from(TradeRow)
+        .join(PositionRow, TradeRow.position_id == PositionRow.id)
+        .join(OrderRow, PositionRow.order_id == OrderRow.id)
+        .join(SignalRow, OrderRow.signal_id == SignalRow.id)
+        .join(StrategyVersionRow, SignalRow.strategy_version_id == StrategyVersionRow.id)
+    )
+    with Session(engine) as session:
+        return tuple(sorted(str(ref) for ref in session.scalars(statement)))
 
 
 @dataclass(frozen=True)
@@ -1064,8 +1229,18 @@ class OpenPositionView:
     notional: Decimal
 
 
-def open_positions(engine: Engine, at: datetime) -> tuple[OpenPositionView, ...]:
-    return tuple(_position_view(row, at) for row in PositionReader(engine).open_positions())
+def open_positions(
+    engine: Engine, at: datetime, market: str = paging.ALL_MARKETS
+) -> tuple[OpenPositionView, ...]:
+    """Every open position, or only those of one market when one is named.
+
+    The live feed carries the same filter as the page it feeds: an unfiltered count next to a
+    filtered table would contradict the table.
+    """
+    return tuple(
+        _position_view(row, at)
+        for row in PositionReader(engine).open_positions(symbol=market or None)
+    )
 
 
 def _position_view(position: OpenPosition, at: datetime) -> OpenPositionView:
@@ -1118,34 +1293,15 @@ class PositionListView:
     exit_reason: str | None
 
 
-@dataclass(frozen=True)
-class PositionPage:
-    """One page of positions plus the metadata the pager and the empty state need.
+def available_markets(engine: Engine) -> tuple[str, ...]:
+    """Every market the database knows, sorted.
 
-    ``page`` is always inside ``[1, pages]``: the query clamps it, so a stale ``?page=999``
-    bookmark lands on the last valid page instead of an error.
+    Read from the positions and the signals: a market that has produced a signal but no
+    position yet must appear in the selector, otherwise the operator cannot look at it. This
+    is a read of stored rows, never a guess from the configuration file.
     """
-
-    rows: tuple[PositionListView, ...]
-    total: int
-    page: int
-    pages: int
-    query: str
-    page_size: int
-
-    @property
-    def empty_message(self) -> str:
-        """An empty table must say why it is empty, not just sit there mute."""
-        if self.query:
-            return f"Aucune position pour « {self.query} »."
-        return "Aucune position enregistrée."
-
-    def url(self, number: int) -> str:
-        """The link to another page, carrying the search that produced this one."""
-        parameters = {"page": str(number)}
-        if self.query:
-            parameters["q"] = self.query
-        return "/positions?" + urlencode(parameters)
+    symbols = {*_distinct(engine, PositionRow.symbol), *_distinct(engine, SignalRow.symbol)}
+    return tuple(sorted(symbols))
 
 
 def position_page(
@@ -1153,18 +1309,22 @@ def position_page(
     at: datetime,
     *,
     query: str = "",
+    market: str = paging.ALL_MARKETS,
     page: int = 1,
     page_size: int = POSITION_PAGE_SIZE,
-) -> PositionPage:
+) -> paging.Page[PositionListView]:
     """The most recent positions, one page, filtered and bounded in the database.
 
     Newest first, ``opened_at`` and then ``id`` so two positions opened in the same second
     keep a stable order across pages. The count and the page are two statements on purpose:
-    the count must not carry the LIMIT.
+    the count must not carry the LIMIT. ``market`` is a bound parameter: the positions page
+    shows one instrument at a time, never both.
     """
     needle = query.strip()
     size = max(1, page_size)
     conditions = _position_search(needle)
+    if market:
+        conditions.append(PositionRow.symbol == market)
     count_statement = (
         select(func.count())
         .select_from(PositionRow)
@@ -1173,8 +1333,7 @@ def position_page(
     )
     with Session(engine) as session:
         total = int(session.scalar(count_statement) or 0)
-        pages = max(1, -(-total // size))
-        current = min(max(page, 1), pages)
+        current, pages = paging.page_bounds(total, page, size)
         statement = (
             select(PositionRow, TradeRow.exit_reason)
             .outerjoin(TradeRow, TradeRow.position_id == PositionRow.id)
@@ -1184,13 +1343,17 @@ def position_page(
             .offset((current - 1) * size)
         )
         found = session.execute(statement).all()
-    return PositionPage(
+    return paging.Page(
         rows=tuple(_position_list_view(row[0], row[1], at) for row in found),
         total=total,
         page=current,
         pages=pages,
-        query=needle,
         page_size=size,
+        query=needle,
+        market=market,
+        path="/positions",
+        noun="position",
+        feminine=True,
     )
 
 
@@ -2068,6 +2231,50 @@ def reports(engine: Engine, limit: int = 50) -> tuple[ReportView, ...]:
     return tuple(_report(row) for row in rows)
 
 
+REPORT_PAGE_SIZE = paging.PAGE_SIZE
+REPORT_SEARCH_FIELDS: tuple[str, ...] = ("période", "contenu")
+
+
+def report_page(
+    engine: Engine,
+    *,
+    query: str = "",
+    page: int = 1,
+    page_size: int = REPORT_PAGE_SIZE,
+) -> Page[ReportView]:
+    """One page of stored reports, newest window first, searched and bounded in SQL.
+
+    A stored report carries no market column (``reports`` holds a period, a window and the
+    text that was generated): there is nothing to separate by instrument here, and the page
+    says so rather than inventing a market selector that would filter nothing.
+    """
+    needle = query.strip()
+    size = max(1, page_size)
+    conditions = paging.text_search(needle, (ReportRow.period, ReportRow.content))
+    with Session(engine) as session:
+        total = int(
+            session.scalar(select(func.count()).select_from(ReportRow).where(*conditions)) or 0
+        )
+        current, pages = paging.page_bounds(total, page, size)
+        rows = session.scalars(
+            select(ReportRow)
+            .where(*conditions)
+            .order_by(desc(ReportRow.window_start), desc(ReportRow.id))
+            .limit(size)
+            .offset((current - 1) * size)
+        ).all()
+    return Page(
+        rows=tuple(_report(row) for row in rows),
+        total=total,
+        page=current,
+        pages=pages,
+        page_size=size,
+        query=needle,
+        path="/reports",
+        noun="rapport",
+    )
+
+
 def report_by_id(engine: Engine, report_id: int) -> ReportView | None:
     with Session(engine) as session:
         row = session.get(ReportRow, report_id)
@@ -2291,7 +2498,6 @@ __all__ = [
     "OrderView",
     "Overview",
     "PositionListView",
-    "PositionPage",
     "PositionView",
     "ProposalView",
     "ReportView",
@@ -2308,6 +2514,7 @@ __all__ = [
     "TradeDetail",
     "TradeEntry",
     "TradeFilters",
+    "TradeListing",
     "TradeReplay",
     "ValidationView",
     "account_figures",
@@ -2316,6 +2523,7 @@ __all__ = [
     "ai_proposals",
     "all_trade_entries",
     "all_trades",
+    "available_markets",
     "backtest_runs",
     "daily_performance",
     "daily_window",
@@ -2340,6 +2548,7 @@ __all__ = [
     "position_page",
     "recent_events",
     "report_by_id",
+    "report_page",
     "reports",
     "risk_limits",
     "risk_view",
@@ -2351,7 +2560,9 @@ __all__ = [
     "telemetry",
     "trade_detail",
     "trade_entries",
+    "trade_page",
     "trade_replay",
+    "traded_strategies",
     "trades_between",
     "validation_runs",
     "watermark",

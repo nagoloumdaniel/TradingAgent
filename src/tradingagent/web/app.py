@@ -50,7 +50,7 @@ from tradingagent.reporting.exports import (
 )
 from tradingagent.storage.engine import create_database_engine
 from tradingagent.web import format as display
-from tradingagent.web import queries
+from tradingagent.web import paging, queries
 from tradingagent.web.auth import ACCESS_ENV_VAR, SESSION_COOKIE, AccessControl, configured_token
 from tradingagent.web.sse import SSE_HEADERS, EventStream
 from tradingagent.web.views import (
@@ -333,22 +333,34 @@ def create_app(
     def positions_page(
         request: Request,
         q: str | None = None,
+        market: str | None = None,
         page_number: str | None = Query(default=None, alias="page"),
     ) -> HTMLResponse:
-        """The positions history, ten rows at a time.
+        """The positions history, ten rows at a time, one market at a time.
 
-        Paging and searching happen in SQL (:func:`queries.position_page`): the table grows
-        all year, and sending it whole to display ten rows is the defect this avoids. A page
-        outside the bounds is clamped rather than refused, and a garbled one falls back to
-        the first — a stale bookmark degrades, it does not raise.
+        Paging, searching and the market all happen in SQL (:func:`queries.position_page`):
+        the table grows all year, and sending it whole to display ten rows is the defect this
+        avoids. A page outside the bounds is clamped rather than refused, and a garbled one
+        falls back to the first — a stale bookmark degrades, it does not raise. An unknown
+        ``?market=`` falls back to the default market: a stale link must never be the thing
+        that mixes two instruments in one table.
         """
         at = clock()
-        positions = queries.position_page(engine, at, query=q or "", page=_page_number(page_number))
+        markets = queries.available_markets(engine)
+        positions = queries.position_page(
+            engine,
+            at,
+            query=q or "",
+            market=paging.resolve_market(market, markets),
+            page=_page_number(page_number),
+        )
         return page(
             request,
             "positions",
             at=at,
             positions=positions,
+            markets=markets,
+            open_count=len(queries.open_positions(engine, at, market=positions.market)),
             rows=[position_list_cells(position) for position in positions.rows],
             columns=POSITION_TABLE_COLUMNS,
             numeric=POSITION_NUMERIC_COLUMNS,
@@ -363,23 +375,29 @@ def create_app(
         market: str | None = None,
         strategy: str | None = None,
         mode: str | None = None,
+        q: str | None = None,
+        page_number: str | None = Query(default=None, alias="page"),
         trade_id: int | None = None,
     ) -> HTMLResponse:
-        entries = queries.all_trade_entries(engine)
-        filters = queries.TradeFilters(
-            market=market or None, strategy=strategy or None, mode=_mode(mode)
+        """The closed trades, ten rows at a time, one market at a time.
+
+        The listing is filtered and bounded in SQL (:func:`queries.trade_page`); the KPI
+        cards describe the whole filtered selection, because a card computed from the ten
+        visible rows would be a lie.
+        """
+        listing = queries.trade_page(
+            engine,
+            market=paging.resolve_market(market, queries.available_markets(engine)),
+            strategy=strategy or "",
+            mode=_mode(mode),
+            query=q or "",
+            page=_page_number(page_number),
         )
-        selected = filters.apply_entries(entries)
         return page(
             request,
             "trades",
-            entries=selected,
-            total_trades=len(entries),
-            performance=compute_performance([entry.trade for entry in selected]),
-            markets=queries.selectable_markets(entry.trade for entry in entries),
-            strategies=queries.selectable_strategies(entry.trade for entry in entries),
+            listing=listing,
             modes=list(TradingMode),
-            filters=filters,
             detail=queries.trade_detail(engine, trade_id) if trade_id is not None else None,
         )
 
@@ -444,17 +462,29 @@ def create_app(
         return page(request, "system", data=data, ea_halted=queries.ea_halted(data.ea))
 
     @app.get("/reports", response_class=HTMLResponse)
-    def reports_page(request: Request, report_id: int | None = None) -> HTMLResponse:
-        stored = queries.reports(engine)
+    def reports_page(
+        request: Request,
+        q: str | None = None,
+        report_id: int | None = None,
+        page_number: str | None = Query(default=None, alias="page"),
+    ) -> HTMLResponse:
+        """The stored reports, ten at a time, searched in SQL.
+
+        A report row carries no market: the period, the window and the text. There is
+        therefore no market selector here — one that filtered nothing would be worse than no
+        selector at all — and the page states what it does hold.
+        """
+        stored = queries.report_page(engine, query=q or "", page=_page_number(page_number))
         opened = (
             queries.report_by_id(engine, report_id)
             if report_id is not None
-            else (stored[0] if stored else None)
+            else (stored.rows[0] if stored.rows else None)
         )
         return page(request, "reports", reports=stored, opened=opened)
 
     @app.get("/events")
     def events(
+        market: str | None = None,
         cycles: int | None = Query(
             default=None,
             ge=1,
@@ -462,9 +492,15 @@ def create_app(
             description="Borne le flux à N cycles puis ferme ; absent, il reste ouvert.",
         ),
     ) -> StreamingResponse:
-        """The live feed: open positions and warnings, polled from the database."""
+        """The live feed: the open positions of one market, and warnings, polled from the DB.
+
+        The market is the page's own parameter, resolved against the markets the database
+        holds: the count pushed by the stream and the table rendered by the page describe the
+        same market, or they would contradict each other.
+        """
+        selected = paging.resolve_market(market, queries.available_markets(engine))
         return StreamingResponse(
-            stream.frames(cycles=stream_cycles if cycles is None else cycles),
+            stream.frames(cycles=stream_cycles if cycles is None else cycles, market=selected),
             media_type="text/event-stream",
             headers=dict(SSE_HEADERS),
         )

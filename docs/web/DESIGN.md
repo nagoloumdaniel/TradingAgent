@@ -60,7 +60,7 @@ les sous-ensembles `latin` et `latin-ext`.
 | Thème | Quand | Comment |
 |---|---|---|
 | Sombre | **défaut** | L'opérateur travaille la nuit : un flash de blanc entre deux vérifications d'une position ouverte est pire qu'un mauvais défaut |
-| Clair | au choix | Bascule en haut à droite, mémorisée dans `localStorage` |
+| Clair | au choix | **Un seul bouton**, en haut à droite de la barre flottante, mémorisé dans `localStorage` |
 
 L'ordre de priorité est : `?theme=light|dark` dans l'URL, puis le choix mémorisé, puis la
 préférence système. Le paramètre d'URL n'est pas un détail de test : il permet de coller un
@@ -70,20 +70,120 @@ Le thème est posé **avant le premier rendu** par un script en ligne dans `<hea
 clignotement. Les deux palettes sont deux jeux de variables CSS ; aucune règle de mise en
 page n'est dupliquée.
 
-## Glassmorphism — où le flou est dépensé, et pourquoi pas partout
+### Le bouton unique (2026-10-08)
 
-Trois surfaces translucides, un seul niveau de flou réel :
+Deux boutons côte à côte demandaient de comprendre lequel était *actif* ; un seul bouton qui
+bascule demande seulement de cliquer. La lune et le soleil occupent la même pastille de
+40 × 32 px et glissent l'un vers l'autre (`transform` + `opacity`, 220 ms, courbe
+`--ease-out`) ; `prefers-reduced-motion` ramène la transition à 1 ms, l'état reste lisible
+parce qu'il ne dépend pas du mouvement.
+
+Accessibilité : `aria-pressed` vaut **vrai quand le thème clair est actif**, et le nom
+accessible (`aria-label`, repris en `title`) dit ce que le clic *fera* — « Activer le thème
+clair » / « Activer le thème sombre ». Un lecteur d'écran entend donc à la fois l'état et
+l'action, sans avoir à deviner ce que représente l'icône.
+
+## Glassmorphism — où le flou est dépensé, et pourquoi pas partout
 
 | Surface | Traitement |
 |---|---|
-| En-tête (collant) | `backdrop-filter: blur(20px) saturate(180%)` — c'est là que du contenu défile vraiment derrière |
-| Barre latérale | `blur(14px)` |
+| Barre de navigation **flottante** | `backdrop-filter: blur(16px) saturate(170%)`, rayon 999 px, marges de 18 px : une barre d'**une seule ligne**, donc une petite surface |
+| Barre latérale (carte de verre) | `blur(14px)` |
 | Carte héro | `blur(16px) saturate(150%)` — une seule par page |
 | Toutes les autres cartes | surface translucide + liseré lumineux, **sans flou** |
 
-La raison est mesurable : une page porte jusqu'à quarante cartes, et quarante flous plein
-écran coûtent cher sans rien dire de plus — le flou ne se voit que là où quelque chose
-passe derrière. La translucidité, elle, suffit à laisser deviner le filigrane.
+La raison est mesurable : c'est la **surface** floutée qui coûte cher au défilement, pas le
+flou. Le bandeau pleine largeur d'origine floutait toute la largeur de l'écran sur trois
+lignes de haut (marque + sous-titre) ; la barre flottante floute une seule ligne, et le
+sous-titre a été supprimé — deux tiers de surface en moins pour le même effet. Une page
+porte par ailleurs jusqu'à quarante cartes, et quarante flous plein écran coûteraient cher
+sans rien dire de plus : le flou ne se voit que là où quelque chose passe derrière.
+
+Le fond translucide reste opaque à 72 % (`--glass-strong`) : sans `backdrop-filter`
+(navigateur ancien, mode économie d'énergie), la barre demeure parfaitement lisible.
+
+## Barre latérale figée, et tiroir sur téléphone
+
+Au-dessus de 880 px, `nav.side` est une carte de verre en `position: sticky` : elle ne défile
+pas avec le contenu et reste visible pendant toute la lecture d'une longue table. Son propre
+défilement n'apparaît que si ses entrées dépassent la hauteur de l'écran.
+
+En dessous de 880 px, elle devient un **tiroir** : hors du flux, glissé depuis la gauche
+(`translateX(-102%)`), avec un voile cliquable. `visibility: hidden` quand il est fermé, pour
+qu'il ne reste pas dans l'ordre de tabulation. Trois sorties : `Échap` (qui rend le focus au
+bouton), un clic sur le voile, ou le choix d'une entrée. Le bouton d'ouverture porte
+`aria-expanded` et `aria-controls`. C'était la correction attendue : une barre figée qui
+mange 40 % d'un écran de téléphone est un défaut, pas un choix.
+
+## Barres de défilement : la barre part, le défilement reste
+
+```css
+html { scrollbar-width: none; }
+html::-webkit-scrollbar { width: 0; height: 0; }
+```
+
+Rien ne pose `overflow: hidden` sur le document : la molette, les flèches, `Page haut/bas`,
+l'espace, le tactile et les ancres continuent de fonctionner. Masquer la barre ne supprime
+jamais le défilement — supprimer le défilement est ce qui rendrait des données
+inaccessibles.
+
+Là où une zone défile **réellement** (un tableau plus large que son cadre), la barre est
+conservée et stylisée (`scrollbar-width: thin`, pouce `--line-strong`, 8 px) : c'est le seul
+indice qu'il reste des colonnes à droite. Un tableau large est en outre rendu focusable par
+le script de fin de page (`tabindex="0"`, `role="region"`, nom pris au titre qui le précède)
+**dès que** `scrollWidth > clientWidth`, et seulement dans ce cas : la zone se parcourt donc
+au clavier, et l'ordre de tabulation n'est pas encombré quand les tableaux tiennent à
+l'écran.
+
+## Icônes : une sprite SVG en ligne, créditée
+
+Le jeu est **Lucide** (<https://lucide.dev>), licence **ISC** — permissive, et compatible
+avec la copie de la géométrie dans le dépôt. Aucun CDN, aucun paquet npm, aucune requête
+réseau : la sprite est incluse une fois par page (`templates/_sprite.html`) et chaque icône
+est un `<use href="#i-…">`, donc un seul exemplaire de chaque chemin dans le document quel
+que soit le nombre d'icônes dessinées. La couleur et l'épaisseur du trait sont héritées du
+`<svg class="icon">` appelant (`currentColor`), ce qui permet la même icône en accent dans
+l'entrée de navigation active et en gris ailleurs.
+
+Accessibilité : une icône décorative est `aria-hidden="true"` et ne porte rien ; une icône
+qui *signifie* quelque chose prend un `label` et devient `role="img" aria-label="…"`
+(macro `icon(name, label)` dans `templates/_icons.html`). Les entrées de navigation, elles,
+gardent leur texte visible à côté de l'icône : la pastille ne porte jamais seule le sens.
+
+Le crédit figure aussi dans le balisage (commentaire HTML au-dessus de la sprite), comme la
+licence OFL voyage avec les polices Geist.
+
+## Pagination, recherche, marché : une primitive, pas neuf copies
+
+`tradingagent/web/paging.py` porte les trois règles que l'opérateur a demandées, une fois
+pour toutes les pages qui listent des données :
+
+| Règle | Où elle vit |
+|---|---|
+| **10 lignes maximum par affichage** | `PAGE_SIZE = 10`, appliqué par un `LIMIT` SQL |
+| **Recherche et pagination côté serveur** | `LIMIT`/`OFFSET` + `count()` dans la requête ; le motif de recherche est un paramètre lié, `%` et `_` échappés |
+| **Un seul marché à la fois** | `market` est un paramètre de requête lié (`WHERE symbol = :market`) ; `resolve_market` retombe sur le marché par défaut, jamais sur « tous » |
+
+Le gabarit ne décide rien : il rend un `Page` (`rows`, `total`, `page`, `pages`, `showing`,
+`empty_message`, `url(n)`). Les macros partagées sont dans `templates/_macros.html` — le
+pager, le sélecteur de marché, les listes déroulantes, le champ de recherche — pour que
+trois pages ne puissent pas diverger.
+
+Deux points de conception qui comptent :
+
+1. **Le marché par défaut.** `XAUUSD` d'abord, puis `BTCUSD`, puis le premier marché présent
+   dans la base. Un `?market=` inconnu (signet périmé) retombe sur ce défaut : un vieux lien
+   ne doit jamais être ce qui remet deux instruments dans la même table. La base vide n'a pas
+   de marché, donc pas de filtre — il n'y a rien à séparer.
+2. **Le flux SSE porte le même filtre.** `EventSource("/events?market=…")` : le compteur de
+   positions ouvertes poussé par le flux décrit le marché de la table qu'il surplombe. La
+   date du flux passe par `format.precise`, la même que la page : un horodatage ISO
+   (`2026-10-07T23:51:32.068457+00:00`) n'apparaît plus à côté d'un `2026-10-07 23:51:32`.
+
+Sur `/trades`, les cartes de synthèse décrivent la **sélection entière** filtrée en SQL, pas
+les dix lignes visibles : une carte calculée sur dix lignes sur quatre cents serait un
+mensonge. Les montants sont stockés en texte sous SQLite, donc l'agrégation a lieu dans
+`analytics` — après le filtre SQL, jamais dans le navigateur.
 
 ## Filigranes — de vrais graphiques
 

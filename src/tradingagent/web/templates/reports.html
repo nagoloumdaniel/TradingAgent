@@ -1,16 +1,24 @@
 {% extends "base.html" %}
+{% from "_macros.html" import pager, search_field %}
 {% block title %}Rapports{% endblock %}
 {% block content %}
 
 <h2>Rapports enregistrés</h2>
-<p class="muted">Le contenu est celui qui a été généré et, le cas échéant, envoyé :
-   le tableau de bord le restitue, il ne le régénère pas.</p>
+<p class="muted">{{ reports.total }} rapport(s) · affichage {{ reports.showing }}.
+   Le contenu est celui qui a été généré et, le cas échéant, envoyé : le tableau de bord le
+   restitue, il ne le régénère pas.</p>
+
+<form class="filters" method="get" action="/reports" role="search">
+  {{ search_field("reports-q", "Recherche", reports.query, "période ou contenu du rapport") }}
+  <div><button type="submit">Rechercher</button></div>
+  {% if reports.query %}<div><a class="action" href="/reports">Réinitialiser</a></div>{% endif %}
+</form>
 
 <div class="table-wrap">
 <table>
   <thead><tr><th>Période</th><th>Fenêtre (UTC)</th><th>Généré le</th><th>Envoyé le</th><th>Actions</th></tr></thead>
-  <tbody>
-    {% for report in reports %}
+  <tbody id="reports-body">
+    {% for report in reports.rows %}
       <tr>
         <td>{{ report.period }}</td>
         <td>{{ display.moment(report.window_start) }} → {{ display.moment(report.window_end) }}</td>
@@ -22,15 +30,15 @@
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="5" class="empty">Aucun rapport enregistré.</td></tr>
+      <tr><td colspan="5" class="empty">{{ reports.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
 
+{{ pager(reports, "Pagination des rapports") }}
+
 <h2>Exports</h2>
-<p class="muted">Les exports utilisent les fonctions du paquet <code>reporting</code> : mêmes
-   chiffres que le rapport, aucune recopie (§34, F-023).</p>
 <div class="actions">
   <a href="/export/trades.csv">Trades — CSV</a>
   <a href="/export/trades.json">Trades — JSON</a>

@@ -25,16 +25,18 @@ TOKEN = "jeton-de-test-0123456789abcdef"  # pragma: allowlist secret
 def _stack(engine: Engine, count: int = 13) -> list[int]:
     """Positions newer than every seeded one, newest first; returns their signal ids.
 
-    Index 0 is the most recent position overall and the only DEMO of the stack; index 1 is
-    the only position whose exit reason is ``stop_loss``. The search tests lean on those two
-    unique rows and never on a hard-coded global count.
+    One market only — the positions page shows a single instrument at a time, so a stack that
+    alternated XAUUSD and BTCUSD would be testing a page that no longer exists. Index 0 is the
+    most recent position overall and the only DEMO of the stack; index 1 is the only position
+    whose exit reason is ``stop_loss``. The search tests lean on those two unique rows and
+    never on a hard-coded global count.
     """
     signals: list[int] = []
     for index in range(count):
         signals.append(
             seed.add_chain(
                 engine,
-                market=seed.XAU if index % 2 == 0 else seed.BTC,
+                market=seed.XAU,
                 direction=Direction.SELL if index % 4 == 1 else Direction.BUY,
                 generated_at=seed.NOW - timedelta(minutes=index + 1),
                 closed=True,
@@ -106,7 +108,9 @@ def test_the_two_pages_do_not_overlap_and_cover_every_position(
     second = seeded_client.get("/positions", params={"page": 2}).text
     first_tickets, second_tickets = _tickets(first), _tickets(second)
 
-    assert len(first_tickets | second_tickets) == 20  # seven seeded, thirteen appended
+    # Seventeen XAUUSD positions: the thirteen appended plus the four seeded ones. The two
+    # BTCUSD rows of the dataset are on the other market, and this page never mixes them in.
+    assert len(first_tickets | second_tickets) == 17
     assert not first_tickets & second_tickets
 
 
@@ -165,7 +169,7 @@ def test_a_case_only_change_returns_the_same_count(
     upper = seeded_client.get("/positions", params={"q": "XAUUSD"}).text
     lower = seeded_client.get("/positions", params={"q": "xauusd"}).text
 
-    assert _summary(upper) == _summary(lower) == "11"
+    assert _summary(upper) == _summary(lower) == "17"
 
 
 def test_the_search_accepts_the_label_the_page_displays(
@@ -178,7 +182,7 @@ def test_the_search_accepts_the_label_the_page_displays(
     label_mode = seeded_client.get("/positions", params={"q": "Démo"}).text
 
     assert _summary(raw_direction) == _summary(label_direction)
-    assert _summary(raw_mode) == _summary(label_mode) == "2"
+    assert _summary(raw_mode) == _summary(label_mode) == "1"
 
 
 def test_the_search_finds_a_position_by_its_ticket(
@@ -229,7 +233,7 @@ def test_a_literal_underscore_in_the_data_is_still_found(
     _stack(engine)
     body = seeded_client.get("/positions", params={"q": "take_profit"}).text
 
-    assert "17 position(s) pour" in body  # twelve appended plus the five seeded chains
+    assert "15 position(s) pour" in body  # twelve appended plus the three seeded XAUUSD ones
 
 
 # ---------------------------------------------------------------------------------------
@@ -295,7 +299,7 @@ def test_the_alerts_list_is_still_the_live_feed_target(seeded_client: TestClient
     body = seeded_client.get("/positions").text
 
     assert 'id="alerts-list"' in body
-    assert 'new EventSource("/events")' in body
+    assert 'new EventSource("/events?market="' in body
     # The first stream cycle repeats what the server already rendered: the page must key
     # the rows so the feed completes the list instead of duplicating it.
     assert "alertKey" in body

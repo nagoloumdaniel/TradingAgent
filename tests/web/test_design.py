@@ -14,11 +14,14 @@ from tradingagent.web import queries
 from tradingagent.web.app import create_app
 
 
-def test_the_theme_switch_offers_both_themes(client: TestClient) -> None:
+def test_the_theme_switch_is_one_button_that_announces_its_state(client: TestClient) -> None:
+    """One button, not two and not a menu: it carries both glyphs and its own state."""
     page = client.get("/")
     assert page.status_code == 200
-    assert 'data-theme-set="dark"' in page.text
-    assert 'data-theme-set="light"' in page.text
+    assert page.text.count('id="theme-toggle"') == 1
+    assert "data-theme-set" not in page.text  # the old two-button group is gone
+    assert 'class="theme-icon theme-icon-moon"' in page.text
+    assert 'class="theme-icon theme-icon-sun"' in page.text
     assert "aria-pressed" in page.text
 
 

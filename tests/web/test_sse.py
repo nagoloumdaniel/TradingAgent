@@ -10,6 +10,7 @@ from tests.web import seed
 
 from tradingagent.core.states import Severity
 from tradingagent.storage.models import SystemEventRow
+from tradingagent.web import format as display
 from tradingagent.web.sse import RETRY_HINT, EventStream, Frame
 
 
@@ -32,7 +33,18 @@ def test_poll_reports_the_open_positions(populated: seed.Seeded, engine: Engine)
     assert [row[0] for row in payload["rows"]] == [seed.XAU, seed.BTC]
     assert payload["rows"][0][4] == "53.00 €"  # already formatted: the browser computes nothing
     assert payload["rows"][0][7] == "02:00:00"  # age, computed server-side
-    assert payload["at"] == seed.NOW.isoformat()
+    # The same wording the page renders: a stream that sent an ISO timestamp would make the
+    # line change shape the moment the first frame arrived.
+    assert payload["at"] == display.precise(seed.NOW)
+    assert "+00:00" not in payload["at"]
+
+
+def test_poll_can_be_bounded_to_one_market(populated: seed.Seeded, engine: Engine) -> None:
+    """The stream carries the page's filter, or the count would contradict the table."""
+    stream = EventStream(engine, now=lambda: seed.NOW)
+    positions, _ = stream.poll(seed.NOW, None, market=seed.BTC)
+
+    assert [row[0] for row in json.loads(positions.data)["rows"]] == [seed.BTC]
 
 
 def test_poll_only_reports_alerts_recorded_after_the_last_cycle(
@@ -93,7 +105,25 @@ def test_the_events_endpoint_streams_a_bounded_response(seeded_client: TestClien
     assert "event: positions" in body
     assert "event: alerts" in body
     payload = json.loads(body.split("event: positions\ndata: ", 1)[1].split("\n\n", 1)[0])
-    assert [row[0] for row in payload["rows"]] == [seed.XAU, seed.BTC]
+    # No `?market=`: the endpoint applies the same default as every page — one market, the
+    # preferred one — so a raw client and a rendered page never describe different sets.
+    assert [row[0] for row in payload["rows"]] == [seed.XAU]
+
+
+def test_the_events_endpoint_honours_the_market_it_is_given(seeded_client: TestClient) -> None:
+    response = seeded_client.get("/events", params={"cycles": 1, "market": seed.BTC})
+    payload = json.loads(response.text.split("event: positions\ndata: ", 1)[1].split("\n\n", 1)[0])
+
+    assert [row[0] for row in payload["rows"]] == [seed.BTC]
+
+
+def test_an_unknown_market_on_the_stream_falls_back_to_the_default(
+    seeded_client: TestClient,
+) -> None:
+    response = seeded_client.get("/events", params={"cycles": 1, "market": "NOPE"})
+    payload = json.loads(response.text.split("event: positions\ndata: ", 1)[1].split("\n\n", 1)[0])
+
+    assert [row[0] for row in payload["rows"]] == [seed.XAU]
 
 
 def test_the_events_endpoint_works_on_an_empty_database(client: TestClient) -> None:

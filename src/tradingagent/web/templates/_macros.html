@@ -1,0 +1,63 @@
+{# Shared display macros. One definition per control, so the positions page, the trades page
+   and the reports page cannot drift apart — and so a change to the pager or to the market
+   selector is a change in exactly one place.
+
+   No JavaScript, no CDN, no build step: these are plain Jinja macros over the `Page`
+   primitive in `tradingagent.web.paging`. #}
+
+{# A page link is a link: it carries its state in the URL, so it can be copied, bookmarked
+   and reloaded. The server clamps an out-of-range page; the browser never decides. #}
+{% macro pager(page, label) %}
+  {% if page.has_multiple_pages %}
+  <nav class="pager" aria-label="{{ label }}">
+    {% if page.page > 1 %}
+      <a class="pager-link" rel="prev" href="{{ page.url(page.page - 1) }}">← Précédent</a>
+    {% else %}
+      <span class="pager-link disabled" aria-disabled="true">← Précédent</span>
+    {% endif %}
+    <span class="pager-status">Page {{ page.page }} sur {{ page.pages }} · {{ page.showing }}</span>
+    {% if page.page < page.pages %}
+      <a class="pager-link" rel="next" href="{{ page.url(page.page + 1) }}">Suivant →</a>
+    {% else %}
+      <span class="pager-link disabled" aria-disabled="true">Suivant →</span>
+    {% endif %}
+  </nav>
+  {% endif %}
+{% endmacro %}
+
+{# The market is a query parameter, never a client-side hide. There is deliberately no
+   "all markets" option: a table that mixes two instruments is the defect being removed. #}
+{% macro market_select(page, markets) %}
+  <div class="field">
+    <label for="market">Marché</label>
+    <select id="market" name="market" data-custom-select>
+      {% for value in markets %}
+        <option value="{{ value }}" {% if page.market == value %}selected{% endif %}>{{ value }}</option>
+      {% endfor %}
+    </select>
+  </div>
+{% endmacro %}
+
+{# The native <select> is the control: it carries the name, the value and the submission.
+   The custom-dropdown script in base.html only restyles it when JavaScript is available.
+   ``options`` is a sequence of ``(value, label)`` pairs, built by the page that knows the
+   vocabulary; the macro invents no label of its own. #}
+{% macro option_select(name, label, options, current, empty_label, labels=None) %}
+  <div class="field">
+    <label for="{{ name }}">{{ label }}</label>
+    <select id="{{ name }}" name="{{ name }}" data-custom-select>
+      <option value="">{{ empty_label }}</option>
+      {% for value in options %}
+        <option value="{{ value }}" {% if current == value %}selected{% endif %}>{{ labels.get(value, value) if labels else value }}</option>
+      {% endfor %}
+    </select>
+  </div>
+{% endmacro %}
+
+{% macro search_field(name, label, value, placeholder) %}
+  <div class="field">
+    <label for="{{ name }}">{{ label }}</label>
+    <input type="search" id="{{ name }}" name="q" value="{{ value }}"
+           placeholder="{{ placeholder }}" autocomplete="off" spellcheck="false">
+  </div>
+{% endmacro %}

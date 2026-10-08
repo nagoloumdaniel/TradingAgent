@@ -1,0 +1,24 @@
+{# Inline SVG icon set — no CDN, no npm package, no network request (§ « Zéro CDN »).
+
+   The glyphs are drawn from **Lucide** (https://lucide.dev), released under the ISC licence:
+   a permissive licence that allows copying the geometry into this repository. The paths are
+   inlined rather than fetched so the dashboard keeps working offline, exactly like the Geist
+   fonts in `static/fonts/` (SIL OFL 1.1, licence shipped alongside them).
+
+   The sprite itself lives in `base.html`, once per page, and every icon is a `<use>` of a
+   `<symbol>`: one copy of each path in the document, whatever the number of icons drawn.
+
+   Accessibility: a decorative icon is `aria-hidden` and carries nothing; an icon that *means*
+   something takes a `label` and becomes `role="img"` with an `aria-label`, so the meaning is
+   never carried by the picture alone. #}
+
+{% macro icon(name, label="") %}
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+     stroke-linecap="round" stroke-linejoin="round"
+     {% if label %}role="img" aria-label="{{ label }}"{% else %}aria-hidden="true"{% endif %}><use href="#i-{{ name }}"/></svg>
+{% endmacro %}
+
+{# The off-screen name of a control that shows only an icon. #}
+{% macro icon_label(name, text) %}
+{{ icon(name) }}<span class="sr-only">{{ text }}</span>
+{% endmacro %}

@@ -114,5 +114,6 @@ def test_the_database_failure_keeps_its_own_page(tmp_path: Path) -> None:
 def test_error_pages_keep_the_theme_switch(seeded_client: TestClient) -> None:
     """An error page is a page of the dashboard: same shell, same controls."""
     text = seeded_client.get("/cette-page-nexiste-pas").text
-    assert 'data-theme-set="light"' in text
+    assert 'id="theme-toggle"' in text
+    assert "aria-pressed" in text
     assert 'src="/static/nexagold.png"' in text

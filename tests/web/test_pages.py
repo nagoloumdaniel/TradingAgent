@@ -1,10 +1,15 @@
 """Every page, filter and export, rendered through ``TestClient`` on real HTML."""
 
 import json
+import re
+from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import Engine, insert
 from tests.web import seed
+
+from tradingagent.storage.models import ReportRow
 
 PAGES = (
     "/",
@@ -86,32 +91,47 @@ def test_overview_warns_when_a_global_halt_is_active(
     assert "perte quotidienne dépassée" in body
 
 
-def test_trades_page_lists_every_closed_trade(seeded_client: TestClient) -> None:
+def _trades_body(body: str) -> str:
+    match = re.search(r'<tbody id="trades-body">(.*?)</tbody>', body, re.S)
+    assert match is not None, "the trades table must render a tbody"
+    return match.group(1)
+
+
+def test_trades_page_lists_every_closed_trade_of_the_selected_market(
+    seeded_client: TestClient,
+) -> None:
     body = seeded_client.get("/trades").text
-    assert "5 trade(s) affiché(s) sur 5 au total" in body
-    assert "witness@1.0.0" in body
-    assert "trend_breakout@1.0.0" in body
-    assert "Achat" in body
-    assert "Vente" in body
+    rows = _trades_body(body)
+
+    assert "3 trade(s) clôturé(s)" in body  # the three XAUUSD chains, and only those
+    assert "witness@1.0.0" in rows
+    assert "trend_breakout@1.0.0" in body  # offered in the strategy selector, as BTCUSD is
+    assert "Achat" in rows
+    assert "Vente" in rows
 
 
 def test_trades_page_filters_by_market(seeded_client: TestClient) -> None:
-    body = seeded_client.get("/trades", params={"market": seed.XAU}).text
-    assert "3 trade(s) affiché(s) sur 5 au total" in body
-    assert f"market={seed.XAU}" in body  # the export links carry the active filter
+    body = seeded_client.get("/trades", params={"market": seed.BTC}).text
+    rows = _trades_body(body)
+
+    assert "2 trade(s) clôturé(s)" in body
+    assert seed.BTC in rows
+    assert seed.XAU not in rows
+    assert f"market={seed.BTC}" in body  # the export links carry the active filter
 
 
 def test_trades_page_filters_by_strategy_and_mode(seeded_client: TestClient) -> None:
     by_strategy = seeded_client.get("/trades", params={"strategy": seed.WITNESS}).text
-    assert "3 trade(s) affiché(s) sur 5 au total" in by_strategy
-    by_mode = seeded_client.get("/trades", params={"mode": "DEMO"}).text
-    assert "1 trade(s) affiché(s) sur 5 au total" in by_mode
+    assert "3 trade(s) clôturé(s)" in by_strategy
+    by_mode = seeded_client.get("/trades", params={"market": seed.BTC, "mode": "DEMO"}).text
+    assert "1 trade(s) clôturé(s)" in by_mode
 
 
 def test_an_unknown_filter_value_degrades_to_no_filter(seeded_client: TestClient) -> None:
     response = seeded_client.get("/trades", params={"mode": "NOPE"})
+
     assert response.status_code == 200
-    assert "5 trade(s) affiché(s) sur 5 au total" in response.text
+    assert "3 trade(s) clôturé(s)" in response.text  # the default market, unfiltered by mode
 
 
 def test_trades_page_opens_the_detail_of_one_signal(
@@ -186,6 +206,47 @@ def test_reports_page_opens_a_chosen_report(seeded_client: TestClient, seeded: s
     assert "Rapport quotidien" in body
 
 
+def _report_rows(body: str) -> list[str]:
+    match = re.search(r'<tbody id="reports-body">(.*?)</tbody>', body, re.S)
+    assert match is not None, "the reports table must render a tbody"
+    return re.findall(r"<tr\b", match.group(1))
+
+
+def test_reports_page_shows_ten_at_most_and_pages_the_rest(
+    seeded_client: TestClient, engine: Engine
+) -> None:
+    """The listing is bounded in SQL, like every other list of the dashboard."""
+    with engine.begin() as connection:
+        for index in range(12):
+            connection.execute(
+                insert(ReportRow).values(
+                    period=f"weekly-{index}",
+                    window_start=seed.NOW - timedelta(days=index + 2),
+                    window_end=seed.NOW - timedelta(days=index + 1),
+                    content="rapport hebdomadaire de test",
+                    generated_at=seed.NOW,
+                    sent_at=None,
+                )
+            )
+
+    first = seeded_client.get("/reports").text
+    second = seeded_client.get("/reports", params={"page": 2}).text
+
+    assert len(_report_rows(first)) == 10
+    assert "13 rapport(s)" in first
+    assert "page=2" in first
+    assert len(_report_rows(second)) == 3
+
+
+def test_reports_page_search_runs_in_sql_and_says_so_when_empty(
+    seeded_client: TestClient,
+) -> None:
+    body = seeded_client.get("/reports", params={"q": "zzz-introuvable"}).text
+
+    assert "Aucun rapport pour « zzz-introuvable »." in body
+    assert len(_report_rows(body)) == 1  # the empty row, and only it
+
+
 def test_healthz_reports_read_only_and_the_database(seeded_client: TestClient) -> None:
     payload = seeded_client.get("/healthz").json()
     assert payload["status"] == "ok"
@@ -257,7 +318,10 @@ def test_downloading_an_unknown_report_is_a_404(seeded_client: TestClient) -> No
 
 def test_positions_page_carries_the_live_wiring(seeded_client: TestClient) -> None:
     body = seeded_client.get("/positions").text
-    assert 'new EventSource("/events")' in body
+    assert 'new EventSource("/events?market="' in body
     assert "stream-status" in body
     assert "positions-body" in body
     assert "alertes" in body.lower()
+    # The open count is rendered from the database for the selected market, never left as a
+    # placeholder the stream fills in later.
+    assert '<span id="open-count">1</span>' in body

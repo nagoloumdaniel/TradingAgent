@@ -1,12 +1,13 @@
 {% extends "base.html" %}
+{% from "_macros.html" import pager, market_select %}
 {% block title %}Positions{% endblock %}
 {% block content %}
 
 <h2>Positions — {{ positions.total }} au total</h2>
 <p class="muted">
-  Les {{ positions.page_size }} positions les plus récentes, de la plus récente à la plus
-  ancienne. Flux en direct toutes les {{ interval }} s depuis la base.
-  Positions ouvertes : <span id="open-count">…</span>.
+  Marché <strong>{{ positions.market }}</strong>, du plus récent au plus ancien ;
+  {{ positions.showing }}. Flux en direct toutes les {{ "%g"|format(interval) }} s depuis la base.
+  Positions ouvertes : <span id="open-count">{{ open_count }}</span>.
   État : <span id="stream-status" class="badge">connexion…</span>
   Dernière mise à jour : <span id="positions-at">{{ display.precise(at) }}</span> UTC.
 </p>
@@ -14,6 +15,7 @@
 {# Sans JavaScript, ce formulaire est le seul chemin vers le filtrage : pas de menu à
    construire, pas de recherche côté client. Le serveur répond à GET /positions?q=…&page=… #}
 <form class="filters" method="get" action="/positions" role="search">
+  {% if markets %}{{ market_select(positions, markets) }}{% endif %}
   <div class="field">
     <label for="positions-q">Recherche</label>
     <input type="search" id="positions-q" name="q" value="{{ positions.query }}"
@@ -21,7 +23,7 @@
            autocomplete="off" spellcheck="false">
   </div>
   <div><button type="submit">Rechercher</button></div>
-  {% if positions.query %}<div><a class="action" href="/positions">Réinitialiser</a></div>{% endif %}
+  {% if positions.query %}<div><a class="action" href="/positions?market={{ positions.market }}">Réinitialiser</a></div>{% endif %}
 </form>
 
 {% if positions.query %}
@@ -45,21 +47,7 @@
 </table>
 </div>
 
-{% if positions.pages > 1 %}
-<nav class="pager" aria-label="Pagination des positions">
-  {% if positions.page > 1 %}
-    <a class="pager-link" rel="prev" href="{{ positions.url(positions.page - 1) }}">← Précédent</a>
-  {% else %}
-    <span class="pager-link disabled" aria-disabled="true">← Précédent</span>
-  {% endif %}
-  <span class="pager-status">Page {{ positions.page }} sur {{ positions.pages }}</span>
-  {% if positions.page < positions.pages %}
-    <a class="pager-link" rel="next" href="{{ positions.url(positions.page + 1) }}">Suivant →</a>
-  {% else %}
-    <span class="pager-link disabled" aria-disabled="true">Suivant →</span>
-  {% endif %}
-</nav>
-{% endif %}
+{{ pager(positions, "Pagination des positions") }}
 
 <h2>Alertes</h2>
 <p class="muted">Événements système de gravité avertissement ou critique, poussés par le flux.
@@ -151,7 +139,9 @@
     while (alerts.rows.length > 20) { alerts.deleteRow(alerts.rows.length - 1); }
   }
 
-  var source = new EventSource("/events");
+  // The stream carries the same market as the table: an unfiltered count above a filtered
+  // table would be the contradiction this page exists to avoid.
+  var source = new EventSource("/events?market=" + encodeURIComponent("{{ positions.market }}"));
   source.addEventListener("open", function () {
     status.textContent = "flux connecté";
     status.className = "badge ok";

@@ -1,60 +1,44 @@
 {% extends "base.html" %}
+{% from "_macros.html" import pager, market_select, option_select, search_field %}
 {% block title %}Trades{% endblock %}
 {% block content %}
+{% set page = listing.page %}
 
 <h2>Historique des trades clôturés</h2>
-<p class="muted">{{ entries | length }} trade(s) affiché(s) sur {{ total_trades }} au total.
-   Filtrage en mémoire : sous SQLite les montants sont stockés en texte, aucun calcul SQL ne les touche.</p>
+<p class="muted">Marché <strong>{{ page.market }}</strong> ·
+   {{ page.total }} trade(s) clôturé(s) pour cette sélection · affichage {{ page.showing }}.</p>
 
 <form class="filters" method="get" action="/trades">
   {# Chaque filtre reste un <select> natif, avec son nom et son libellé : le script de
      base.html le double d'un bouton stylé quand JavaScript est là, et le laisse tel quel
      sinon. Le menu déroulant est donc une amélioration, jamais une condition d'usage. #}
-  <div class="field">
-    <label for="market">Marché</label>
-    <select id="market" name="market" data-custom-select>
-      <option value="">Tous</option>
-      {% for value in markets %}
-        <option value="{{ value }}" {% if filters.market == value %}selected{% endif %}>{{ value }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="field">
-    <label for="strategy">Stratégie</label>
-    <select id="strategy" name="strategy" data-custom-select>
-      <option value="">Toutes</option>
-      {% for value in strategies %}
-        <option value="{{ value }}" {% if filters.strategy == value %}selected{% endif %}>{{ value }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="field">
-    <label for="mode">Mode</label>
-    <select id="mode" name="mode" data-custom-select>
-      <option value="">Tous</option>
-      {% for value in modes %}
-        <option value="{{ value.value }}" {% if filters.mode is not none and filters.mode.value == value.value %}selected{% endif %}>{{ display.mode_label(value) }} ({{ value.value }})</option>
-      {% endfor %}
-    </select>
-  </div>
+  {{ market_select(page, listing.markets) }}
+  {{ option_select("strategy", "Stratégie", listing.strategies,
+                   page.filter_value("strategy"), "Toutes") }}
+  {% set mode_labels = {} %}
+  {% for mode in modes %}{% set _ = mode_labels.update({mode.value: display.mode_label(mode) ~ " (" ~ mode.value ~ ")"}) %}{% endfor %}
+  {{ option_select("mode", "Mode", modes | map(attribute="value") | list,
+                   page.filter_value("mode"), "Tous", mode_labels) }}
+  {{ search_field("trades-q", "Recherche", page.query,
+                  "symbole, stratégie, mode, motif de sortie, ticket") }}
   <div><button type="submit">Filtrer</button></div>
 </form>
 
 <div class="cards">
-  <div class="card"><div class="label">Trades (sélection)</div><div class="value">{{ performance.trades }}</div>
-    <div class="note">{{ performance.wins }} gagnants / {{ performance.losses }} perdants</div></div>
+  <div class="card"><div class="label">Trades (sélection)</div><div class="value">{{ listing.performance.trades }}</div>
+    <div class="note">{{ listing.performance.wins }} gagnants / {{ listing.performance.losses }} perdants</div></div>
   <div class="card"><div class="label">Résultat net</div>
-    <div class="value {% if performance.net_profit < 0 %}neg{% elif performance.net_profit > 0 %}pos{% endif %}">{{ display.money(performance.net_profit, signed=True) }}</div>
+    <div class="value {{ display.ratio_class(listing.performance.net_profit) }}">{{ display.money(listing.performance.net_profit, signed=True) }}</div>
     <div class="note">analytics sur la sélection</div></div>
-  <div class="card"><div class="label">Taux de réussite</div><div class="value">{{ display.percent(performance.win_rate) }}</div>
+  <div class="card"><div class="label">Taux de réussite</div><div class="value">{{ display.percent(listing.performance.win_rate) }}</div>
     <div class="note">sur la sélection</div></div>
-  <div class="card"><div class="label">Facteur de profit</div><div class="value">{{ display.ratio(performance.profit_factor) }}</div>
+  <div class="card"><div class="label">Facteur de profit</div><div class="value">{{ display.ratio(listing.performance.profit_factor) }}</div>
     <div class="note">sur la sélection</div></div>
 </div>
 
 <div class="actions">
-  <a href="/export/trades.csv?market={{ filters.market or '' }}&strategy={{ filters.strategy or '' }}&mode={{ filters.mode.value if filters.mode else '' }}">Export CSV</a>
-  <a href="/export/trades.json?market={{ filters.market or '' }}&strategy={{ filters.strategy or '' }}&mode={{ filters.mode.value if filters.mode else '' }}">Export JSON</a>
+  <a href="/export/trades.csv?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}">Export CSV</a>
+  <a href="/export/trades.json?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}">Export JSON</a>
   <a href="/export/performance.json">Performance JSON (tout)</a>
   <a href="/export/equity.svg">Courbe d'équité (SVG)</a>
 </div>
@@ -65,8 +49,8 @@
     <tr><th>Clôturé le (UTC)</th><th>Marché</th><th>Stratégie</th><th>Sens</th><th>Unité de temps</th>
         <th>Mode</th><th class="num">P&amp;L</th><th class="num">Risque</th><th>Durée</th><th>Détail</th></tr>
   </thead>
-  <tbody>
-    {% for entry in entries | reverse %}
+  <tbody id="trades-body">
+    {% for entry in page.rows %}
       {% set trade = entry.trade %}
       <tr>
         <td>{{ display.moment(trade.closed_at) }}</td>
@@ -75,17 +59,19 @@
         <td>{{ display.direction_label(trade.direction) }}</td>
         <td>{{ trade.timeframe.value }}</td>
         <td>{{ display.mode_label(trade.mode) }}</td>
-        <td class="num {% if trade.pnl_eur < 0 %}neg{% elif trade.pnl_eur > 0 %}pos{% endif %}">{{ display.money(trade.pnl_eur, signed=True) }}</td>
+        <td class="num {{ display.ratio_class(trade.pnl_eur) }}">{{ display.money(trade.pnl_eur, signed=True) }}</td>
         <td class="num">{{ display.money(trade.risk_eur) }}</td>
         <td>{{ display.duration(trade.closed_at - trade.opened_at) }}</td>
         <td><a href="/trades/{{ entry.signal_id }}">rejouer</a></td>
       </tr>
     {% else %}
-      <tr><td colspan="10" class="empty">Aucun trade clôturé pour ces filtres.</td></tr>
+      <tr><td colspan="10" class="empty">{{ page.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
+
+{{ pager(page, "Pagination des trades") }}
 
 {% if detail %}
   <h2>Détail du trade</h2>
@@ -96,7 +82,7 @@
     <div class="card"><div class="label">Marché</div><div class="value">{{ detail.trade.symbol }}</div>
       <div class="note">{{ detail.trade.strategy_ref }} — {{ detail.trade.timeframe.value }}</div></div>
     <div class="card"><div class="label">P&amp;L</div>
-      <div class="value {% if detail.trade.pnl_eur < 0 %}neg{% elif detail.trade.pnl_eur > 0 %}pos{% endif %}">{{ display.money(detail.trade.pnl_eur, signed=True) }}</div>
+      <div class="value {{ display.ratio_class(detail.trade.pnl_eur) }}">{{ display.money(detail.trade.pnl_eur, signed=True) }}</div>
       <div class="note">risque {{ display.money(detail.trade.risk_eur) }}</div></div>
     <div class="card"><div class="label">Ouverture</div><div class="value" style="font-size:15px">{{ display.precise(detail.trade.opened_at) }}</div>
       <div class="note">clôture {{ display.precise(detail.trade.closed_at) }}</div></div>

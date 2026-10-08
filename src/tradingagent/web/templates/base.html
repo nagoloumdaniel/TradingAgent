@@ -226,16 +226,25 @@ body {
 /* -- ossature -------------------------------------------------------------------------- */
 .top, .shell, footer { position: relative; z-index: 1; }
 
+/* -- en-tête flottante en verre --------------------------------------------------------
+   Une barre qui flotte au-dessus du contenu, et qui reste courte : c'est la *surface*
+   floutée qui coûte cher au défilement, pas le flou lui-même. Une barre d'une ligne coûte
+   donc une fraction de ce que coûtait le bandeau pleine largeur. Le fond translucide est
+   opaque à 72 % dans les deux thèmes : sans `backdrop-filter` (navigateur ancien, mode
+   économie d'énergie), la barre reste parfaitement lisible. */
 .top {
   grid-area: top;
-  position: sticky; top: 0; z-index: 20;
+  position: sticky; top: 10px; z-index: 20;
+  margin: 10px 18px 0;
   display: flex; flex-wrap: wrap; align-items: center;
-  gap: 6px 18px;
-  padding: 11px 24px;
-  border-bottom: 1px solid var(--glass-line);
+  gap: 6px 14px;
+  padding: 8px 12px 8px 16px;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
   background: var(--glass-strong);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: inset 0 1px 0 var(--glass-top), var(--shadow);
+  -webkit-backdrop-filter: blur(16px) saturate(170%);
+  backdrop-filter: blur(16px) saturate(170%);
 }
 .brand { display: flex; align-items: center; gap: 11px; margin: 0;
          font-size: 15.5px; font-weight: 600; letter-spacing: -0.015em; }
@@ -246,53 +255,123 @@ body {
   font-size: 10px; font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase;
   color: var(--muted);
 }
-.top .sub { margin: 0; color: var(--muted); font-size: 12.5px; max-width: 62ch; }
 
-.theme-switch {
-  margin-left: auto; display: inline-flex; gap: 2px; padding: 3px;
+/* Le jeu d'icônes : la géométrie vient de la sprite, la taille et la couleur d'ici. Un
+   symbole hérite de `currentColor`, donc la même icône se dessine en accent dans la
+   navigation active et en gris ailleurs, sans deuxième copie du chemin. */
+.icon { width: 1.1em; height: 1.1em; display: block; flex: 0 0 auto; }
+.sprite { display: none; }
+
+/* -- bouton de thème, un seul ----------------------------------------------------------
+   Un bouton, pas deux, pas un menu : lune et soleil occupent la même pastille et glissent
+   l'un vers l'autre. `aria-pressed` annonce l'état (vrai = thème clair) et le nom accessible
+   change avec lui, pour qu'un lecteur d'écran n'ait pas à deviner ce qui est affiché. */
+.theme-toggle {
+  margin-left: auto;
+  position: relative; display: grid; place-items: center;
+  width: 40px; height: 32px; padding: 0; cursor: pointer;
   border: 1px solid var(--glass-line); border-radius: 999px;
-  background: var(--glass);
+  background: var(--glass); color: var(--accent);
+  overflow: hidden;
 }
-.theme-switch button {
-  display: grid; place-items: center; width: 28px; height: 26px; cursor: pointer;
-  border: 0; border-radius: 999px; background: none; color: var(--faint);
-  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+.theme-toggle:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.theme-toggle:active { transform: scale(0.94); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.theme-toggle .theme-icon {
+  position: absolute; display: grid; place-items: center;
+  transition: transform 220ms var(--ease-out), opacity 220ms var(--ease-out);
 }
-.theme-switch button:hover { color: var(--text); }
-.theme-switch button[aria-pressed="true"] {
-  background: var(--accent-soft); color: var(--accent);
+.theme-toggle .icon { width: 16px; height: 16px; }
+:root:not([data-theme="light"]) .theme-icon-sun { opacity: 0; transform: translateY(-130%) rotate(-90deg); }
+:root:not([data-theme="light"]) .theme-icon-moon { opacity: 1; transform: none; }
+:root[data-theme="light"] .theme-icon-moon { opacity: 0; transform: translateY(130%) rotate(90deg); }
+:root[data-theme="light"] .theme-icon-sun { opacity: 1; transform: none; }
+
+/* -- barres de défilement --------------------------------------------------------------
+   La *barre* du document disparaît, le *défilement* reste : la molette, les flèches, Page
+   haut/bas, l'espace et le tactile passent par le scroll du navigateur, que masquer la
+   barre ne touche pas. Là où une zone défile réellement (un tableau plus large que son
+   cadre, le tiroir), la barre est conservée et stylisée : c'est le seul indice qu'il reste
+   des colonnes à droite, et la supprimer rendrait des données inatteignables. */
+html { scrollbar-width: none; }
+html::-webkit-scrollbar { width: 0; height: 0; }
+.table-wrap, nav.side, .custom-select-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
-.theme-switch svg { width: 15px; height: 15px; }
-.theme-switch button:active { transform: scale(0.94); }
-.theme-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.table-wrap::-webkit-scrollbar, nav.side::-webkit-scrollbar,
+.custom-select-list::-webkit-scrollbar { width: 8px; height: 8px; }
+.table-wrap::-webkit-scrollbar-thumb, nav.side::-webkit-scrollbar-thumb,
+.custom-select-list::-webkit-scrollbar-thumb {
+  background: var(--line-strong); border-radius: 999px;
+}
+.table-wrap::-webkit-scrollbar-track { background: transparent; }
+/* Une zone qui défile au clavier est une zone qu'on doit pouvoir atteindre au clavier : le
+   script de fin de page pose `tabindex` dès que le contenu déborde vraiment. */
+.table-wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* minmax(0, 1fr) et min-width: 0 empêchent un tableau large d'étirer la page entière :
    une piste `1fr` a un plancher implicite de min-content, et le white-space: nowrap d'un
    tableau ferait déborder la mise en page au-delà du viewport sur mobile. */
-.shell { grid-area: body; display: grid; grid-template-columns: 228px minmax(0, 1fr);
-         min-width: 0; }
+.shell { grid-area: body; display: grid; grid-template-columns: 232px minmax(0, 1fr);
+         min-width: 0; align-items: start; }
 
+/* -- barre latérale figée --------------------------------------------------------------
+   Elle ne défile pas avec le contenu : `position: sticky` la garde visible pendant toute la
+   lecture d'une longue table, et son propre défilement n'apparaît que si ses entrées
+   dépassent la hauteur de l'écran. Sous 880 px elle devient un tiroir (voir plus bas) —
+   une barre figée qui mangerait 40 % d'un écran de téléphone serait un défaut, pas un
+   choix. */
 nav.side {
   display: flex; flex-direction: column; gap: 2px;
-  padding: 16px 12px 24px;
-  border-right: 1px solid var(--glass-line);
+  position: sticky; top: 72px;
+  max-height: calc(100dvh - 88px);
+  overflow-y: auto;
+  margin: 16px 0 0 14px;
+  padding: 10px 9px 14px;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--radius);
   background: var(--glass);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   min-width: 0;
 }
 nav.side a {
-  display: block; padding: 8px 11px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 11px; border-radius: var(--radius-sm);
   color: var(--muted); text-decoration: none; font-size: 13.5px; font-weight: 450;
   white-space: nowrap;
   transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
 }
+nav.side a .icon { color: var(--faint); transition: color 150ms var(--ease-out); }
 nav.side a:hover { background: var(--glass); color: var(--text); }
+nav.side a:hover .icon { color: var(--muted); }
 nav.side a.active {
   background: var(--surface-2); color: var(--text); font-weight: 550;
   box-shadow: inset 0 0 0 1px var(--glass-line);
 }
+nav.side a.active .icon { color: var(--accent); }
 nav.side a:active { transform: scale(0.985); }
+
+/* Le bouton du tiroir n'existe que sur petit écran : au-delà, la barre est déjà là. */
+.menu-toggle {
+  display: none; place-items: center;
+  width: 36px; height: 32px; padding: 0; cursor: pointer;
+  border: 1px solid var(--glass-line); border-radius: var(--radius-sm);
+  background: var(--glass); color: var(--text);
+}
+.menu-toggle .icon { width: 17px; height: 17px; }
+
+/* Le voile du tiroir : cliquer à côté referme, et il ne capte rien quand le tiroir est
+   fermé (sinon il avalerait tous les clics de la page). */
+.drawer-scrim {
+  position: fixed; inset: 0; z-index: 30;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0; pointer-events: none;
+  transition: opacity 200ms var(--ease-out);
+}
+body[data-drawer="open"] .drawer-scrim { opacity: 1; pointer-events: auto; }
+
 
 main {
   padding: 26px 28px 64px; max-width: 1420px; width: 100%; min-width: 0;
@@ -558,19 +637,38 @@ footer code { background: none; border: 0; padding: 0; }
 
 @media (max-width: 880px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
+  /* Le tiroir : la barre latérale sort du flux, glisse depuis la gauche et se referme au
+     clavier (Échap), au clic sur le voile ou sur une entrée. Elle ne prend plus une seule
+     ligne de contenu tant qu'elle est fermée. */
   nav.side {
-    flex-direction: row; gap: 6px; overflow-x: auto;
-    padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--glass-line);
-    scrollbar-width: thin;
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 40;
+    width: min(80vw, 300px); max-height: none;
+    margin: 0; padding: 16px 12px 24px;
+    border: 0; border-right: 1px solid var(--glass-line);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    transform: translateX(-102%);
+    visibility: hidden;
+    transition: transform 200ms var(--ease-out), visibility 200ms;
+    overscroll-behavior: contain;
   }
-  nav.side a { flex: 0 0 auto; }
+  body[data-drawer="open"] nav.side { transform: none; visibility: visible; }
+  .menu-toggle { display: inline-grid; }
+  .top { top: 8px; margin: 8px 12px 0; border-radius: var(--radius);
+         padding: 8px 10px 8px 14px; gap: 4px 10px; }
+  .theme-toggle { margin-left: 0; }
   main { padding: 18px 16px 52px; }
-  .top { padding: 10px 16px; gap: 4px 12px; }
-  .top .sub { display: none; }
   /* 1 / -1 plutôt que span 2 : si la grille retombe à une seule colonne, la carte héro
      occupe la ligne au lieu de fabriquer une colonne fantôme qui déborde. */
   .card.hero { grid-column: 1 / -1; }
   footer { padding: 16px; }
+}
+
+/* Au-delà de 880 px le tiroir n'existe pas : ni bouton, ni voile, ni état ouvert. */
+@media (min-width: 881px) {
+  .drawer-scrim { display: none; }
+  .menu-toggle { display: none; }
 }
 
 @media (max-width: 560px) {
@@ -598,7 +696,7 @@ footer code { background: none; border: 0; padding: 0; }
 
 /* -- impression ------------------------------------------------------------------------ */
 @media print {
-  .atmosphere, .theme-switch, nav.side { display: none; }
+  .atmosphere, .theme-toggle, .menu-toggle, nav.side, .drawer-scrim { display: none; }
   body { background: #fff; color: #000; }
   .card, .table-wrap { box-shadow: none; }
 }
@@ -609,7 +707,15 @@ footer code { background: none; border: 0; padding: 0; }
 {# Le gabarit de base ne suppose aucune clé de contexte : la page 503, la 404 et la 401
    sont rendues par d'autres chemins que `page()`. Un filigrane absent est simplement un
    filigrane qu'on ne dessine pas. #}
+{% import "_icons.html" as icons %}
 {% set wm = watermark | default(none) %}
+{# Quelle icône porte quelle entrée : le jeu vit ici, avec le reste du shell. #}
+{% set nav_icons = {
+     "/": "gauge", "/positions": "layers", "/trades": "receipt", "/scalping": "zap",
+     "/strategies": "flask", "/ai-lab": "bot", "/risk": "shield", "/system": "server",
+     "/reports": "file-text",
+   } %}
+{% include "_sprite.html" %}
 <div class="atmosphere" aria-hidden="true">
   <span class="glow glow-a"></span>
   <span class="glow glow-b"></span>
@@ -646,32 +752,30 @@ footer code { background: none; border: 0; padding: 0; }
     <img src="/static/nexagold.png" alt="" width="27" height="27">
     <span class="name">TradingAgent<span class="tag">lecture seule</span></span>
   </h1>
-  <p class="sub">Le tableau de bord ne calcule aucun indicateur et ne peut ni écrire en base
-     ni passer d'ordre (§34).</p>
-  <div class="theme-switch" role="group" aria-label="Thème">
-    <button type="button" data-theme-set="dark" aria-pressed="false" title="Thème sombre">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
-      </svg>
-      <span class="sr-only">Thème sombre</span>
-    </button>
-    <button type="button" data-theme-set="light" aria-pressed="false" title="Thème clair">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="4"/>
-        <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
-      </svg>
-      <span class="sr-only">Thème clair</span>
-    </button>
-  </div>
+  {# N'existe qu'en dessous de 880 px : au-delà, la barre latérale est déjà à l'écran. #}
+  <button type="button" class="menu-toggle" id="menu-toggle"
+          aria-expanded="false" aria-controls="side-nav" aria-label="Ouvrir le menu">
+    {{ icons.icon("menu") }}
+  </button>
+  {# Un seul bouton, deux icônes, et un état annoncé. `aria-pressed` vaut vrai quand le
+     thème clair est actif : un lecteur d'écran entend l'état, le nom accessible dit ce que
+     le clic fera. #}
+  <button type="button" class="theme-toggle" id="theme-toggle"
+          aria-pressed="false" aria-label="Activer le thème clair" title="Activer le thème clair">
+    <span class="theme-icon theme-icon-moon">{{ icons.icon("moon") }}</span>
+    <span class="theme-icon theme-icon-sun">{{ icons.icon("sun") }}</span>
+  </button>
 </header>
 
+<div class="drawer-scrim" data-drawer-close aria-hidden="true"></div>
+
 <div class="shell">
-  <nav class="side">
+  <nav class="side" id="side-nav" aria-label="Navigation principale">
     {% for path, label in pages %}
       {% set active = request.url.path == path or (path != '/' and request.url.path.startswith(path + '/')) %}
-      <a href="{{ path }}" {% if active %}class="active" aria-current="page"{% endif %}>{{ label }}</a>
+      <a href="{{ path }}" {% if active %}class="active" aria-current="page"{% endif %}>
+        {{ icons.icon(nav_icons.get(path, "activity")) }}<span>{{ label }}</span>
+      </a>
     {% endfor %}
   </nav>
   <main>
@@ -681,30 +785,111 @@ footer code { background: none; border: 0; padding: 0; }
 
 <footer>
   Vue rendue le {{ display.precise(render_at) }} UTC — montants en EUR, dates en UTC.
-  Données : base de l'agent et paquet <code>analytics</code>.
 </footer>
 
 <script>
+/* Le bouton de thème, unique. Le thème lui-même est déjà posé par le script du <head> :
+   ici on ne fait que basculer, mémoriser, et tenir l'état accessible à jour. */
 (function () {
+  "use strict";
   var root = document.documentElement;
-  var buttons = document.querySelectorAll("[data-theme-set]");
-  function paint(theme) {
-    for (var i = 0; i < buttons.length; i++) {
-      buttons[i].setAttribute("aria-pressed", String(buttons[i].dataset.themeSet === theme));
+  var button = document.getElementById("theme-toggle");
+  if (!button) { return; }
+
+  function current() { return root.dataset.theme === "light" ? "light" : "dark"; }
+
+  function paint() {
+    var light = current() === "light";
+    var label = light ? "Activer le thème sombre" : "Activer le thème clair";
+    button.setAttribute("aria-pressed", String(light));
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
+  }
+
+  button.addEventListener("click", function () {
+    var next = current() === "light" ? "dark" : "light";
+    root.dataset.theme = next;
+    try { localStorage.setItem("ta-theme", next); } catch (error) { /* mode privé */ }
+    paint();
+  });
+
+  paint();
+})();
+</script>
+
+<script>
+/* Le tiroir de navigation, sous 880 px seulement. Échap le referme et rend le focus au
+   bouton ; le voile et le choix d'une entrée aussi. `aria-expanded` suit l'état réel. */
+(function () {
+  "use strict";
+  var button = document.getElementById("menu-toggle");
+  var nav = document.getElementById("side-nav");
+  if (!button || !nav) { return; }
+
+  function isOpen() { return document.body.dataset.drawer === "open"; }
+
+  function open() {
+    document.body.dataset.drawer = "open";
+    button.setAttribute("aria-expanded", "true");
+    button.setAttribute("aria-label", "Fermer le menu");
+    var first = nav.querySelector("a");
+    if (first) { first.focus(); }
+  }
+
+  function close(restoreFocus) {
+    delete document.body.dataset.drawer;
+    button.setAttribute("aria-expanded", "false");
+    button.setAttribute("aria-label", "Ouvrir le menu");
+    if (restoreFocus) { button.focus(); }
+  }
+
+  button.addEventListener("click", function () { if (isOpen()) { close(true); } else { open(); } });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && isOpen()) { close(true); }
+  });
+  var scrim = document.querySelector("[data-drawer-close]");
+  if (scrim) { scrim.addEventListener("click", function () { close(false); }); }
+  nav.addEventListener("click", function (event) {
+    if (event.target.closest && event.target.closest("a")) { close(false); }
+  });
+})();
+</script>
+
+<script>
+/* Une zone qui défile doit rester atteignable au clavier. La barre de défilement d'un
+   tableau large est conservée (voir la feuille de style), mais un <div> n'est pas focusable
+   par défaut : dès que le contenu dépasse vraiment, on le rend focusable et on lui donne un
+   nom, pris au titre qui le précède. Rien n'est posé quand il n'y a rien à faire défiler,
+   pour ne pas encombrer l'ordre de tabulation. */
+(function () {
+  "use strict";
+  function headingOf(wrap) {
+    var node = wrap.previousElementSibling;
+    while (node && node.tagName !== "H2" && node.tagName !== "H3") {
+      node = node.previousElementSibling;
     }
+    return node ? node.textContent.trim() : "";
   }
-  function current() {
-    return root.dataset.theme === "light" ? "light" : "dark";
-  }
-  for (var i = 0; i < buttons.length; i++) {
-    buttons[i].addEventListener("click", function () {
-      var theme = this.dataset.themeSet;
-      root.dataset.theme = theme;
-      try { localStorage.setItem("ta-theme", theme); } catch (error) { /* ignore */ }
-      paint(theme);
+
+  function mark() {
+    var wraps = document.querySelectorAll(".table-wrap");
+    Array.prototype.forEach.call(wraps, function (wrap) {
+      if (wrap.scrollWidth > wrap.clientWidth + 1) {
+        wrap.setAttribute("tabindex", "0");
+        wrap.setAttribute("role", "region");
+        var name = headingOf(wrap);
+        if (name) { wrap.setAttribute("aria-label", name); }
+      } else {
+        wrap.removeAttribute("tabindex");
+        wrap.removeAttribute("role");
+        wrap.removeAttribute("aria-label");
+      }
     });
   }
-  paint(current());
+
+  mark();
+  window.addEventListener("resize", mark);
+  window.addEventListener("load", mark);
 })();
 </script>
 
@@ -718,8 +903,9 @@ footer code { background: none; border: 0; padding: 0; }
 (function () {
   "use strict";
   var CHEVRON =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
-    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<use href="#i-chevron-down"/></svg>';
 
   function enhance(select) {
     if (select.dataset.customReady === "1") { return; }
