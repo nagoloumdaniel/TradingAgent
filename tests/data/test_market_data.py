@@ -6,12 +6,14 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from tests.data.conftest import FakeTerminal
 
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.market_data import (
     AccountMismatchError,
     ClockMismatchError,
+    ClockUnverifiableError,
     HistoryNotSyncedError,
     MarketDataClient,
     Subscription,
@@ -119,9 +121,16 @@ def test_unexpected_server_offset_refuses_to_start(terminal: Any, credentials: C
 
 
 def test_stale_probe_tick_refuses_to_start(terminal: Any, credentials: Credentials) -> None:
+    """Ten minutes old is not a half-hour offset: there is nothing to measure, and it says so.
+
+    A tick exactly one hour old would be a different story — that reads as a legitimate
+    `-01:00` offset, which is why the mismatch check below is the safe direction.
+    """
     market = client(terminal, credentials)
-    terminal.ticks[PROBE] = RawTick(server_epoch(NOW - timedelta(hours=1), timedelta(0)), 1.0, 1.0)
-    with pytest.raises(ClockMismatchError):
+    terminal.ticks[PROBE] = RawTick(
+        server_epoch(NOW - timedelta(minutes=10), timedelta(0)), 1.0, 1.0
+    )
+    with pytest.raises(ClockUnverifiableError, match=r"stale|off a half-hour"):
         run(market.connect())
 
 
@@ -135,6 +144,94 @@ def test_offset_change_while_running_is_detected(terminal: Any, credentials: Cre
         await market.close()
 
     run(scenario())
+
+
+class ProbeNeedsWatching(FakeTerminal):
+    """A terminal that has just restarted: it serves a tick only for symbols it watches.
+
+    This is the shape of the failure of 2026-10-07. The probe answered None because nothing
+    had put it back in Market Watch, and the clock check could not pass — so the recovery
+    path, which ran only after a successful check, never ran either.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.watched: set[str] = set()
+
+    def select(self, symbol: str) -> bool:
+        selected = super().select(symbol)
+        if selected:
+            self.watched.add(symbol)
+        return selected
+
+    def last_tick(self, symbol: str) -> RawTick | None:
+        self._record("last_tick")
+        return self.ticks.get(symbol) if symbol in self.watched else None
+
+
+def test_a_probe_that_is_not_watched_is_watched_before_its_tick_is_read(
+    credentials: Credentials,
+) -> None:
+    """The cure: selection first, verification second. Before the fix this raised."""
+    terminal = ProbeNeedsWatching()
+    delays: list[float] = []
+
+    async def scenario() -> None:
+        market = client(terminal, credentials, delays=delays)
+        await market.connect()
+        await market.close()
+
+    run(scenario())
+
+    assert terminal.watched == {PROBE}
+    # No wait at all: the probe is watched before the first read, so the first read answers.
+    # The retries below are for the harder case — a probe that is watched and still silent.
+    assert delays == []
+
+
+def test_a_probe_without_a_tick_is_unverifiable_and_not_a_mismatch(
+    terminal: Any, credentials: Credentials
+) -> None:
+    """Nothing to measure is not a measurement that failed: the two must not be conflated."""
+    delays: list[float] = []
+
+    async def scenario() -> BaseException:
+        market = client(terminal, credentials, delays=delays)
+        await market.connect()
+        terminal.ticks.pop(PROBE)
+        try:
+            await market.verify_clock()
+        except BaseException as error:  # the test reads the type it got
+            await market.close()
+            return error
+        raise AssertionError("a client accepted a clock it could not measure")
+
+    error = run(scenario())
+
+    assert isinstance(error, ClockUnverifiableError)
+    assert not isinstance(error, ClockMismatchError)
+    assert "no tick" in str(error)
+    assert delays == [0.5, 0.5]  # bounded retries, then the honest answer
+
+
+def test_a_reconnection_with_an_unverifiable_clock_restores_the_selection(
+    terminal: Any, credentials: Credentials
+) -> None:
+    """A reconnect is a reconnect: only the probe was silent, the data path is usable."""
+
+    async def scenario() -> bool:
+        market = client(terminal, credentials)
+        await market.connect()
+        await market.select({"XAUUSD"})
+        terminal.connected = False
+        terminal.ticks.pop(PROBE)
+        terminal.selected.clear()
+        restored = await market.ensure_connected()
+        await market.close()
+        return restored
+
+    assert run(scenario()) is True
+    assert set(terminal.selected) == {PROBE, "XAUUSD"}
 
 
 def test_only_closed_candles_come_out_in_utc(terminal: Any, credentials: Credentials) -> None:

@@ -20,9 +20,12 @@ files:
     is overwritten.
 
 Every write goes through a temporary file in the same directory followed by
-:func:`os.replace`, so a reader never sees a half-written document. Every read tolerates
-a missing or corrupt file: a file that cannot be parsed is skipped, never raised, because
-an unreadable report is an *offline* EA, not a crash of the agent.
+:func:`os.replace`, so a reader never sees a half-written document. On Windows that rename
+is refused (``PermissionError``, WinError 5) while the EA happens to hold the destination
+open, which it does several times per second; the rename is therefore retried for a short
+bounded budget before the failure is propagated. Every read tolerates a missing or corrupt
+file: a file that cannot be parsed is skipped, never raised, because an unreadable report
+is an *offline* EA, not a crash of the agent.
 
 Nothing here imports the terminal or the executor: the bridge is testable without MT5 and
 stays on the safe side of the architecture gate (`tests/test_architecture.py`).
@@ -32,6 +35,7 @@ import contextlib
 import json
 import os
 import tempfile
+import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -54,6 +58,20 @@ REPORTS_DIR_NAME = "reports"
 STATE_SUFFIX = "_state.json"
 REPORT_SUFFIX = "_report.json"
 EVENTS_SUFFIX = "_events.jsonl"
+
+#: How many times a rename is attempted before a refusal is treated as a real failure.
+#:
+#: Windows refuses `os.replace` while another process holds the destination open, and the
+#: EA reads the state file several times per second. A read is an open/read/close of a few
+#: hundred microseconds, so a handful of tries a few milliseconds apart clears the lock
+#: with near-certainty; five tries cost at most four pauses, and losing the heartbeat to
+#: the EA's own thirty-second watchdog would cost far more than a tenth of a second.
+STATE_REPLACE_ATTEMPTS = 5
+
+#: Pause between two rename attempts, in seconds. Twenty milliseconds is roughly two
+#: orders of magnitude above the duration of a read, so the reader has certainly let go,
+#: and generous enough to absorb a slow file-system filter driver.
+STATE_REPLACE_RETRY_SECONDS = 0.02
 
 
 def _utc_now() -> datetime:
@@ -260,26 +278,86 @@ def parse_utc(value: Any) -> datetime:
     return parsed.astimezone(UTC)
 
 
+def _is_rename_refusal(error: BaseException) -> bool:
+    """True when the rename was refused by a lock, and waiting could change the answer.
+
+    Windows reports a destination held open by a reader as ``ERROR_ACCESS_DENIED`` (5) or
+    ``ERROR_SHARING_VIOLATION`` (32), both surfaced as :class:`PermissionError`. Anything
+    else — a full disk, a missing directory, a read-only volume — will not improve by
+    being asked again, and must fail at once.
+    """
+    if isinstance(error, PermissionError):
+        return True
+    return isinstance(error, OSError) and getattr(error, "winerror", None) in (5, 32)
+
+
+def _rename_with_retry(temporary: str, target: Path) -> None:
+    """Rename `temporary` onto `target`, outlasting a reader that holds `target` open.
+
+    The rename is the only moment the reader can refuse, and only for as long as it keeps
+    the file open. Retrying costs a short bounded wait; not retrying loses the heartbeat,
+    and the EA halts itself once it stops hearing the backend (RM-013). A refusal that
+    survives the whole budget is propagated unchanged: the caller must still see a real
+    failure, and the previous document stays on disk untouched.
+    """
+    for attempt in range(STATE_REPLACE_ATTEMPTS):
+        try:
+            os.replace(temporary, target)
+            return
+        except OSError as error:
+            if attempt == STATE_REPLACE_ATTEMPTS - 1 or not _is_rename_refusal(error):
+                raise
+        time.sleep(STATE_REPLACE_RETRY_SECONDS)
+
+
+def _file_identity(path: str) -> tuple[int, int] | None:
+    """A cheap fingerprint of one file — ``(device, inode)`` — or None when it is gone."""
+    try:
+        info = os.stat(path)
+    except OSError:
+        return None
+    return (info.st_dev, info.st_ino)
+
+
+def _discard_temporary(temporary: str, identity: tuple[int, int] | None) -> None:
+    """Remove the temporary this call created, and only that one.
+
+    The destination is never touched: a refused publish must leave the EA the whole
+    document it has been reading. The identity check answers "is this still the file I
+    created?" — if the path now holds something else, another writer owns it and deleting
+    it would be its bug, not our cleanup. The unlink itself can be refused too (a scanner
+    holds the temporary), and that must not mask the failure the caller is about to see,
+    so it is suppressed: one stray `.tmp` is better than a hidden error.
+    """
+    current = _file_identity(temporary)
+    if current is None:
+        return  # already gone: the rename landed after all, or someone moved it
+    if identity is not None and current != identity:
+        return  # not ours any more
+    with contextlib.suppress(OSError):
+        os.unlink(temporary)
+
+
 def _write_atomic(path: Path, text: str) -> None:
     """Write `text` to `path` atomically: temp file in the same directory, then replace.
 
     A reader either sees the whole previous document or the whole new one, never a
     half-written one — which is what makes a torn read impossible even though two
-    processes share these files.
+    processes share these files. The rename is retried while a reader holds `path` open.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     handle_fd, temporary = tempfile.mkstemp(
         dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp"
     )
+    identity = _file_identity(temporary)
     try:
         with os.fdopen(handle_fd, "w", encoding="utf-8", newline="\n") as stream:
             stream.write(text)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        _rename_with_retry(temporary, path)
     except BaseException:
-        with contextlib.suppress(OSError):
-            os.unlink(temporary)
+        _discard_temporary(temporary, identity)
         raise
 
 
@@ -646,6 +724,8 @@ __all__ = [
     "REPORTS_DIR_NAME",
     "REPORT_SUFFIX",
     "STATE_DIR_NAME",
+    "STATE_REPLACE_ATTEMPTS",
+    "STATE_REPLACE_RETRY_SECONDS",
     "STATE_SUFFIX",
     "AuthorisedOrder",
     "EaDivergence",

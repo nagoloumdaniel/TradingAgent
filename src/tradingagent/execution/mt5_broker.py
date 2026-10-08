@@ -11,11 +11,16 @@ The rules this module enforces, in order, for every single order:
 3. `order_check` runs for information only. It approves orders the server later refuses for
    jurisdiction (measured on this account, section 12.1): only the `order_send` return code
    counts.
-4. The stop and the target are sent natively, then **read back from the position**; a stop
-   that is not there triggers an immediate close and an alert.
-5. Requested price, executed price and the gap between them are recorded, and the order,
+4. The volume is validated against the broker's own step, minimum and maximum before the
+   send: the terminal is never asked to refuse an order this layer could refuse itself.
+5. The stop and the target are sent natively, then **read back from the position** with a
+   bounded retry (a terminal can answer the fill before its position list shows it); once the
+   retries are spent, a stop that is still not there triggers an immediate close and an alert.
+6. Requested price, executed price and the gap between them are recorded, and the order,
    the fill and the position are journalled by the executor (the single writer of `orders`,
-   `positions`, `executions` and `trades`, PAPER and DEMO alike).
+   `positions`, `executions` and `trades`, PAPER and DEMO alike). `reconcile` collects the
+   closures the broker made on its own before comparing states, so a stop-out is a trade to
+   journal rather than a divergence to halt on.
 """
 
 import asyncio
@@ -23,7 +28,7 @@ import hashlib
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import ROUND_FLOOR, Decimal
 from typing import TypeVar
 
 from tradingagent.core.account import AccountModeMismatchError, verify_account_mode
@@ -32,6 +37,7 @@ from tradingagent.core.market import Candle, Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.data.terminal import (
     MAGIC,
+    DealInfo,
     PositionInfo,
     TerminalError,
     TradeRequest,
@@ -65,6 +71,10 @@ COMMENT_LIMIT = 31
 HASH_LENGTH = 16
 DONE_RETCODES = (10008, 10009)  # placed, done
 STOP_TOLERANCE = Decimal("0.01")
+# The terminal can publish the fill before its position list shows it. A single stale read is
+# not evidence, so the stop read-back is retried before "not confirmed" becomes "not protected".
+STOP_READBACK_ATTEMPTS = 3
+STOP_READBACK_PAUSE = 0.25
 T = TypeVar("T")
 
 
@@ -97,6 +107,8 @@ class MT5Broker:
         alert: Alert | None = None,
         status: Callable[[], HaltStatus] | None = None,
         guardian_alarm: Callable[[AccountModeMismatchError], None] | None = None,
+        stop_readback_attempts: int = STOP_READBACK_ATTEMPTS,
+        stop_readback_pause: float = STOP_READBACK_PAUSE,
     ) -> None:
         if mode is TradingMode.PAPER:
             raise ValueError("PAPER mode uses PaperBroker, never the terminal")
@@ -110,6 +122,8 @@ class MT5Broker:
         self._alert = alert
         self._status = status
         self._guardian_alarm = guardian_alarm
+        self._readback_attempts = stop_readback_attempts
+        self._readback_pause = stop_readback_pause
         self._known: set[int] = set()
         self._deal_cursor = 0
         self._seeded = False
@@ -211,6 +225,20 @@ class MT5Broker:
                     message="a previous attempt has an unknown outcome: reconcile, never resend",
                 )
             return self._replay(existing.ticket, existing.state, existing.retcode, price)
+        # The executor is the last gate before the terminal: a volume the broker cannot take
+        # is a refusal here, never a request the server answers with 10014.
+        problem = await self._volume_problem(request)
+        if problem is not None:
+            return OrderResult(
+                accepted=False,
+                ticket=None,
+                retcode=None,
+                requested_price=price,
+                executed_price=None,
+                slippage=None,
+                stop_present=False,
+                message=problem,
+            )
         # The intent is journalled before anything leaves the process (R-05).
         order_id = self._log.record_request(request, price, self._now())
 
@@ -338,6 +366,16 @@ class MT5Broker:
             message=f"closed at {closed.exit_price}",
         )
 
+    async def collect_closures(self) -> tuple[ClosedPosition, ...]:
+        """Whatever the broker closed since the last call, whatever the candles are doing.
+
+        The candle poll notices a stop-out up to a bar late, and reconciliation notices it
+        within twenty seconds. Called by the loop *before* it reconciles, this is what lets
+        the closure reach the operator as a message, the telemetry as POSITION_CLOSED and
+        the daily bucket as a trade — instead of existing only in the ledger.
+        """
+        return await self._collect_closures()
+
     async def on_candle(self, symbol: str, candle: Candle) -> tuple[ClosedPosition, ...]:
         return await self._collect_closures()
 
@@ -438,7 +476,11 @@ class MT5Broker:
         )
         self._log.record_result(order_id, result, self._now())
         self._log.record_fill(
-            order_id, request, result, deal_ticket=position.ticket, at=self._now()
+            order_id,
+            request,
+            result,
+            deal_ticket=await self._entry_deal_ticket(position.ticket),
+            at=self._now(),
         )
         self._known.add(position.ticket)
         if not result.stop_present:
@@ -471,16 +513,50 @@ class MT5Broker:
         return final
 
     async def _stop_present(self, ticket: int, request: OrderRequest) -> bool:
-        positions = await self._call(self._terminal.positions, request.symbol)
-        for position in positions:
-            if position.ticket != ticket:
-                continue
-            if not position.stop_loss:
-                return False
-            spec = await self.instrument(request.symbol)
-            tolerance = max(spec.point * 2, STOP_TOLERANCE)
-            return abs(Decimal(str(position.stop_loss)) - request.stop_loss) <= tolerance
+        """Read the stop back from the position, tolerating a terminal cache that lags.
+
+        The terminal can answer the fill before its position list shows it, so one stale read
+        is not evidence: `not confirmed` only becomes `not protected` after the bounded
+        retries. A stop present at another price is a real difference and answers at once.
+        """
+        for attempt in range(self._readback_attempts):
+            if attempt:
+                await asyncio.sleep(self._readback_pause)
+            positions = await self._call(self._terminal.positions, request.symbol)
+            for position in positions:
+                if position.ticket != ticket:
+                    continue
+                if not position.stop_loss:
+                    break
+                spec = await self.instrument(request.symbol)
+                tolerance = max(spec.point * 2, STOP_TOLERANCE)
+                return abs(Decimal(str(position.stop_loss)) - request.stop_loss) <= tolerance
         return False  # gone or unreadable: not confirmed is not confirmed
+
+    async def _volume_problem(self, request: OrderRequest) -> str | None:
+        """Why the broker cannot take that volume, or None when it can.
+
+        The risk engine already rounds the size down to the lot step (`risk/sizing.py`), but
+        this executor also answers paths that do not go through it, and MT5 rejects a volume
+        that is not a multiple of `volume_step`. Refusing here keeps the order out of the
+        terminal instead of collecting a 10014 and a phantom position.
+        """
+        spec = await self.instrument(request.symbol)
+        volume = request.volume
+        if volume < spec.volume_min or volume > spec.volume_max:
+            return (
+                f"volume {volume} is outside the broker limits "
+                f"{spec.volume_min}..{spec.volume_max} for {request.symbol}: refused before sending"
+            )
+        whole = (volume / spec.volume_step).to_integral_value(
+            rounding=ROUND_FLOOR
+        ) * spec.volume_step
+        if whole != volume:
+            return (
+                f"volume {volume} is not a multiple of the lot step {spec.volume_step} "
+                f"for {request.symbol}: refused before sending"
+            )
+        return None
 
     async def _find_by_comment(self, idempotency_key: str) -> PositionInfo | None:
         comment = key_comment(idempotency_key)
@@ -498,19 +574,35 @@ class MT5Broker:
         missing = {ticket for ticket in self._known if ticket not in live}
         if not missing:
             return ()
+        # One read for the whole batch. Reading once per ticket advanced the cursor over the
+        # deals of the tickets still waiting, and a closure skipped that way is lost for good:
+        # the position stays open locally and the next reconciliation halts the agent.
+        deals = await self._unconsumed_deals()
         closed: list[ClosedPosition] = []
         for ticket in sorted(missing):
-            item = await self._closure_for(ticket, None)
+            item = self._closed_from(deals, ticket, None)
             if item is not None:
                 closed.append(item)
+        self._consume(deals)
         if closed:
             self._log.record_closures(closed, self._now())
         return tuple(closed)
 
-    async def _closure_for(self, ticket: int, reason: str | None) -> ClosedPosition | None:
-        deals = await self._call(self._terminal.deals_since, self._deal_cursor)
+    async def _unconsumed_deals(self) -> tuple[DealInfo, ...]:
+        """The deals the terminal has not handed over yet. Reading moves nothing."""
+        return await self._call(self._terminal.deals_since, self._deal_cursor)
+
+    def _consume(self, deals: tuple[DealInfo, ...]) -> None:
+        """Move the cursor only once the whole batch has been looked at."""
         if deals:
             self._deal_cursor = max(self._deal_cursor, max(deal.server_epoch for deal in deals))
+
+    async def _closure_for(self, ticket: int, reason: str | None) -> ClosedPosition | None:
+        return self._closed_from(await self._unconsumed_deals(), ticket, reason)
+
+    def _closed_from(
+        self, deals: tuple[DealInfo, ...], ticket: int, reason: str | None
+    ) -> ClosedPosition | None:
         closed_deals = [
             deal for deal in deals if not deal.is_entry and deal.position_ticket == ticket
         ]
@@ -530,6 +622,20 @@ class MT5Broker:
             closed_at=datetime.fromtimestamp(last.server_epoch, tz=UTC),
             signal_id=None if local is None else local.signal_id,
         )
+
+    async def _entry_deal_ticket(self, ticket: int) -> int:
+        """The deal that opened the position, when the terminal still reports it.
+
+        `positions_get` answers a *position* ticket, which is not a deal ticket: writing it in
+        `executions.broker_deal_ticket` would put a foreign identifier in the audit trail.
+        """
+        for deal in await self._unconsumed_deals():
+            if deal.is_entry and deal.position_ticket == ticket:
+                return deal.ticket
+        log.warning(
+            "no entry deal reported for position %s: the position ticket is recorded", ticket
+        )
+        return ticket
 
     def _reason_for(self, ticket: int, exit_price: Decimal) -> str:
         position = self._local(ticket)
@@ -558,10 +664,21 @@ class MT5Broker:
     async def reconcile(self) -> tuple[str, ...]:
         """RM-014: compare the local state to the account's, describe every difference.
 
-        It never corrects anything: a divergence means the operator must look, so the
+        It never corrects a divergence: a divergence means the operator must look, so the
         caller halts the agent. Both directions are checked — a local position the broker
         does not have, and a broker position the base does not know.
+
+        A position the broker closed on its own (its stop was hit) is *collected* from the
+        deals before the comparison. F-017 asks for a transaction subscription; the candle
+        poll is what exists, so without this the very first stop-out would be reported as a
+        divergence and halt the whole agent — globally, until an operator resumes it — for a
+        stop that simply did its job.
         """
+        for closed in await self._collect_closures():
+            self._alarm(
+                f"position {closed.ticket} {closed.symbol} closed by the broker "
+                f"({closed.exit_reason}): {closed.pnl_eur:+.2f} EUR — collected at reconciliation"
+            )
         positions = await self.positions()
         return await asyncio.to_thread(reconcile_state, self._log, self._mode, positions)
 

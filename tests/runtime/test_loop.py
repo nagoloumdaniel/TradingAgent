@@ -2,11 +2,11 @@
 
 import asyncio
 import json
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
@@ -27,10 +27,15 @@ from tradingagent.control.guardian import Guardian
 from tradingagent.core.halt import CONNECTION, GLOBAL, session_scope
 from tradingagent.core.market import Candle
 from tradingagent.core.mode import TradingMode
+from tradingagent.core.states import Severity
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.history import HistorySync
 from tradingagent.data.market_calendar import MarketCalendar
-from tradingagent.data.market_data import ClockMismatchError, Subscription
+from tradingagent.data.market_data import (
+    ClockMismatchError,
+    ClockUnverifiableError,
+    Subscription,
+)
 from tradingagent.notify.health_alerts import HealthAlerter
 from tradingagent.reporting.service import ReportService
 from tradingagent.risk.model import ClosedPosition
@@ -91,6 +96,51 @@ class FakeMarket:
         return None
 
 
+class UnverifiableClockMarket(FakeMarket):
+    """A probe that serves no tick: the 2026-10-07 failure, seen from the loop.
+
+    The distinction the loop has to make is between a clock that *moved* — a measurement,
+    and a stop — and a clock it *could not measure* — no measurement at all.
+    """
+
+    async def verify_clock(self) -> None:
+        if not self.clock_ok:
+            raise ClockUnverifiableError("no tick on BTCUSD to verify the server clock")
+
+
+class MutableClock:
+    """A clock a test can advance, so an episode can be made to last."""
+
+    def __init__(self, now: datetime) -> None:
+        self.now = now
+
+    def __call__(self) -> datetime:
+        return self.now
+
+
+class CountingGenerator:
+    """The strategy layer, reduced to the one question that matters here: was it asked?"""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    @property
+    def strategies(self) -> tuple[object, ...]:
+        return ()
+
+    def on_candle_closed(
+        self,
+        symbol: str,
+        candle: Candle,
+        calendar: MarketCalendar,
+        now: datetime,
+        last_tick_at: datetime | None,
+    ) -> tuple[object, ...]:
+        del symbol, candle, calendar, now, last_tick_at
+        self.calls += 1
+        return ()
+
+
 class Sent:
     def __init__(self) -> None:
         self.messages: list[str] = []
@@ -108,6 +158,9 @@ def build_loop(
     ea_directory: Path | None = None,
     calendars: dict[str, MarketCalendar] | None = None,
     subscriptions: tuple[Subscription, ...] | None = None,
+    generator: SignalGenerator | None = None,
+    notifier: FakeNotifier | None = None,
+    clock: Callable[[], datetime] | None = None,
     now: datetime = NOW,
 ) -> tuple[AgentLoop, FakeMarket, FakeBroker, Sent]:
     market = market or FakeMarket()
@@ -117,8 +170,9 @@ def build_loop(
     events = SystemEventStore(engine)
     sent = Sent()
     alerts = HealthAlerter(sent, events, disk_path=ROOT)
-    notifier = FakeNotifier()
+    notifier = notifier if notifier is not None else FakeNotifier()
     learned = calendars if calendars is not None else {}
+    moment = clock if clock is not None else lambda: now
     config = load_agent_config(
         SHIPPED_AGENT,
         known_symbols=BROKER_SYMBOLS,
@@ -135,19 +189,23 @@ def build_loop(
         expected_login=LOGIN,
         mode=TradingMode.SIGNAL,
         calendar_for=learned.get,
-        now=lambda: now,
+        now=moment,
     )
     loop = AgentLoop(
         engine=engine,
         market=market,
         store=store,
-        history=HistorySync(market, store, now=lambda: now),
-        generator=SignalGenerator((), store, SignalRepository(engine), TradingMode.SIGNAL),
+        history=HistorySync(market, store, now=moment),
+        generator=(
+            generator
+            if generator is not None
+            else SignalGenerator((), store, SignalRepository(engine), TradingMode.SIGNAL)
+        ),
         pipeline=pipeline,
         broker=broker,
         halts=halts,
         notifier=notifier,
-        guardian=Guardian(halts, now=lambda: now),
+        guardian=Guardian(halts, now=moment),
         alerts=alerts,
         reports=ReportService(engine, sender=sent),
         portfolio=PortfolioBuilder(engine),
@@ -160,7 +218,7 @@ def build_loop(
         calendars=learned,
         ea_directory=ea_directory,
         connection_threshold=connection_threshold,
-        now=lambda: now,
+        now=moment,
     )
     return loop, market, broker, sent
 
@@ -187,6 +245,36 @@ def test_a_published_candle_is_stored_and_counted(engine: Engine) -> None:
 
     assert report.publications == 1
     assert CandleStore(engine).last_open_time("XAUUSD", Timeframe.M15) == NOW
+
+
+def test_a_closure_the_broker_made_reaches_the_operator_and_the_counter(
+    engine: Engine,
+) -> None:
+    """F-017: a stop-out is an outcome. Collected only by reconciliation, it is a log line
+    in the broker and nothing the operator was ever told."""
+    broker = FakeBroker()
+    notifier = FakeNotifier()
+    loop, _, _, _ = build_loop(
+        engine, broker=broker, notifier=notifier, calendars={"XAUUSD": open_calendar()}
+    )
+    asyncio.run(loop.run_once())  # baseline
+    broker.queue_close(
+        ClosedPosition(
+            ticket=777001,
+            symbol="XAUUSD",
+            exit_price=Decimal("2390.00"),
+            pnl_eur=Decimal("-10.20"),
+            exit_reason="stop_loss",
+            closed_at=NOW,
+            signal_id=None,
+        )
+    )
+
+    report = asyncio.run(loop.run_once())
+
+    assert report.closed_positions == 1
+    assert notifier.messages, "the closure never reached the operator"
+    assert "XAUUSD" in notifier.messages[0]
 
 
 def test_a_lost_connection_alerts_and_halts_once_the_threshold_is_reached(
@@ -262,6 +350,88 @@ def test_a_second_cycle_after_a_restart_is_normal(engine: Engine) -> None:
 
     assert report.connection_lost is False
     assert "ensure_connected" in market.calls
+
+
+def test_an_unverifiable_clock_keeps_the_cycle_going_but_not_the_strategies(
+    engine: Engine,
+) -> None:
+    """2026-10-07, from the loop's side: two hours of the cycle doing nothing at all.
+
+    A probe with no tick is not a clock that moved. The cycle keeps collecting, the
+    positions keep being followed, the alarms keep being armed — and the one thing that
+    stops is the trading decision, which is what the operator's alert promises.
+    """
+    market = UnverifiableClockMarket()
+    counting = CountingGenerator()
+    loop, _, _, _ = build_loop(
+        engine,
+        market=market,
+        generator=cast(Any, counting),
+        calendars={"XAUUSD": open_calendar()},
+        connection_threshold=timedelta(minutes=10),
+    )
+    asyncio.run(loop.run_once())  # baseline, clock verified
+    market.clock_ok = False
+    market.queue.append(candle())
+
+    report = asyncio.run(loop.run_once())
+
+    assert report.publications == 1, "the candle was not collected"
+    assert CandleStore(engine).last_open_time("XAUUSD", Timeframe.M15) == NOW
+    assert counting.calls == 0, "a strategy was asked to speak on a clock we cannot vouch for"
+    assert events_of(engine, "clock_mismatch") == [], "an unreadable probe was called a mismatch"
+    assert [row.severity for row in events_of(engine, "clock_unverified")] == [Severity.WARNING]
+
+
+def test_an_episode_is_reported_twice_at_most_however_long_it_lasts(engine: Engine) -> None:
+    """383 identical CRITICALs were a record of the loop repeating itself, not of a problem."""
+    clock = MutableClock(NOW)
+    market = UnverifiableClockMarket()
+    market.clock_ok = False
+    loop, _, _, sent = build_loop(
+        engine,
+        market=market,
+        clock=clock,
+        connection_threshold=timedelta(minutes=10),
+    )
+
+    for minute in range(100):
+        clock.now = NOW + timedelta(minutes=minute)
+        asyncio.run(loop.run_once())
+
+    assert [row.severity for row in events_of(engine, "clock_unverified")] == [
+        Severity.WARNING,
+        Severity.CRITICAL,
+    ]
+    # One message when the episode opens, then a reminder after the alerter's own cooldown:
+    # an hour and a half of the same outage reaches the operator a handful of times.
+    clock_alerts = [message for message in sent.messages if "horloge" in message]
+    assert 1 <= len(clock_alerts) <= 5
+
+
+def test_a_clock_that_comes_back_resumes_the_strategies(engine: Engine) -> None:
+    """Recovery is automatic and it is announced — a recovery nobody hears is not one."""
+    market = UnverifiableClockMarket()
+    counting = CountingGenerator()
+    loop, _, _, sent = build_loop(
+        engine,
+        market=market,
+        generator=cast(Any, counting),
+        calendars={"XAUUSD": open_calendar()},
+        connection_threshold=timedelta(minutes=10),
+    )
+    asyncio.run(loop.run_once())
+    market.clock_ok = False
+    market.queue.append(candle())
+    asyncio.run(loop.run_once())  # suspended
+    market.clock_ok = True
+    market.queue.append(candle(close=2401.0))
+
+    asyncio.run(loop.run_once())  # resumed, without a restart
+
+    assert counting.calls == 1
+    assert [row.severity for row in events_of(engine, "clock_verified")] == [Severity.INFO]
+    assert any("rétablie" in message for message in sent.messages)
 
 
 def test_a_divergence_halts_globally_and_alerts(engine: Engine) -> None:

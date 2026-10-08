@@ -5,8 +5,10 @@ what these tests pin down — atomic writes, UTC stamps, and a reader that never
 because an EA died mid-write.
 """
 
+import itertools
 import json
 import os
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -14,9 +16,12 @@ from pathlib import Path
 import pytest
 
 from tradingagent.core.market import Direction
+from tradingagent.ea import bridge
 from tradingagent.ea.bridge import (
     DEFAULT_HEARTBEAT_TIMEOUT_SECONDS,
     PROTOCOL_VERSION,
+    STATE_REPLACE_ATTEMPTS,
+    STATE_REPLACE_RETRY_SECONDS,
     AuthorisedOrder,
     EaStatus,
     ExpectedPosition,
@@ -242,6 +247,206 @@ def test_a_failed_replace_keeps_the_previous_document_and_cleans_up(
 
     assert state_path(tmp_path, "BTCUSD").read_bytes() == before
     assert [entry.name for entry in (tmp_path / "state").iterdir()] == ["BTCUSD_state.json"]
+
+
+# -- Windows rename refusals -----------------------------------------------------------
+#
+# On Windows `os.replace` fails with `PermissionError` (WinError 5, "Accès refusé") while
+# another process holds the destination open, and the EA reads the state file several
+# times per second: a refusal is a matter of timing, not a broken disk. No real second
+# process is started here — holding a file open from another process cannot be made
+# reliable in a unit test — so every refusal below is *simulated* by a fake `os.replace`.
+
+
+def refused(error: str = "the reader holds the state file") -> Callable[..., None]:
+    """An `os.replace` the OS always refuses, as Windows does when the EA is reading."""
+
+    def replace(*_: object, **__: object) -> None:
+        raise PermissionError(5, error)
+
+    return replace
+
+
+def refusing(times: int, real: Callable[..., None]) -> Callable[..., None]:
+    """An `os.replace` refused the first `times` calls, then the real one."""
+    calls = itertools.count()
+
+    def replace(source: object, destination: object) -> None:
+        if next(calls) < times:
+            raise PermissionError(5, "the reader holds the state file")
+        real(source, destination)
+
+    return replace
+
+
+def test_a_rename_refused_by_a_reader_is_retried_until_it_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    publish_state(tmp_path, "XAUUSD", magic=3031, revision=1, now=frozen(NOW))
+    monkeypatch.setattr(os, "replace", refusing(2, os.replace))
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+
+    path = publish_state(tmp_path, "XAUUSD", magic=3031, revision=2, now=frozen(NOW))
+
+    assert json.loads(path.read_text(encoding="utf-8"))["revision"] == 2
+    assert [entry.name for entry in path.parent.iterdir()] == ["XAUUSD_state.json"]
+
+
+def test_the_retry_budget_is_bounded_and_short(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    attempts: list[int] = []
+    delays: list[float] = []
+
+    def counted(*_: object, **__: object) -> None:
+        attempts.append(1)
+        raise PermissionError(5, "the reader holds the state file")
+
+    monkeypatch.setattr(os, "replace", counted)
+    monkeypatch.setattr(time, "sleep", delays.append)
+
+    with pytest.raises(PermissionError):
+        publish_state(tmp_path, "XAUUSD", magic=3031, now=frozen(NOW))
+
+    # The budget is spent and bounded: at least three tries, one pause between two of
+    # them, and a total wait far below both the publish cadence and the EA's timeout.
+    assert STATE_REPLACE_ATTEMPTS >= 3
+    assert len(attempts) == STATE_REPLACE_ATTEMPTS
+    assert len(delays) == STATE_REPLACE_ATTEMPTS - 1
+    assert all(delay == STATE_REPLACE_RETRY_SECONDS for delay in delays)
+    assert (STATE_REPLACE_ATTEMPTS - 1) * STATE_REPLACE_RETRY_SECONDS < 1.0
+
+
+def test_a_persistent_rename_refusal_is_propagated_not_swallowed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    publish_state(tmp_path, "XAUUSD", magic=3031, revision=1, now=frozen(NOW))
+    before = state_path(tmp_path, "XAUUSD").read_bytes()
+    monkeypatch.setattr(os, "replace", refused())
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(PermissionError, match="the reader holds the state file"):
+        publish_state(tmp_path, "XAUUSD", magic=3031, revision=2, now=frozen(NOW))
+
+    # A refusal that outlives the budget is a real failure: the EA keeps the document it
+    # has, the previous revision is intact, and no debris is left in the state directory.
+    assert state_path(tmp_path, "XAUUSD").read_bytes() == before
+    assert [entry.name for entry in (tmp_path / "state").iterdir()] == ["XAUUSD_state.json"]
+
+
+def test_a_non_retryable_replace_error_is_raised_at_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    attempts: list[int] = []
+
+    def disk_full(*_: object, **__: object) -> None:
+        attempts.append(1)
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(os, "replace", disk_full)
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(OSError, match="No space left on device"):
+        publish_state(tmp_path, "XAUUSD", magic=3031, now=frozen(NOW))
+
+    # Only a lock is worth waiting for; a full disk would just be five times slower.
+    assert len(attempts) == 1
+
+
+def test_the_reader_never_sees_a_partial_document_while_the_rename_is_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    publish_state(
+        tmp_path, "XAUUSD", magic=3031, revision=1, positions=[expected_position()], now=frozen(NOW)
+    )
+    target = state_path(tmp_path, "XAUUSD")
+    whole_previous = target.read_bytes()
+    seen: list[bytes] = []
+    real = os.replace
+
+    def reading_ea(source: str | os.PathLike[str], destination: str | os.PathLike[str]) -> None:
+        # What the EA would read at this very instant, mid-publish.
+        seen.append(target.read_bytes())
+        if len(seen) < 3:
+            raise PermissionError(5, "the reader holds the state file")
+        real(source, destination)
+
+    monkeypatch.setattr(os, "replace", reading_ea)
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+
+    publish_state(
+        tmp_path, "XAUUSD", magic=3031, revision=2, positions=[expected_position()], now=frozen(NOW)
+    )
+
+    assert len(seen) == 3  # the reader really did look while the write was still refused
+    assert all(observed == whole_previous for observed in seen)
+    final = json.loads(target.read_text(encoding="utf-8"))
+    assert final["revision"] == 2
+    assert final["positions"] and final["orders"] == []
+
+
+def test_only_our_own_temporary_is_ever_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    removed: list[str] = []
+    monkeypatch.setattr(os, "unlink", removed.append)
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+    target = state_path(tmp_path, "XAUUSD")
+
+    publish_state(tmp_path, "XAUUSD", magic=3031, revision=1, now=frozen(NOW))
+    assert removed == []  # a publish that works removes nothing at all
+
+    monkeypatch.setattr(os, "replace", refusing(2, os.replace))
+    publish_state(tmp_path, "XAUUSD", magic=3031, revision=2, now=frozen(NOW))
+    assert removed == []  # retried and then renamed: the temporary is the new state
+
+    monkeypatch.setattr(os, "replace", refused())
+    with pytest.raises(PermissionError):
+        publish_state(tmp_path, "XAUUSD", magic=3031, revision=3, now=frozen(NOW))
+
+    assert len(removed) == 1
+    temporary = Path(removed[0])
+    # Only the uniquely named temporary this very call created is unlinked — never the
+    # state file the EA may be reading, and never anything else in the directory.
+    assert temporary.parent == target.parent
+    assert temporary != target
+    assert temporary.name.startswith(f".{target.name}.") and temporary.name.endswith(".tmp")
+
+
+def test_the_temporary_is_left_alone_when_it_is_no_longer_ours(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    removed: list[str] = []
+    identities = itertools.count()
+    monkeypatch.setattr(os, "unlink", removed.append)
+    monkeypatch.setattr(os, "replace", refused())
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+    # Every stat answers a different file, as if another process had taken the temporary.
+    monkeypatch.setattr(bridge, "_file_identity", lambda _path: (next(identities), 0))
+
+    with pytest.raises(PermissionError, match="the reader holds the state file"):
+        publish_state(tmp_path, "XAUUSD", magic=3031, now=frozen(NOW))
+
+    assert removed == []
+    # The temporary is not ours any more, so it is left where it is: one stray `.tmp` is
+    # a mess to sweep later, deleting another writer's file is a bug.
+    leftovers = [entry.name for entry in (tmp_path / "state").iterdir()]
+    assert len(leftovers) == 1 and leftovers[0].endswith(".tmp")
+
+
+def test_a_refused_cleanup_does_not_mask_the_real_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unlink_refused(*_: object, **__: object) -> None:
+        raise PermissionError(5, "a scanner holds the temporary")
+
+    monkeypatch.setattr(os, "replace", refused("the rename was refused"))
+    monkeypatch.setattr(os, "unlink", unlink_refused)
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+
+    # The failure the caller must hear about is the rename, not the cleanup.
+    with pytest.raises(PermissionError, match="the rename was refused"):
+        publish_state(tmp_path, "XAUUSD", magic=3031, now=frozen(NOW))
 
 
 # -- reading ---------------------------------------------------------------------------

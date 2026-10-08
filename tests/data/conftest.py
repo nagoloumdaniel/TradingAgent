@@ -71,7 +71,10 @@ class FakeTerminal:
         self._record("select")
         if symbol in self.unselectable:
             return False
-        self.selected.append(symbol)
+        # Idempotent, like `symbol_select` in the terminal: it reports *which* symbols are
+        # watched, not how many times somebody asked for them.
+        if symbol not in self.selected:
+            self.selected.append(symbol)
         return True
 
     def rates(self, symbol: str, timeframe: Timeframe, count: int) -> list[RawBar]:

@@ -120,6 +120,9 @@ class FakeBroker:
     async def on_candle(self, symbol: str, candle: Candle) -> tuple[ClosedPosition, ...]:
         return ()
 
+    async def collect_closures(self) -> tuple[ClosedPosition, ...]:
+        return ()
+
     async def reconcile(self) -> tuple[str, ...]:
         return ()
 

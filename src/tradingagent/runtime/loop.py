@@ -26,7 +26,11 @@ from tradingagent.core.states import ExecutionEventKind, Severity, SignalState
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.history import HistorySync
 from tradingagent.data.market_calendar import MarketCalendar, learn_calendar
-from tradingagent.data.market_data import ClockMismatchError, Subscription
+from tradingagent.data.market_data import (
+    ClockMismatchError,
+    ClockUnverifiableError,
+    Subscription,
+)
 from tradingagent.ea.bridge import EaStatus, ExpectedPosition, publish_state
 from tradingagent.ea.health import ea_health
 from tradingagent.notify.health_alerts import HealthAlerter
@@ -148,6 +152,11 @@ class AgentLoop:
         self._telemetry = ExecutionEventStore(engine)
         self._daily = DailyPerformanceStore(engine)
         self._connection_loss_since: datetime | None = None
+        # R-16, as a state and not as a return: a clock this cycle could not re-measure.
+        # `True` because the connection measured it before the loop ever ran.
+        self._clock_verified = True
+        self._clock_unverified_since: datetime | None = None
+        self._clock_escalated = False
 
     @property
     def symbols(self) -> tuple[str, ...]:
@@ -203,6 +212,11 @@ class AgentLoop:
             connected = await self._market.ensure_connected(max_attempts=1)
         except ClockMismatchError as error:
             return await self._clock_failed(error, now, report)
+        except ClockUnverifiableError as error:
+            # The client reconnected; only its probe had nothing to say. That is not a lost
+            # connection, and the cycle carries on below with the clock reported as such.
+            await self._clock_unverifiable(error, now)
+            connected = True
         if not connected:
             report.connection_lost = True
             if self._connection_loss_since is None:
@@ -223,12 +237,17 @@ class AgentLoop:
             await self._market.verify_clock()
         except ClockMismatchError as error:
             return await self._clock_failed(error, now, report)
+        except ClockUnverifiableError as error:
+            await self._clock_unverifiable(error, now)
+        else:
+            await self._clock_verified_again(now)
 
         await self._guard_sessions(now)
         await self._retry_notifications()
         for subscription in self._subscriptions:
             await self._poll(subscription, now, report)
 
+        await self._drain_closures(report)
         await self._reconcile(now, report)
         await self._sync_eas(now)
         await self._run_lab(now)
@@ -251,6 +270,60 @@ class AgentLoop:
         self._events.record("clock_mismatch", Severity.CRITICAL, {"detail": str(error)}, now)
         await self._alerts.connection_lost("server_clock", now)
         return report
+
+    async def _clock_unverifiable(self, error: ClockUnverifiableError, now: datetime) -> None:
+        """Report a clock that cannot be measured, without giving up the cycle (R-16).
+
+        The offset every conversion uses was measured at the connection, and only a
+        reconnection can change it — a reconnection that measures it again. A probe with no
+        tick therefore removes no guarantee, it removes a *check*. So the cycle keeps its
+        data collection, its reconciliation, its EA heartbeat, its limits and its reports,
+        because those are what let the agent notice the tick coming back.
+
+        Trading is the one thing suspended: `_on_candle` takes no decision while this state
+        lasts, which is exactly what the operator's alert promises ("Aucun signal n'est émis
+        tant que l'horloge n'est pas vérifiée").
+
+        The ledger gets one warning per episode and one escalation once the episode passes
+        the connection threshold. The 383 identical CRITICALs of 2026-10-07 were not a
+        record of the problem; they were a record of the loop repeating itself.
+        """
+        self._clock_verified = False
+        if self._clock_unverified_since is None:
+            self._clock_unverified_since = now
+            log.warning("server clock unverifiable: %s", error)
+            self._events.record("clock_unverified", Severity.WARNING, {"detail": str(error)}, now)
+        # The alerter owns the repetition: one message per condition, then a reminder after
+        # its own cooldown. Calling it every cycle is what makes the reminder arrive.
+        await self._alerts.connection_lost("server_clock", now)
+        elapsed = now - self._clock_unverified_since
+        if elapsed >= self._connection_threshold and not self._clock_escalated:
+            self._clock_escalated = True
+            log.critical("server clock still unverifiable after %s: %s", elapsed, error)
+            self._events.record(
+                "clock_unverified",
+                Severity.CRITICAL,
+                {"detail": str(error), "unverifiable_for_seconds": elapsed.total_seconds()},
+                now,
+            )
+
+    async def _clock_verified_again(self, now: datetime) -> None:
+        """Close the episode, and say so once — a recovery nobody hears is not a recovery."""
+        if self._clock_unverified_since is None:
+            self._clock_verified = True
+            return
+        since = self._clock_unverified_since
+        self._clock_unverified_since = None
+        self._clock_escalated = False
+        self._clock_verified = True
+        self._events.record(
+            "clock_verified",
+            Severity.INFO,
+            {"unverifiable_for_seconds": (now - since).total_seconds()},
+            now,
+        )
+        log.info("server clock verified again after %s", now - since)
+        await self._alerts.connection_restored("server_clock", now)
 
     async def _guard_sessions(self, now: datetime) -> None:
         """Stop what the calendar says is closed, reopen it once it trades again (F-005).
@@ -286,10 +359,14 @@ class AgentLoop:
         except Exception as error:
             log.warning("broker tracking failed on %s: %s", symbol, error)
             closed = ()
-        for position in closed:
-            self._record_close(position)
-            await self.notify_close(position)
-            report.closed_positions += 1
+        await self._handle_closures(closed, report)
+
+        # R-16: the candle is stored and the positions above are followed whatever the
+        # clock says — that work is what lets the agent heal. What stops here is the
+        # trading decision: no strategy is asked to speak on an offset this cycle could
+        # not re-measure, so the operator's alert stays literally true.
+        if not self._clock_verified:
+            return
 
         calendar = self._calendars.get(symbol)
         if calendar is None:
@@ -317,6 +394,31 @@ class AgentLoop:
             report.outcomes.append(outcome)
             if outcome.kind == "account_mismatch":
                 report.halted = True
+
+    async def _drain_closures(self, report: CycleReport) -> None:
+        """Every closure the broker made, whatever the candles are doing (F-017, §37).
+
+        The broker closes a position when its stop is touched. The candle poll notices it up
+        to a bar later; reconciliation notices it within twenty seconds. When the closure is
+        only collected by `reconcile`, the operator never receives the structured message,
+        the telemetry never records POSITION_CLOSED and the daily bucket never counts the
+        trade — it exists in the ledger and nowhere the operator looks.
+
+        So the loop drains the closures itself, once per cycle, before it compares anything:
+        a closure is an outcome, and an outcome nobody is told about is not one.
+        """
+        try:
+            closed = await self._broker.collect_closures()
+        except Exception as error:
+            log.warning("closures not collected: %s", error)
+            return
+        await self._handle_closures(closed, report)
+
+    async def _handle_closures(self, closed: Iterable[ClosedPosition], report: CycleReport) -> None:
+        for position in closed:
+            self._record_close(position)
+            await self.notify_close(position)
+            report.closed_positions += 1
 
     async def _run_lab(self, now: datetime) -> None:
         """One AI Lab pass a day: analysis of the closed trades, then hypotheses.

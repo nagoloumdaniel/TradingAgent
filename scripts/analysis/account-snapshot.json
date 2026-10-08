@@ -1,0 +1,12 @@
+{
+  "source": "table account_snapshots (lecture seule), solde du compte démo Deriv/MT5",
+  "captured_at": "2026-10-08T03:50:24.311569+00:00",
+  "fetched_at": "2026-10-08T03:53:31.117086+00:00",
+  "equity_eur": "5496.670000000000",
+  "balance_eur": "5496.670000000000",
+  "rows": 39,
+  "first_at": "2026-10-08T00:20:35.272251+00:00",
+  "closed_trades": 0,
+  "risk_per_trade_pct": 0.5,
+  "sql": "select at, equity, balance from account_snapshots order by at desc limit 1"
+}

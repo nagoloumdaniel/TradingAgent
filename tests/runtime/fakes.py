@@ -188,9 +188,14 @@ class FakeBroker:
         self._positions.pop(ticket, None)
         return CloseResult(True, ticket, Decimal("2400.0"), Decimal("-2.00"), reason, "closed")
 
-    async def on_candle(self, symbol: str, candle: Candle) -> tuple[ClosedPosition, ...]:
+    async def collect_closures(self) -> tuple[ClosedPosition, ...]:
+        """Whatever the broker closed on its own, which the loop drains every cycle."""
         queued, self._closed_queue = self._closed_queue, []
         return tuple(queued)
+
+    async def on_candle(self, symbol: str, candle: Candle) -> tuple[ClosedPosition, ...]:
+        del symbol, candle
+        return await self.collect_closures()
 
     async def reconcile(self) -> tuple[str, ...]:
         return self.divergences

@@ -315,7 +315,37 @@ class SignalPipeline:
         )
         # The executor owns the orders table: it records the request before reaching the
         # broker, so a lost answer is reconciled by idempotency key, never resent blindly.
-        result = await self._broker.place(request)
+        try:
+            result = await self._broker.place(request)
+        except Exception as error:
+            # The executor refuses before it sends by raising (`_ensure_trading`,
+            # `_check_mode`). Left uncaught, the signal stayed in ORDER_SENT — a state that
+            # claims an order is in flight — and only a CRITICAL log recorded it. The
+            # wording stays honest about the unknown: an exception raised after the send
+            # would look the same from here, so the operator is told to let reconciliation
+            # decide rather than told the order was refused.
+            transition(self._engine, detail.id, SignalState.ERROR, now, str(error))
+            self._telemetry.record(
+                ExecutionEventKind.ORDER_REJECTED,
+                detail.symbol,
+                {"detail": repr(error), "stage": "raised by the executor"},
+                now,
+                signal_id=detail.id,
+            )
+            self._event(
+                "order_refused",
+                Severity.CRITICAL,
+                {"signal_id": detail.id, "detail": repr(error)},
+                now,
+                symbol=detail.symbol,
+            )
+            await self._notify_failure(
+                detail,
+                "⚠️ Ordre en erreur",
+                f"{type(error).__name__}: {error}\n"
+                "Aucun ordre confirmé. La réconciliation tranchera au prochain cycle.",
+            )
+            return ProcessOutcome(detail.id, "order_refused", str(error))
         elapsed_ms = int((time.monotonic() - started) * 1000)
         if not result.accepted:
             transition(self._engine, detail.id, SignalState.ORDER_REJECTED, now, result.message)
@@ -336,6 +366,13 @@ class SignalPipeline:
                 {"signal_id": detail.id, "retcode": result.retcode, "detail": result.message},
                 now,
                 symbol=detail.symbol,
+            )
+            # A rejection the operator never hears about is how a working agent looks
+            # broken: the signal says SENT, no position appears, and nothing explains why.
+            await self._notify_failure(
+                detail,
+                "⛔ Ordre refusé par le courtier",
+                result.message + (f"\nCode courtier : {result.retcode}" if result.retcode else ""),
             )
             return ProcessOutcome(detail.id, "order_rejected", result.message)
 
@@ -380,6 +417,18 @@ class SignalPipeline:
                 now,
                 symbol=detail.symbol,
             )
+            # The one alert that says capital was briefly unprotected. It lived only in the
+            # logs, which is the one place an operator watching a phone never looks.
+            await self._notify_failure(
+                detail,
+                "🚨 Position sans stop-loss",
+                f"Ticket {result.ticket} : le stop n'a pas été confirmé après exécution.\n"
+                + (
+                    "La position a été fermée immédiatement."
+                    if closed.closed
+                    else "LA POSITION N'A PAS PU ÊTRE FERMÉE : à vérifier maintenant."
+                ),
+            )
             return ProcessOutcome(detail.id, "stop_missing", "position closed immediately")
 
         transition(self._engine, detail.id, SignalState.POSITION_OPEN, now, "position opened")
@@ -414,6 +463,24 @@ class SignalPipeline:
             await self._notifier.send(render_position_opened(notice), parse_mode="HTML")
         except Exception as error:  # a notification failure never unwinds an opened position
             log.warning("position-opened notice failed: %s", error)
+
+    async def _notify_failure(self, detail: SignalDetail, title: str, body: str) -> None:
+        """Tell the operator what became of an order the agent did not open.
+
+        Sent without a parse mode, like the refusal messages: plain text, no escaping to go
+        wrong. A failure to notify never changes the outcome — it is only a message.
+        """
+        message = (
+            f"{title} · {detail.symbol} {DIRECTION_LABELS[detail.direction]}\n"
+            f"\n"
+            f"{body}\n"
+            f"\n"
+            f"Réf : {detail.idempotency_key}"
+        )
+        try:
+            await self._notifier.send(message)
+        except Exception as error:  # a notification failure never changes an outcome
+            log.warning("order-failure notice failed: %s", error)
 
     async def _open_exposure(self, positions: tuple[OpenPosition, ...]) -> Decimal | None:
         """Total notional already committed, in EUR (§21).

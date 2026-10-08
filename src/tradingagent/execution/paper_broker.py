@@ -284,6 +284,15 @@ class PaperBroker:
             message="paper close",
         )
 
+    async def collect_closures(self) -> tuple[ClosedPosition, ...]:
+        """Nothing is ever pending in paper mode: a fill only happens on a fed candle or tick.
+
+        The loop drains closures before reconciling; here that drain is empty by
+        construction, and saying so is better than an absent method that would make the
+        paper broker fail the port.
+        """
+        return ()
+
     async def on_candle(self, symbol: str, candle: Candle) -> tuple[ClosedPosition, ...]:
         return await asyncio.to_thread(self._from_candle, symbol, candle)
 

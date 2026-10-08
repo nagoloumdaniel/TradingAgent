@@ -1,0 +1,230 @@
+﻿====================================================================================================
+A. CE QUI EST MESURÉ (reproduction de docs/research/cost-attribution.txt)
+====================================================================================================
+UT   marché     op.   jours    op/j     brut €      net €    coût €  coût/op R  brut/op R   net/op R
+M1   BTCUSD     128    1.67   76.54     160.66    -143.18    303.84     0.2374     0.1255    -0.1119
+M1   XAUUSD     130    3.77   34.48      56.16    -215.61    271.78     0.2091     0.0432    -0.1659
+M15  BTCUSD     106   25.06    4.23     -35.24    -109.71     74.48     0.0703    -0.0332    -0.1035
+M15  XAUUSD     124   36.11    3.43      95.01     -11.73    106.74     0.0861     0.0766    -0.0095
+M5   BTCUSD     128    8.36   15.30    -104.71    -230.28    125.56     0.0981    -0.0818    -0.1799
+M5   XAUUSD     130   10.75   12.10      61.89     -80.06    141.95     0.1092     0.0476    -0.0616
+
+Décomposition séquentielle du coût (EUR), et ATR médian de la fenêtre :
+UT   marché     spread €  slippage €  commission €  ATR médian  stop eff.  1,5xATR méd.
+M1   BTCUSD       114.35      125.48         64.00     38.1057    39.9269       57.1585
+M1   XAUUSD       119.45       87.33         65.00      1.6519     2.4207        2.4779
+M15  BTCUSD        12.00        9.48         53.00    213.7114   282.6571      320.5671
+M15  XAUUSD        25.06       19.68         62.00      8.0635    11.6241       12.0953
+M5   BTCUSD        34.72       26.85         64.00    116.0792   147.5349      174.1188
+M5   XAUUSD        43.36       33.60         65.00      4.3998     6.4749        6.5997
+
+A bis. LES 18 CELLULES CANDIDATES, PROFIT FACTOR NET A 1x (seuil de la porte : 1,20)
+UT   marché   candidat         op.    brut €     net €  PF brut  PF net 1x   porte
+M1   BTCUSD   fast-1.5R         73     36.69    -97.98    1.085      0.796  échoue
+M1   BTCUSD   balanced-2R       37     96.08    -37.46    1.446      0.870  échoue
+M1   BTCUSD   slow-2.5R         18     27.88     -7.73    1.232      0.941  échoue
+M1   XAUUSD   fast-1.5R         73     -9.43   -162.72    0.979      0.672  échoue
+M1   XAUUSD   balanced-2R       34     51.21    -21.70    1.244      0.908  échoue
+M1   XAUUSD   slow-2.5R         23     14.38    -31.18    1.090      0.828  échoue
+M15  BTCUSD   fast-1.5R         57     11.13    -29.90    1.033      0.916  échoue
+M15  BTCUSD   balanced-2R       33     10.57    -12.35    1.050      0.945  échoue
+M15  BTCUSD   slow-2.5R         16    -56.93    -67.46    0.568      0.518  échoue
+M15  XAUUSD   fast-1.5R         63     69.76     14.96    1.199      1.040  échoue
+M15  XAUUSD   balanced-2R       38    -24.51    -56.56    0.907      0.799  échoue
+M15  XAUUSD   slow-2.5R         23     49.75     29.87    1.332      1.187  échoue
+M5   BTCUSD   fast-1.5R         63    -32.61    -94.21    0.920      0.784  échoue
+M5   BTCUSD   balanced-2R       40      2.90    -37.82    1.010      0.873  échoue
+M5   BTCUSD   slow-2.5R         25    -75.00    -98.25    0.625      0.546  échoue
+M5   XAUUSD   fast-1.5R         67     14.81    -57.31    1.035      0.872  échoue
+M5   XAUUSD   balanced-2R       41    -10.80    -54.46    0.960      0.814  échoue
+M5   XAUUSD   slow-2.5R         22     57.88     31.70    1.407      1.208   PASSE
+  → 1 cellule(s) candidate sur 18 atteignent PF net 1x >= 1.20
+
+====================================================================================================
+B. QUESTION 1 — ESPÉRANCE BRUTE QU'IL FAUDRAIT POUR ÊTRE NET-POSITIF
+====================================================================================================
+-- repère : backtest 10 €
+UT   marché    brut/op R  coût/op R  brut requis R  requis €/op  requis pts  mesuré pts  multiple
+M1   BTCUSD       0.1255     0.2374         0.2374         2.37      9.4775      5.0114     x1.89
+M1   XAUUSD       0.0432     0.2091         0.2091         2.09      0.5061      0.1046     x4.84
+M15  BTCUSD      -0.0332     0.0703         0.0703         0.70     19.8603     -9.3959 signe à inverser
+M15  XAUUSD       0.0766     0.0861         0.0861         0.86      1.0006      0.8906     x1.12
+M5   BTCUSD      -0.0818     0.0981         0.0981         0.98     14.4728    -12.0694 signe à inverser
+M5   XAUUSD       0.0476     0.1092         0.1092         1.09      0.7070      0.3083     x2.29
+
+-- repère : démo réel
+UT   marché    brut/op R  coût/op R  brut requis R  requis €/op  requis pts  mesuré pts  multiple
+M1   BTCUSD       0.1255     0.2056         0.2056         5.65      8.2076      5.0114     x1.64
+M1   XAUUSD       0.0432     0.1773         0.1773         4.87      0.4291      0.1046     x4.10
+M15  BTCUSD      -0.0332     0.0385         0.0385         1.06     10.8697     -9.3959 signe à inverser
+M15  XAUUSD       0.0766     0.0543         0.0543         1.49      0.6309      0.8906     x0.71
+M5   BTCUSD      -0.0818     0.0663         0.0663         1.82      9.7801    -12.0694 signe à inverser
+M5   XAUUSD       0.0476     0.0774         0.0774         2.13      0.5011      0.3083     x1.63
+
+solde démo retenu : 5 496.67 € au 2026-10-08T03:50:24.311569+00:00
+risque par opération : 0.5 % → 27.48 € (config/agent.yaml, risk.simulated)
+
+====================================================================================================
+C. QUESTION 2 — UNE SUITE D'OPÉRATIONS À ESPÉRANCE NÉGATIVE
+====================================================================================================
+bootstrap de 4000 chemins, 1000 pas, graine 20261008 ; coût prélevé à chaque pas, aucun ordre imposé entre les pas
+-- repère : backtest 10 € de risque par opération
+UT   marché   esp. nette R  sigma R  P(>0) 100  P(>0) 500  P(>0) 1000  E[1000] R  loi norm.
+M1   BTCUSD        -0.1119    1.383      0.210      0.037       0.005     -111.9      0.005
+M1   XAUUSD        -0.1659    1.361      0.108      0.003       0.000     -165.9      0.000
+M15  BTCUSD        -0.1035    1.310      0.217      0.044       0.008     -103.5      0.006
+M15  XAUUSD        -0.0095    1.382      0.473      0.463       0.418       -9.5      0.414
+M5   BTCUSD        -0.1799    1.370      0.094      0.002       0.000     -179.9      0.000
+M5   XAUUSD        -0.0616    1.449      0.336      0.172       0.085      -61.6      0.089
+
+-- repère : démo réel 27,48 € de risque par opération
+UT   marché   esp. nette R  sigma R  P(>0) 100  P(>0) 500  P(>0) 1000  E[1000] R  loi norm.
+M1   BTCUSD        -0.0801    1.383      0.277      0.103       0.034      -80.1      0.034
+M1   XAUUSD        -0.1340    1.361      0.164      0.018       0.000     -134.0      0.001
+M15  BTCUSD        -0.0717    1.310      0.293      0.110       0.042      -71.7      0.042
+M15  XAUUSD         0.0223    1.382      0.553      0.636       0.682       22.3      0.695
+M5   BTCUSD        -0.1481    1.370      0.134      0.009       0.000     -148.1      0.000
+M5   XAUUSD        -0.0298    1.449      0.418      0.322       0.254      -29.8      0.258
+
+P(jamais sous zéro) à 1000 pas, et intervalle des résultats finaux :
+  10eur-M1-BTCUSD      P(jamais sous 0) 0.000 · médiane    -111.8 R · p05    -181.2 R · p95     -40.7 R · E = -111.7 R
+  10eur-M1-XAUUSD      P(jamais sous 0) 0.000 · médiane    -166.1 R · p05    -236.6 R · p95     -95.9 R · E = -166.3 R
+  10eur-M15-BTCUSD     P(jamais sous 0) 0.000 · médiane    -102.9 R · p05    -169.7 R · p95     -33.9 R · E = -102.0 R
+  10eur-M15-XAUUSD     P(jamais sous 0) 0.011 · médiane      -9.3 R · p05     -80.8 R · p95      63.6 R · E = -9.1 R
+  10eur-M5-BTCUSD      P(jamais sous 0) 0.000 · médiane    -180.7 R · p05    -254.0 R · p95    -110.5 R · E = -180.7 R
+  10eur-M5-XAUUSD      P(jamais sous 0) 0.002 · médiane     -62.5 R · p05    -139.7 R · p95      12.5 R · E = -62.6 R
+  demo-M1-BTCUSD       P(jamais sous 0) 0.001 · médiane     -80.3 R · p05    -152.7 R · p95      -7.8 R · E = -80.4 R
+  demo-M1-XAUUSD       P(jamais sous 0) 0.000 · médiane    -132.6 R · p05    -205.2 R · p95     -60.2 R · E = -133.1 R
+  demo-M15-BTCUSD      P(jamais sous 0) 0.000 · médiane     -73.0 R · p05    -139.8 R · p95      -2.7 R · E = -72.0 R
+  demo-M15-XAUUSD      P(jamais sous 0) 0.024 · médiane      20.5 R · p05     -51.2 R · p95      94.4 R · E = 21.3 R
+  demo-M5-BTCUSD       P(jamais sous 0) 0.000 · médiane    -148.9 R · p05    -219.5 R · p95     -77.8 R · E = -149.0 R
+  demo-M5-XAUUSD       P(jamais sous 0) 0.005 · médiane     -29.3 R · p05    -104.2 R · p95      44.1 R · E = -29.6 R
+
+----------------------------------------------------------------------------------------------------
+C bis. MARTINGALE — MISE DOUBLÉE APRÈS CHAQUE PERTE
+----------------------------------------------------------------------------------------------------
+mise initiale 27.48 € (0.5 % de 5 496.67 €), doublée après chaque opération perdante, réinitialisée après une gagnante
+M1   BTCUSD   P(perte/op)=0.586 → 7 pertes consécutives bloquent la martingale (la mise suivante serait 3 517.87 € pour 2 006.28 € restants) ; 8 l'effacent (7 008.25 €)
+     P(une suite de 7) = 100 op. : 0.6363 · 500 op. : 0.9948 · 1000 op. : 1.0000   |   P(une suite de 8) = 100 op. : 0.4348 · 500 op. : 0.9499 · 1000 op. : 0.9976
+     1000 op. martingale    : ruine 0.979, solde épuisé 0.084, gain médian -3 371.72 €, moyenne -1 742.45 €, p05 -5 908.24 €, p95 5 540.73 €
+     1000 op. mise constante: ruine 0.004, gain médian -2 174.67 €, moyenne -2 180.61 €, p05 -4 203.30 €, p95 -149.00 €
+M1   XAUUSD   P(perte/op)=0.623 → 7 pertes consécutives bloquent la martingale (la mise suivante serait 3 517.87 € pour 2 006.28 € restants) ; 8 l'effacent (7 008.25 €)
+     P(une suite de 7) = 100 op. : 0.7698 · 500 op. : 0.9995 · 1000 op. : 1.0000   |   P(une suite de 8) = 100 op. : 0.5826 · 500 op. : 0.9897 · 1000 op. : 0.9999
+     1000 op. martingale    : ruine 0.996, solde épuisé 0.060, gain médian -3 268.16 €, moyenne -2 552.21 €, p05 -5 597.85 €, p95 977.75 €
+     1000 op. mise constante: ruine 0.069, gain médian -3 687.03 €, moyenne -3 705.67 €, p05 -5 635.20 €, p95 -1 720.45 €
+M15  BTCUSD   P(perte/op)=0.651 → 7 pertes consécutives bloquent la martingale (la mise suivante serait 3 517.87 € pour 2 006.28 € restants) ; 8 l'effacent (7 008.25 €)
+     P(une suite de 7) = 100 op. : 0.8527 · 500 op. : 1.0000 · 1000 op. : 1.0000   |   P(une suite de 8) = 100 op. : 0.6932 · 500 op. : 0.9979 · 1000 op. : 1.0000
+     1000 op. martingale    : ruine 0.995, solde épuisé 0.008, gain médian -2 902.73 €, moyenne -1 078.98 €, p05 -5 091.95 €, p95 6 195.76 €
+     1000 op. mise constante: ruine 0.001, gain médian -1 987.58 €, moyenne -2 004.61 €, p05 -3 930.57 €, p95 -182.72 €
+M15  XAUUSD   P(perte/op)=0.613 → 7 pertes consécutives bloquent la martingale (la mise suivante serait 3 517.87 € pour 2 006.28 € restants) ; 8 l'effacent (7 008.25 €)
+     P(une suite de 7) = 100 op. : 0.7354 · 500 op. : 0.9990 · 1000 op. : 1.0000   |   P(une suite de 8) = 100 op. : 0.5415 · 500 op. : 0.9832 · 1000 op. : 0.9997
+     1000 op. martingale    : ruine 0.971, solde épuisé 0.017, gain médian -2 749.71 €, moyenne 1 813.85 €, p05 -5 182.25 €, p95 16 158.08 €
+     1000 op. mise constante: ruine 0.000, gain médian 615.81 €, moyenne 598.54 €, p05 -1 396.98 €, p95 2 540.43 €
+M5   BTCUSD   P(perte/op)=0.656 → 7 pertes consécutives bloquent la martingale (la mise suivante serait 3 517.87 € pour 2 006.28 € restants) ; 8 l'effacent (7 008.25 €)
+     P(une suite de 7) = 100 op. : 0.8663 · 500 op. : 1.0000 · 1000 op. : 1.0000   |   P(une suite de 8) = 100 op. : 0.7134 · 500 op. : 0.9986 · 1000 op. : 1.0000
+     1000 op. martingale    : ruine 0.999, solde épuisé 0.049, gain médian -3 297.13 €, moyenne -2 679.15 €, p05 -5 494.69 €, p95 1 157.30 €
+     1000 op. mise constante: ruine 0.120, gain médian -4 042.95 €, moyenne -4 072.37 €, p05 -6 045.65 €, p95 -2 140.96 €
+M5   XAUUSD   P(perte/op)=0.608 → 7 pertes consécutives bloquent la martingale (la mise suivante serait 3 517.87 € pour 2 006.28 € restants) ; 8 l'effacent (7 008.25 €)
+     P(une suite de 7) = 100 op. : 0.7170 · 500 op. : 0.9986 · 1000 op. : 1.0000   |   P(une suite de 8) = 100 op. : 0.5205 · 500 op. : 0.9788 · 1000 op. : 0.9996
+     1000 op. martingale    : ruine 0.981, solde épuisé 0.063, gain médian -2 997.47 €, moyenne -461.79 €, p05 -5 582.46 €, p95 7 546.94 €
+     1000 op. mise constante: ruine 0.000, gain médian -735.87 €, moyenne -780.41 €, p05 -2 752.78 €, p95 1 071.84 €
+
+====================================================================================================
+D. QUESTION 3 — LE SEUIL DE FRÉQUENCE, EN EUROS PAR JOUR SUR LE SOLDE RÉEL
+====================================================================================================
+solde démo 5 496.67 € · risque 0.5 % = 27.48 €/op
+UT   marché    op/j mesuré  coût/op R   net/op R   net €/op      €/jour   %/jour  j → -2 %  j → -10 %
+M1   BTCUSD          76.54     0.2056    -0.0801     -2.200     -168.41   -3.064      0.65       3.26
+M1   XAUUSD          34.48     0.1773    -0.1340     -3.684     -127.03   -2.311      0.87       4.33
+M15  BTCUSD           4.23     0.0385    -0.0717     -1.970       -8.33   -0.152     13.19      65.96
+M15  XAUUSD           3.43     0.0543     0.0223      0.614        2.11    0.038         —          —
+M5   BTCUSD          15.30     0.0663    -0.1481     -4.070      -62.28   -1.133      1.77       8.83
+M5   XAUUSD          12.10     0.0774    -0.0298     -0.818       -9.90   -0.180     11.10      55.52
+  (— = l'espérance nette est positive : aucun délai de ruine à afficher)
+
+Plafond de fréquence pour un budget de perte donné (opérations par jour) :
+  M1   BTCUSD   1 €/j → 0.5 op/j · 5 €/j → 2.3 op/j · 10 €/j → 4.5 op/j
+  M1   XAUUSD   1 €/j → 0.3 op/j · 5 €/j → 1.4 op/j · 10 €/j → 2.7 op/j
+  M15  BTCUSD   1 €/j → 0.5 op/j · 5 €/j → 2.5 op/j · 10 €/j → 5.1 op/j
+  M15  XAUUSD   aucun plafond : l'espérance nette est positive (+0.0223 R/op)
+  M5   BTCUSD   1 €/j → 0.2 op/j · 5 €/j → 1.2 op/j · 10 €/j → 2.5 op/j
+  M5   XAUUSD   1 €/j → 1.2 op/j · 5 €/j → 6.1 op/j · 10 €/j → 12.2 op/j
+
+Seuil de rentabilité en ATR (espérance brute mesurée conservée, coûts du projet) :
+  M1 XAUUSD risque 10 €  : aucun ATR ne suffit : la commission seule dépasse le brut mesuré
+  M1 XAUUSD risque démo  : ATR ≥ 10.263 (6.21 x l'ATR médian 1.652)
+  M15 XAUUSD risque 10 €  : ATR ≥ 10.504 (1.30 x l'ATR médian 8.064)
+  M15 XAUUSD risque démo  : ATR ≥ 4.786 (0.59 x l'ATR médian 8.064)
+
+E. COÛT PAR OPÉRATION EN FONCTION DE L'ATR ET DU SPREAD
+   coût/op (R) = prix x 0,9 bp / (1,5 x ATR) + commission / risque   [0,9 bp = spread 0,5 bp + 2 x slippage 0,2 bp, aller-retour]
+-- M1 BTCUSD (prix de référence 83124.29), risque 10 € = 10.00 €/op
+        ATR  stop 1,5xATR  spread pts  coût/op R  brut requis pts  brut mesuré - coût
+      0.250         0.375     4.15621    19.9998           7.4999            -19.8743
+      0.500         0.750     4.15621    10.0249           7.5187             -9.8994
+      1.000         1.500     4.15621     5.0375           7.5562             -4.9119
+     38.106        57.159     4.15621     0.1809          10.3391             -0.0554 <- ATR mesuré
+      2.000         3.000     4.15621     2.5437           7.6312             -2.4182
+      4.000         6.000     4.15621     1.2969           7.7812             -1.1714
+      8.000        12.000     4.15621     0.6734           8.0812             -0.5479
+     16.000        24.000     4.15621     0.3617           8.6812             -0.2362
+-- M1 BTCUSD (prix de référence 83124.29), risque démo = 27.48 €/op
+        ATR  stop 1,5xATR  spread pts  coût/op R  brut requis pts  brut mesuré - coût
+      0.250         0.375     4.15621    19.9680           7.4880            -19.8425
+      0.500         0.750     4.15621     9.9931           7.4948             -9.8676
+      1.000         1.500     4.15621     5.0057           7.5085             -4.8801
+     38.106        57.159     4.15621     0.1491           8.5211             -0.0236 <- ATR mesuré
+      2.000         3.000     4.15621     2.5119           7.5358             -2.3864
+      4.000         6.000     4.15621     1.2651           7.5903             -1.1395
+      8.000        12.000     4.15621     0.6416           7.6995             -0.5161
+     16.000        24.000     4.15621     0.3299           7.9178             -0.2044
+-- M1 XAUUSD (prix de référence 4278.15), risque 10 € = 10.00 €/op
+        ATR  stop 1,5xATR  spread pts  coût/op R  brut requis pts  brut mesuré - coût
+      0.250         0.375     0.21391     1.0768           0.4038             -1.0336
+      0.500         0.750     0.21391     0.5634           0.4225             -0.5202
+      1.000         1.500     0.21391     0.3067           0.4600             -0.2635
+      1.652         2.478     0.21391     0.2054           0.5089             -0.1622 <- ATR mesuré
+      2.000         3.000     0.21391     0.1783           0.5350             -0.1351
+      4.000         6.000     0.21391     0.1142           0.6850             -0.0710
+      8.000        12.000     0.21391     0.0821           0.9850             -0.0389
+     16.000        24.000     0.21391     0.0660           1.5850             -0.0228
+-- M1 XAUUSD (prix de référence 4278.15), risque démo = 27.48 €/op
+        ATR  stop 1,5xATR  spread pts  coût/op R  brut requis pts  brut mesuré - coût
+      0.250         0.375     0.21391     1.0449           0.3919             -1.0017
+      0.500         0.750     0.21391     0.5316           0.3987             -0.4884
+      1.000         1.500     0.21391     0.2749           0.4123             -0.2317
+      1.652         2.478     0.21391     0.1736           0.4301             -0.1304 <- ATR mesuré
+      2.000         3.000     0.21391     0.1465           0.4396             -0.1033
+      4.000         6.000     0.21391     0.0824           0.4942             -0.0392
+      8.000        12.000     0.21391     0.0503           0.6033             -0.0071
+     16.000        24.000     0.21391     0.0342           0.8217              0.0090
+-- M15 XAUUSD (prix de référence 4660.23), risque 10 € = 10.00 €/op
+        ATR  stop 1,5xATR  spread pts  coût/op R  brut requis pts  brut mesuré - coût
+      0.250         0.375     0.23301     1.1685           0.4382             -1.0918
+      0.500         0.750     0.23301     0.6092           0.4569             -0.5326
+      1.000         1.500     0.23301     0.3296           0.4944             -0.2530
+      8.064        12.095     0.23301     0.0847           1.0242             -0.0081 <- ATR mesuré
+      2.000         3.000     0.23301     0.1898           0.5694             -0.1132
+      4.000         6.000     0.23301     0.1199           0.7194             -0.0433
+      8.000        12.000     0.23301     0.0850           1.0194             -0.0083
+     16.000        24.000     0.23301     0.0675           1.6194              0.0091
+-- M15 XAUUSD (prix de référence 4660.23), risque démo = 27.48 €/op
+        ATR  stop 1,5xATR  spread pts  coût/op R  brut requis pts  brut mesuré - coût
+      0.250         0.375     0.23301     1.1366           0.4262             -1.0600
+      0.500         0.750     0.23301     0.5774           0.4331             -0.5008
+      1.000         1.500     0.23301     0.2978           0.4467             -0.2212
+      8.064        12.095     0.23301     0.0529           0.6395              0.0237 <- ATR mesuré
+      2.000         3.000     0.23301     0.1580           0.4740             -0.0814
+      4.000         6.000     0.23301     0.0881           0.5286             -0.0115
+      8.000        12.000     0.23301     0.0531           0.6377              0.0235
+     16.000        24.000     0.23301     0.0357           0.8560              0.0410
+
+====================================================================================================
+F. LE CADRE DÉJÀ MESURÉ (rappel, jamais rouvert ici)
+====================================================================================================
+seuils de campagne : max_correlation=0.7, max_drawdown_eur=200, max_parameter_dispersion=0.5, min_monte_carlo_probability=0.5, min_out_of_sample_retention=0.5, min_profit_factor_net=1.2, min_profitable_regime_ratio=0.5, min_stability_score=0.5, min_trades=30
+  M1 : 6 hypothèses, p-value min 0.5714, découvertes 6 → 0 après Benjamini-Hochberg (alpha=0.1) — 2026-10-08T02:30:19.754643+00:00
+  M15 : 6 hypothèses, p-value min 0.3497, découvertes 6 → 0 après Benjamini-Hochberg (alpha=0.1) — 2026-10-08T02:28:52.711334+00:00
+  M5 : 6 hypothèses, p-value min 0.3756, découvertes 6 → 0 après Benjamini-Hochberg (alpha=0.1) — 2026-10-08T02:29:32.280612+00:00
+
+faits écrits dans scripts\analysis\petits-gains-facts.json

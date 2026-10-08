@@ -11,7 +11,7 @@ repos:
           --plugin tools/detect_secrets_plugins/project_tokens.py
           --baseline .secrets.baseline
         language: system
-        exclude: ^uv\.lock$|^docs/research/.*\.json$
+        exclude: ^uv\.lock$|^docs/research/.*\.json$|^scripts/analysis/.*\.json$
       # The research artifacts are machine-written evidence: dataset fingerprints, evidence
       # digests, 64-character hex. The entropy plugin flags them every time, and they change
       # on every campaign run, so the baseline would need rewriting after each one — a
@@ -28,7 +28,7 @@ repos:
           --disable-plugin HexHighEntropyString
           --baseline .secrets.baseline
         language: system
-        files: ^docs/research/.*\.json$
+        files: ^docs/research/.*\.json$|^scripts/analysis/.*\.json$
       - id: detect-private-key
         name: detect-private-key
         entry: uv run detect-private-key
