@@ -1067,9 +1067,12 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - [x] un contact exact n'est pas une cassure — `test_touching_the_boundary_without_breaking_it_is_still_a_range`
   - [x] un instant décalé en fuseau tombe dans la même séance — `test_a_timezone_offset_does_not_change_the_session`
   - [x] les seuils de volatilité sont lus depuis les paramètres, pas figés — `test_the_two_bounds_are_read_from_the_parameters`
-  - [ ] structure de swing (HH/HL/LH/LL, break of structure) — **à faire**
+  - [x] **structure de swing** (HH/HL/LH/LL, creux et sommets confirmés) — `indicators/structure.py`, 20 tests
+  - [x] **aucune lecture du futur, prouvée par troncature** : publier une valeur à la barre `j` ne dépend que des barres `0..j`. Vérifié sur 60 000 bougies M15 réelles — 0 violation sur 5 troncatures × 3 forces — et verrouillé par `test_truncating_the_series_never_changes_what_was_already_published`
+  - [x] **la barre courante n'est jamais un swing confirmé** — `test_the_current_bar_is_never_a_confirmed_swing`. C'est le décalage de `strength` barres qui rend la détection utilisable en direct
   - [ ] instantané des conditions à l'entrée, et MAE/MFE par trade — **à faire**
 - **Note de calibrage :** le nombre de barres nécessaires pour qu'une contraction de volatilité soit lue comme « calme » a été **mesuré**, pas choisi : le lissage de Wilder garde une mémoire longue (facteur 13/14 par barre), donc 40 barres étroites ne font tomber le rapport qu'à 0,98 alors qu'il en faut 120 pour atteindre 0,62.
+- **Ce que `structure.py` débloque, et ce qu'il ne débloque pas encore :** `last_swing_low` donne le niveau dont un trailing sur structure a besoin — mais le harnais ne sait toujours faire qu'un trailing à **distance fixe** (`harness.py:74`), et `SignalCandidate` fige ses niveaux au moment de la décision. La brique de calcul est là ; le chantier d'architecture reste à faire (voir TASK-067, point 1).
 - **Skills :** `test-driven-development`
 
 ### QUALITY GATE — Phase 6
