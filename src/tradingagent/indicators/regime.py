@@ -180,3 +180,17 @@ def market_structure(
     if close < previous_low:
         return MarketStructure.BREAKOUT_DOWN
     return MarketStructure.RANGE
+
+
+def is_breakout(
+    highs: Sequence[float], lows: Sequence[float], closes: Sequence[float], *, channel: int
+) -> bool:
+    """Vrai quand la clôture sort du canal des `channel` barres précédentes.
+
+    Nommé séparément parce que c'est le seul usage qu'une stratégie en fait : décider si elle
+    a le droit d'entrer. Le **sens** de la cassure n'importe pas ici — une cassure haute et
+    une cassure basse sont deux sorties de range, et la mesure du 2026-10-09 montre qu'elles
+    se comportent de la même façon pour les règles testées (PF 1,652 contre 1,656 sur l'or,
+    1,658 contre 1,719 sur le BTC).
+    """
+    return market_structure(highs, lows, closes, channel=channel) is not MarketStructure.RANGE

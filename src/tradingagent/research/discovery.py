@@ -50,6 +50,7 @@ from tradingagent.core.signal import SignalCandidate
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.indicators.momentum import rsi
 from tradingagent.indicators.moving_average import ema
+from tradingagent.indicators.regime import is_breakout
 from tradingagent.indicators.stochastic import stochastic
 from tradingagent.indicators.trend import supertrend
 from tradingagent.indicators.volatility import atr
@@ -82,7 +83,7 @@ from tradingagent.research.protocol import bonferroni_threshold as _bonferroni_t
 from tradingagent.research.protocol import monte_carlo_p_value as _monte_carlo_p_value
 from tradingagent.strategies.base import Strategy, StrategyContext
 from tradingagent.strategies.library.trend_breakout import TrendBreakout
-from tradingagent.strategies.library.witness import Witness
+from tradingagent.strategies.library.witness import Witness, WitnessParameters
 from tradingagent.strategies.manifest import StrategyManifest
 
 DEFAULT_WALK_FORWARD_RATIO = 0.5
@@ -464,6 +465,45 @@ class ScalpTripleFilter(Strategy[ScalpTripleFilterParameters]):
                 "atr": volatility,
             },
         )
+
+
+class BreakoutOnly(Strategy[WitnessParameters]):
+    """Une règle existante, précédée d'une seule garde : n'entrer que sur une cassure.
+
+    **Pourquoi cette classe existe.** La mesure du 2026-10-09 a montré que sur les deux
+    marchés et les deux stratégies de production, les entrées prises en range perdent tout
+    l'argent et celles prises sur une cassure gagnent (PF 1,65 à 1,72). Un filtre trouvé
+    ainsi, en regardant les résultats, est une **hypothèse** : il doit donc être mesuré comme
+    un candidat, avec walk-forward et jeu scellé, et surtout pas appliqué en production parce
+    qu'il arrange.
+
+    Le filtre **délègue** la décision : il ne réécrit ni ne modifie le signal du parent, il
+    refuse simplement de le laisser passer quand le marché est en range. Une garde qui
+    modifierait le signal serait une autre règle, et il faudrait la mesurer comme telle.
+    """
+
+    strategy_id = "breakout_only"
+    parameters_model = WitnessParameters
+
+    def __init__(self, parameters: WitnessParameters, inner: Strategy[WitnessParameters]) -> None:
+        super().__init__(parameters)
+        self._inner = inner
+
+    @property
+    def channel(self) -> int:
+        """La fenêtre du canal, adossée à la moyenne lente du parent plutôt qu'inventée."""
+        return self.parameters.ema_slow
+
+    def evaluate(self, context: StrategyContext) -> SignalCandidate | None:
+        timeframe = context.primary_timeframe
+        if not is_breakout(
+            context.highs(timeframe),
+            context.lows(timeframe),
+            context.closes(timeframe),
+            channel=self.channel,
+        ):
+            return None
+        return self._inner.evaluate(context)
 
 
 class ConsensusEnsembleParameters(BaseModel):
@@ -893,6 +933,55 @@ def scalp_triple_filter_template(scope: TemplateScope, grid: Grid) -> Iterator[C
                 )
 
 
+def breakout_only_template(scope: TemplateScope, grid: Grid) -> Iterator[CandidateProposal]:
+    """Famille : la règle de tendance, précédée de la garde « cassure seulement ».
+
+    L'hypothèse vient d'une mesure, pas d'une intuition : voir :class:`BreakoutOnly`. Le
+    gabarit reprend la grille du suivi de tendance, sinon la comparaison avec la famille
+    d'origine porterait sur deux jeux de paramètres différents et ne dirait rien.
+    """
+    fasts = grid_values(grid, "ema_fast", (10.0, 20.0))
+    slows = grid_values(grid, "ema_slow", (30.0, 60.0))
+    targets = grid_values(grid, "take_profit_rr", (1.5, 2.5))
+    stop = grid_values(grid, "stop_atr_multiplier", (1.5,))[0]
+    zone = grid_values(grid, "entry_zone_atr", (0.1,))[0]
+    atr_period = _whole(grid_values(grid, "atr_period", (14.0,))[0])
+
+    def factory(parameters: Mapping[str, float]) -> Strategy[Any]:
+        model = WitnessParameters.model_validate(dict(parameters))
+        return BreakoutOnly(model, Witness(model))
+
+    for fast, slow, take_profit_rr in product(fasts, slows, targets):
+        if _whole(slow) <= _whole(fast):
+            continue
+        parameters = {
+            "ema_fast": _whole(fast),
+            "ema_slow": _whole(slow),
+            "atr_period": atr_period,
+            "stop_atr_multiplier": stop,
+            "take_profit_rr": take_profit_rr,
+            "entry_zone_atr": zone,
+        }
+        lookback = max(_whole(slow), atr_period) + 2
+        manifest = StrategyManifest(
+            strategy_id=BreakoutOnly.strategy_id,
+            version=scope.version,
+            max_mode=TradingMode.SIGNAL,
+            allowed_symbols=scope.symbols,
+            timeframes=(scope.timeframe,),
+            history_bars=_history_bars(lookback),
+            expiry_bars=2,
+            parameters=dict(parameters),
+        )
+        yield CandidateProposal(
+            family="breakout_only",
+            strategy_id=BreakoutOnly.strategy_id,
+            manifest=manifest,
+            parameters=parameters,
+            factory=factory,
+        )
+
+
 FAMILIES: tuple[FamilyTemplate, ...] = (
     FamilyTemplate(
         "trend_following", "suivi de tendance (croisement EMA)", trend_following_template
@@ -910,6 +999,11 @@ FAMILIES: tuple[FamilyTemplate, ...] = (
         "scalp_triple_filter",
         "scalping M1 : Supertrend + Stochastic + EMA d'unité supérieure + ATR",
         scalp_triple_filter_template,
+    ),
+    FamilyTemplate(
+        "breakout_only",
+        "règle de tendance précédée de la garde : n'entrer que sur une cassure",
+        breakout_only_template,
     ),
 )
 
@@ -931,6 +1025,11 @@ def default_grid() -> dict[str, dict[str, tuple[float, ...]]]:
             "st_period": (7.0, 10.0),
             "st_multiplier": (1.5, 2.0),
             "take_profit_rr": (0.5, 0.7),
+        },
+        "breakout_only": {
+            "ema_fast": (10.0, 20.0),
+            "ema_slow": (30.0, 60.0),
+            "take_profit_rr": (1.5, 2.5),
         },
     }
 

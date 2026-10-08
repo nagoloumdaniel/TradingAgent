@@ -189,6 +189,7 @@ def test_every_family_proposes_valid_parameters_for_a_real_strategy_class() -> N
 
 def _research_classes() -> dict[str, type[Strategy[Any]]]:
     from tradingagent.research.discovery import (
+        BreakoutOnly,
         ConsensusEnsemble,
         MeanReversion,
         Momentum,
@@ -202,6 +203,7 @@ def _research_classes() -> dict[str, type[Strategy[Any]]]:
         "volatility_breakout": VolatilityBreakout,
         "consensus_ensemble": ConsensusEnsemble,
         "scalp_triple_filter": ScalpTripleFilter,
+        "breakout_only": BreakoutOnly,
     }
 
 
