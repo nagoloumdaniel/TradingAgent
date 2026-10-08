@@ -15,6 +15,12 @@ de consultation) recopiée telle quelle.
   devise **EUR**
 - **Version du dossier vérifiée :** `2026-10-07-conformite-mode-reel.md`
 
+> **Ce document peut attendre.** Rien n'oblige à le signer maintenant : le mode
+> démonstration, la campagne de trente jours, la boucle d'amélioration et les EA n'en
+> dépendent pas. Il ne verrouille qu'une chose — l'activation en **mode réel** (phase 9) —
+> et `control/live.py` la refuse tant que `legal_checklist_signed` est faux. Une seconde
+> serrure, indépendante, reste de toute façon fermée : `LIVE_TRADING_ENABLED=false`.
+>
 > **État du remplissage — à lire avant de signer.**
 >
 > L'en-tête ci-dessus est rempli à partir de faits vérifiables : identité du dépôt Git,
