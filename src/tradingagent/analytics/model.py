@@ -4,7 +4,8 @@ One closed-trade record, one performance summary. Pure data: the same numbers co
 of a backtest and of production, because both feed the same functions (C-001).
 """
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -38,6 +39,13 @@ class Trade:
     #: Both are only known once the trade is closed. Unlike an indicator, nobody decides
     #: with them, so reading them afterwards cannot leak the future into a decision.
     mfe_r: float | None = None
+    #: The market context read off the entry bar, as numbers: regime, volatility, session.
+    #:
+    #: This is what lets an analysis correlate a *context* with an outcome -- "this rule wins
+    #: in a trend and loses in a range" -- instead of only correlating parameters. A key that
+    #: is absent was not measured and must not be read as zero; see
+    #: :func:`tradingagent.indicators.features.entry_features`.
+    features: Mapping[str, float] = field(default_factory=dict)
 
 
 # Below this size, ratio statistics are labelled insignificant instead of being shown.

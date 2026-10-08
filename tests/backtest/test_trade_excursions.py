@@ -51,10 +51,14 @@ class OneShotParameters(BaseModel):
 
 
 class OneShot(Strategy[OneShotParameters]):
-    """Une stratégie qui émet un signal à une seule barre, puis se tait.
+    """Une stratégie qui émet un signal **une seule fois**, puis se tait.
 
-    Le but n'est pas de simuler un edge mais de **contrôler le chemin du prix** qui suit le
-    signal, pour vérifier les excursions à la main.
+     Le but n'est pas de simuler un edge mais de **contrôler le chemin du prix** qui suit le
+     signal, pour vérifier les excursions à la main.
+
+     Le « une seule fois » est porté par un drapeau, et non par la comparaison d'un indice de
+     barre : le harnais appelle `evaluate` à chaque barre, donc une comparaison d'indice ferait
+    émettre le même signal 39 fois de suite, saturant la limite de positions concurrentes.
     """
 
     strategy_id = "one_shot"
@@ -64,10 +68,14 @@ class OneShot(Strategy[OneShotParameters]):
         super().__init__(OneShotParameters())
         self._at = at_index
         self._candidate = candidate
+        self._fired = False
 
     def evaluate(self, context: StrategyContext) -> SignalCandidate | None:
         bar_index = len(context.series(context.primary_timeframe)) - 1
-        return self._candidate if bar_index == self._at else None
+        if bar_index == self._at and not self._fired:
+            self._fired = True
+            return self._candidate
+        return None
 
 
 def bars(prices: list[float]) -> tuple[Candle, ...]:
@@ -118,6 +126,23 @@ def sell(price: float, stop: float, target: float) -> SignalCandidate:
         entry_high=price + 1.0,
         stop_loss=stop,
         take_profits=(target,),
+        reason="test",
+        indicators={},
+    )
+
+
+def wide_buy(price: float) -> SignalCandidate:
+    """Une zone large, pour que le prix ne s'en échappe pas avant d'être rempli.
+
+    Utile quand le scénario fait monter le prix d'un point par barre : avec la zone étroite
+    de `buy`, le prix sort de la zone avant la barre de remplissage et rien ne s'ouvre.
+    """
+    return SignalCandidate(
+        direction=Direction.BUY,
+        entry_low=price - 10.0,
+        entry_high=price + 10.0,
+        stop_loss=price - 15.0,
+        take_profits=(price + 30.0,),
         reason="test",
         indicators={},
     )
@@ -264,3 +289,42 @@ def test_the_excursions_do_not_depend_on_bars_after_the_close() -> None:
 
     assert full.mae_r == truncated.mae_r
     assert full.mfe_r == truncated.mfe_r
+
+
+def test_a_trade_carries_the_market_context_of_its_entry() -> None:
+    """Le trade porte le contexte lu à la barre d'entrée : c'est ce qui relie conditions et
+    résultat, et sans quoi une analyse ne peut corréler que des paramètres.
+
+    La stratégie signale **une seule fois** (`OneShot`), donc un trade exactement : c'est ce
+    qui rend l'assertion sur ses features sans ambiguïté.
+    """
+    prices = [100.0 + index for index in range(40)]
+    trade = run(prices, wide_buy(prices[1]), at=1)
+
+    assert "session" in trade.features
+    assert "trend" in trade.features
+    assert "structure" in trade.features
+
+
+def test_the_context_never_uses_a_bar_after_the_entry() -> None:
+    """Anti-futur sur le contexte : changer les barres **suivant** l'entrée ne doit rien
+    changer aux features, qui seraient sinon une peinture d'après-coup.
+
+    Le piège est réel : calculer le régime sur la série entière au lieu du préfixe connu
+    donnerait des features parfaitement prédictives, et parfaitement fausses.
+    """
+    rising = [100.0 + index for index in range(12)]
+    candidate = wide_buy(rising[1])
+
+    calm = run(rising, candidate, at=1)
+    # Même préfixe connu, puis un retournement franc : la série reste dans la zone d'entrée,
+    # donc le trade s'ouvre dans les deux cas et la comparaison porte bien sur les features.
+    reversed_prices = [*rising[:2], 100.0, 98.0, 96.0, 94.0, 92.0, 91.5, 91.0, 90.5]
+    reversed_run = run(reversed_prices, candidate, at=1)
+
+    # Les contextes sont identiques : rien n'a été lu après la barre d'entrée.
+    assert calm.features == reversed_run.features
+    # Et pourtant les deux trades ont vécu des choses différentes : le contexte ne les prédit
+    # pas, il les décrit.
+    assert calm.mae_r is not None and reversed_run.mae_r is not None
+    assert reversed_run.mae_r > calm.mae_r

@@ -27,6 +27,7 @@ from tradingagent.core.mode import TradingMode
 from tradingagent.core.signal import SignalCandidate
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.market_calendar import MarketCalendar, Slot
+from tradingagent.indicators.features import entry_features
 from tradingagent.indicators.volatility import atr
 from tradingagent.strategies.base import Strategy
 from tradingagent.strategies.evaluation import Outcome, OutcomeKind, evaluate
@@ -140,6 +141,8 @@ class _Position:
     #: own range is real even though the barrier order inside that bar is unknowable.
     worst_r: float = 0.0
     best_r: float = 0.0
+    #: The market context read off the bars known at the fill, kept for the closed trade.
+    features: Mapping[str, float] = field(default_factory=dict)
 
 
 def decision_prefix(series: Sequence[Candle], evaluated_at: datetime) -> Sequence[Candle]:
@@ -188,7 +191,7 @@ def run_backtest(
                 continue
             if config.session is not None and not config.session.allows(bar.open_time):
                 continue
-            position = _try_enter(entry, bar, config, manifest, index)
+            position = _try_enter(entry, bar, config, manifest, index, primary)
             if position is None:
                 continue
             pending.remove(entry)
@@ -309,6 +312,7 @@ def _try_enter(
     config: BacktestConfig,
     manifest: StrategyManifest,
     index: int,
+    primary: Sequence[Candle],
 ) -> _Position | None:
     signal = entry.signal
     if signal.direction is Direction.BUY:
@@ -357,6 +361,7 @@ def _try_enter(
             if signal.direction is Direction.BUY
             else (fill - bar.low) / risk_price
         ),
+        features=_entry_features(primary, index, config),
     )
 
 
@@ -427,6 +432,28 @@ def _trail(
         position.stop = min(position.stop, primary[index].low + distance)
 
 
+def _entry_features(
+    primary: Sequence[Candle], index: int, config: BacktestConfig
+) -> dict[str, float]:
+    """The market context at the fill, from the bars known **at** the fill and no others.
+
+    The prefix stops at the entry bar: a context computed over later bars would describe a
+    market the decision did not face, and would make the features look predictive when they
+    are only painted after the fact. Whatever cannot be measured on that prefix is left out
+    by `entry_features`, which is the honest reading of "not measured".
+    """
+    prefix = primary[: index + 1]
+    if not prefix:
+        return {}
+    return entry_features(
+        [candle.close_time for candle in prefix],
+        [candle.high for candle in prefix],
+        [candle.low for candle in prefix],
+        [candle.close for candle in prefix],
+        atr_period=config.atr_period,
+    )
+
+
 def _record_excursion(position: _Position, bar: Candle) -> None:
     """Remember how far this bar took the trade against us and for us, in R.
 
@@ -470,6 +497,7 @@ def _close(position: _Position, bar: Candle, config: BacktestConfig) -> Trade:
         spread=config.costs.spread * config.costs.multiplier,
         mae_r=round(position.worst_r, 12),
         mfe_r=round(position.best_r, 12),
+        features=dict(position.features),
     )
 
 
