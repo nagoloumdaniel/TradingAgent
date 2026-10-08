@@ -5,6 +5,12 @@ then one line per raw candle. The fingerprint is a SHA-256 over the candle lines
 any byte changed in the data is detected on load. Files are written once and never
 rewritten: raw data is immutable.
 
+A candle's volume rides in the line under `v`, and **only when the candle carries one**. The
+eight series frozen before the field existed hold no `v` key, read back as `volume=None`, and
+keep the fingerprint they were frozen with — their bytes are never rewritten. Parsing a
+dataset from before 2026-10-08 therefore cannot fail on a missing key, and a new dataset
+cannot hide a volume outside the fingerprint.
+
 Holes are counted with `data.quality.missing_bars` against the market calendar and
 reported, never filled. The same checks accept a hand-built synthetic dataset or a real
 MT5 download, because both reduce to an ordered tuple of `Candle`.
@@ -25,6 +31,10 @@ from tradingagent.data.market_calendar import MarketCalendar
 from tradingagent.data.quality import missing_bars
 
 DATASET_FORMAT = "tradingagent.dataset/1"
+
+#: The JSONL key holding the broker's tick volume. Omitted, never nulled, when the candle has
+#: no volume: a key added to a series that never recorded one would rewrite frozen bytes.
+VOLUME_KEY = "v"
 
 
 class DatasetError(Exception):
@@ -158,21 +168,32 @@ class DatasetManifest:
 
 
 def candle_line(candle: Candle) -> str:
-    """Canonical one-line encoding; Python's float repr round-trips exactly."""
-    return json.dumps(
-        {
-            "t": candle.open_time.isoformat(),
-            "o": candle.open,
-            "h": candle.high,
-            "l": candle.low,
-            "c": candle.close,
-        },
-        separators=(",", ":"),
-        sort_keys=True,
-    )
+    """Canonical one-line encoding; Python's float repr round-trips exactly.
+
+    The volume is written **only when the candle carries one**, so a candle read from a
+    dataset frozen before the field existed re-encodes to the very line it came from, and the
+    fingerprint stored in its header still matches.
+    """
+    row: dict[str, object] = {
+        "t": candle.open_time.isoformat(),
+        "o": candle.open,
+        "h": candle.high,
+        "l": candle.low,
+        "c": candle.close,
+    }
+    if candle.volume is not None:
+        row[VOLUME_KEY] = candle.volume
+    return json.dumps(row, separators=(",", ":"), sort_keys=True)
 
 
 def fingerprint_of(candles: Sequence[Candle]) -> str:
+    """SHA-256 over the canonical lines, volume included.
+
+    The fingerprint hashes exactly what `candle_line` writes -- never a re-derivation of it --
+    so the bytes on disk and the bytes under the digest are the same bytes. Two series that
+    differ only by their volume therefore carry different fingerprints, and a file frozen
+    without one keeps the fingerprint it was frozen with.
+    """
     digest = hashlib.sha256()
     for candle in candles:
         digest.update(candle_line(candle).encode("ascii"))
@@ -245,7 +266,12 @@ def _read_candle(path: Path, number: int, line: str, timeframe: Timeframe) -> Ca
         row = json.loads(line)
     except json.JSONDecodeError as error:
         raise DatasetError(f"{path}:{number}: malformed candle line ({error})") from None
+    if not isinstance(row, dict):
+        raise DatasetError(f"{path}:{number}: unusable candle (not a JSON object)")
     try:
+        # A missing key is not a defect: it is how every dataset frozen before 2026-10-08
+        # records "this series carries no volume". An explicit null reads the same way.
+        volume = row.get(VOLUME_KEY)
         return Candle(
             timeframe=timeframe,
             open_time=datetime.fromisoformat(str(row["t"])),
@@ -253,6 +279,7 @@ def _read_candle(path: Path, number: int, line: str, timeframe: Timeframe) -> Ca
             high=float(row["h"]),
             low=float(row["l"]),
             close=float(row["c"]),
+            volume=None if volume is None else float(volume),
         )
     except (KeyError, TypeError, ValueError) as error:
         raise DatasetError(f"{path}:{number}: unusable candle ({error})") from None
@@ -319,6 +346,16 @@ class SyntheticRegime:
     volatility: float
 
 
+#: Mean tick volume of a synthetic bar and the spread of its log around that mean.
+VOLUME_MEAN = 1000.0
+VOLUME_LOG_SIGMA = 0.4
+
+#: An arbitrary fixed salt, and the whole point of it: volume is drawn from
+#: `DeterministicRandom(seed ^ _VOLUME_SALT)`, a stream of its own, so drawing it consumes no
+#: `gauss()` from the price walk and every seed keeps the prices (and fingerprints) it had.
+_VOLUME_SALT = 0x5EED5EED5EED5EED
+
+
 def synthetic_candles(
     timeframe: Timeframe,
     start: datetime,
@@ -335,6 +372,12 @@ def synthetic_candles(
     `common_returns` lets several symbols share one factor: return = beta * factor + noise.
     Every value is round-tripped through the requested number of decimals so two runs of
     the same seed produce byte-identical candles.
+
+    Every bar also carries a positive tick volume, drawn from a second stream salted apart
+    from the price walk and rounded to a whole tick. A separate stream is not a detail: were
+    volume drawn from the price generator, every `gauss()` after the first bar would shift and
+    the same seed would produce a different series -- silently rewriting every synthetic
+    dataset and every fingerprint derived from one.
     """
     if start.utcoffset() != timedelta(0):
         raise ValueError(f"start must be UTC, got {start!r}")
@@ -344,6 +387,7 @@ def synthetic_candles(
         raise ValueError("common_returns is shorter than the requested bar count")
 
     generator = DeterministicRandom(seed)
+    volume_stream = DeterministicRandom(seed ^ _VOLUME_SALT)
     step = timedelta(seconds=timeframe.seconds)
     candles: list[Candle] = []
     price = start_price
@@ -360,6 +404,9 @@ def synthetic_candles(
             high = _round(max(opened, closed) + wick, decimals)
             low = _round(min(opened, closed) - wick, decimals)
             opened = _round(opened, decimals)
+            tick_volume = _round(
+                VOLUME_MEAN * _safe_exp(VOLUME_LOG_SIGMA * volume_stream.gauss()), 0
+            )
             candles.append(
                 Candle(
                     timeframe=timeframe,
@@ -368,6 +415,7 @@ def synthetic_candles(
                     high=max(high, opened, closed),
                     low=min(low, opened, closed),
                     close=closed,
+                    volume=tick_volume,
                 )
             )
             price = closed

@@ -98,6 +98,7 @@ class Mt5Terminal:
                 float(r["high"]),
                 float(r["low"]),
                 float(r["close"]),
+                volume=float(r["tick_volume"]),
             )
             for r in data
         ]
@@ -147,18 +148,32 @@ class Mt5Terminal:
             retcode=int(raw.retcode), margin=float(raw.margin), comment=str(raw.comment)
         )
 
-    def order_send(self, request: TradeRequest) -> TradeResult | None:
+    def order_send(self, request: TradeRequest) -> TradeResult:
+        """Send `request` and answer with a result, or raise :class:`TerminalError`.
+
+        `None` is not an outcome: it is the absence of one, and `mt5.last_error()` is then
+        the only reason that exists. It is carried into the error rather than dropped --
+        on 2026-10-08 four orders were lost to that silence and the journal could not name
+        a single cause, which is the difference between "the broker refused" and "we do
+        not know what happened to our money". A reply missing the fields of a trade result
+        is refused the same way, so a half-built answer never escapes as an
+        `AttributeError` at the call site.
+        """
         raw = mt5.order_send(self._order_fields(request))
         if raw is None:
-            return None
-        return TradeResult(
-            retcode=int(raw.retcode),
-            order_ticket=int(raw.order),
-            deal_ticket=int(raw.deal),
-            price=float(raw.price),
-            volume=float(raw.volume),
-            comment=str(raw.comment),
-        )
+            code, description = self.last_error()
+            raise TerminalError(f"order_send: {code} {description}".strip())
+        try:
+            return TradeResult(
+                retcode=int(raw.retcode),
+                order_ticket=int(raw.order),
+                deal_ticket=int(raw.deal),
+                price=float(raw.price),
+                volume=float(raw.volume),
+                comment=str(raw.comment),
+            )
+        except (AttributeError, TypeError, ValueError) as error:
+            raise TerminalError(f"order_send: unreadable reply ({error})") from error
 
     def positions(self, symbol: str | None = None) -> tuple[PositionInfo, ...]:
         raw = mt5.positions_get(symbol=symbol) if symbol else mt5.positions_get()

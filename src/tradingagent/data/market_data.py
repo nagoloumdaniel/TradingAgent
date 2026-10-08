@@ -202,6 +202,7 @@ class MarketDataClient:
                     high=raw.high,
                     low=raw.low,
                     close=raw.close,
+                    volume=raw.volume,
                 )
             except ValueError as error:
                 log.warning("malformed %s %s bar skipped: %s", symbol, timeframe, error)

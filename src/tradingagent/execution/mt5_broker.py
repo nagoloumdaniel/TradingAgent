@@ -267,7 +267,10 @@ class MT5Broker:
             return await self._after_send_failure(order_id, request, price, error)
 
         if raw is None:
+            # The production adapter raises instead of returning None; the simulator still
+            # returns it to stage a lost answer, and an unknown outcome is never an outcome.
             return await self._after_lost_answer(order_id, request, price)
+        assert raw is not None  # noqa: S101 - narrows the simulator's optional for the type checker
         if raw.retcode not in DONE_RETCODES:
             refused = OrderResult(
                 accepted=False,

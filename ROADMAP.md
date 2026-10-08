@@ -996,6 +996,52 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - [x] les seuils sont écrits avant de regarder les résultats finaux, afin d'éviter de les ajuster après coup — prouvé par docs/research/thresholds.json et tests/research/test_promotion.py (test_thresholds_round_trip_and_keep_their_digest, test_edited_thresholds_are_detected)
   - [x] chaque manifeste produit se charge dans l'agent sans modification de code — prouvé par tests/research/test_promotion.py (test_manifest_is_written_in_production_format_and_loads)
 
+### TASK-066 — Volume de marché de bout en bout
+
+- [ ] Statut : **EN COURS au 2026-10-08.** Le champ `volume` a été ajouté à `Candle` (keyword-only, défaut `None`), la règle de sommation à l'agrégation est écrite et testée (« tout ou `None` »), et la propagation depuis `copy_rates_from_pos` est faite. **Défaut trouvé en chemin :** `mt5_terminal.rates()` lisait `r["time"]`, `r["open"]`, `r["high"]`, `r["low"]`, `r["close"]` et **jetait `r["tick_volume"]`** depuis l'origine du projet. La demande de l'opérateur du 2026-10-08 (stratégie BTC à VWAP) a rendu ce gaspillage visible : **un VWAP ne peut pas exister sans volume.**
+- **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-060 · **Couvre :** F-001, F-002, F-006
+- **Décision d'opérateur du 2026-10-08 :** le tick volume est retenu comme mesure de volume. Ce n'est pas le volume réel échangé, qui n'est pas disponible sur ce courtier ; c'est un **décompte de ticks**, et tout indicateur pondéré par ce volume doit le dire.
+- **Actions :**
+  1. `Candle.volume: float | None` — keyword-only, donc `Candle(*row)` de `storage.candles` garde ses six arguments ;
+  2. distinguer **zéro** (« aucun échange ») de **`None`** (« non enregistré ») : les confondre ferait passer une série muette pour une série à volume nul, et un VWAP pondéré par zéro n'a pas de sens ;
+  3. `RawBar.volume` puis le `Candle` — propagation depuis l'adaptateur MT5 et la conversion `RawBar` → `Candle` ;
+  4. agrégation : un seau dont **un seul membre** manque de volume vaut `None`, jamais une somme partielle. Sommer trois volumes sur cinq produit un prix qui parle d'une autre série et qui contredira le même seau reconstruit depuis un téléchargement complet ;
+  5. jeu de données : clé JSONL écrite **seulement** si le volume existe, relecture avec `None` par défaut, et **volume compris dans l'empreinte** ;
+  6. **re-geler** les jeux de données avec volume, et ne jamais réécrire un jeu déjà gelé.
+- **Critères d'acceptation :**
+  - [x] le contrat `Candle` accepte, valide et rejette le volume (fini, ≥ 0) — prouvé par `tests/core/test_market.py`
+  - [x] l'agrégation somme un seau complet et renvoie `None` sur un seau incomplet — prouvé par `tests/backtest/test_aggregate_volume.py`
+  - [x] l'adaptateur MT5 ne jette plus `tick_volume` — prouvé par `tests/data/test_market_data.py`
+  - [ ] un jeu gelé avec volume se relit à l'identique et son empreinte change avec le volume — **en cours**
+  - [ ] `storage/candles.py` : la base ne stocke pas le volume, donc un `Candle` relu de la base a `volume=None`. **À trancher** : soit une colonne `tick_volume` et une migration, soit un VWAP de production qui lit le flux et non la base. Tant que ce point est ouvert, **un VWAP de production ne verra aucun volume**.
+- **Skills :** `test-driven-development`, `market-data`
+
+### TASK-067 — Stratégie de base BTCUSD : VWAP, momentum, pullback/retest
+
+- [ ] Statut : **SPÉCIFICATION REÇUE le 2026-10-08, non implémentée.** Spécification d'opérateur : régime par unité de temps (H1 → régime, M15 → structure et VWAP, M5 → setup, M1 → exécution), filtre de tendance à trois conditions, entrée sur **retracement vers le VWAP suivi d'un rejet confirmé**, sortie en trois temps (TP1 0,8 R avec 50 % de clôture puis stop à break-even, TP2 1,5 R, puis trailing), et six filtres avant entrée (structure, momentum, volume, volatilité, spread, coût).
+- **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-066, TASK-060, TASK-063
+- **Ce que la spec exige et que le dépôt ne sait pas encore faire — à ne pas découvrir en cours de route :**
+  1. **Le trailing sur structure est structurellement impossible aujourd'hui.** `SignalCandidate` fige entrée, stop et objectifs au moment de la décision, et une stratégie est une fonction pure sans mémoire (`strategies/base.py:53`). Suivre les *higher lows* après l'entrée demande que la position se souvienne de la structure. `harness.py:74` ne sait faire qu'un trailing à **distance fixe** (`trailing_stop_atr`). C'est un chantier d'architecture, pas un paramètre ;
+  2. **`funding` n'existe pas sur ce courtier** : c'est du **swap** (financement overnight), et `CostModel` ne connaît que spread, slippage et commission. **Aucun backtest du dépôt n'a jamais payé de swap.** Pour une stratégie qui garde des positions, c'est un angle mort à combler avant de juger ;
+  3. **le filtre de coût appartient au moteur de risque**, pas à la stratégie (décision d'opérateur du 2026-10-08) : une stratégie n'a pas accès au courtier, au spread courant ni à la commission, et l'invariant « seul `risk` engage du capital » doit rester vrai ;
+  4. **l'unité d'exécution M1 ne peut pas porter un backtest** : le courtier sert ~12 000 bougies M1 (8,4 jours pour le BTC). Le walk-forward doit se faire en **H1 et M15**, où l'historique est profond (BTCUSD H1 depuis 2011-03-23, 87 573 bougies).
+- **Critères d'acceptation :**
+  - [ ] le VWAP ancré à 00:00 UTC existe, testé, et **refuse de produire une valeur sur une série sans volume** plutôt que d'en inventer une — **à faire**
+  - [ ] la règle d'entrée est un candidat de recherche mesuré par les 9 portes, jamais promue directement
+  - [ ] l'écart entre la spec et le code est consigné (ci-dessus) avant toute implémentation
+- **Skills :** `test-driven-development`, `market-data`, `crypto`
+
+### TASK-068 — VWAP de session ancré à 00:00 UTC
+
+- [ ] Statut : **À FAIRE.** Décision d'opérateur du 2026-10-08 : le BTC cote 24/7, donc l'ancre est la **journée UTC** commençant à 00:00, exposée en paramètre pour pouvoir être changée sans réécrire l'indicateur.
+- **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-066
+- **Pourquoi l'ancre est une décision et pas un détail :** un VWAP n'est pas une moyenne mobile. Sa valeur dépend entièrement du point de départ, et deux ancres différentes donnent deux indicateurs différents sur la même série. L'ancre doit donc être un paramètre explicite et testé, jamais un choix implicite caché dans une boucle.
+- **Critères d'acceptation :**
+  - [ ] la remise à zéro se fait à 00:00 UTC, prouvée par un test qui franchit minuit
+  - [ ] une série sans volume rend `None` sur toute sa longueur (aucune pondération inventée)
+  - [ ] l'ancre est un paramètre, et deux ancres différentes sur la même série donnent deux résultats différents — c'est le test qui prouve qu'elle est bien lue
+- **Skills :** `test-driven-development`
+
 ### QUALITY GATE — Phase 6
 
 - [x] Impossibilité de lire des données futures, prouvée par test (tripwire sur série empoisonnée)

@@ -41,13 +41,19 @@ class AccountSnapshot:
 
 @dataclass(frozen=True)
 class RawBar:
-    """A bar as the terminal reports it: its epoch is the broker server's wall clock."""
+    """A bar as the terminal reports it: its epoch is the broker server's wall clock.
+
+    `volume` is the broker's tick volume, appended last because bars are built
+    positionally. `None` means the terminal recorded no volume for that bar; `0.0` means
+    the bar saw no trade at all, and those are two different facts.
+    """
 
     server_epoch: int
     open: float
     high: float
     low: float
     close: float
+    volume: float | None = None
 
 
 @dataclass(frozen=True)
@@ -183,8 +189,13 @@ class TradingTerminal(Terminal, Protocol):
 
     def order_check(self, request: TradeRequest) -> TradeCheck: ...
 
-    def order_send(self, request: TradeRequest) -> TradeResult | None:
-        """None means the answer was lost: the caller must reconcile, never resend."""
+    def order_send(self, request: TradeRequest) -> TradeResult:
+        """Send the request, or raise `TerminalError` naming why nothing came back.
+
+        A terminal that does not answer has no result to return: the reason lives in
+        ``last_error()``, and it is raised rather than dropped so the refusal can be
+        journalled with its cause. A lost answer is reconciled by comment, never resent.
+        """
         ...
 
     def positions(self, symbol: str | None = None) -> tuple[PositionInfo, ...]:

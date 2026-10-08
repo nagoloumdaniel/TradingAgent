@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from tests.data.conftest import FakeTerminal
 
+import tradingagent.data.mt5_terminal as terminal_module
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.market_data import (
@@ -18,6 +19,7 @@ from tradingagent.data.market_data import (
     MarketDataClient,
     Subscription,
 )
+from tradingagent.data.mt5_terminal import Mt5Terminal
 from tradingagent.data.terminal import Credentials, RawBar, RawTick, TerminalError
 
 NOW = datetime(2026, 10, 4, 12, 7, 30, tzinfo=UTC)
@@ -32,9 +34,13 @@ def server_epoch(utc: datetime, offset: timedelta) -> int:
     return int((utc + offset).timestamp())
 
 
-def bars(open_times_utc: list[datetime], offset: timedelta = timedelta(0)) -> list[RawBar]:
+def bars(
+    open_times_utc: list[datetime],
+    offset: timedelta = timedelta(0),
+    volume: float | None = None,
+) -> list[RawBar]:
     return [
-        RawBar(server_epoch(at, offset), 100.0 + i, 101.0 + i, 99.0 + i, 100.5 + i)
+        RawBar(server_epoch(at, offset), 100.0 + i, 101.0 + i, 99.0 + i, 100.5 + i, volume=volume)
         for i, at in enumerate(open_times_utc)
     ]
 
@@ -482,3 +488,97 @@ def test_healthy_terminal_needs_no_reconnection(terminal: Any, credentials: Cred
 
     assert run(scenario()) is True
     assert terminal.calls.count("initialize") == 1
+
+
+# -- The broker's tick volume, from `copy_rates_from_pos` to `Candle` (task-3) ---------
+#
+# `mt5.copy_rates_from_pos` reports a `tick_volume` per bar. It used to be dropped in
+# `Mt5Terminal.rates`, so no candle could ever carry it and any volume-weighted average
+# silently averaged nothing. These tests hold the value all the way through.
+
+
+def test_a_raw_bar_carries_the_tick_volume_and_defaults_to_none() -> None:
+    """The field is additive: the five-argument bars built elsewhere stay volume-free."""
+    assert RawBar(0, 1.0, 2.0, 0.5, 1.5).volume is None
+    assert RawBar(0, 1.0, 2.0, 0.5, 1.5, volume=17.0).volume == 17.0
+
+
+def test_rates_reads_the_broker_tick_volume(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A live terminal is not needed: the adapter's `mt5` is replaced by two fake rows."""
+    rows = [
+        {
+            "time": 1_760_000_000,
+            "open": 4100.0,
+            "high": 4110.0,
+            "low": 4095.0,
+            "close": 4105.0,
+            "tick_volume": 321,
+        },
+        {
+            "time": 1_760_000_060,
+            "open": 4105.0,
+            "high": 4112.0,
+            "low": 4101.0,
+            "close": 4108.0,
+            "tick_volume": 7,
+        },
+    ]
+    monkeypatch.setattr(terminal_module.mt5, "copy_rates_from_pos", lambda *args: rows)
+    monkeypatch.setattr(terminal_module.mt5, "last_error", lambda: (0, ""))
+
+    raw_bars = Mt5Terminal().rates("XAUUSD", Timeframe.M1, len(rows))
+
+    assert [bar.volume for bar in raw_bars] == [321.0, 7.0]
+    assert [bar.server_epoch for bar in raw_bars] == [1_760_000_000, 1_760_000_060]
+    assert [bar.close for bar in raw_bars] == [4105.0, 4108.0]
+
+
+def test_the_closed_candles_carry_the_tick_volume(terminal: Any, credentials: Credentials) -> None:
+    terminal.bars[("XAUUSD", Timeframe.M15)] = bars(
+        m15_series(datetime(2026, 10, 4, 11, 45, tzinfo=UTC), 3), volume=42.0
+    )
+
+    async def scenario() -> list[float | None]:
+        market = client(terminal, credentials)
+        await market.connect()
+        candles = await market.closed_candles("XAUUSD", Timeframe.M15, 3)
+        await market.close()
+        return [candle.volume for candle in candles]
+
+    assert run(scenario()) == [42.0, 42.0, 42.0]
+
+
+def test_a_bar_without_volume_becomes_a_candle_without_volume(
+    terminal: Any, credentials: Credentials
+) -> None:
+    """Retro-compatibility: a series read before task-3 is honest, not zero-filled."""
+    terminal.bars[("XAUUSD", Timeframe.M15)] = bars(
+        m15_series(datetime(2026, 10, 4, 11, 45, tzinfo=UTC), 3)
+    )
+
+    async def scenario() -> list[float | None]:
+        market = client(terminal, credentials)
+        await market.connect()
+        candles = await market.closed_candles("XAUUSD", Timeframe.M15, 3)
+        await market.close()
+        return [candle.volume for candle in candles]
+
+    assert run(scenario()) == [None, None, None]
+
+
+def test_a_zero_tick_volume_stays_zero_and_is_not_read_as_absent(
+    terminal: Any, credentials: Credentials
+) -> None:
+    """No trade in the bar (0) and no volume recorded (None) are different facts."""
+    terminal.bars[("XAUUSD", Timeframe.M15)] = bars(
+        m15_series(datetime(2026, 10, 4, 11, 45, tzinfo=UTC), 3), volume=0.0
+    )
+
+    async def scenario() -> list[float | None]:
+        market = client(terminal, credentials)
+        await market.connect()
+        candles = await market.closed_candles("XAUUSD", Timeframe.M15, 3)
+        await market.close()
+        return [candle.volume for candle in candles]
+
+    assert run(scenario()) == [0.0, 0.0, 0.0]

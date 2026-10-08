@@ -40,6 +40,7 @@ from zlib import crc32
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tradingagent.analytics.model import Performance
+from tradingagent.backtest.aggregate import aggregate
 from tradingagent.backtest.costs import CostModel
 from tradingagent.backtest.datasets import CandleDataset
 from tradingagent.backtest.harness import BacktestConfig, run_backtest
@@ -49,6 +50,8 @@ from tradingagent.core.signal import SignalCandidate
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.indicators.momentum import rsi
 from tradingagent.indicators.moving_average import ema
+from tradingagent.indicators.stochastic import stochastic
+from tradingagent.indicators.trend import supertrend
 from tradingagent.indicators.volatility import atr
 
 # The statistics themselves live in `protocol`, where the campaign needs them too; the aliases
@@ -330,6 +333,139 @@ class VolatilityBreakout(Strategy[VolatilityBreakoutParameters]):
         )
 
 
+class ScalpTripleFilterParameters(BaseModel):
+    """The four components of the published XAUUSD M1 scalper, as parameters.
+
+    `take_profit_rr` is deliberately allowed below 1: the published system wins 87 % of the
+    time with an average win worth about 0.70 of an average loss. A rule that demanded a
+    reward above 1 would refuse to represent the very shape it is meant to measure.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    st_period: int = Field(ge=1)
+    st_multiplier: float = Field(gt=0)
+    k_period: int = Field(ge=1)
+    k_smoothing: int = Field(ge=1)
+    d_period: int = Field(ge=1)
+    oversold: float = Field(gt=0, lt=100)
+    overbought: float = Field(gt=0, lt=100)
+    trend_timeframe: Timeframe = Timeframe.M5
+    trend_fast: int = Field(ge=2)
+    trend_slow: int = Field(ge=3)
+    atr_period: int = Field(ge=1)
+    min_atr_points: float = Field(ge=0)
+    stop_atr_multiplier: float = Field(gt=0)
+    take_profit_rr: float = Field(gt=0)
+    entry_zone_atr: float = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _coherent(self) -> Self:
+        if self.oversold >= self.overbought:
+            raise ValueError("oversold must be below overbought")
+        if self.trend_slow <= self.trend_fast:
+            raise ValueError("trend_slow must be longer than trend_fast")
+        if self.entry_zone_atr >= self.stop_atr_multiplier:
+            raise ValueError("entry_zone_atr must be narrower than stop_atr_multiplier")
+        return self
+
+
+class ScalpTripleFilter(Strategy[ScalpTripleFilterParameters]):
+    """Supertrend for direction, higher-timeframe EMA for context, Stochastic for timing.
+
+    Three gates must agree on the same closed M1 candle before a trade exists, and the
+    fourth (ATR) sizes the stop and skips dead tape. The rule is trend-following on the
+    fast unit and mean-reverting on the timing: the Stochastic must come back *out* of an
+    extreme rather than merely sit in it, which is what separates a reversal entry from a
+    falling knife.
+
+    A candidate of the research laboratory: it is never registered, never promoted, and
+    its manifest is capped at SIGNAL by `build_proposal`.
+    """
+
+    strategy_id = "scalp_triple_filter"
+    parameters_model = ScalpTripleFilterParameters
+
+    def evaluate(self, context: StrategyContext) -> SignalCandidate | None:
+        parameters = self.parameters
+        timeframe = context.primary_timeframe
+        closes = context.closes(timeframe)
+        highs = context.highs(timeframe)
+        lows = context.lows(timeframe)
+
+        volatility = atr(highs, lows, closes, parameters.atr_period)[-1]
+        if volatility is None or volatility <= 0:
+            return None
+        if volatility < parameters.min_atr_points:
+            # Dead tape is not a signal: the stop would sit inside the spread.
+            return None
+
+        lines, trends = supertrend(
+            highs, lows, closes, parameters.st_period, parameters.st_multiplier
+        )
+        trend = trends[-1]
+        line = lines[-1]
+        if trend is None or line is None:
+            return None
+        close = closes[-1]
+        # A close on the wrong side of its own Supertrend line contradicts the direction.
+        if (trend and close < line) or (not trend and close > line):
+            return None
+
+        higher = context.series(parameters.trend_timeframe)
+        fast = ema([candle.close for candle in higher], parameters.trend_fast)[-1]
+        slow = ema([candle.close for candle in higher], parameters.trend_slow)[-1]
+        if fast is None or slow is None or fast == slow:
+            return None
+
+        k_values, _ = stochastic(
+            highs,
+            lows,
+            closes,
+            parameters.k_period,
+            parameters.k_smoothing,
+            parameters.d_period,
+        )
+        if len(k_values) < 2:
+            return None
+        previous_k, current_k = k_values[-2], k_values[-1]
+        if previous_k is None or current_k is None:
+            return None
+
+        if trend and fast > slow and previous_k <= parameters.oversold < current_k:
+            direction, side = Direction.BUY, "above"
+            trigger = parameters.oversold
+        elif not trend and fast < slow and previous_k >= parameters.overbought > current_k:
+            direction, side = Direction.SELL, "below"
+            trigger = parameters.overbought
+        else:
+            return None
+
+        return _signal(
+            direction=direction,
+            close=close,
+            volatility=volatility,
+            stop_atr_multiplier=parameters.stop_atr_multiplier,
+            take_profit_rr=parameters.take_profit_rr,
+            entry_zone_atr=parameters.entry_zone_atr,
+            reason=(
+                f"Supertrend({parameters.st_period},{parameters.st_multiplier}) "
+                f"{'haussière' if trend else 'baissière'}, "
+                f"{parameters.trend_timeframe} EMA{parameters.trend_fast}"
+                f"{'>' if fast > slow else '<'}EMA{parameters.trend_slow}, "
+                f"%K sort de {trigger:.0f} par {side}"
+            ),
+            indicators={
+                "supertrend": line,
+                "st_bullish": 1.0 if trend else 0.0,
+                "stochastic_k": current_k,
+                "trend_fast": fast,
+                "trend_slow": slow,
+                "atr": volatility,
+            },
+        )
+
+
 class ConsensusEnsembleParameters(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -473,6 +609,20 @@ def _factory(
     return build
 
 
+def _extra_timeframes(primary: Timeframe, declared: Sequence[Timeframe]) -> tuple[Timeframe, ...]:
+    """The coarser units this manifest adds, without repeating the primary one.
+
+    `StrategyManifest` refuses duplicates and takes `timeframes[0]` as the primary, so a
+    family whose filter unit equals its decision unit must not declare it twice.
+    """
+    seen: list[Timeframe] = []
+    for timeframe in declared:
+        if timeframe is primary or timeframe in seen:
+            continue
+        seen.append(timeframe)
+    return tuple(seen)
+
+
 def build_proposal(
     scope: TemplateScope,
     family: str,
@@ -480,18 +630,23 @@ def build_proposal(
     parameters: Mapping[str, float],
     *,
     lookback: int,
+    extra_timeframes: Sequence[Timeframe] = (),
 ) -> CandidateProposal:
     strategy_id = strategy_class.strategy_id
     # Integer periods stay integers: `protocol.perturb_parameters` keeps an integral
     # parameter integral (a period of 15.4 is not a strategy), and it can only do so if the
     # template did not silently turn the period into a float first.
     clean: dict[str, float] = {key: value for key, value in sorted(parameters.items())}
+    # A rule that reads a second unit must declare it here: `StrategyContext.series` refuses
+    # any time frame the manifest does not name, so an undeclared M5 series turns every
+    # decision into a `KeyError` and the candidate is scored as broken, not as measured.
+    timeframes = (scope.timeframe, *_extra_timeframes(scope.timeframe, extra_timeframes))
     manifest = StrategyManifest(
         strategy_id=strategy_id,
         version=scope.version,
         max_mode=TradingMode.SIGNAL,
         allowed_symbols=scope.symbols,
-        timeframes=(scope.timeframe,),
+        timeframes=timeframes,
         history_bars=_history_bars(lookback),
         expiry_bars=2,
         parameters=dict(clean),
@@ -669,6 +824,75 @@ def ensemble_template(scope: TemplateScope, grid: Grid) -> Iterator[CandidatePro
         )
 
 
+def scalp_triple_filter_template(scope: TemplateScope, grid: Grid) -> Iterator[CandidateProposal]:
+    """Family: Supertrend + Stochastic + EMA of a higher unit + ATR (the M1 scalper shape).
+
+    `trend_timeframe` is fixed to M5 and never taken from the grid: the higher series has
+    to exist in the dataset mapping the caller hands to the campaign, and a time frame
+    invented here would fail at evaluation rather than at proposal time. M5 is the unit the
+    published rule names.
+    """
+    st_periods = grid_values(grid, "st_period", (7.0, 10.0))
+    st_multipliers = grid_values(grid, "st_multiplier", (1.5, 2.0))
+    oversolds = grid_values(grid, "oversold", (20.0,))
+    overboughts = grid_values(grid, "overbought", (80.0,))
+    targets = grid_values(grid, "take_profit_rr", (0.5, 0.7))
+    stops = grid_values(grid, "stop_atr_multiplier", (3.0,))
+    k_periods = grid_values(grid, "k_period", (14.0,))
+    smoothings = grid_values(grid, "k_smoothing", (3.0,))
+    trend_fasts = grid_values(grid, "trend_fast", (20.0,))
+    trend_slows = grid_values(grid, "trend_slow", (50.0,))
+    zone = grid_values(grid, "entry_zone_atr", (0.1,))[0]
+    min_atr = grid_values(grid, "min_atr_points", (0.0,))[0]
+    atr_period = _whole(grid_values(grid, "atr_period", (14.0,))[0])
+
+    for st_period, st_multiplier, oversold, overbought, target in product(
+        st_periods, st_multipliers, oversolds, overboughts, targets
+    ):
+        if _whole(st_period) < 2 or oversold >= overbought:
+            continue
+        for stop in stops:
+            if zone >= stop or target * stop <= zone:
+                continue
+            for k_period, smoothing, trend_fast, trend_slow in product(
+                k_periods, smoothings, trend_fasts, trend_slows
+            ):
+                if _whole(trend_slow) <= _whole(trend_fast):
+                    continue
+                k = _whole(k_period)
+                smooth = _whole(smoothing)
+                # The EMA lives on a series five times coarser, so its warm-up costs five
+                # times as many primary bars: the manifest must declare that history.
+                lookback = max(
+                    _whole(st_period) + atr_period,
+                    k + smooth + 3,
+                    (trend_slow * Timeframe.M5.seconds) // scope.timeframe.seconds,
+                )
+                yield build_proposal(
+                    scope,
+                    "scalp_triple_filter",
+                    ScalpTripleFilter,
+                    {
+                        "st_period": _whole(st_period),
+                        "st_multiplier": st_multiplier,
+                        "k_period": k,
+                        "k_smoothing": smooth,
+                        "d_period": 3.0,
+                        "oversold": oversold,
+                        "overbought": overbought,
+                        "trend_fast": _whole(trend_fast),
+                        "trend_slow": _whole(trend_slow),
+                        "atr_period": atr_period,
+                        "min_atr_points": min_atr,
+                        "stop_atr_multiplier": stop,
+                        "take_profit_rr": target,
+                        "entry_zone_atr": zone,
+                    },
+                    lookback=int(lookback),
+                    extra_timeframes=(Timeframe.M5,),
+                )
+
+
 FAMILIES: tuple[FamilyTemplate, ...] = (
     FamilyTemplate(
         "trend_following", "suivi de tendance (croisement EMA)", trend_following_template
@@ -682,6 +906,11 @@ FAMILIES: tuple[FamilyTemplate, ...] = (
         volatility_breakout_template,
     ),
     FamilyTemplate("ensemble", "ensemble : consensus tendance + RSI", ensemble_template),
+    FamilyTemplate(
+        "scalp_triple_filter",
+        "scalping M1 : Supertrend + Stochastic + EMA d'unité supérieure + ATR",
+        scalp_triple_filter_template,
+    ),
 )
 
 
@@ -698,6 +927,11 @@ def default_grid() -> dict[str, dict[str, tuple[float, ...]]]:
         "breakout": {"channel_period": (20.0, 40.0), "trend_period": (50.0,)},
         "volatility_breakout": {"breakout_atr": (0.5, 1.0)},
         "ensemble": {"ema_fast": (10.0,), "ema_slow": (30.0,), "rsi_bull": (55.0,)},
+        "scalp_triple_filter": {
+            "st_period": (7.0, 10.0),
+            "st_multiplier": (1.5, 2.0),
+            "take_profit_rr": (0.5, 0.7),
+        },
     }
 
 
@@ -1339,6 +1573,35 @@ def _skipped_market(market: str, dataset: CandleDataset, reason: str) -> MarketO
     )
 
 
+def _series(
+    candles: Mapping[Timeframe, Sequence[Candle]],
+    primary: Timeframe,
+    declared: Sequence[Timeframe],
+) -> dict[Timeframe, Sequence[Candle]]:
+    """Every series this manifest declares, the primary one included.
+
+    A rule that also reads a coarser unit -- a scalping filter reading the M5 EMA while it
+    decides on M1 -- needs that series to exist, or `StrategyContext.series` raises and the
+    candidate is scored as a broken strategy instead of a measured one.
+
+    The coarser series is aggregated from the **whole** primary series and not from the
+    slice: cutting a tape in the middle of an M5 bucket would produce a partial bucket that
+    the next slice also produces, and the same M5 bar would then exist twice, differently.
+    Slicing by time is what `harness.decision_prefix` already does, so handing it the full
+    series and letting it cut on the evaluated close is both correct and free of look-ahead.
+    """
+    if primary not in candles:
+        raise ValueError(f"no series for the primary timeframe {primary}")
+    full = candles[primary]
+    result: dict[Timeframe, Sequence[Candle]] = {primary: full}
+    for timeframe in declared:
+        if timeframe in result:
+            continue
+        coarser = timeframe.seconds > primary.seconds
+        result[timeframe] = aggregate(full, timeframe) if coarser else full
+    return result
+
+
 def _evaluate_candidate(
     market: str,
     dataset: CandleDataset,
@@ -1353,7 +1616,6 @@ def _evaluate_candidate(
     settings: DiscoveryProtocol,
     token: str,
 ) -> CandidateOutcome:
-    timeframe = dataset.timeframe
     try:
         strategy = proposal.factory(proposal.parameters)
     except Exception as error:
@@ -1364,12 +1626,19 @@ def _evaluate_candidate(
             DiscardCause.INVALID_PARAMETERS,
             detail=f"{type(error).__name__}: {error}",
         )
+    primary = dataset.timeframe
+    declared = proposal.manifest.timeframes
     try:
-        train = run_backtest(strategy, proposal.manifest, {timeframe: train_candles}, config)
+        train = run_backtest(
+            strategy,
+            proposal.manifest,
+            _series({primary: train_candles}, primary, declared),
+            config,
+        )
         validation = run_backtest(
             proposal.factory(proposal.parameters),
             proposal.manifest,
-            {timeframe: validation_candles},
+            _series({primary: validation_candles}, primary, declared),
             config,
         )
     except ValueError as error:
@@ -1382,7 +1651,7 @@ def _evaluate_candidate(
             result = run_backtest(
                 proposal.factory(proposal.parameters),
                 proposal.manifest,
-                {timeframe: fold.validation},
+                _series({primary: fold.validation}, primary, declared),
                 config,
             )
         except ValueError:
@@ -1417,7 +1686,7 @@ def _evaluate_candidate(
             result = run_backtest(
                 proposal.factory(parameters),
                 proposal.manifest,
-                {timeframe: validation_candles},
+                _series({primary: validation_candles}, primary, declared),
                 config,
             )
         except Exception:
@@ -1467,7 +1736,10 @@ def _evaluate_candidate(
 
     def runner(parameters: Mapping[str, float], candles: Sequence[Candle]) -> Performance:
         result = run_backtest(
-            proposal.factory(parameters), proposal.manifest, {timeframe: candles}, config
+            proposal.factory(parameters),
+            proposal.manifest,
+            _series({primary: candles}, primary, declared),
+            config,
         )
         holdout_pnls.extend(float(trade.pnl_eur) for trade in result.trades)
         return result.performance

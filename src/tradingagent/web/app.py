@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
+from dotenv import dotenv_values
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import (
     HTMLResponse,
@@ -719,6 +720,74 @@ def _env_reports_dir() -> Path | None:
     return Path(raw) if raw else None
 
 
+#: The name the bridge gives its reports directory, and the suffix of one report file.
+_REPORTS_DIR_NAME = "reports"
+_REPORT_SUFFIX = "_report.json"
+
+
+def _is_reports_directory(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    if path.name == _REPORTS_DIR_NAME:
+        return True
+    try:
+        return next(path.glob(f"*{_REPORT_SUFFIX}"), None) is not None
+    except OSError:
+        return False
+
+
+def _bridge_reports(declared: Path) -> Path | None:
+    """`reports/` under a declared bridge root, or the declared path when it already is one.
+
+    Both spellings are accepted on purpose. `EA_FILES_DIR` names the bridge root, while
+    `TRADINGAGENT_EA_REPORTS_DIR` has always been documented as the reports directory
+    itself, and an operator who configured the latter must not be broken by a fallback
+    added for the former. A path that resolves nowhere returns `None`: the dashboard then
+    says the bridge is absent instead of showing an empty table that reads like a status.
+    """
+    if _is_reports_directory(declared):
+        return declared
+    candidate = declared / _REPORTS_DIR_NAME
+    return candidate if candidate.is_dir() else None
+
+
+def _declared_bridge_root(env_file: Path | None) -> Path | None:
+    """`EA_FILES_DIR` from `.env`, read without requiring any broker credential.
+
+    Read with `dotenv_values` rather than `load_settings` because `tradingagent-web` must
+    start on a machine without MT5 secrets: reading a path is not trading. This is the same
+    distinction `DatabaseSettings` already makes for the database URL.
+    """
+    if env_file is None or not env_file.is_file():
+        return None
+    raw = (dotenv_values(env_file).get("EA_FILES_DIR") or "").strip()
+    return Path(raw) if raw else None
+
+
+def resolve_ea_reports_dir(
+    explicit: Path | None = None, *, env_file: Path | None = None
+) -> Path | None:
+    """The bridge's reports directory, from the argument, the environment, or `.env`.
+
+    The operator declares the bridge once, in `EA_FILES_DIR`, and the agent already reads it
+    there. The dashboard demanded the same information a second time through another
+    variable, and on 2026-10-08 it was missing exactly that second copy: the page said "no
+    bridge configured" while the Expert Advisor carried a local halt, so the one screen that
+    exists to reveal a stopped EA was the screen that could not see it.
+
+    An explicit `--ea-reports-dir` still wins and is trusted as given: an operator pointing
+    at a directory is making a statement about it, and the dashboard still reports an empty
+    read honestly.
+    """
+    if explicit is not None:
+        return explicit
+    from_env = _env_reports_dir()
+    if from_env is not None:
+        return _bridge_reports(from_env)
+    declared = _declared_bridge_root(env_file)
+    return None if declared is None else _bridge_reports(declared)
+
+
 def _download(content: str, media_type: str, filename: str) -> PlainTextResponse:
     return PlainTextResponse(
         content,
@@ -757,7 +826,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(error, file=sys.stderr)
         return 2
     engine = create_database_engine(settings.database_url.get_secret_value())
-    reports_dir = Path(args.ea_reports_dir) if args.ea_reports_dir else None
+    reports_dir = resolve_ea_reports_dir(
+        Path(args.ea_reports_dir) if args.ea_reports_dir else None, env_file=ENV_FILE
+    )
     # The token comes from the same `.env` as everything else. Reading it from `os.environ`
     # alone would have left the dashboard unprotected while the operator believed otherwise:
     # pydantic-settings parses `.env` into a model, it does not export it to the process.

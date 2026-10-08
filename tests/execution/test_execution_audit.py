@@ -28,7 +28,7 @@ from tradingagent.core.mode import TradingMode
 from tradingagent.core.states import OrderState, SignalState
 from tradingagent.data.terminal import PositionInfo, TradeRequest, TradeResult
 from tradingagent.execution.mt5_broker import MT5Broker
-from tradingagent.execution.simulator import RETCODE_BLOCKED, SimulatedTerminal
+from tradingagent.execution.simulator import RETCODE_BLOCKED, SimulatedLostAnswer, SimulatedTerminal
 from tradingagent.execution.tracking import PositionTracker
 from tradingagent.risk.model import InstrumentSpec, MarketQuote
 from tradingagent.risk.sizing import SizingError, size_position
@@ -111,13 +111,21 @@ def open_position(
 
 
 class ClosedOnLostAnswer(SimulatedTerminal):
-    """The answer is lost *and* the stop is hit before anyone can reconcile."""
+    """The answer is lost *and* the stop is hit before anyone can reconcile.
 
-    def order_send(self, request: TradeRequest) -> TradeResult | None:
-        result = super().order_send(request)
-        if result is None and request.position_ticket is None:
-            stop_out(self, max(self.position_tickets()))
-        return result
+    The stop-out is staged on the way out: the position is gone by the time the broker
+    looks for it by comment, which is exactly the race this test is about.
+    """
+
+    def order_send(self, request: TradeRequest) -> TradeResult:
+        try:
+            return super().order_send(request)
+        except SimulatedLostAnswer:
+            if request.position_ticket is None:
+                tickets = self.position_tickets()
+                if tickets:
+                    stop_out(self, max(tickets))
+            raise
 
 
 def test_a_lost_answer_whose_position_already_closed_is_never_resent() -> None:

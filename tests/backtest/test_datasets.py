@@ -3,10 +3,17 @@
 The gap expected value is hand-computed: a strictly regular M15 series with one bar
 removed has exactly one hole, at the removed bar's open time, and `missing_bars` only
 counts a bar when the calendar says the market was open.
+
+The volume section at the end pins the JSONL contract: `v` is written only when a candle
+carries one, so the eight datasets frozen before volume existed keep the exact bytes their
+stored fingerprint was computed over.
 """
 
+import hashlib
+import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -18,6 +25,7 @@ from tradingagent.backtest.datasets import (
     DatasetIntegrityError,
     DatasetStore,
     SyntheticRegime,
+    candle_line,
     load_dataset,
     synthetic_candles,
     synthetic_dataset,
@@ -32,9 +40,11 @@ GOLD = "frxXAUUSD"
 M15 = Timeframe.M15
 STEP = timedelta(seconds=M15.seconds)
 ALWAYS_OPEN = frozenset((day, quarter) for day in range(7) for quarter in range(96))
+ROOT = Path(__file__).resolve().parents[2]
+FROZEN_DATASETS = ROOT / "docs" / "research" / "datasets"
 
 
-def candle(index: int, close: float) -> Candle:
+def candle(index: int, close: float, volume: float | None = None) -> Candle:
     return Candle(
         timeframe=M15,
         open_time=START + STEP * index,
@@ -42,11 +52,17 @@ def candle(index: int, close: float) -> Candle:
         high=close + 1,
         low=close - 1,
         close=close,
+        volume=volume,
     )
 
 
 def bars(count: int) -> tuple[Candle, ...]:
     return tuple(candle(index, 100.0 + index) for index in range(count))
+
+
+def measured_bars(count: int) -> tuple[Candle, ...]:
+    """The same series, every bar carrying a volume of 1000 ticks and more."""
+    return tuple(candle(index, 100.0 + index, volume=1000.0 + index) for index in range(count))
 
 
 def gold_dataset(candles: tuple[Candle, ...] | None = None) -> CandleDataset:
@@ -206,3 +222,143 @@ def test_synthetic_common_factor_drives_correlation() -> None:
     btc = synthetic_dataset("btc", "cryBTCUSD", M15, START, regimes, seed=2, common_returns=factor)
     assert gold.fingerprint != btc.fingerprint
     assert gold.header()["format"] == DATASET_FORMAT
+
+
+# ----------------------------------------------------------------------------------- volume
+#
+# A candle carries a volume or it does not. The line format keeps that distinction in the
+# bytes: `v` is written only when there is a volume to write, so a dataset frozen before the
+# field existed reloads as `volume=None` and keeps the fingerprint it was frozen with.
+
+#: A candle line exactly as `candle_line` produced it before the volume field existed.
+LEGACY_LINE = '{"c":101.0,"h":102.0,"l":100.0,"o":100.0,"t":"2026-10-03T00:00:00+00:00"}'
+
+
+def test_round_trip_preserves_volume(tmp_path) -> None:
+    original = gold_dataset(measured_bars(6))
+
+    loaded = load_dataset(write_dataset(tmp_path / "gold.jsonl", original))
+
+    assert [item.volume for item in loaded.candles] == [1000.0 + index for index in range(6)]
+    assert loaded.candles == original.candles
+    assert loaded.fingerprint == original.fingerprint
+    assert '"v":1000.0' in (tmp_path / "gold.jsonl").read_text(encoding="utf-8")
+
+
+def test_round_trip_keeps_an_absent_volume_absent(tmp_path) -> None:
+    """Nothing to record, nothing written: a legacy series must not gain a `v` key."""
+    path = write_dataset(tmp_path / "gold.jsonl", gold_dataset())
+
+    loaded = load_dataset(path)
+
+    assert [item.volume for item in loaded.candles] == [None] * 6
+    assert '"v"' not in path.read_text(encoding="utf-8")
+
+
+def test_a_line_without_a_volume_key_still_loads(tmp_path) -> None:
+    """The eight datasets frozen before 2026-10-08 carry no `v` key: their bytes must verify.
+
+    The line below is written by hand, as the old writer produced it, and the fingerprint is
+    the SHA-256 of those very bytes rather than of a re-encoding. If the reader started
+    inventing a `v` key, the stored fingerprint would stop matching and all eight would be
+    refused on load. This is the test that protects them.
+    """
+    fingerprint = hashlib.sha256((LEGACY_LINE + "\n").encode("ascii")).hexdigest()
+    header = {
+        "format": DATASET_FORMAT,
+        "dataset_id": "gold-m15-frozen-before-volume",
+        "symbol": GOLD,
+        "timeframe": M15.value,
+        "source": "mt5",
+        "start": START.isoformat(),
+        "end": (START + STEP).isoformat(),
+        "bars": 1,
+        "fingerprint": fingerprint,
+    }
+    path = tmp_path / "legacy.jsonl"
+    path.write_text(
+        json.dumps(header, sort_keys=True) + "\n" + LEGACY_LINE + "\n", encoding="utf-8"
+    )
+
+    dataset = load_dataset(path)
+
+    assert dataset.candles[0].volume is None
+    assert candle_line(dataset.candles[0]) == LEGACY_LINE
+    assert dataset.fingerprint == fingerprint
+
+
+def test_a_zero_volume_survives_the_round_trip(tmp_path) -> None:
+    """Zero is a measurement -- a bar with no trade -- and must not collapse into `None`."""
+    series = (candle(0, 100.0, volume=0.0), candle(1, 101.0), candle(2, 102.0, volume=7.0))
+
+    loaded = load_dataset(write_dataset(tmp_path / "gold.jsonl", gold_dataset(series)))
+
+    assert [item.volume for item in loaded.candles] == [0.0, None, 7.0]
+    assert loaded.candles[0].volume is not None
+    assert loaded.candles[1].volume is None
+
+
+def test_two_series_differing_only_by_volume_have_different_fingerprints() -> None:
+    """The volume rides in the fingerprint: identical prices are not an identical series."""
+    without = gold_dataset()
+    measured = gold_dataset(measured_bars(6))
+
+    assert [item.close for item in without.candles] == [item.close for item in measured.candles]
+    assert without.fingerprint != measured.fingerprint
+    assert without.header()["fingerprint"] != measured.header()["fingerprint"]
+
+
+def test_rewriting_a_dataset_produces_the_same_bytes(tmp_path) -> None:
+    dataset = gold_dataset(measured_bars(6))
+
+    first = write_dataset(tmp_path / "first.jsonl", dataset)
+    second = write_dataset(tmp_path / "second.jsonl", dataset)
+
+    assert first.read_bytes() == second.read_bytes()
+
+
+def test_synthetic_volume_is_reproducible_per_seed() -> None:
+    regimes = (SyntheticRegime(bars=50, drift=0.0, volatility=0.01),)
+
+    first = synthetic_candles(M15, START, regimes, seed=7)
+    second = synthetic_candles(M15, START, regimes, seed=7)
+    other = synthetic_candles(M15, START, regimes, seed=8)
+
+    volumes = [item.volume for item in first]
+    assert volumes == [item.volume for item in second]
+    assert volumes != [item.volume for item in other]
+    assert all(volume is not None and volume >= 0 for volume in volumes)
+
+
+def test_the_volume_draws_do_not_move_the_synthetic_prices() -> None:
+    """These four candles were generated before volume existed; they must not move.
+
+    Volume comes from its own seeded stream, so no `gauss()` call of the price walk is
+    displaced. Drawing it from the price stream instead would leave every bar's volume
+    plausible and silently rewrite every synthetic series and fingerprint in the repository.
+    """
+    regimes = (SyntheticRegime(bars=4, drift=0.001, volatility=0.01),)
+
+    candles = synthetic_candles(M15, START, regimes, seed=7, start_price=100.0)
+
+    assert [(item.open, item.high, item.low, item.close) for item in candles] == [
+        (100.0, 101.19908, 99.89534, 101.09442),
+        (101.09442, 102.17617, 98.24475, 99.3265),
+        (99.3265, 100.5199, 98.23637, 99.42977),
+        (99.42977, 100.41504, 98.01859, 99.00386),
+    ]
+
+
+def test_the_frozen_datasets_still_load_without_volume() -> None:
+    """The eight real datasets frozen before volume existed, read back from disk.
+
+    `load_dataset` recomputes the SHA-256 of every line and refuses a mismatch, so a green
+    run here is the proof that the new field did not touch a byte they already carry.
+    """
+    paths = sorted(FROZEN_DATASETS.rglob("*.jsonl"))
+    assert len(paths) >= 8, f"only {len(paths)} frozen dataset(s) under {FROZEN_DATASETS}"
+
+    for path in paths:
+        dataset = load_dataset(path)
+        assert dataset.bars > 0, path.name
+        assert all(item.volume is None for item in dataset.candles), path.name

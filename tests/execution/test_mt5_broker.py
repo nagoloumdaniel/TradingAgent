@@ -76,6 +76,24 @@ def test_absent_stop_closes_the_position_and_alerts() -> None:
     assert log.closure_count == 1
 
 
+def test_a_send_that_fails_without_reaching_the_server_names_its_reason() -> None:
+    """The reason the terminal gives is journalled, not reduced to "lost answer".
+
+    `Mt5Terminal.order_send` raises a `TerminalError` carrying `last_error()`; the broker
+    must forward it. On 2026-10-08 four orders died with an empty message and nobody could
+    say whether the broker had refused them or the agent had never been heard.
+    """
+    terminal, log = demo_terminal(), FakeLog()
+    terminal.fail_sends = 1
+
+    result = asyncio.run(broker(terminal, log).place(request()))
+
+    assert result.accepted is False
+    assert "simulated order_send outage" in result.message
+    assert log.results[-1][1].message == result.message
+    assert terminal.position_tickets() == ()
+
+
 def test_lost_answer_is_recovered_by_comment_without_any_second_order() -> None:
     terminal, log = demo_terminal(), FakeLog()
     terminal.lost_answers = 1

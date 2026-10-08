@@ -192,6 +192,7 @@ def _research_classes() -> dict[str, type[Strategy[Any]]]:
         ConsensusEnsemble,
         MeanReversion,
         Momentum,
+        ScalpTripleFilter,
         VolatilityBreakout,
     )
 
@@ -200,6 +201,7 @@ def _research_classes() -> dict[str, type[Strategy[Any]]]:
         "momentum": Momentum,
         "volatility_breakout": VolatilityBreakout,
         "consensus_ensemble": ConsensusEnsemble,
+        "scalp_triple_filter": ScalpTripleFilter,
     }
 
 

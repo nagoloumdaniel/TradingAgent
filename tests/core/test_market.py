@@ -63,3 +63,42 @@ def test_incoherent_range_is_rejected(overrides: dict[str, float]) -> None:
 def test_candle_is_immutable() -> None:
     with pytest.raises(AttributeError):
         candle().close = 1.0  # type: ignore[misc]
+
+
+# -- volume : le tick volume du courtier, absent des series gelees avant le 2026-10-08 ----
+
+
+def test_a_candle_without_volume_is_valid() -> None:
+    """Les jeux gelés avant l'ajout n'ont pas de volume : `None` doit rester légitime.
+
+    Les rejeter obligerait à re-geler tout l'historique avant de pouvoir lire une seule
+    bougie, et ferait échouer la reconstruction depuis la base, qui ne stocke pas ce champ.
+    """
+    assert candle().volume is None
+    assert candle(volume=12.5).volume == 12.5
+
+
+def test_volume_is_keyword_only_so_positional_callers_keep_working() -> None:
+    """`storage.candles` reconstruit par `Candle(*row)` : six positionnels, rien de plus.
+
+    Un champ positionnel inséré en fin de signature casserait cet appel en silence, en
+    glissant un volume dans un prix.
+    """
+    with pytest.raises(TypeError):
+        Candle(Timeframe.M15, OPEN, 10.0, 12.0, 9.0, 11.0, 5.0)  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf])
+def test_non_finite_volume_is_rejected(bad: float) -> None:
+    with pytest.raises(ValueError, match="volume"):
+        candle(volume=bad)
+
+
+def test_negative_volume_is_rejected() -> None:
+    with pytest.raises(ValueError, match="volume"):
+        candle(volume=-1.0)
+
+
+def test_a_zero_volume_is_accepted() -> None:
+    """Une bougie sans échange existe, et vaut zéro : ce n'est pas une donnée manquante."""
+    assert candle(volume=0.0).volume == 0.0

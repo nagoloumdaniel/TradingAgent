@@ -37,6 +37,15 @@ RETCODE_INVALID_STOPS = 10016
 DEFAULT_EPOCH = 1_790_748_000  # 2026-10-04T00:00:00Z
 
 
+class SimulatedLostAnswer(TerminalError):
+    """The simulated terminal filled the order but never answered.
+
+    It is raised, not returned, so this double keeps the contract of the production
+    adapter: a silent terminal is an error carrying no result, and the caller reconciles
+    by comment rather than resending.
+    """
+
+
 def default_specs() -> dict[str, SymbolSpec]:
     return {
         "XAUUSD": SymbolSpec("XAUUSD", 100.0, 0.01, 0.01, 100.0, 0.01, 10, 3),
@@ -173,7 +182,13 @@ class SimulatedTerminal:
             comment="simulated check",
         )
 
-    def order_send(self, request: TradeRequest) -> TradeResult | None:
+    def order_send(self, request: TradeRequest) -> TradeResult:
+        """A simulated send. `lost_answers` models a terminal that fills but never answers.
+
+        The silence is raised rather than returned, exactly as the real adapter does: a
+        `None` return would give the simulator a contract the production terminal no longer
+        has, and the point of this double is to be interchangeable with it.
+        """
         self._record("order_send")
         if not self.connected:
             raise TerminalError("simulated terminal disconnected")
@@ -193,7 +208,8 @@ class SimulatedTerminal:
             result = self._fill(request)
         if self.lost_answers > 0:
             self.lost_answers -= 1
-            return None  # executed, answer lost: the caller must reconcile by comment
+            # Executed, answer lost: the caller must reconcile by comment, never resend.
+            raise SimulatedLostAnswer("simulated terminal: order filled, answer lost")
         return result
 
     def positions(self, symbol: str | None = None) -> tuple[PositionInfo, ...]:
