@@ -1,0 +1,37 @@
+{
+  "market": "BTCUSD",
+  "supersedes": "trend_breakout@1.0.1",
+  "status": "improved",
+  "proposed_label": "channel_period+25%",
+  "parameters": {
+    "channel_period": 25.0,
+    "trend_period": 100.0,
+    "atr_period": 14.0,
+    "stop_atr_multiplier": 2.0,
+    "take_profit_rr": 2.0,
+    "entry_zone_atr": 0.1
+  },
+  "incumbent_objective": -42.35485000941,
+  "proposed_objective": -33.5212985397,
+  "relative_gain": 0.20856056550188343,
+  "comparisons_made": 1,
+  "decided_at": "2026-10-08T05:09:32.109097+00:00",
+  "note": "Candidat, pas une promotion. max_mode reste SIGNAL tant que les portes de validation ne sont pas franchies. 1 comparaison(s) ont été faites : ce nombre doit entrer dans la correction du test multiple.",
+  "attempts": [
+    {
+      "number": 1,
+      "label": "channel_period+25%",
+      "accepted": true,
+      "objective": -33.5212985397,
+      "reason": "loses less than the incumbent (-33.52 > -38.12)",
+      "parameters": {
+        "channel_period": 25.0,
+        "trend_period": 100.0,
+        "atr_period": 14.0,
+        "stop_atr_multiplier": 2.0,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    }
+  ]
+}

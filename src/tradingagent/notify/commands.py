@@ -1,6 +1,7 @@
 """Command routing and the first commands (TASK-020; more in TASK-022 and TASK-023).
 
-Replies are plain text: no Markdown, so nothing coming from data can break the formatting.
+A reply is plain text unless it asks for markup: the palette and the guide are the only
+screens that do, because they are written here and never assembled from data.
 """
 
 import asyncio
@@ -11,6 +12,8 @@ from enum import StrEnum
 
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.timeframe import Timeframe
+from tradingagent.notify.guide import Group, menu, page
+from tradingagent.notify.replies import Reply, as_reply
 from tradingagent.storage.candles import CandleStore
 from tradingagent.storage.halts import HaltStore
 
@@ -86,6 +89,9 @@ COMMAND_HELP: dict[str, tuple[Usage, str, str]] = {
     "resume": (Usage.AGIR, "/resume", "reprendre après une pause ou un arrêt d'urgence"),
     "close_all": (Usage.AGIR, "/close_all", "fermer toutes les positions au marché"),
     "emergency_stop": (Usage.AGIR, "/emergency_stop", "tout arrêter, sans clôturer les positions"),
+    "restart": (Usage.AGIR, "/restart", "redémarrer l'agent, sans toucher aux positions"),
+    "restart_all": (Usage.AGIR, "/restart_all", "tout redémarrer, terminal MT5 compris"),
+    "shutdown": (Usage.AGIR, "/shutdown", "tout arrêter et ne rien relancer"),
 }
 
 HELP_HEADER = "🧭 Commandes du bot, par usage"
@@ -104,7 +110,9 @@ LINE_WIDTH = 80
 class CommandRouter:
     def __init__(self) -> None:
         self._handlers: dict[str, tuple[str, Handler]] = {}
-        self.register("help", "liste des commandes", self._help)
+        self.register("help", "la palette, en boutons", self._help)
+        # `aide` is not in the palette: it is what a button on the palette opens.
+        self.register("aide", "la fiche d'une commande", self._guide)
 
     def register(self, name: str, description: str, handler: Handler) -> None:
         if name in self._handlers and name != "help":
@@ -114,40 +122,54 @@ class CommandRouter:
     def knows(self, name: str) -> bool:
         return name in self._handlers
 
-    async def dispatch(self, request: CommandRequest) -> str:
+    async def dispatch(self, request: CommandRequest) -> Reply:
         entry = self._handlers.get(request.command)
         if entry is None:
-            return f"Commande inconnue : /{request.command}\nTape /help pour voir la liste."
-        return await entry[1](request)
+            return Reply(f"Commande inconnue : /{request.command}\nTape /help pour voir la liste.")
+        # `as_reply` here, and not in each caller: a handler that returns plain text still
+        # reaches the adapter as a `Reply`, which is what carries the buttons.
+        return as_reply(await entry[1](request))
 
-    async def _help(self, _: CommandRequest) -> str:
-        """The palette, grouped by usage: the operator reads three short sections."""
-        blocks: list[str] = [HELP_HEADER]
+    def _palette(self) -> list[Group]:
+        """The commands, grouped by usage, in the reading order — undocumented ones last.
+
+        `help` has no button: the menu *is* `/help`. `aide` has none either: every button on
+        the menu opens it, one command at a time.
+        """
+        hidden = ("aide", "help")
+        groups: list[Group] = []
         for usage in Usage:
-            names = sorted(
-                name
-                for name in self._handlers
-                if name in COMMAND_HELP and COMMAND_HELP[name][0] is usage
+            names = tuple(
+                sorted(
+                    name
+                    for name in self._handlers
+                    if name not in hidden
+                    and name in COMMAND_HELP
+                    and COMMAND_HELP[name][0] is usage
+                )
             )
-            if not names:
-                continue
-            heading = f"▸ {usage.value} — {USAGE_TAGLINES[usage]}"
-            blocks.append("\n".join([heading, *(self._help_line(name) for name in names)]))
-        others = sorted(name for name in self._handlers if name not in COMMAND_HELP)
+            groups.append(Group(usage.value, USAGE_TAGLINES[usage], names))
+        others = tuple(
+            sorted(
+                name for name in self._handlers if name not in hidden and name not in COMMAND_HELP
+            )
+        )
         if others:
-            heading = f"▸ {HELP_OTHER_GROUP} — {HELP_OTHER_TAGLINE}"
-            blocks.append("\n".join([heading, *(self._help_line(name) for name in others)]))
-        blocks.append(HELP_FOOTER)
-        return "\n\n".join(blocks)
+            groups.append(Group(HELP_OTHER_GROUP, HELP_OTHER_TAGLINE, others))
+        return groups
 
-    def _help_line(self, name: str) -> str:
-        documented = COMMAND_HELP.get(name)
-        if documented is None:
-            signature, purpose = f"/{name}", self._handlers[name][0]
-        else:
-            signature, purpose = documented[1], documented[2]
-        line = f"  {signature:<{HELP_COLUMN}} {' '.join(purpose.split())}".rstrip()
-        return line if len(line) <= LINE_WIDTH else line[: LINE_WIDTH - 3].rstrip() + "..."
+    async def _help(self, request: CommandRequest) -> Reply:
+        """The palette as buttons: tap a command, get its page."""
+        return menu([group for group in self._palette() if group.names], request.at)
+
+    async def _guide(self, request: CommandRequest) -> Reply:
+        """One command's page: what it does, an example, and the button that runs it."""
+        if not request.args:
+            return await self._help(request)
+        name = request.args[0].lower()
+        if not self.knows(name):
+            return Reply(f"Commande inconnue : /{name}\nTape /help pour voir la liste.")
+        return page(name, request.at, description=self._handlers[name][0])
 
 
 def age(at: datetime, since: datetime) -> str:

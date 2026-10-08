@@ -37,6 +37,7 @@ from tradingagent.data.market_data import (
     Subscription,
 )
 from tradingagent.notify.health_alerts import HealthAlerter
+from tradingagent.notify.sensitive_commands import RESTART_EVENT
 from tradingagent.reporting.service import ReportService
 from tradingagent.risk.model import ClosedPosition
 from tradingagent.runtime.loop import AgentLoop
@@ -149,6 +150,18 @@ class Sent:
         self.messages.append(text)
 
 
+class ExplodingNotifier:
+    """A Telegram that is down: a restart must not depend on it answering."""
+
+    def __init__(self) -> None:
+        self.attempts = 0
+
+    async def send(self, text: str, *, parse_mode: str | None = None) -> bool:
+        del text, parse_mode
+        self.attempts += 1
+        raise RuntimeError("telegram is down")
+
+
 def build_loop(
     engine: Engine,
     *,
@@ -159,7 +172,7 @@ def build_loop(
     calendars: dict[str, MarketCalendar] | None = None,
     subscriptions: tuple[Subscription, ...] | None = None,
     generator: SignalGenerator | None = None,
-    notifier: FakeNotifier | None = None,
+    notifier: FakeNotifier | ExplodingNotifier | None = None,
     clock: Callable[[], datetime] | None = None,
     now: datetime = NOW,
 ) -> tuple[AgentLoop, FakeMarket, FakeBroker, Sent]:
@@ -299,6 +312,64 @@ def test_a_clock_mismatch_stops_the_cycle_without_publishing(engine: Engine) -> 
 
     assert report.publications == 0
     assert len(events_of(engine, "clock_mismatch")) == 1
+
+
+# --- /restart: the loop is what closes a demand the command cannot -------------
+
+
+def test_a_restart_asked_during_this_run_stops_the_loop_cleanly(engine: Engine) -> None:
+    """Telegram cannot kill the process serving it; the loop reads the request and stops."""
+    clock = MutableClock(NOW)
+    notifier = FakeNotifier()
+    loop, market, _, _ = build_loop(engine, now=NOW, clock=clock, notifier=notifier)
+    market.queue.append(candle())
+    SystemEventStore(engine).record(
+        RESTART_EVENT, Severity.INFO, {"actor": "telegram:111"}, NOW + timedelta(minutes=1)
+    )
+    clock.now = NOW + timedelta(minutes=2)
+
+    report = asyncio.run(loop.run_once())
+
+    assert loop.restart_requested is True
+    assert loop._stop is True, "run_forever leaves on the next check"
+    assert report.publications == 0, "the cycle stops before trading, not after"
+    assert len(events_of(engine, "restart_honoured")) == 1
+    assert any("Redémarrage" in message for message in notifier.messages)
+
+
+def test_a_restart_asked_before_this_run_is_not_honoured(engine: Engine) -> None:
+    """`system_events` keeps every demand ever made: yesterday's must not loop the agent."""
+    SystemEventStore(engine).record(
+        RESTART_EVENT, Severity.INFO, {"actor": "telegram:111"}, NOW - timedelta(days=1)
+    )
+    loop, market, _, _ = build_loop(engine, now=NOW)
+    market.queue.append(candle())
+    asyncio.run(loop.run_once())  # the baseline
+    market.queue.append(candle())
+
+    report = asyncio.run(loop.run_once())
+
+    assert loop.restart_requested is False
+    assert loop._stop is False
+    assert report.publications > 0, "an old demand changes nothing about the cycle"
+
+
+def test_the_loop_keeps_running_when_the_restart_notice_cannot_be_sent(
+    engine: Engine,
+) -> None:
+    """A Telegram outage must not leave an agent that was asked to restart running."""
+    clock = MutableClock(NOW)
+    notifier = ExplodingNotifier()
+    loop, _, _, _ = build_loop(engine, now=NOW, clock=clock, notifier=notifier)
+    SystemEventStore(engine).record(
+        RESTART_EVENT, Severity.INFO, {"actor": "telegram:111"}, NOW + timedelta(minutes=1)
+    )
+    clock.now = NOW + timedelta(minutes=2)
+
+    asyncio.run(loop.run_once())
+
+    assert loop.restart_requested is True
+    assert notifier.attempts == 1
 
 
 class RestartableMarket(FakeMarket):

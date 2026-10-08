@@ -38,6 +38,7 @@ from tradingagent.notify.read_commands import (
     market_handler,
     proposals_handler,
 )
+from tradingagent.notify.replies import Reply
 from tradingagent.notify.sensitive_commands import (
     disable_handler,
     emergency_stop_handler,
@@ -604,7 +605,7 @@ def service(engine: Engine) -> CommandService:
     return CommandService(AccessGate({OPERATOR}), router, AuditStore(engine), now=Clock())
 
 
-def send(svc: CommandService, text: str, user: int = OPERATOR) -> str | None:
+def send(svc: CommandService, text: str, user: int = OPERATOR) -> Reply | None:
     return asyncio.run(svc.handle(user, True, text))
 
 
@@ -683,11 +684,13 @@ def test_every_reply_fits_a_phone(engine: Engine) -> None:
 
 
 def test_help_lists_the_new_commands(engine: Engine) -> None:
+    """Each documented command gets a button, and that button opens its own page."""
     answer = send(service(engine), "/help")
 
-    assert answer is not None
+    assert answer is not None and answer.keyboard is not None
+    labels = [button.label for row in answer.keyboard.rows for button in row]
     for name in ("/marche", "/propositions", "/portes"):
-        assert name in answer
+        assert name in labels
 
 
 def _lines(answer: str) -> Sequence[str]:

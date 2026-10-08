@@ -1,0 +1,19 @@
+# Candidat issu de la boucle d'amélioration, proposé pour BTCUSD.
+# Remplace trend_breakout@1.0.1 si — et seulement si — les neuf portes passent.
+# NE PAS copier dans config/strategies/ à la main : la promotion est le travail
+# de `registry.promote`, qui exige chaque porte de §49.
+strategy_id: trend_breakout
+version: 1.0.2
+max_mode: DEMO
+allowed_symbols: [BTCUSD]
+timeframes: [M15]
+history_bars: 600
+expiry_bars: 1
+ai_filter: shadow
+parameters:
+  atr_period: 14
+  channel_period: 25
+  entry_zone_atr: 0.1
+  stop_atr_multiplier: 2.0
+  take_profit_rr: 2.0
+  trend_period: 100

@@ -15,6 +15,7 @@ Run it with:
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -90,13 +91,16 @@ from tradingagent.notify.read_commands import (
     signals_handler,
 )
 from tradingagent.notify.sensitive_commands import (
+    CONTROL_FILE_ENV,
     close_all_handler,
     disable_handler,
     emergency_stop_handler,
     enable_handler,
     mode_handler,
     pause_handler,
+    restart_handler,
     resume_handler,
+    stack_handler,
 )
 from tradingagent.notify.service import CommandService
 from tradingagent.notify.telegram_app import (
@@ -133,6 +137,14 @@ ENV_FILE = ROOT / ".env"
 AGENT_CONFIG = ROOT / "config" / "agent.yaml"
 STRATEGY_DIR = ROOT / "config" / "strategies"
 PAPER_STARTING_CAPITAL = Decimal(1000)
+#: Set by `scripts/supervise_agent.ps1` in the environment of the agent it launches. It changes
+#: one sentence of one Telegram answer: telling an operator "it comes back on its own" when
+#: nothing will relaunch it is a costly lie. Read here rather than from `.env`, where it could
+#: be made true by hand for a process nobody supervises.
+SUPERVISED_ENV = "TRADINGAGENT_SUPERVISED"
+#: What `tradingagent-run` returns after honouring a `/restart`. The supervisor restarts a
+#: service on any exit code; this one says, in its journal, that the stop was asked for.
+RESTART_EXIT_CODE = 75
 # Section 14: the ladder gates the mode, so a strategy cannot trade a rung it never climbed.
 # OBSERVATION and SIGNAL are absent on purpose: they execute nothing, and that is where a
 # candidate earns its evidence.
@@ -175,6 +187,21 @@ COST_KEYS = (
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _supervised() -> bool:
+    """Whether a supervisor launched this process, told by the supervisor itself."""
+    return os.environ.get(SUPERVISED_ENV, "").strip().lower() in {"1", "true", "yes", "oui"}
+
+
+def _control_file() -> Path | None:
+    """Where the supervisor listens for `/shutdown` and `/restart_all`, or None if nobody does.
+
+    The path is given by the supervisor through the environment, never guessed: an agent that
+    invented one would write an order into a file no one reads and answer "c'est fait".
+    """
+    raw = os.environ.get(CONTROL_FILE_ENV, "").strip()
+    return Path(raw) if raw else None
 
 
 class TelegramNotifier:
@@ -317,6 +344,26 @@ def _build_command_service(
     router.register("disable", "désactive un marché", disable_handler(halts))
     router.register("enable", "réactive un marché", enable_handler(halts))
     router.register("mode", "change le mode", mode_handler(engine))
+    # The only Telegram command that ends the process serving it. It leaves a request the loop
+    # reads (`runtime.loop._restart_demanded`); what brings the agent back is the supervisor,
+    # which restarts any service that stops.
+    router.register(
+        "restart", "redémarre l'agent", restart_handler(engine, supervised=_supervised())
+    )
+    # These two go past the agent: only the supervisor can stop the MT5 terminal, and only
+    # it can restart the process it launched. The agent writes an order it cannot execute.
+    control = _control_file()
+    symbols = tuple(symbol for symbol, _enabled in markets)
+    router.register(
+        "shutdown",
+        "arrête tout",
+        stack_handler("shutdown", control, ea_directory=settings.ea_files_dir, symbols=symbols),
+    )
+    router.register(
+        "restart_all",
+        "redémarre tout",
+        stack_handler("restart_all", control, ea_directory=settings.ea_files_dir, symbols=symbols),
+    )
     return CommandService(
         AccessGate(settings.telegram_allowed_user_ids), router, AuditStore(engine)
     )
@@ -627,21 +674,46 @@ def _measurement_of(report: CandidateReport) -> CycleMeasurement:
     return CycleMeasurement(objective=float(performance.net_profit), metrics=metrics)
 
 
+def _manifest_of(ref: str) -> Mapping[str, Any]:
+    """The manifest of the version a candidate would replace, wherever it lives.
+
+    A *promoted* version lives in `config/strategies/`; an *accepted candidate* lives in
+    `docs/research/candidates/`, under `<strategy_id>-<version>.yaml`, because
+    `write_candidate` refuses to write anywhere the agent loads from. Both must be readable
+    here, and that is not a convenience: the improvement chain records the accepted candidate
+    as the new reference the moment it wins, so looking only in the production catalog meant
+    the first accepted improvement condemned every following one to a `ConfigError` — forever,
+    one market at a time.
+
+    Nothing is guessed: a ref that is in neither place is refused by name.
+    """
+    promoted = STRATEGY_DIR / f"{ref}.yaml"
+    if promoted.is_file():
+        return read_yaml(promoted).data
+    strategy_id, _, version = ref.partition("@")
+    candidate = CANDIDATE_DIR / f"{strategy_id}-{version}.yaml"
+    if candidate.is_file():
+        return read_yaml(candidate).data
+    raise ConfigError(
+        f"{ref}: manifeste introuvable, ni en version promue ({STRATEGY_DIR}) ni en candidat "
+        f"({CANDIDATE_DIR}). Une version remplacée doit rester lisible pour être remplacée."
+    )
+
+
 def _build_version(
     market: str, supersedes: str, parameters: Mapping[str, float]
 ) -> CandidateVersion:
-    """The next version of a strategy, from the manifest the agent actually loads.
+    """The next version of a strategy, from the manifest of the version it replaces.
 
-    Every field but the version and the parameters is copied from the production manifest:
-    building it from anything else would validate one strategy and approve another. It is
-    still only a candidate, and `write_candidate` refuses `config/strategies/` by design.
+    Every field but the version and the parameters is copied from that manifest: building it
+    from anything else would validate one strategy and approve another. It is still only a
+    candidate, and `write_candidate` refuses `config/strategies/` by design.
     """
-    document = read_yaml(STRATEGY_DIR / f"{supersedes}.yaml")
     return build_candidate(
         market=market,
         supersedes=supersedes,
         parameters=parameters,
-        incumbent_manifest=document.data,
+        incumbent_manifest=_manifest_of(supersedes),
     )
 
 
@@ -962,7 +1034,9 @@ async def run(
                 )
         else:
             await loop.run_forever()
-        return 0
+        # A restart the operator asked for is not a crash: the supervisor restarts on any code,
+        # and this one makes the two cases readable in its journal.
+        return RESTART_EXIT_CODE if loop.restart_requested else 0
     finally:
         if application is not None:
             if application.updater is not None:

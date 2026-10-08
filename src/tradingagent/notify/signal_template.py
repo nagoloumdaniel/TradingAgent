@@ -108,7 +108,9 @@ def render_signal_message(notice: SignalNotice) -> str:
         justification.append(f"Confiance : {notice.confidence * 100:.0f} %")
 
     identifiers = [
-        f"Généré : {_utc(notice.generated_at)}",
+        # No "Généré le": Telegram dates every message, and the clock stamp only added noise.
+        # "Expire le" stays — that one is not a timestamp, it is the instruction: after it,
+        # the zone is cold and the signal must not be acted on.
         f"Expire le : {_utc(notice.expires_at)}",
         f"Réf : {_safe(notice.ref)}",
     ]

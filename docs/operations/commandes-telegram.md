@@ -32,9 +32,14 @@ avec son auteur.
 
 ## Commandes de lecture (sans confirmation)
 
+`/help` ouvre la **palette en boutons** : un bouton par commande. Appuyer sur un bouton ouvre
+la fiche de *cette* commande — ce qu'elle fait, un exemple à recopier, et le bouton qui
+l'exécute. Rien à retenir, rien à taper.
+
 | Commande | Réponse |
 |---|---|
-| `/help` | Liste des commandes disponibles |
+| `/help` | La palette, en boutons groupés par usage |
+| `/aide CMD` | La fiche d'une commande (c'est ce qu'ouvre un bouton de la palette) |
 | `/status` | Mode courant, état d'arrêt, quarantaines, fraîcheur des données par marché |
 | `/markets` | Marchés suivis, actifs ou désactivés, dernière bougie en UTC |
 | `/signals` | Derniers signaux générés (marché, unité de temps, sens, état) |
@@ -65,6 +70,9 @@ Aucun signal enregistré.
 | `/enable <SYMBOLE> confirmer` | Réactive un marché | Conservées |
 | `/close_all confirmer` | **FERME réellement** toutes les positions au marché, puis suspend les ordres | **Fermées** |
 | `/emergency_stop confirmer` | Arrêt d'urgence : plus aucun nouvel ordre, quelle que soit la source | **Non fermées** (RM-015) |
+| `/restart confirmer` | Redémarre l'agent : arrêt propre à la fin du cycle, puis relance | Conservées |
+| `/restart_all confirmer` | Redémarre **tout** : terminal MT5, agent, tableau de bord | Conservées |
+| `/shutdown confirmer` | Arrête **tout** : agent, tableau de bord, terminal MT5, superviseur | Conservées, mais plus surveillées |
 
 Exemples :
 
@@ -82,6 +90,62 @@ Pour confirmer : /close_all confirmer
 
 > **`/close_all` n'est pas `/pause`.** La première clôture des positions avec de l'argent
 > réel engagé ; la seconde se contente d'interdire les nouveaux ordres.
+
+## Redémarrer l'agent
+
+```
+/restart
+Le bot : /restart — redémarrer l'agent : arrêt propre, puis relance.
+         Ce qui s'arrête : la boucle, la collecte et les signaux, une vingtaine de secondes.
+         Ce qui continue : le terminal MT5, les positions ouvertes et leurs stops.
+         L'agent est supervisé : il revient seul, dans une quinzaine de secondes.
+         Pour confirmer : /restart confirmer
+
+/restart confirmer
+Le bot : Redémarrage demandé : l'agent s'arrête à la fin du cycle en cours.
+```
+
+**C'est le superviseur qui relance, pas la commande.** Telegram ne peut pas tuer le processus
+qui le sert : la commande *enregistre* la demande, la boucle la lit au cycle suivant, prévient
+l'opérateur et s'arrête proprement ; `scripts/supervise_agent.ps1` redémarre tout service
+arrêté (voir [demarrage-automatique.md](demarrage-automatique.md)). L'agent quitte alors avec le
+code `75`, que le journal du superviseur distingue d'un plantage.
+
+Si l'agent **n'est pas** supervisé (lancé à la main dans une console), le bot le dit dans la
+confirmation : un redémarrage le laissera arrêté, et il indique la commande pour le relancer.
+Cette phrase est décidée par la variable `TRADINGAGENT_SUPERVISED`, posée par le superviseur —
+jamais par `.env`, où l'opérateur pourrait la rendre fausse.
+
+Un redémarrage **ne touche à aucune position** : les stops et les cibles vivent chez le
+courtier et dans les EA, pas dans le processus de l'agent.
+
+## Arrêter ou redémarrer toute la pile
+
+```
+/shutdown      # tout arrêter : agent, tableau de bord, terminal MT5, superviseur
+/restart_all   # tout redémarrer : terminal MT5, agent, tableau de bord
+```
+
+L'agent **ne peut pas exécuter ces deux ordres lui-même** : il ne peut pas tuer le terminal,
+et tuer le superviseur qui l'a lancé reviendrait à scier la branche. Il écrit donc un mot
+dans le fichier que le superviseur surveille (`logs/controle.txt`, chemin donné par
+`TRADINGAGENT_CONTROL_FILE`) ; le superviseur le lit à chaque battement, l'efface aussitôt, et
+fait le travail : fermeture de MT5, arrêt ou relance de chaque service.
+
+| | `/restart` | `/restart_all` | `/shutdown` |
+|---|---|---|---|
+| Agent | redémarré | redémarré | arrêté |
+| Tableau de bord | inchangé | redémarré | arrêté |
+| Terminal MT5 | inchangé | **redémarré** | **arrêté** |
+| Superviseur | inchangé | inchangé | **arrêté** |
+| Revient tout seul | oui | oui | **non** |
+
+`/shutdown` est le seul geste sans retour automatique : après lui, il faut relancer
+`install_autostart.ps1` à la main, ou redémarrer la machine. La confirmation le dit avant
+d'agir.
+
+**Sans superviseur, ces deux commandes refusent.** Elles répondent que personne ne lirait
+l'ordre, au lieu de faire croire à un arrêt qui n'aura pas lieu.
 
 ## Changer de mode
 
@@ -119,3 +183,4 @@ dépend ni du modèle de langage ni de l'agent en cours d'exécution.
 | « Commande inconnue : /xxx » | Faute de frappe ; `/help` donne la liste |
 | La commande répond la confirmation sans agir | Il manque le mot `confirmer` en second argument |
 | `/mode` répond « enregistré » sans effet immédiat | Comportement normal : l'agent applique à sa prochaine lecture |
+| `/restart confirmer` répond « demandé » mais l'agent ne revient pas | Il n'est pas supervisé : voir [demarrage-automatique.md](demarrage-automatique.md), ou relancer `install_autostart.ps1 -RunNow` |

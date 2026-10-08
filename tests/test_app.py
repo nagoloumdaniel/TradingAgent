@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import Engine, insert, select
 from sqlalchemy.orm import Session
 
+from tradingagent import app as app_module
 from tradingagent.ai.escalation import Escalation, FailurePattern
 from tradingagent.ai.evidence import MeasuredRun, record_run
 from tradingagent.ai.improvement_cycle import CYCLE_EVENT, MEASURE_FAILED_EVENT, CycleStatus
@@ -55,6 +56,7 @@ COMMANDS = (
     "disable",
     "enable",
     "mode",
+    "restart",
 )
 
 
@@ -99,10 +101,12 @@ def test_the_bot_registers_every_documented_command(tmp_path) -> None:
         (("XAUUSD", True), ("BTCUSD", True)),
         lambda: datetime(2026, 10, 6, tzinfo=UTC),
     )
-    help_text = asyncio.run(service.handle(42, True, "/help"))
-    assert help_text is not None
+    menu = asyncio.run(service.handle(42, True, "/help"))
+    assert menu is not None and menu.keyboard is not None
+    # The palette is a button per command: `/help` opens it and needs no button of its own.
+    labels = [button.label for row in menu.keyboard.rows for button in row]
     for command in COMMANDS:
-        assert f"/{command}" in help_text, command
+        assert f"/{command}" in labels, command
     engine.dispose()
 
 
@@ -373,3 +377,75 @@ def test_the_composed_chain_measures_with_the_real_search(tmp_path: Path) -> Non
     assert len(journal(engine, MEASURE_FAILED_EVENT)) == 1
     assert not list(tmp_path.glob("*.yaml")), "an unmeasurable variant writes no version"
     engine.dispose()
+
+
+# --- the manifest a candidate supersedes -------------------------------------------------------
+
+
+def write_manifest(path: Path, *, version: str, symbol: str = MARKET) -> Path:
+    path.write_text(
+        "\n".join(
+            [
+                "strategy_id: witness",
+                f"version: {version}",
+                "max_mode: SIGNAL",
+                f"allowed_symbols: [{symbol}]",
+                "timeframes: [M15]",
+                "history_bars: 300",
+                "expiry_bars: 1",
+                "parameters:",
+                "  take_profit_rr: 2.0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_a_promoted_version_is_the_source_of_the_next_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    promoted = tmp_path / "strategies"
+    promoted.mkdir()
+    write_manifest(promoted / "witness@1.1.0.yaml", version="1.1.0")
+    monkeypatch.setattr(app_module, "STRATEGY_DIR", promoted)
+    monkeypatch.setattr(app_module, "CANDIDATE_DIR", tmp_path / "candidates")
+
+    built = app_module._build_version(MARKET, "witness@1.1.0", {"take_profit_rr": 1.5})
+
+    assert built.ref == "witness@1.1.1"
+    assert built.supersedes == "witness@1.1.0"
+    assert dict(built.parameters) == {"take_profit_rr": 1.5}
+
+
+def test_an_accepted_candidate_can_be_superseded_by_the_next_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The chain records an accepted candidate as the new reference: it must stay readable.
+
+    `write_candidate` writes accepted versions under `docs/research/candidates/`, never under
+    `config/strategies/`. Looking only in the production catalog made the *second* accepted
+    improvement impossible — the first one had moved the reference out of reach, one market at
+    a time, forever. Found by running the chain for real on 2026-10-08, not by reading it.
+    """
+    candidates = tmp_path / "candidates"
+    candidates.mkdir()
+    write_manifest(candidates / "witness-1.1.1.yaml", version="1.1.1")
+    monkeypatch.setattr(app_module, "STRATEGY_DIR", tmp_path / "strategies")
+    monkeypatch.setattr(app_module, "CANDIDATE_DIR", candidates)
+
+    built = app_module._build_version(MARKET, "witness@1.1.1", {"take_profit_rr": 1.5})
+
+    assert built.ref == "witness@1.1.2"
+    assert built.supersedes == "witness@1.1.1"
+
+
+def test_a_reference_that_lives_nowhere_is_refused_by_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(app_module, "STRATEGY_DIR", tmp_path / "strategies")
+    monkeypatch.setattr(app_module, "CANDIDATE_DIR", tmp_path / "candidates")
+
+    with pytest.raises(ConfigError, match=r"witness@9\.9\.9"):
+        app_module._build_version(MARKET, "witness@9.9.9", {})

@@ -1,7 +1,7 @@
 # État du cahier des charges v3 — « AI Scalping Trading System BTCUSD & XAUUSD »
 
 > Section par section, ce qui est livré, où, et ce qui reste. Dernière mise à jour :
-> 2026-10-07. Un point n'est coché que s'il est vérifié par exécution ; les lignes
+> 2026-10-08. Un point n'est coché que s'il est vérifié par exécution ; les lignes
 > « reste » disent ce qui dépend de l'opérateur, du temps ou d'un serveur.
 
 ## 1 à 6 — Vision, objectifs, périmètre, architecture, rôle de l'IA, stratégie de production
@@ -117,6 +117,13 @@ la phase 12 (production progressive) est conditionnée à TASK-090, au serveur e
 signature de conformité.
 
 ## Ce qui reste, en une liste
+
+> **Mise à jour du 2026-10-08 :** le démarrage automatique local est livré et vérifié
+> (`scripts/supervise_agent.ps1`, `scripts/install_autostart.ps1`,
+> [demarrage-automatique.md](../operations/demarrage-automatique.md)) — le point 2 ci-dessous
+> n'est donc plus un blocage pour faire tourner l'agent 24/7 en attendant un serveur. Le détail
+> ordonné des actions restantes, avec ce qui bloque quoi, est dans
+> [2026-10-08-plan-100-pourcent.md](../reports/2026-10-08-plan-100-pourcent.md).
 
 1. **Opérateur, décision** : signer `docs/legal/2026-10-07-verification-operateur.md`.
 2. **Opérateur, infrastructure** : provisionner le serveur Windows (TASK-051).

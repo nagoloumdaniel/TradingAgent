@@ -58,6 +58,7 @@ from tradingagent.notify.sensitive_commands import (
     enable_handler,
     mode_handler,
     pause_handler,
+    restart_handler,
     resume_handler,
 )
 from tradingagent.notify.service import CommandService
@@ -72,7 +73,7 @@ OPERATOR, STRANGER = 111, 999
 T0 = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)  # a Tuesday
 MARKETS: tuple[tuple[str, bool], ...] = (("XAUUSD", True), ("BTCUSD", True))
 
-# The whole palette, as the operator sees it in /help: sixteen commands plus /help.
+# The whole palette, as the operator sees it in /help: nineteen buttons plus /help.
 PALETTE = (
     "help",
     "status",
@@ -91,9 +92,15 @@ PALETTE = (
     "resume",
     "close_all",
     "emergency_stop",
+    "restart",
+    "restart_all",
+    "shutdown",
 )
 
 HTML_TAG = re.compile(r"</?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>")
+#: The only vocabulary a reply may use, and only on the screens written by hand.
+ALLOWED_TAGS = frozenset({"b", "i", "code", "pre", "blockquote"})
+STRIP_TAGS = re.compile(r"</?(?:" + "|".join(sorted(ALLOWED_TAGS)) + r")>")
 URL = re.compile(r"https?://")
 WINDOWS_PATH = re.compile(r"[A-Za-z]:\\")
 # The only shape a button may carry: a version, a UTC stamp, a command, plain arguments.
@@ -141,6 +148,7 @@ def service(engine: Engine, clock: Clock | None = None) -> CommandService:
     router.register("resume", "reprend les ordres", resume_handler(halts))
     router.register("close_all", "ferme les positions", close_all_handler(halts))
     router.register("emergency_stop", "arrêt d'urgence", emergency_stop_handler(halts))
+    router.register("restart", "redémarre l'agent", restart_handler(engine))
     return CommandService(AccessGate({OPERATOR}), router, AuditStore(engine), now=clock or Clock())
 
 
@@ -169,10 +177,19 @@ def labelled(reply: Reply | None, label: str) -> Button:
 def assert_readable(answer: str) -> None:
     assert answer.strip(), "a command never answers with a blank page"
     assert len(answer) < 4096, "Telegram cuts at 4096"
-    assert max(len(line) for line in answer.splitlines()) <= 80, answer
-    assert HTML_TAG.search(answer) is None, f"a command reply is plain text, got {answer!r}"
+    # Width is what the operator sees: tags are markup, not characters on the screen.
+    for line in answer.splitlines():
+        assert len(STRIP_TAGS.sub("", line)) <= 80, answer
+    for tag in HTML_TAG.findall(answer):
+        assert tag in ALLOWED_TAGS, f"<{tag}> is not part of the vocabulary a reply may use"
     assert URL.search(answer) is None
     assert WINDOWS_PATH.search(answer) is None
+
+
+def assert_plain(answer: str) -> None:
+    """A data-driven answer carries no markup at all: nothing from data can break it."""
+    assert_readable(answer)
+    assert HTML_TAG.search(answer) is None, f"a plain reply must carry no tag, got {answer!r}"
 
 
 def audit_rows(engine: Engine) -> list[AuditLogRow]:
@@ -193,7 +210,7 @@ def mode_events(engine: Engine) -> list[SystemEventRow]:
         )
 
 
-def help_text(router: CommandRouter) -> str:
+def help_text(router: CommandRouter) -> Reply:
     return asyncio.run(router.dispatch(CommandRequest(OPERATOR, "help", (), T0)))
 
 
@@ -213,9 +230,9 @@ def full_router() -> CommandRouter:
 # --- 1. /help: the whole palette, grouped by usage ---------------------------
 
 
-def test_the_help_table_documents_the_seventeen_commands() -> None:
+def test_the_help_table_documents_the_twenty_commands() -> None:
     assert set(COMMAND_HELP) == set(PALETTE)
-    assert len(COMMAND_HELP) == 17
+    assert len(COMMAND_HELP) == 20
 
 
 def test_every_help_entry_says_what_the_command_is_for_in_one_sentence() -> None:
@@ -227,16 +244,30 @@ def test_every_help_entry_says_what_the_command_is_for_in_one_sentence() -> None
         assert len(f"  {signature:<20} {purpose}") <= 80, f"/{name} does not fit a phone"
 
 
-def test_help_groups_the_palette_by_usage() -> None:
+def menu_commands(reply: Reply | None) -> list[str]:
+    """The commands the menu's buttons open, in the order they are laid out.
+
+    A button carries `aide <command>`: it opens that command's page rather than running it,
+    which is the whole point of a tap-only palette.
+    """
+    found = (decode_callback(button.data) for button in buttons(reply))
+    return [
+        decoded.args[0]
+        for decoded in found
+        if decoded is not None and decoded.command == "aide" and decoded.args
+    ]
+
+
+def test_the_menu_is_one_button_per_command_grouped_by_usage() -> None:
     answer = help_text(full_router())
 
     assert_readable(answer)
     for usage in Usage:
         assert usage.value in answer, f"the {usage.value} group is missing"
         assert USAGE_TAGLINES[usage] in answer
-    for name in PALETTE:
-        assert f"/{name}" in answer
-        assert COMMAND_HELP[name][2] in answer
+    # The palette lives in the buttons, not in the text: the operator taps instead of typing.
+    assert set(menu_commands(answer)) == set(PALETTE) - {"help"}
+    assert "bouton" in answer, "and the message says what a tap does"
 
 
 def test_help_keeps_the_groups_in_the_reading_order() -> None:
@@ -246,11 +277,42 @@ def test_help_keeps_the_groups_in_the_reading_order() -> None:
     assert positions == sorted(positions), "consulter, puis contrôler, puis agir"
 
 
-def test_help_mentions_the_confirmation_and_the_buttons() -> None:
-    answer = help_text(full_router())
+def test_a_command_button_opens_its_own_page_with_its_confirmation(engine: Engine) -> None:
+    """The operator's request: tap a command, read only that command, and act from there."""
+    svc = service(engine)
 
-    assert "confirmer" in answer.lower()
-    assert "/mode" in answer and "/pause" in answer
+    menu_reply = send(svc, "/help")
+    page_reply = click(svc, labelled(menu_reply, "/pause").data)
+
+    assert page_reply is not None
+    assert_readable(page_reply)
+    assert "Suspend les nouveaux ordres" in page_reply
+    assert "/pause confirmer" in page_reply, "the example is there to copy"
+    assert "confirmer" in page_reply.lower()
+    # The page carries the action itself, plus the way back to the menu.
+    confirm = labelled(page_reply, "Confirmer la suspension")
+    assert decode_callback(confirm.data).args == ("confirmer",)  # type: ignore[union-attr]
+    back = labelled(page_reply, "◀ Menu")
+    assert decode_callback(back.data).command == "help"  # type: ignore[union-attr]
+
+
+def test_a_page_is_rich_text_and_only_the_pages_are(engine: Engine) -> None:
+    """Markup is opt-in per reply: a data-driven answer stays plain and cannot break."""
+    svc = service(engine)
+
+    page_reply = send(svc, "/aide pause")
+    plain = send(svc, "/status")
+
+    assert page_reply is not None and page_reply.parse_mode == "HTML"
+    assert "<b>/pause</b>" in page_reply
+    assert plain is not None and plain.parse_mode is None
+    assert "<b>" not in plain
+
+
+def test_a_page_for_an_unread_command_says_so(engine: Engine) -> None:
+    answer = send(service(engine), "/aide rm_rf")
+
+    assert answer is not None and "inconnue" in answer.lower()
 
 
 def test_help_lists_a_command_it_has_no_entry_for() -> None:
@@ -263,9 +325,13 @@ def test_help_lists_a_command_it_has_no_entry_for() -> None:
 
     answer = help_text(router)
 
-    assert "/bricole" in answer
-    assert "commande ajoutée après coup" in answer
+    labels = [button.label for button in buttons(answer)]
+    assert "/bricole" in labels, "an undocumented command still gets its button"
+    assert "AUTRES" in answer
     assert_readable(answer)
+
+    page = asyncio.run(router.dispatch(CommandRequest(OPERATOR, "aide", ("bricole",), T0)))
+    assert "commande ajoutée après coup" in page
 
 
 # --- 2. a choice states its consequences first --------------------------------
@@ -521,7 +587,9 @@ def test_malformed_callback_data_only_re_shows_the_palette(engine: Engine) -> No
 
     for data in garbage:
         answer = click(svc, data)
-        assert answer is not None and "/help" in answer, data
+        # Nothing is executed; the operator simply gets the palette back, as buttons.
+        assert answer is not None and answer.keyboard is not None, data
+        assert menu_commands(answer), data
 
     assert mode_events(engine) == []
     assert not HaltStore(engine).status().halted
@@ -535,6 +603,7 @@ def test_a_button_never_carries_a_secret_and_always_fits_telegram(engine: Engine
         send(svc, "/resume"),
         send(svc, "/close_all"),
         send(svc, "/emergency_stop"),
+        send(svc, "/restart"),
         send(svc, "/disable"),
         send(svc, "/disable XAUUSD"),
         send(svc, "/enable XAUUSD"),
@@ -663,10 +732,14 @@ class FakeMessage:
         self.chat = FakeChat()
         self.sent: list[tuple[str, object]] = []
 
-    async def edit_text(self, text: str, reply_markup: object = None) -> None:
+    async def edit_text(
+        self, text: str, reply_markup: object = None, parse_mode: str | None = None
+    ) -> None:
         self.sent.append((text, reply_markup))
 
-    async def reply_text(self, text: str, reply_markup: object = None) -> None:
+    async def reply_text(
+        self, text: str, reply_markup: object = None, parse_mode: str | None = None
+    ) -> None:
         self.sent.append((text, reply_markup))
 
 

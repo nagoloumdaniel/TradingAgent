@@ -16,6 +16,7 @@ is unreachable from Telegram alone.
 import asyncio
 from collections.abc import Sequence
 from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy import Engine
 
@@ -30,6 +31,20 @@ from tradingagent.storage.halts import HaltCommand, HaltStore
 CONFIRM = "confirmer"
 TELEGRAM = HaltSource.TELEGRAM
 MODE_EVENT = "mode_command"
+#: Where `/restart` leaves its request for the loop to read. The command cannot kill the
+#: process that runs it — it would answer into the void — so it persists the demand and the
+#: loop closes it at the next cycle.
+RESTART_EVENT = "restart_command"
+
+#: The two orders the supervisor understands, written into the file it watches. That file is
+#: the only channel that works for the whole stack: the agent cannot stop the MT5 terminal,
+#: and it certainly cannot restart the supervisor that launched it.
+STOP_EVERYTHING = "arreter"
+START_EVERYTHING = "redemarrer"
+STACK_ORDERS = {"shutdown": STOP_EVERYTHING, "restart_all": START_EVERYTHING}
+#: Where the agent writes an order when the supervisor told it where to write. Empty means
+#: nobody supervises this process, and the command then refuses instead of pretending.
+CONTROL_FILE_ENV = "TRADINGAGENT_CONTROL_FILE"
 
 
 def _actor(user_id: int) -> str:
@@ -57,6 +72,8 @@ def _label(command: str, args: Sequence[str]) -> str:
         return f"Confirmer la coupure de {symbol}"
     if command == "enable":
         return f"Confirmer la réactivation de {symbol}"
+    if command == "restart":
+        return "Confirmer le redémarrage"
     return f"Confirmer {command}"
 
 
@@ -363,6 +380,148 @@ def _recorded_mode(events: Engine) -> str | None:
         return None
     requested = event.detail.get("requested")
     return None if requested is None else str(requested)
+
+
+def local_halt_files(ea_directory: Path | None, symbols: Sequence[str]) -> list[Path]:
+    """Les arrêts locaux que les EA ont écrits, un fichier par symbole.
+
+    Le protocole du pont les nomme `<symbole>_halt.txt` sous `control/` : un EA s'arrête tout
+    seul quand l'état publié par le backend a plus de trente secondes, et il inscrit ce fichier
+    pour survivre à son propre redémarrage.
+    """
+    if ea_directory is None:
+        return []
+    return [ea_directory / "control" / f"{symbol}_halt.txt" for symbol in symbols if symbol]
+
+
+def clear_local_halts(ea_directory: Path | None, symbols: Sequence[str]) -> list[str]:
+    """Supprime les arrêts locaux et rend les symboles effectivement relevés.
+
+    Ce n'est pas une commodité, c'est la seule façon de ne pas transformer `/restart_all` en
+    piège : redémarrer la pile rend le backend muet plus de trente secondes, ce qui fait
+    basculer chaque EA en arrêt local. Au redémarrage suivant du terminal, l'EA relit ce
+    fichier et se remet en arrêt — indéfiniment. L'opérateur a demandé le redémarrage, donc
+    l'arrêt qu'il provoque est levé dans le même geste, et le compte rendu le dit.
+    """
+    released: list[str] = []
+    for path in local_halt_files(ea_directory, symbols):
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            continue
+        except OSError:
+            continue
+        released.append(path.name.removesuffix("_halt.txt"))
+    return released
+
+
+def stack_handler(
+    command: str,
+    control_file: Path | None,
+    *,
+    ea_directory: Path | None = None,
+    symbols: Sequence[str] = (),
+) -> Handler:
+    """Arrête ou redémarre toute la pile, en écrivant l'ordre que le superviseur attend.
+
+    `/restart` redémarre l'agent seul, et la boucle s'en charge. Ces deux commandes-ci vont
+    plus loin — terminal MT5, tableau de bord, superviseur — et l'agent n'a aucun moyen de les
+    exécuter lui-même : il ne peut pas tuer le terminal, et tuer le superviseur qui l'a lancé
+    reviendrait à scier la branche. L'ordre part donc dans un fichier que le superviseur lit à
+    chaque battement (`logs/controle.txt`, posé dans `TRADINGAGENT_CONTROL_FILE`).
+
+    Sans superviseur, il n'y a personne pour lire ce fichier : la commande le dit et refuse,
+    plutôt que de faire croire à un arrêt qui n'aura pas lieu.
+
+    `/restart_all` lève en plus les arrêts locaux des EA — et seulement lui : `/shutdown`
+    laisse tout baisser, arrêts compris, ce qui est exactement ce qu'il promet.
+    """
+    order = STACK_ORDERS[command]
+    if command == "shutdown":
+        effect = (
+            "Arrête TOUT : l'agent, le tableau de bord, le terminal MT5 et le superviseur.\n"
+            "Les positions restent chez le courtier avec leurs stops, mais plus rien ne les\n"
+            "surveille, et RIEN ne redémarrera seul. Il faudra relancer à la main."
+        )
+        done = "🛑 Arrêt de tout demandé · agent, tableau de bord, MT5, superviseur"
+    else:
+        effect = (
+            "Redémarre TOUT : terminal MT5, agent et tableau de bord, dans cet ordre.\n"
+            "La coupure dure environ une minute. Les positions et leurs stops ne sont pas\n"
+            "touchés, ils vivent chez le courtier. Les arrêts locaux des EA sont levés :\n"
+            "sans cela ils resteraient bloqués après le redémarrage."
+        )
+        done = "🔄 Redémarrage de tout demandé · MT5, agent, tableau de bord"
+
+    async def stack(request: CommandRequest) -> Reply:
+        if control_file is None:
+            return Reply(
+                "Cette commande exige le superviseur, et cet agent n'en a pas :\n"
+                "rien ne lirait l'ordre, et rien ne le relancerait.\n"
+                "Lance l'agent avec scripts/install_autostart.ps1, puis réessaie."
+            )
+        if not request.args or request.args[0].lower() != CONFIRM:
+            return _asking(effect, command, (), request.at)
+        released: list[str] = []
+        if order == START_EVERYTHING:
+            released = await asyncio.to_thread(clear_local_halts, ea_directory, symbols)
+        try:
+            await asyncio.to_thread(control_file.write_text, f"{order}\n", encoding="utf-8")
+        except OSError as error:
+            return Reply(f"Ordre non écrit : {type(error).__name__} · {error}")
+        if released:
+            return Reply(f"{done} · arrêts locaux levés : {', '.join(released)}")
+        return Reply(done)
+
+    return stack
+
+
+def restart_handler(events: Engine, *, supervised: bool = False) -> Handler:
+    """Demande un redémarrage ; la boucle l'honore, le superviseur relance.
+
+    Un gestionnaire de commande ne peut pas tuer le processus qui l'exécute : il répondrait
+    dans le vide, et l'opérateur n'aurait aucune confirmation. La demande est donc *persistée*
+    (`RESTART_EVENT`) exactement comme `/mode` enregistre le mode voulu ; la boucle la lit au
+    cycle suivant, prévient l'opérateur, et s'arrête proprement. Ce qui relance est le
+    superviseur (`scripts/supervise_agent.ps1`), qui redémarre tout service arrêté.
+
+    `supervised` ne change pas le comportement, seulement la phrase : un opérateur dont l'agent
+    tourne dans une console doit savoir qu'un redémarrage le laissera arrêté. Il est lu dans
+    l'environnement, posé par le superviseur lui-même — jamais par `.env`, où l'opérateur
+    pourrait le rendre faux.
+    """
+    if supervised:
+        coming_back = (
+            "L'agent est supervisé : il revient seul, dans une quinzaine de secondes.\n"
+            "Les positions ouvertes et leurs stops ne sont pas touchés."
+        )
+    else:
+        coming_back = (
+            "ATTENTION : l'agent n'est pas supervisé. Il s'arrêtera et ne reviendra pas seul.\n"
+            "Pour le relancer ensuite : pwsh -File scripts/install_autostart.ps1 -RunNow"
+        )
+    prompt = (
+        "/restart — redémarrer l'agent : arrêt propre, puis relance.\n"
+        "Ce qui s'arrête : la boucle, la collecte et les signaux, une vingtaine de secondes.\n"
+        "Ce qui continue : le terminal MT5, les positions ouvertes et leurs stops.\n"
+        f"{coming_back}"
+    )
+
+    async def restart(request: CommandRequest) -> Reply:
+        if not request.args or request.args[0].lower() != CONFIRM:
+            return _asking(prompt, "restart", (), request.at)
+        await asyncio.to_thread(
+            SystemEventStore(events).record,
+            RESTART_EVENT,
+            Severity.INFO,
+            {"actor": _actor(request.user_id)},
+            request.at,
+        )
+        return Reply(
+            f"Redémarrage demandé : l'agent s'arrête à la fin du cycle en cours.\n{coming_back}"
+        )
+
+    return restart
 
 
 def mode_handler(events: Engine) -> Handler:

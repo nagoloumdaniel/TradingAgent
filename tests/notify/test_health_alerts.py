@@ -219,8 +219,8 @@ def test_an_outage_names_the_part_and_the_consequence(engine: Engine) -> None:
     [text] = sent.texts
     head, _, body = text.partition("\n\n")
     assert head == "🔌 Coupure · terminal MT5"
-    assert "2026-10-06 12:00 UTC" in body
     assert "Aucun nouvel ordre" in body
+    assert "UTC" not in text, "Telegram dates the message; the notice carries no clock stamp"
     assert "<" not in text and ">" not in text  # plain text: no markup can survive
 
 
@@ -259,6 +259,7 @@ def test_a_repeated_failure_keeps_one_short_line_and_hides_the_file_path(engine:
 
 
 def test_the_start_names_the_mode_and_the_stop_is_final(engine: Engine) -> None:
+    """One line each, the action and nothing else — no clock stamp, Telegram dates it."""
     sent = Sent()
     watcher = alerter(engine, sent)
 
@@ -266,9 +267,9 @@ def test_the_start_names_the_mode_and_the_stop_is_final(engine: Engine) -> None:
     asyncio.run(watcher.process_stopping(T0 + timedelta(minutes=1)))
 
     start, stop = sent.texts
-    assert start.splitlines()[0] == "🤖 DÉMARRAGE · mode DEMO"
-    assert stop.splitlines()[0] == "🛑 ARRÊT"
-    assert "Plus aucun signal ni ordre" in stop
+    assert start == "🟢 Agent démarré · DEMO"
+    assert stop == "🔴 Agent arrêté"
+    assert len(start.splitlines()) == 1 and len(stop.splitlines()) == 1
 
 
 def test_a_degraded_series_names_the_symbol_and_the_state(engine: Engine) -> None:
@@ -324,9 +325,9 @@ def test_a_market_closure_names_what_closed_and_what_the_agent_does(engine: Engi
     [text] = sent.texts
     head, _, body = text.partition("\n\n")
     assert head == "🌙 Marché fermé · XAUUSD"
-    assert "2026-10-02 20:45 UTC" in body  # when it closed, not when the alert fired
     assert "Aucun signal ni ordre sur XAUUSD" in body
     assert "autres marchés" in body  # gold stops, the crypto keeps running
+    assert "UTC" not in text, "Telegram dates the message; the notice carries no clock stamp"
     assert "<" not in text and ">" not in text  # plain text: no markup can survive
 
 

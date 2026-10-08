@@ -232,11 +232,13 @@ def journal(engine: Engine, kind: str) -> list[SystemEventRow]:
 def test_a_real_improvement_produces_a_candidate_version(engine: Engine, tmp_path: Path) -> None:
     measured = a_fragile_market()
 
-    outcome = improve.cycle_for(MARKET, measured=measured, output=tmp_path, engine=engine).run(
+    outcome = improve.cycle_for(
+        MARKET, measured=measured, output=tmp_path, engine=engine, ref=REF
+    ).run(
         improve.escalation_for(measured),
         at=T0,
         incumbent=measured.baseline(),
-        evidence=improve.evidence_context(measured),
+        evidence=improve.evidence_context(measured, ref=REF),
     )
 
     assert outcome.status is CycleStatus.IMPROVED
@@ -255,11 +257,11 @@ def test_the_accepted_measurement_becomes_the_evidence_the_lab_reads(
 ) -> None:
     measured = a_fragile_market()
 
-    improve.cycle_for(MARKET, measured=measured, output=tmp_path, engine=engine).run(
+    improve.cycle_for(MARKET, measured=measured, output=tmp_path, engine=engine, ref=REF).run(
         improve.escalation_for(measured),
         at=T0,
         incumbent=measured.baseline(),
-        evidence=improve.evidence_context(measured),
+        evidence=improve.evidence_context(measured, ref=REF),
     )
 
     evidence = evidence_for(engine, MARKET)
@@ -274,11 +276,11 @@ def test_the_accepted_measurement_becomes_the_evidence_the_lab_reads(
 def test_the_comparison_count_reaches_the_journal_too(engine: Engine, tmp_path: Path) -> None:
     measured = a_fragile_market()
 
-    improve.cycle_for(MARKET, measured=measured, output=tmp_path, engine=engine).run(
+    improve.cycle_for(MARKET, measured=measured, output=tmp_path, engine=engine, ref=REF).run(
         improve.escalation_for(measured),
         at=T0,
         incumbent=measured.baseline(),
-        evidence=improve.evidence_context(measured),
+        evidence=improve.evidence_context(measured, ref=REF),
     )
 
     entries = journal(engine, CYCLE_EVENT)
@@ -292,17 +294,19 @@ def test_a_search_that_improves_nothing_writes_no_version_and_records_the_incumb
 ) -> None:
     measured = a_stubborn_market()
 
-    outcome = improve.cycle_for(MARKET, measured=measured, output=tmp_path, engine=engine).run(
+    outcome = improve.cycle_for(
+        MARKET, measured=measured, output=tmp_path, engine=engine, ref=REF
+    ).run(
         improve.escalation_for(measured),
         at=T0,
         incumbent=measured.baseline(),
-        evidence=improve.evidence_context(measured),
+        evidence=improve.evidence_context(measured, ref=REF),
     )
     assert outcome.status is CycleStatus.NO_IMPROVEMENT
     assert not list(tmp_path.glob("*.yaml")), "no version was invented"
     assert rows(engine) == [], "the chain itself records nothing when nothing improved"
 
-    improve.record_baseline(engine, measured, comparisons=outcome.comparisons, at=T0)
+    improve.record_baseline(engine, measured, comparisons=outcome.comparisons, at=T0, ref=REF)
 
     evidence = evidence_for(engine, MARKET)
     assert evidence is not None
@@ -317,11 +321,13 @@ def test_a_measurement_that_fails_is_counted_refused_and_journalled(
     measured = a_fragile_market()
     broken = replace(measured, proposals=(_an_unmeasurable_spec(measured), *measured.proposals))
 
-    outcome = improve.cycle_for(MARKET, measured=broken, output=tmp_path, engine=engine).run(
+    outcome = improve.cycle_for(
+        MARKET, measured=broken, output=tmp_path, engine=engine, ref=REF
+    ).run(
         improve.escalation_for(broken),
         at=T0,
         incumbent=broken.baseline(),
-        evidence=improve.evidence_context(broken),
+        evidence=improve.evidence_context(broken, ref=REF),
     )
 
     failures = journal(engine, MEASURE_FAILED_EVENT)
@@ -383,7 +389,7 @@ def test_a_candidate_is_never_written_into_the_production_catalog(
             improve.escalation_for(measured),
             at=T0,
             incumbent=measured.baseline(),
-            evidence=improve.evidence_context(measured),
+            evidence=improve.evidence_context(measured, ref=REF),
         )
 
     assert [row.ref for row in rows(engine)] == [], "a refused write records no evidence"
@@ -468,11 +474,13 @@ def test_a_drawdown_that_grows_is_refused_by_the_guard(engine: Engine, tmp_path:
         ]
     )
 
-    outcome = improve.cycle_for(MARKET, measured=measured, output=tmp_path, engine=engine).run(
+    outcome = improve.cycle_for(
+        MARKET, measured=measured, output=tmp_path, engine=engine, ref=REF
+    ).run(
         improve.escalation_for(measured),
         at=T0,
         incumbent=measured.baseline(),
-        evidence=improve.evidence_context(measured),
+        evidence=improve.evidence_context(measured, ref=REF),
     )
 
     assert outcome.status is CycleStatus.NO_IMPROVEMENT

@@ -9,6 +9,7 @@ keep their HTML: mixing the two would print raw tags on the operator's phone.
 """
 
 import logging
+import os
 import sys
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
@@ -45,13 +46,16 @@ from tradingagent.notify.read_commands import (
 )
 from tradingagent.notify.replies import Keyboard
 from tradingagent.notify.sensitive_commands import (
+    CONTROL_FILE_ENV,
     close_all_handler,
     disable_handler,
     emergency_stop_handler,
     enable_handler,
     mode_handler,
     pause_handler,
+    restart_handler,
     resume_handler,
+    stack_handler,
 )
 from tradingagent.notify.service import CommandService
 from tradingagent.storage.audit import AuditStore
@@ -86,7 +90,9 @@ def message_handler(service: CommandService) -> Handler:
             return
         reply = await service.handle(user.id, chat.type == chat.PRIVATE, message.text)
         if reply:
-            await message.reply_text(reply, reply_markup=to_markup(reply.keyboard))
+            await message.reply_text(
+                reply, reply_markup=to_markup(reply.keyboard), parse_mode=reply.parse_mode
+            )
 
     return on_message
 
@@ -111,11 +117,11 @@ def callback_handler(service: CommandService) -> Handler:
             try:
                 # Editing in place retires the button that was just used, so it cannot be
                 # tapped twice, and keeps the conversation to one message per choice.
-                await message.edit_text(reply, reply_markup=markup)
+                await message.edit_text(reply, reply_markup=markup, parse_mode=reply.parse_mode)
                 return
             except TelegramError:
                 log.info("could not edit the message a button came from, sending a new one")
-        await chat.send_message(reply, reply_markup=markup)
+        await chat.send_message(reply, reply_markup=markup, parse_mode=reply.parse_mode)
 
     return on_callback
 
@@ -178,6 +184,13 @@ def main() -> int:
     router.register("disable", "désactive un marché", disable_handler(halts, markets))
     router.register("enable", "réactive un marché", enable_handler(halts, markets))
     router.register("mode", "change le mode", mode_handler(engine))
+    # The standalone bot reads the same two orders, from the same file the supervisor watches.
+    # It knows no EA directory — `BotSettings` carries no such field — so it cannot lift a
+    # local halt; the command says so rather than pretending, and the agent does the rest.
+    control = Path(os.environ[CONTROL_FILE_ENV]) if os.environ.get(CONTROL_FILE_ENV) else None
+    router.register("restart", "redémarre l'agent", restart_handler(engine))
+    router.register("shutdown", "arrête tout", stack_handler("shutdown", control))
+    router.register("restart_all", "redémarre tout", stack_handler("restart_all", control))
     service = CommandService(
         AccessGate(settings.telegram_allowed_user_ids), router, AuditStore(engine)
     )

@@ -6,6 +6,7 @@ l'agent. Elle ne suppose aucune connaissance du code : chaque procédure est cop
 | Document | Quand l'ouvrir |
 |---|---|
 | [installation.md](installation.md) | Installer l'agent et le terminal MT5 sur une machine Windows |
+| [demarrage-automatique.md](demarrage-automatique.md) | Tout relancer seul au démarrage, sans serveur : superviseur, lanceur, arrêt propre |
 | [configuration.md](configuration.md) | Remplir `.env`, comprendre les modes et les variables |
 | [exploitation.md](exploitation.md) | Enregistrer le service, surveiller, redémarrer, rotation des journaux |
 | [incidents.md](incidents.md) | Réagir à une panne, une déconnexion ou une donnée douteuse |
@@ -43,6 +44,7 @@ Les autres documents d'exploitation du système v3 :
 | Procédure | État |
 |---|---|
 | Installation Windows | Script fourni, exécuté en simulation (`-WhatIf`) ; à dérouler sur la machine cible |
+| Démarrage automatique sur le poste | Installé et vérifié le 2026-10-08 ([demarrage-automatique.md](demarrage-automatique.md) § 8) : superviseur, mono-instance, relances, arrêt propre |
 | Enregistrement du service et du terminal | Script fourni ; à exécuter avec des droits administrateur |
 | Sauvegarde chiffrée | Script fourni ; aller-retour sauvegarde → restauration prouvé sur base SQLite jetable |
 | Restauration complète sur machine vierge | **Ouvert** : à exécuter par l'opérateur, procédure écrite dans [backup-restore.md](backup-restore.md) |

@@ -78,12 +78,12 @@ DEFAULT_OUTPUT = ROOT / "docs" / "research" / "candidates"
 STRATEGY_CONFIG_DIR = ROOT / "config" / "strategies"
 TIMEFRAME = Timeframe.M15
 
-# The version each market runs today. Read from the production manifests so the baseline
-# cannot silently drift from what the agent actually loads.
-INCUMBENTS = {
-    "XAUUSD": "witness@1.1.0",
-    "BTCUSD": "trend_breakout@1.0.0",
-}
+# The version each market runs today is *read*, not declared here: `config/agent.yaml` is the
+# file the agent itself loads at start-up, and `deployed_refs` below is the only place that
+# reads it. This comment used to claim the refs came from the production manifests while the
+# code hard-coded them; on 2026-10-08 the script still compared against `witness@1.1.0` while
+# the agent ran `witness@1.1.1`, so every recorded run named a version nobody was running.
+AGENT_CONFIG = ROOT / "config" / "agent.yaml"
 
 # One step per parameter per direction: a local search, small enough to report honestly.
 STEP_RELATIVE = 0.25
@@ -99,6 +99,41 @@ def read_manifest(path: Path) -> Mapping[str, Any]:
 
     with path.open(encoding="utf-8") as handle:
         return yaml.safe_load(handle)
+
+
+def deployed_refs(path: Path = AGENT_CONFIG) -> dict[str, str]:
+    """What the agent loads for each market, as `config/agent.yaml` declares it.
+
+    A disabled market is left out on purpose: measuring a strategy the agent is not watching
+    would produce evidence for a version that earns nothing, and the daily chain compares
+    against whatever this file names.
+    """
+    document = read_manifest(path)
+    found: dict[str, str] = {}
+    for market in document.get("markets", []):
+        if not isinstance(market, Mapping) or not market.get("enabled", True):
+            continue
+        symbol = market.get("symbol")
+        strategy = market.get("strategy")
+        if symbol and strategy:
+            found[str(symbol)] = str(strategy)
+    return found
+
+
+def incumbent_ref(market: str, path: Path = AGENT_CONFIG) -> str:
+    """The version in place for this market, or a refusal that names what is declared.
+
+    Refusing beats falling back to a remembered list: a baseline measured against a version
+    the agent does not run is worse than no measurement, because it looks like one.
+    """
+    refs = deployed_refs(path)
+    if market not in refs:
+        declared = ", ".join(sorted(refs)) or "aucun marche"
+        raise SystemExit(
+            f"{market}: {path.name} ne declare aucune strategie pour ce marche "
+            f"(declares : {declared})"
+        )
+    return refs[market]
 
 
 def build_factory(strategy_id: str, parameters: Mapping[str, float]):
@@ -123,8 +158,14 @@ def manifest_for(document: Mapping[str, Any], market: str) -> StrategyManifest:
     )
 
 
-def incumbent_spec(market: str) -> CandidateSpec:
-    ref = INCUMBENTS[market]
+def incumbent_spec(market: str, ref: str | None = None) -> CandidateSpec:
+    """The version in place, as a campaign candidate.
+
+    `ref` is injectable so a test can pin the baseline it measures against; in production it is
+    left out and read from `config/agent.yaml` (`deployed_refs`), which is the only source of
+    truth about what the agent runs.
+    """
+    ref = ref or incumbent_ref(market)
     document = read_manifest(STRATEGY_CONFIG_DIR / f"{ref}.yaml")
     # The YAML's own types are kept: a period is an `int`, and turning it into a float here
     # makes the campaign's own perturbation produce 15.4 periods — which the parameter model
@@ -326,17 +367,18 @@ def escalation_for(measured: MeasuredMarket) -> Escalation:
     )
 
 
-def evidence_context(measured: MeasuredMarket) -> MarketEvidence:
+def evidence_context(measured: MeasuredMarket, ref: str | None = None) -> MarketEvidence:
     """What the chain must know to record a candidate against the same dataset.
 
     Handed in rather than read back, because at this point nothing has been recorded yet: the
-    baseline of this very campaign *is* the proof, and it is recorded as such below.
+    baseline of this very campaign *is* the proof, and it is recorded as such below. `ref` names
+    the version this measurement belongs to; left out, it is read from `config/agent.yaml`.
     """
     baseline = measured.baseline_report()
     candles = measured.dataset.candles
     return MarketEvidence(
         market=measured.market,
-        ref=INCUMBENTS[measured.market],
+        ref=ref or incumbent_ref(measured.market),
         dataset_id=measured.dataset.dataset_id,
         fingerprint=measured.dataset.fingerprint,
         window_start=candles[0].open_time,
@@ -380,6 +422,7 @@ def cycle_for(
     output: Path,
     engine: Any,
     max_attempts: int = MAX_ATTEMPTS_PER_MARKET,
+    ref: str | None = None,
 ) -> ImprovementCycle:
     """The production wiring: the real search, the real version builder, the real refusal.
 
@@ -387,9 +430,11 @@ def cycle_for(
     outside `src/`: the architecture forbids a production package from importing research
     (`tests/test_architecture.py`). The measurement is a lookup into the campaign that already
     ran — every variation was measured once, on identical data, which is the whole point.
+
+    `ref` is the version the search compares against; left out, it is the one the agent loads.
     """
     by_label = measured.by_label()
-    ref = INCUMBENTS[market]
+    ref = ref or incumbent_ref(market)
     baseline = measured.baseline()
     variants = tuple(
         Variant(
@@ -458,7 +503,12 @@ def cycle_for(
 
 
 def record_baseline(
-    engine: Any, measured: MeasuredMarket, *, comparisons: int | None, at: datetime
+    engine: Any,
+    measured: MeasuredMarket,
+    *,
+    comparisons: int | None,
+    at: datetime,
+    ref: str | None = None,
 ) -> int:
     """Record the version in place, with the number of comparisons that left it in place.
 
@@ -469,7 +519,7 @@ def record_baseline(
         engine,
         measured_run(
             measured,
-            ref=INCUMBENTS[measured.market],
+            ref=ref or incumbent_ref(measured.market),
             candidate=measured.baseline_report(),
             comparisons=comparisons,
         ),
@@ -512,7 +562,9 @@ def run_market(
     return MarketOutcome(market=market, measured=measured, cycle=outcome)
 
 
-def write_attempts(outcome: ImprovementOutcome | CycleOutcome, market: str, output: Path) -> Path:
+def write_attempts(
+    outcome: ImprovementOutcome | CycleOutcome, market: str, output: Path, ref: str | None = None
+) -> Path:
     """The audit trail of one search, on disk: every attempt, kept or refused.
 
     `backtest_runs` holds the measurements that describe a version; this holds the *search* —
@@ -521,7 +573,7 @@ def write_attempts(outcome: ImprovementOutcome | CycleOutcome, market: str, outp
     variant gets mistaken for a discovery.
     """
     output.mkdir(parents=True, exist_ok=True)
-    label = outcome.ref or INCUMBENTS[market]
+    label = outcome.ref or ref or incumbent_ref(market)
     path = output / f"{market}-{label}.json"
     search = outcome if isinstance(outcome, ImprovementOutcome) else outcome.search
     comparisons = outcome.comparisons if search is None else search.trials
@@ -615,10 +667,14 @@ def main() -> int:
 
     written: list[Path] = []
     improved = 0
-    eligible = [market for market in sorted(datasets) if market in INCUMBENTS]
+    # What the agent loads, read once: `config/agent.yaml`. A market it does not declare is
+    # not measured, and the reason is printed instead of guessed.
+    refs = deployed_refs()
+    eligible = [market for market in sorted(datasets) if market in refs]
     for market in sorted(datasets):
-        if market not in INCUMBENTS:
-            print(f"== {market} : aucun enregistrement de production, ignoré ==")
+        if market not in refs:
+            print(f"== {market} : absent de {AGENT_CONFIG.name} ==")
+            print("   aucun enregistrement de production pour ce marche, il n'est pas mesure")
             continue
         result = run_market(market, datasets[market], args.output, engine=engine, at=moment)
         search = result.cycle.search
@@ -644,13 +700,14 @@ if __name__ == "__main__":
 
 
 __all__: Sequence[str] = [
-    "INCUMBENTS",
     "MarketOutcome",
     "MeasuredMarket",
     "costs_payload",
     "cycle_for",
+    "deployed_refs",
     "escalation_for",
     "evidence_context",
+    "incumbent_ref",
     "incumbent_spec",
     "main",
     "measure_market",

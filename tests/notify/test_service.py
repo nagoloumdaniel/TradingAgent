@@ -11,6 +11,7 @@ from tradingagent.core.mode import TradingMode
 from tradingagent.core.states import HaltAction, HaltSource
 from tradingagent.notify.access import AccessGate
 from tradingagent.notify.commands import CommandRequest, CommandRouter, status_handler
+from tradingagent.notify.replies import Reply
 from tradingagent.notify.service import CommandService
 from tradingagent.storage.audit import AuditStore
 from tradingagent.storage.engine import create_database_engine
@@ -55,7 +56,9 @@ def service(engine: Engine, mode: TradingMode = TradingMode.DEMO, **gate: object
     )
 
 
-def send(svc: CommandService, text: str, user: int = OPERATOR, private: bool = True) -> str | None:
+def send(
+    svc: CommandService, text: str, user: int = OPERATOR, private: bool = True
+) -> Reply | None:
     return asyncio.run(svc.handle(user, private, text))
 
 
@@ -127,9 +130,12 @@ def test_unknown_command_points_to_help(engine: Engine) -> None:
 
 
 def test_help_lists_the_commands(engine: Engine) -> None:
+    """The palette is a button per command; `/help` opens it, so it has no button of its own."""
     reply = send(service(engine), "/help")
-    assert reply is not None
-    assert "/status" in reply and "/help" in reply
+
+    assert reply is not None and reply.keyboard is not None
+    labels = [button.label for row in reply.keyboard.rows for button in row]
+    assert "/status" in labels and "/help" not in labels
 
 
 def test_the_bot_username_suffix_is_ignored(engine: Engine) -> None:

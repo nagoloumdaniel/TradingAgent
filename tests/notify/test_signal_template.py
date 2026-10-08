@@ -52,7 +52,6 @@ REQUIRED_PARTS = {
     "second target": "2655.50",
     "timeframe": "M15",
     "strategy and version": "witness@1.0.0",
-    "generation time": "2026-10-06 12:00",
     "expiry time": "2026-10-06 12:45",
     "market state": "HEALTHY",
     "justification": "MM20 crossed above MM50",
@@ -126,8 +125,17 @@ def test_data_derived_text_cannot_break_the_html_formatting() -> None:
 
 
 def test_times_are_explicitly_utc() -> None:
+    """One stamp, not two: the expiry is an instruction; generation time was the clock.
+
+    Telegram dates every message, so "Généré le" only repeated what the client already
+    shows. "Expire le" stays, and stays explicitly UTC — a signal whose validity is
+    ambiguous is a signal somebody will act on too late.
+    """
     message = render_signal_message(a_notice())
-    assert message.count("UTC") >= 2
+
+    assert message.count("UTC") == 1
+    assert "Expire le : 2026-10-06 12:45 UTC" in message
+    assert "Généré" not in message
 
 
 # --- shape: four blocks, not a wall --------------------------------------------------------

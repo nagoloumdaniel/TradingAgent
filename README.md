@@ -93,6 +93,8 @@ l'agent tourne sans EA — c'est un état valide.
 | Installer | `pwsh -File scripts/install_windows.ps1` | [installation](docs/operations/installation.md) |
 | Configurer | `.env` | [configuration](docs/operations/configuration.md) |
 | Enregistrer le service | `pwsh -File scripts/register_service.ps1` | [exploitation](docs/operations/exploitation.md) |
+| Démarrer tout seul au logon (poste, sans serveur) | `pwsh -File scripts/install_autostart.ps1 -WithDashboard` | [démarrage automatique](docs/operations/demarrage-automatique.md) |
+| Superviser l'agent (terminal, agent, dashboard) | `pwsh -File scripts/supervise_agent.ps1 -Status` | [démarrage automatique](docs/operations/demarrage-automatique.md) |
 | Surveiller | `pwsh -File scripts/check_health.ps1 -CheckTask` | [exploitation](docs/operations/exploitation.md) |
 | Sauvegarder | `pwsh -File scripts/backup.ps1` | [sauvegarde et restauration](docs/operations/backup-restore.md) |
 | Restaurer | `pwsh -File scripts/restore.ps1 -BackupFile ... -Force` | [sauvegarde et restauration](docs/operations/backup-restore.md) |

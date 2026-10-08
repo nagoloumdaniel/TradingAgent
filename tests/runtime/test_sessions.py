@@ -80,7 +80,8 @@ def test_the_friday_close_is_detected_as_well(engine: Engine) -> None:
     outcome = asyncio.run(guard.guard(GOLD, FRIDAY_CLOSE))
 
     assert outcome is not None and outcome.closed is True
-    assert "2026-10-02 20:45 UTC" in sent.texts[0]
+    # The closure notice carries no clock stamp: Telegram dates what it delivers.
+    assert "Marché fermé" in sent.texts[0] and "UTC" not in sent.texts[0]
 
 
 def test_sunday_is_the_same_closure_and_stays_silent(engine: Engine) -> None:

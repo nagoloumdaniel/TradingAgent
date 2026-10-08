@@ -1,0 +1,67 @@
+{
+  "market": "XAUUSD",
+  "supersedes": "witness@1.1.1",
+  "status": "improved",
+  "proposed_label": "ema_slow+25%",
+  "parameters": {
+    "ema_fast": 20.0,
+    "ema_slow": 62.0,
+    "atr_period": 14.0,
+    "stop_atr_multiplier": 1.5,
+    "take_profit_rr": 2.0,
+    "entry_zone_atr": 0.1
+  },
+  "incumbent_objective": -7.08649754359,
+  "proposed_objective": 21.51250164581,
+  "relative_gain": 4.035702970823556,
+  "comparisons_made": 3,
+  "decided_at": "2026-10-08T05:11:48.744835+00:00",
+  "note": "Candidat, pas une promotion. max_mode reste SIGNAL tant que les portes de validation ne sont pas franchies. 3 comparaison(s) ont été faites : ce nombre doit entrer dans la correction du test multiple.",
+  "attempts": [
+    {
+      "number": 1,
+      "label": "ema_fast+25%",
+      "accepted": false,
+      "objective": -6.65502563343,
+      "reason": "drawdown 64.07 above the 58.65 allowed (the incumbent's +10 %)",
+      "parameters": {
+        "ema_fast": 25.0,
+        "ema_slow": 50.0,
+        "atr_period": 14.0,
+        "stop_atr_multiplier": 1.5,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    },
+    {
+      "number": 2,
+      "label": "ema_fast-25%",
+      "accepted": false,
+      "objective": -4.20509123341,
+      "reason": "drawdown 112.25 above the 58.65 allowed (the incumbent's +10 %)",
+      "parameters": {
+        "ema_fast": 15.0,
+        "ema_slow": 50.0,
+        "atr_period": 14.0,
+        "stop_atr_multiplier": 1.5,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    },
+    {
+      "number": 3,
+      "label": "ema_slow+25%",
+      "accepted": true,
+      "objective": 21.51250164581,
+      "reason": "loses less than the incumbent (21.51 > -6.38)",
+      "parameters": {
+        "ema_fast": 20.0,
+        "ema_slow": 62.0,
+        "atr_period": 14.0,
+        "stop_atr_multiplier": 1.5,
+        "take_profit_rr": 2.0,
+        "entry_zone_atr": 0.1
+      }
+    }
+  ]
+}

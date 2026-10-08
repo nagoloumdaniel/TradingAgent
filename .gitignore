@@ -32,6 +32,10 @@ htmlcov/
 # after a backup would have committed it.
 /backups/
 
+# Runtime logs: `scripts/supervise_agent.ps1` writes one file per service per day, plus its
+# own state. They are operation traces, not sources, and they grow every day the agent runs.
+/logs/
+
 # Editors and OS
 .vscode/
 .idea/

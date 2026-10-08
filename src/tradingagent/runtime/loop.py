@@ -34,6 +34,7 @@ from tradingagent.data.market_data import (
 from tradingagent.ea.bridge import EaStatus, ExpectedPosition, publish_state
 from tradingagent.ea.health import ea_health
 from tradingagent.notify.health_alerts import HealthAlerter
+from tradingagent.notify.sensitive_commands import RESTART_EVENT
 from tradingagent.notify.trade_messages import PositionClosed, render_position_closed
 from tradingagent.reporting.service import ReportService
 from tradingagent.risk.model import BrokerPosition, ClosedPosition, limits_for
@@ -157,6 +158,10 @@ class AgentLoop:
         self._clock_verified = True
         self._clock_unverified_since: datetime | None = None
         self._clock_escalated = False
+        # `/restart` writes a request; this is the run that may honour it, and only one whose
+        # start is older than the request. `restart_requested` is read by `app.run`.
+        self._started_at = now()
+        self.restart_requested = False
 
     @property
     def symbols(self) -> tuple[str, ...]:
@@ -198,10 +203,46 @@ class AgentLoop:
     def stop(self) -> None:
         self._stop = True
 
+    async def _restart_demanded(self, now: datetime) -> bool:
+        """`/restart` recorded a request during *this* run: close it, cleanly.
+
+        The event is compared with the moment this process started, and that comparison is the
+        whole safety of the feature: `system_events` keeps every request ever made, so a
+        request from yesterday's run must not make today's agent stop in a loop. A request is
+        honoured once, by the run that was alive when the operator asked.
+
+        `self.restart_requested` is what `app.run` reads to leave a distinct exit code — the
+        supervisor restarts on any code, but a log line that says "code 75" is a restart the
+        operator asked for, not a crash.
+        """
+        event = await asyncio.to_thread(self._events.latest, RESTART_EVENT)
+        if event is None or event.occurred_at < self._started_at:
+            return False
+
+        self.restart_requested = True
+        self._events.record(
+            "restart_honoured", Severity.INFO, {"detail": "commande opérateur"}, now
+        )
+        log.warning("restart requested by the operator: stopping after this cycle")
+        try:
+            # One line, the action and nothing else: the operator asked for that, and no clock
+            # stamp — Telegram dates the message it delivers.
+            await self._notifier.send("🔄 Redémarrage en cours")
+        except Exception as error:  # a notification failure never blocks the restart
+            log.warning("restart notice failed: %s", error)
+        self._stop = True
+        return True
+
     async def run_once(self) -> CycleReport:
         report = CycleReport()
         now = self._now()
         self._cycles += 1
+
+        # The operator's restart demand is read first, and before anything that can fail:
+        # an agent stuck on a broken clock or a dead terminal is exactly when someone asks
+        # for a restart, and a check buried after those returns would never be reached.
+        if await self._restart_demanded(now):
+            return report
 
         # The connection is restored BEFORE the clock is verified, and that order is not
         # cosmetic: `connect()` verifies the clock itself, so checking it first made a

@@ -51,10 +51,6 @@ REDACTED = "(retiré)"
 DETAIL_LIMIT = 160
 
 
-def _utc(stamp: datetime) -> str:
-    return f"{stamp:%Y-%m-%d %H:%M} UTC"
-
-
 def _component(component: str) -> str:
     return COMPONENT_LABELS.get(component, component)
 
@@ -106,13 +102,13 @@ class HealthAlerter:
         self._closed_markets: dict[str, datetime] = {}
 
     async def process_started(self, at: datetime, mode: str) -> None:
+        # One line, the action and nothing else — and no clock stamp: Telegram dates every
+        # message it delivers, so repeating it is noise on a phone. The operator asked for it
+        # gone from the notices the agent pushes. Anything that goes wrong keeps its detail.
         await self._alert(
             "start",
             Severity.INFO,
-            f"🤖 DÉMARRAGE · mode {mode}\n"
-            f"\n"
-            f"L'agent tourne depuis le {_utc(at)}.\n"
-            f"Les signaux partent vers ce téléphone.",
+            f"🟢 Agent démarré · {mode}",
             at,
         )
 
@@ -120,7 +116,7 @@ class HealthAlerter:
         await self._alert(
             "stop",
             Severity.INFO,
-            f"🛑 ARRÊT\n\nL'agent s'est arrêté le {_utc(at)}.\nPlus aucun signal ni ordre.",
+            "🔴 Agent arrêté",
             at,
         )
 
@@ -128,10 +124,7 @@ class HealthAlerter:
         await self._alert(
             f"outage:{component}",
             Severity.CRITICAL,
-            f"🔌 Coupure · {_component(component)}\n"
-            f"\n"
-            f"Injoignable depuis le {_utc(at)}.\n"
-            f"{_impact(component)}",
+            f"🔌 Coupure · {_component(component)}\n\n{_impact(component)}",
             at,
         )
 
@@ -143,7 +136,6 @@ class HealthAlerter:
             Severity.INFO,
             f"✅ Connexion rétablie · {_component(component)}\n"
             f"\n"
-            f"De nouveau joignable depuis le {_utc(at)}.\n"
             f"Les signaux et les ordres reprennent.",
             at,
         )
@@ -181,7 +173,6 @@ class HealthAlerter:
             Severity.INFO,
             f"🌙 Marché fermé · {symbol}\n"
             f"\n"
-            f"Fermé depuis le {_utc(since)}.\n"
             f"Aucun signal ni ordre sur {symbol} ; l'agent continue de tourner sur les "
             f"autres marchés et rouvrira {symbol} tout seul.",
             at,
@@ -200,10 +191,7 @@ class HealthAlerter:
         await self._alert(
             f"market_reopened:{symbol}",
             Severity.INFO,
-            f"☀️ Marché rouvert · {symbol}\n"
-            f"\n"
-            f"Rouvert le {_utc(at)}.\n"
-            f"Les signaux et les ordres reprennent sur {symbol}.",
+            f"☀️ Marché rouvert · {symbol}\n\nLes signaux et les ordres reprennent sur {symbol}.",
             at,
         )
 
@@ -236,8 +224,7 @@ class HealthAlerter:
             Severity.CRITICAL,
             f"🪫 Disque presque plein\n"
             f"\n"
-            f"Disque {_disk_label(path)} à {used_percent:.1f} % d'occupation "
-            f"({_utc(at)}).\n"
+            f"Disque {_disk_label(path)} à {used_percent:.1f} % d'occupation.\n"
             f"L'agent continue ; libère de la place avant saturation.",
             at,
         )

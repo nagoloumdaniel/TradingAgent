@@ -128,6 +128,9 @@ class _FakeApplication:
 
 
 class _FakeLoop:
+    #: `app.run` reads this to choose its exit code; the double mirrors the real loop.
+    restart_requested = False
+
     async def startup(self) -> tuple[str, ...]:
         return ("XAUUSD",)
 

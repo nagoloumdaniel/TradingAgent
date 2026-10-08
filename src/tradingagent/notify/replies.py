@@ -1,9 +1,15 @@
-"""What a command answers with: plain text, plus the buttons a choice needs.
+"""What a command answers with: text, the buttons a choice needs, and how to render it.
 
 Replies stay Telegram-free: the router, the service and every handler speak about a
 `Keyboard` of `Button`s, and `telegram_app` is the single place that knows how Telegram
-spells one. A command reply is plain text — the bot sets no parse mode for it — so
-nothing built here may contain HTML.
+spells one.
+
+**Plain by default, rich on purpose.** A reply carries no parse mode unless it asks for
+one, so a message built from data — a price, a symbol, an error from the terminal — can
+never be mangled by a stray `<` or `&`. The screens the operator reads to *choose* (the
+guide, one command's own page) opt into `HTML` and use Telegram's own vocabulary: bold
+for the action, `<code>` for what to type, `<blockquote>` for the consequence. Those
+screens are written here, never interpolated from market data.
 
 `callback_data` is untrusted input. It *names* a command and its arguments; it never
 carries authority. It is short (Telegram refuses more than 64 bytes) and it goes stale
@@ -19,6 +25,9 @@ from datetime import UTC, datetime, timedelta
 MAX_CALLBACK_BYTES = 64
 CALLBACK_PREFIX = "c1"
 CALLBACK_TTL = timedelta(minutes=15)
+
+#: What a reply asks the adapter for. Telegram spells it exactly this way.
+HTML = "HTML"
 
 _COMMAND_CHARS = frozenset(string.ascii_lowercase + "_")
 _ARG_CHARS = frozenset(string.ascii_letters + string.digits + "_.@+-")
@@ -39,17 +48,21 @@ class Keyboard:
 
 
 class Reply(str):
-    """A plain-text answer, optionally carrying the buttons of the choice it offers.
+    """An answer, optionally carrying the buttons of the choice it offers and its markup.
 
     A `str` subclass on purpose: every existing caller keeps comparing and printing it
-    as the text it is, and only the Telegram adapter looks at `keyboard`.
+    as the text it is, and only the Telegram adapter looks at `keyboard` and `parse_mode`.
     """
 
     keyboard: Keyboard | None
+    parse_mode: str | None
 
-    def __new__(cls, text: str, keyboard: Keyboard | None = None) -> "Reply":
+    def __new__(
+        cls, text: str, keyboard: Keyboard | None = None, parse_mode: str | None = None
+    ) -> "Reply":
         reply = super().__new__(cls, text)
         reply.keyboard = keyboard
+        reply.parse_mode = parse_mode
         return reply
 
 
