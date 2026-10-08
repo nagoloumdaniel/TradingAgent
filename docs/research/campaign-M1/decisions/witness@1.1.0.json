@@ -1,0 +1,18 @@
+{
+  "decided_at": "2026-10-08T02:30:20.032951+00:00",
+  "decided_by": "research-campaign",
+  "evidence_digest": "73a8ce5cb1be5f4bca486308ac6db82284023628888364bd105a9937b01791b3",
+  "format": "tradingagent.promotion-decision/1",
+  "promoted": false,
+  "reasons": [
+    "out-of-sample retention 0.00 below 0.50",
+    "profitable regimes 0% below 50%",
+    "stability score 0.19 below 0.50",
+    "net profit factor 0.46 below 1.20",
+    "drawdown 326.580208492240 above 200",
+    "Monte-Carlo probability of profit 0.05 below 0.50",
+    "no promotion is decided: the candidate won its market but the Benjamini-Hochberg correction demoted it, so it is not a discovery"
+  ],
+  "strategy_ref": "witness@1.0.0",
+  "thresholds_digest": "a2de0101d3213950dbd743390e1ec231cc64b4afb3c2dcd3413de8a3980633b8"
+}

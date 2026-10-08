@@ -16,7 +16,7 @@ import argparse
 import asyncio
 import logging
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -30,11 +30,25 @@ from telegram.ext import Application, ApplicationBuilder, ContextTypes, MessageH
 
 from tradingagent.ai.analyst import TradeAnalyst
 from tradingagent.ai.daily import DailyLab
+from tradingagent.ai.escalation import Escalation
+from tradingagent.ai.evidence import MarketEvidence, baseline_of, evidence_for, performance_metrics
+from tradingagent.ai.improvement_cycle import (
+    CycleOutcome,
+    ImprovementCycle,
+    Variant,
+    propose_from_lab,
+)
+from tradingagent.ai.improvement_cycle import (
+    Measurement as CycleMeasurement,
+)
 from tradingagent.ai.lab_store import LabStore
 from tradingagent.ai.layer import AiFilterLayer
 from tradingagent.ai.model_client import ModelClient
 from tradingagent.ai.provider import ModelTarget, resolve_target
 from tradingagent.ai.researcher import StrategyResearcher
+from tradingagent.backtest.costs import CostModel
+from tradingagent.backtest.datasets import CandleDataset, DatasetStore
+from tradingagent.backtest.harness import BacktestConfig
 from tradingagent.config._yaml import read_yaml
 from tradingagent.config.agent import AgentConfig, load_agent_config
 from tradingagent.config.errors import ConfigError
@@ -48,6 +62,7 @@ from tradingagent.console import (
 )
 from tradingagent.control.guardian import Guardian
 from tradingagent.control.quarantine import PersistentQuarantine
+from tradingagent.core.improvement import Candidate, Measurement
 from tradingagent.core.mode import AiFilter, TradingMode
 from tradingagent.core.states import StrategyStatus
 from tradingagent.data.history import HistorySync
@@ -82,6 +97,9 @@ from tradingagent.notify.service import CommandService
 from tradingagent.observability import Metrics, ResourceMonitor, configure_json_logging
 from tradingagent.registry.store import StrategyRegistry, UnknownStrategyRef
 from tradingagent.reporting.service import ReportService
+from tradingagent.research.campaign import CandidateReport, CandidateSpec, run_campaign
+from tradingagent.research.improvement import ImprovementOutcome, search_improvement
+from tradingagent.research.versioning import CandidateVersion, build_candidate, write_candidate
 from tradingagent.risk.model import AccountState, InstrumentSpec
 from tradingagent.runtime.loop import AgentLoop
 from tradingagent.runtime.pipeline import SignalPipeline
@@ -95,6 +113,7 @@ from tradingagent.storage.events import SystemEventStore
 from tradingagent.storage.halts import HaltStore
 from tradingagent.storage.migrate import upgrade
 from tradingagent.storage.signals import SignalRepository
+from tradingagent.strategies.manifest import StrategyManifest
 from tradingagent.strategies.registry import REGISTRY
 
 log = logging.getLogger(__name__)
@@ -127,6 +146,21 @@ MODE_REQUIRED_STATUS: dict[TradingMode, frozenset[StrategyStatus]] = {
 # The demo server is measured at UTC with no daylight saving (TASK-003); the live server
 # is not, and `verify_clock` stops the agent the moment the offset differs.
 DEMO_SERVER_OFFSET = timedelta(0)
+# What the daily improvement chain measures on, and where an accepted candidate is written.
+# Both are the research directories the campaign scripts already use: the daily pass replays
+# what was measured, it never fetches anything, and a candidate never lands anywhere the
+# agent loads from (`research.versioning.write_candidate` refuses `config/strategies/`).
+DATASET_DIR = ROOT / "docs" / "research" / "datasets"
+CANDIDATE_DIR = ROOT / "docs" / "research" / "candidates"
+# What a comparable measurement needs the recorded run to have written down (F-025, EF-026).
+COST_KEYS = (
+    "spread",
+    "slippage_atr_fraction",
+    "slippage_fixed",
+    "commission_per_trade",
+    "execution_delay_bars",
+    "multiplier",
+)
 
 
 def _utc_now() -> datetime:
@@ -337,6 +371,11 @@ def _build_lab(engine: Engine, settings: Settings, notifier: Any, now: Any) -> D
 
     That is the point of the design: the long-term improvement loop does not depend on an
     API key, and the model only ever adds commentary to a verdict already computed.
+
+    The improvement chain is wired here, with the real search and the real version builder.
+    Without it the pass analysed, escalated and proposed — and nothing ever compared: the
+    escalation the operator asked for ended in a message. `ai/daily.py` imports neither
+    `research` nor `backtest`: it receives a runner whose dependencies were chosen below.
     """
     target = _model_target(settings)
     store = LabStore(engine)
@@ -351,8 +390,270 @@ def _build_lab(engine: Engine, settings: Settings, notifier: Any, now: Any) -> D
         analyst=TradeAnalyst(store, client, model=model),
         researcher=StrategyResearcher(store, client, model=model),
         notifier=notifier,
+        cycle=DailyImprovement(engine),
         now=now,
     )
+
+
+class DailyImprovement:
+    """The improvement chain, composed for each market the daily pass escalates.
+
+    `ImprovementCycle` cannot be built once for the whole agent: its search has to know which
+    version it compares against — `research.improvement.search_improvement` demands the
+    incumbent's label and its objective — and that is a property of the market, not of the
+    process. So the chain is assembled per escalation, the way the campaign script assembles
+    it, with every dependency chosen here and injected: `ai/improvement_cycle.py` imports
+    neither `research` nor `backtest`, and `ai/daily.py` only knows an `ImprovementRunner`.
+
+    This class is what the architecture exception is for (`tests/test_architecture.py`): a
+    composition root that is not allowed to compose leaves the chain wired to nothing.
+    """
+
+    def __init__(
+        self,
+        engine: Engine,
+        *,
+        datasets: Path = DATASET_DIR,
+        candidates: Path = CANDIDATE_DIR,
+    ) -> None:
+        self._engine = engine
+        self._datasets = datasets
+        self._candidates = candidates
+
+    def run(
+        self,
+        escalation: Escalation,
+        *,
+        at: datetime,
+        incumbent: CycleMeasurement | None = None,
+        evidence: MarketEvidence | None = None,
+    ) -> CycleOutcome:
+        """Run the whole sequence for one escalation, stopping wherever it must.
+
+        With no recorded run for the market, the chain is still built and still run: it stops
+        on its own and *says so* (`skipped_no_evidence`), because "nothing has been measured
+        yet" is a result the operator has to read, not an error that stops the daily pass.
+        """
+        market = escalation.market
+        context = evidence if evidence is not None else evidence_for(self._engine, market)
+        baseline: Measurement | None = None
+        if incumbent is not None:
+            baseline = _measured(incumbent)
+        elif context is not None:
+            baseline = baseline_of(context)
+        cycle = ImprovementCycle(
+            self._engine,
+            propose=propose_from_lab(LabStore(self._engine)),
+            measure=lambda variant, proven: _measure_variant(variant, proven, self._datasets),
+            search=lambda candidates, evaluate: _search_against(
+                market, context, baseline, candidates, evaluate
+            ),
+            build=_build_version,
+            write=lambda candidate: _write_version(candidate, self._candidates),
+        )
+        return cycle.run(escalation, at=at, incumbent=incumbent, evidence=context)
+
+
+def _search_against(
+    market: str,
+    context: MarketEvidence | None,
+    baseline: Measurement | None,
+    candidates: Sequence[Variant],
+    evaluate: Callable[[Variant], CycleMeasurement],
+) -> ImprovementOutcome:
+    """The real acceptance rule, on the variants the chain measured for one market.
+
+    The search is closed over the version in place, which is why it is built per market. It
+    is never reached without a baseline either: `ImprovementCycle` stops before searching
+    when no run is recorded, or when the run it found declares no objective — so the stop the
+    operator reads comes from the chain, not from an exception raised here.
+    """
+    if context is None or baseline is None:
+        raise ValueError(f"{market}: no measured version to compare against")
+    by_label = {candidate.label: candidate for candidate in candidates}
+    return search_improvement(
+        market=market,
+        incumbent=baseline,
+        incumbent_label=context.ref,
+        candidates=[
+            Candidate(
+                label=candidate.label,
+                parameters=dict(candidate.parameters),
+                rationale=candidate.rationale,
+                payload=candidate.payload,
+            )
+            for candidate in candidates
+        ],
+        evaluate=lambda candidate: _measured(evaluate(by_label[candidate.label])),
+    )
+
+
+def _measured(measured: CycleMeasurement) -> Measurement:
+    """The chain's measurement, in the canonical shape the search compares.
+
+    `ai/improvement_cycle.py` declares its own `Measurement` — it may not import `research`,
+    so it states the shape it receives — and `research.improvement` re-exports the one from
+    `core/improvement.py`. This is the single place where the two meet, and it *constructs*
+    the canonical value instead of casting one class into another: a cast would make the
+    boundary silent, while this call fails loudly the day the chain's measurement stops
+    carrying an objective, rather than comparing nothing with a number.
+    """
+    return Measurement(objective=measured.objective, metrics=dict(measured.metrics))
+
+
+def _measure_variant(
+    variant: Variant, evidence: MarketEvidence, directory: Path
+) -> CycleMeasurement:
+    """Measure one variant the way the version in place was measured.
+
+    Same frozen dataset, same costs, same campaign. The recorded objective is `cost_net` —
+    the validation window replayed under stressed costs — so a variant measured any other
+    way would be compared with a number produced by a different method, and the method would
+    win the comparison instead of the strategy.
+
+    Anything missing raises: no dataset for the market, a dataset that is not the one the run
+    used, costs the record never named, parameters the strategy refuses. The chain journals
+    each failure and the search counts the variant as unmeasurable — a variant that vanished
+    quietly would understate the number of comparisons the multiple-testing correction needs.
+    """
+    dataset = _frozen_dataset(evidence, directory)
+    campaign = run_campaign(
+        {evidence.market: dataset},
+        [_candidate_spec(evidence.ref, variant)],
+        config_for=lambda market, _dataset: _replay_config(market, evidence),
+    )
+    return _measurement_of(campaign.markets[0].candidates[0])
+
+
+def _frozen_dataset(evidence: MarketEvidence, directory: Path) -> CandleDataset:
+    """The frozen dataset the recorded run was measured on, or a refusal to measure at all.
+
+    The dataset is identified, not merely located. Replaying a variant on newer candles would
+    compare it with a baseline taken on other data, and the series that happened to move the
+    right way would win. `DatasetStore` keys by symbol, so the id has to be checked.
+    """
+    found = DatasetStore(directory).load_all().get(evidence.market)
+    if found is None:
+        raise FileNotFoundError(
+            f"no frozen dataset for {evidence.market} in {directory}: a variant cannot be "
+            "measured on data that is not there"
+        )
+    if found.dataset_id != evidence.dataset_id:
+        raise ValueError(
+            f"{evidence.market}: the dataset in place is {found.dataset_id}, the recorded run "
+            f"measured {evidence.dataset_id}: refusing to compare across datasets"
+        )
+    return found
+
+
+def _candidate_spec(ref: str, variant: Variant) -> CandidateSpec:
+    """One variant as a campaign candidate: the strategy that builds it, and its manifest.
+
+    The manifest is the production one, read from the file the agent loads; the class comes
+    from code (`REGISTRY`), never from configuration, so no file can name what runs.
+    Parameters the strategy's own model refuses raise here, and the caller counts the variant
+    as unmeasurable instead of measuring a strategy nobody asked for.
+    """
+    document = read_yaml(STRATEGY_DIR / f"{ref}.yaml")
+    manifest = StrategyManifest.model_validate(document.data)
+    builder = REGISTRY.get(manifest.strategy_id)
+    if builder is None:
+        raise LookupError(f"{ref}: {manifest.strategy_id!r} is not a runnable strategy")
+    return CandidateSpec(
+        label=variant.label,
+        manifest=manifest,
+        factory=lambda parameters: builder(builder.parameters_model(**parameters)),
+        parameters=variant.parameters,
+    )
+
+
+def _replay_config(market: str, evidence: MarketEvidence) -> BacktestConfig:
+    """The simulation a variant is replayed in: SIGNAL mode, and the recorded costs.
+
+    `mode=SIGNAL` because a candidate executes nothing: it earns its evidence in research,
+    and the environment ladder of §14 decides when it may touch an account.
+    """
+    return BacktestConfig(
+        symbol=market,
+        costs=_recorded_costs(evidence),
+        mode=TradingMode.SIGNAL,
+        max_concurrent_positions=1,
+    )
+
+
+def _recorded_costs(evidence: MarketEvidence) -> CostModel:
+    """The costs the recorded run was measured under — or a refusal to measure at all.
+
+    Costs are the difference between a strategy and a strategy that pays for itself, so a
+    variant measured under other assumptions is not the same measurement as the baseline.
+    Defaulting to zero would manufacture an improvement out of the fee schedule.
+    """
+    missing = [key for key in COST_KEYS if key not in evidence.costs]
+    if missing:
+        raise ValueError(
+            f"the recorded run for {evidence.market} does not name its costs "
+            f"({', '.join(missing)}): a variant measured under others would not be comparable"
+        )
+    return CostModel(
+        spread=float(evidence.costs["spread"]),
+        slippage_atr_fraction=float(evidence.costs["slippage_atr_fraction"]),
+        slippage_fixed=float(evidence.costs["slippage_fixed"]),
+        commission_per_trade=Decimal(str(evidence.costs["commission_per_trade"])),
+        execution_delay_bars=int(evidence.costs["execution_delay_bars"]),
+        multiplier=float(evidence.costs["multiplier"]),
+    )
+
+
+def _measurement_of(report: CandidateReport) -> CycleMeasurement:
+    """A measured candidate, in the terms the chain and the search compare it by.
+
+    The objective is the net profit after costs and stress — the figure the operator is paid
+    in, not a robustness score — and the metrics are the ones the AI Lab reads by name,
+    including the stability figures when the campaign measured them. Only measured numbers
+    are put in: `performance_metrics` leaves out a ratio the trades did not define.
+    """
+    performance = report.cost_net
+    metrics = performance_metrics(performance)
+    stability = report.stability_report
+    if stability is not None:
+        metrics["stability_score"] = float(stability.score)
+        metrics["parameter_dispersion"] = float(stability.parameter_dispersion)
+        metrics["out_of_sample_retention"] = float(stability.out_of_sample_retention)
+        metrics["profitable_regime_ratio"] = float(stability.profitable_regime_ratio)
+    return CycleMeasurement(objective=float(performance.net_profit), metrics=metrics)
+
+
+def _build_version(
+    market: str, supersedes: str, parameters: Mapping[str, float]
+) -> CandidateVersion:
+    """The next version of a strategy, from the manifest the agent actually loads.
+
+    Every field but the version and the parameters is copied from the production manifest:
+    building it from anything else would validate one strategy and approve another. It is
+    still only a candidate, and `write_candidate` refuses `config/strategies/` by design.
+    """
+    document = read_yaml(STRATEGY_DIR / f"{supersedes}.yaml")
+    return build_candidate(
+        market=market,
+        supersedes=supersedes,
+        parameters=parameters,
+        incumbent_manifest=document.data,
+    )
+
+
+def _write_version(candidate: object, directory: Path) -> Path:
+    """Write the version this root built, and only that one.
+
+    The chain hands the version over through the structural protocol it declares — the shape
+    it may state without importing `research` — and that shape carries no `to_yaml`, because
+    rendering a manifest is the business of the class that models one. So the root checks
+    what it received *is* a version of its own making, and refuses anything else. Checking is
+    the point: `typing.cast` would assert the same thing without ever looking, and a writer
+    that guessed would be the one place where an unvalidated version could reach the disk.
+    """
+    if not isinstance(candidate, CandidateVersion):
+        raise TypeError(f"not a version this root can write: {type(candidate).__name__}")
+    return write_candidate(candidate, directory)
 
 
 async def build(

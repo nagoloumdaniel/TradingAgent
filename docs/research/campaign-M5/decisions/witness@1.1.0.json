@@ -1,12 +1,15 @@
 {
-  "decided_at": "2026-10-08T02:41:26.511339+00:00",
+  "decided_at": "2026-10-08T02:29:32.506179+00:00",
   "decided_by": "research-campaign",
-  "evidence_digest": "b3bf45331001dc6ebfe36a465b6d2a798a48bffd97e31d55d462a31eeb77192b",
+  "evidence_digest": "991503db42f97f77e0fb8b5b8e654b614e53a8e69154b9f295727ed78bad9028",
   "format": "tradingagent.promotion-decision/1",
   "promoted": false,
   "reasons": [
-    "parameter dispersion 1.17 above 0.50",
-    "net profit factor 0.90 below 1.20",
+    "22 out-of-sample trade(s), need 30",
+    "out-of-sample retention 0.24 below 0.50",
+    "parameter dispersion 0.88 above 0.50",
+    "stability score 0.32 below 0.50",
+    "net profit factor 1.04 below 1.20",
     "no promotion is decided: the candidate won its market but the Benjamini-Hochberg correction demoted it, so it is not a discovery"
   ],
   "strategy_ref": "witness@1.0.0",

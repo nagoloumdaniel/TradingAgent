@@ -21,7 +21,7 @@ and neither knows the other's policy.
 """
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -50,6 +50,33 @@ DEFAULT_MONTE_CARLO_ITERATIONS = 1_000
 
 class SealedAccessError(RuntimeError):
     """An attempt to read the out-of-sample set without its unlock token."""
+
+
+@dataclass(frozen=True)
+class DataWindow:
+    """One partition of a split, with the period it really covers.
+
+    A report that does not name its windows cannot prove a comparison was controlled: two runs
+    over different market periods look exactly like two runs over the same one. ``anchored``
+    records *how* the boundary was chosen, so a reader can tell "the newest 40 % of the tape"
+    from "the newest 40 % that existed at the time".
+    """
+
+    name: str
+    start: datetime
+    end: datetime
+    bars: int
+    anchored: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-ready form: a datetime is not what a report writer wants to handle."""
+        return {
+            "name": self.name,
+            "start": self.start.isoformat(),
+            "end": self.end.isoformat(),
+            "bars": self.bars,
+            "anchored": self.anchored,
+        }
 
 
 class SealedSet:
@@ -93,6 +120,16 @@ class SealedSet:
     def __repr__(self) -> str:
         return f"SealedSet(size={self.size}, sealed=True, unlocks={self.unlock_count})"
 
+    def window(self) -> DataWindow:
+        """The period the sealed set covers. Leaks no candle, so the seal still holds."""
+        return DataWindow(
+            name="holdout",
+            start=self.start,
+            end=self.end,
+            bars=self.size,
+            anchored=False,
+        )
+
     def unlock(self, token: str) -> tuple[Candle, ...]:
         if token != self._token:
             raise SealedAccessError("wrong unlock token: the out-of-sample set stays sealed")
@@ -107,10 +144,38 @@ class DataSplit:
     train: tuple[Candle, ...]
     validation: tuple[Candle, ...]
     holdout: SealedSet
+    #: False for the historical proportional cut, True for the anchored one.
+    anchored: bool = False
 
     @property
     def bars(self) -> int:
         return len(self.train) + len(self.validation) + self.holdout.size
+
+    @property
+    def windows(self) -> tuple[DataWindow, ...]:
+        """The three partitions and the period each one covers, oldest first.
+
+        Reading a sealed set's window is deliberately not reading its candles: the holdout
+        stays sealed, and the report still says which period it reserved.
+        """
+        return (
+            _window("train", self.train, self.anchored),
+            _window("validation", self.validation, self.anchored),
+            replace(self.holdout.window(), anchored=self.anchored),
+        )
+
+
+def _window(name: str, candles: Sequence[Candle], anchored: bool) -> DataWindow:
+    """The period a partition covers, from its first open to its last close."""
+    if not candles:  # pragma: no cover - the split refuses to build an empty partition
+        raise ValueError(f"{name} is empty, so it covers no period")
+    return DataWindow(
+        name=name,
+        start=candles[0].open_time,
+        end=candles[-1].close_time,
+        bars=len(candles),
+        anchored=anchored,
+    )
 
 
 def split_dataset(
@@ -119,8 +184,23 @@ def split_dataset(
     token: str,
     train_fraction: float = 0.6,
     validation_fraction: float = 0.2,
+    anchor: bool = False,
 ) -> DataSplit:
-    """Split by time, never by shuffling: a shuffled backtest leaks the future into the past."""
+    """Split by time, never by shuffling: a shuffled backtest leaks the future into the past.
+
+    ``anchor=False`` is the historical cut: train then validation then holdout, each by fraction
+    *from the start of the series*. It is kept as the default to the bar, because a caller that
+    has always read those windows must not silently start reading others.
+
+    ``anchor=True`` pins the **newest** windows instead: the last ``train_fraction``-share of the
+    series trains, the ``validation_fraction``-share before that validates, and the remainder is
+    sealed. The fractions are identical to the unanchored cut *on a series that is all the
+    history there is* -- anchoring is a no-op there and the two cuts coincide. It only differs
+    once history is prepended: the tail stays where it was and the training window is what grows.
+    Without this, extending a fetch slides every window backwards in time, and a before/after
+    comparison ends up comparing two disjoint market regimes rather than one regime with more
+    data -- which is a confound no threshold can repair.
+    """
     if not 0 < train_fraction < 1:
         raise ValueError("train_fraction must be in (0, 1)")
     if not 0 < validation_fraction < 1:
@@ -128,7 +208,16 @@ def split_dataset(
     if train_fraction + validation_fraction >= 1:
         raise ValueError("train_fraction + validation_fraction must leave a holdout")
     count = len(dataset.candles)
-    train_end = int(count * train_fraction)
+    if anchor:
+        # The tail is the window a comparison must hold fixed, and its length is the same
+        # fraction of the series the unanchored cut gives it. Integer truncation matches the
+        # historical arithmetic, so the two cuts agree bar for bar on an unchanged series.
+        tail = count - int(count * train_fraction)
+        if tail < 1:
+            raise ValueError(f"{count} bars cannot form train, validation and holdout")
+        train_end = count - tail
+    else:
+        train_end = int(count * train_fraction)
     validation_end = train_end + int(count * validation_fraction)
     if train_end < 1 or validation_end <= train_end or validation_end >= count:
         raise ValueError(f"{count} bars cannot form train, validation and holdout")
@@ -136,11 +225,20 @@ def split_dataset(
         train=dataset.candles[:train_end],
         validation=dataset.candles[train_end:validation_end],
         holdout=SealedSet(dataset.candles[validation_end:], token),
+        anchored=anchor,
     )
 
 
 @dataclass(frozen=True)
 class WalkForwardPlan:
+    """Rolling-origin sizes, and the optional ceiling on how many folds to play.
+
+    ``max_folds=None`` -- the default -- means "roll until the newest window no longer fits".
+    A ceiling is still useful to bound the cost of a very long tape, but it must be chosen
+    knowingly: it decides *which* folds are played, and folds 0..k of a long series are its
+    oldest slice, not a sample of it.
+    """
+
     train_bars: int
     validation_bars: int
     step_bars: int
@@ -149,6 +247,8 @@ class WalkForwardPlan:
     def __post_init__(self) -> None:
         if min(self.train_bars, self.validation_bars, self.step_bars) < 1:
             raise ValueError("walk-forward sizes must be positive")
+        if self.max_folds is not None and self.max_folds < 1:
+            raise ValueError("max_folds must be positive when it is set")
 
 
 @dataclass(frozen=True)
@@ -159,7 +259,12 @@ class Fold:
 
 
 def walk_forward(candles: Sequence[Candle], plan: WalkForwardPlan) -> list[Fold]:
-    """Rolling origin evaluation: retrain, validate on the next unseen block, step forward."""
+    """Rolling origin evaluation: retrain, validate on the next unseen block, step forward.
+
+    Unbounded, the origin advances to the end of ``candles``, so the last fold's validation
+    block *is* the newest block available and more history really does buy more folds. The
+    ceiling stops the walk early when one is set, which is why it is opt-in.
+    """
     size = plan.train_bars + plan.validation_bars
     folds: list[Fold] = []
     start = 0

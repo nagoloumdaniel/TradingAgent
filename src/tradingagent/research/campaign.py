@@ -44,6 +44,7 @@ from tradingagent.research.promotion import AcceptanceThresholds
 from tradingagent.research.protocol import (
     DEFAULT_FALSE_DISCOVERY_RATE,
     DEFAULT_MONTE_CARLO_ITERATIONS,
+    DataWindow,
     GateStatus,
     GateVerdict,
     MonteCarloReport,
@@ -78,9 +79,13 @@ MIN_WALK_FORWARD_RATIO = 0.5
 #: a single trade. At 100 bars the reference strategy opens nothing at all, and a gate that
 #: scores six empty folds as six losses is not reporting anything about the rule -- it is
 #: reporting the size of its window. 250 bars is the smallest block measured to trade here.
-DEFAULT_WALK_FORWARD_PLAN = WalkForwardPlan(
-    train_bars=350, validation_bars=250, step_bars=200, max_folds=6
-)
+#:
+#: There is deliberately **no fold ceiling** (`max_folds=None`). A ceiling of 6 held the
+#: campaign to the first 1 600 bars of the rolling window whatever the tape's length, so a
+#: 3 999-bar series and an 11 999-bar one were scored on six disjoint fortnight-long windows --
+#: the oldest slice of each, and not the same slice. The fold count is now a function of the
+#: history available, and the last fold's validation block is the newest one there is.
+DEFAULT_WALK_FORWARD_PLAN = WalkForwardPlan(train_bars=350, validation_bars=250, step_bars=200)
 #: The cost multiplier of the `stress` gate. TASK-062 ships `CostModel.stressed` for exactly
 #: this: the same rule replayed on execution twice as expensive as the one already charged.
 STRESS_COST_MULTIPLIER = 2.0
@@ -173,6 +178,11 @@ class MarketReport:
     out_of_sample: Performance | None = None
     holdout_unlocks: int = 0
     gate_verdicts: tuple[GateVerdict, ...] = ()
+    #: Whether the split held the newest windows fixed while the training window grew.
+    anchored: bool = False
+    #: The whole tape the market was measured over, and the three partitions of it.
+    dataset_window: DataWindow | None = None
+    split_windows: tuple[DataWindow, ...] = ()
 
     @property
     def selection_basis(self) -> str:
@@ -270,6 +280,7 @@ def run_campaign(
     monte_carlo_iterations: int = DEFAULT_MONTE_CARLO_ITERATIONS,
     walk_forward_plan: WalkForwardPlan | None = None,
     confirm_holdout: bool = False,
+    anchor: bool = True,
 ) -> CampaignReport:
     """Evaluate every candidate on every market, then select, validate and price the selection.
 
@@ -277,6 +288,10 @@ def run_campaign(
     reports the other two as not evaluable. ``confirm_holdout`` unlocks the sealed set of each
     market once, for the candidate that market selected; it is off unless asked, because
     reading a holdout is a deliberate act and never a side effect of running a report.
+
+    ``anchor`` defaults to True *here*, and only here: a campaign exists to compare candidates
+    and runs across datasets, so it must keep the newest windows fixed when history is
+    prepended. ``anchor=False`` restores the historical proportional cut for the campaign too.
     """
     if not datasets:
         raise ValueError("a campaign needs at least one market")
@@ -299,6 +314,7 @@ def run_campaign(
                 plan,
                 monte_carlo_iterations,
                 confirm_holdout,
+                anchor,
             )
         )
 
@@ -340,6 +356,7 @@ def _run_market(
     plan: WalkForwardPlan,
     monte_carlo_iterations: int,
     confirm_holdout: bool,
+    anchor: bool,
 ) -> MarketReport:
     token = f"campaign:{market}:holdout"
     split = split_dataset(
@@ -347,6 +364,7 @@ def _run_market(
         token=token,
         train_fraction=train_fraction,
         validation_fraction=validation_fraction,
+        anchor=anchor,
     )
     reports: list[CandidateReport] = []
     for candidate in candidates:
@@ -384,6 +402,25 @@ def _run_market(
         replace(report, gate_verdicts=candidate_gate_verdicts(report, thresholds))
         for report in marked
     )
+    # The walk-forward filter runs on the split's rolling window, which the *split* decides:
+    # the sealed set is never part of it. Recording that here is what lets a reader check that
+    # the folds reached the newest bar the split made available.
+    rolling = tuple(split.train) + tuple(split.validation)
+    final = tuple(
+        replace(
+            report,
+            gate_verdicts=tuple(
+                replace(
+                    verdict,
+                    evidence={**dict(verdict.evidence), "rolling_bars": len(rolling)},
+                )
+                if verdict.stage is ValidationStage.WALK_FORWARD
+                else verdict
+                for verdict in report.gate_verdicts
+            ),
+        )
+        for report in final
+    )
     return MarketReport(
         market=market,
         dataset_id=dataset.dataset_id,
@@ -394,6 +431,15 @@ def _run_market(
         out_of_sample=out_of_sample,
         holdout_unlocks=split.holdout.unlock_count,
         gate_verdicts=rebuild_market_verdicts(final),
+        anchored=split.anchored,
+        dataset_window=DataWindow(
+            name="dataset",
+            start=dataset.candles[0].open_time,
+            end=dataset.candles[-1].close_time,
+            bars=dataset.bars,
+            anchored=split.anchored,
+        ),
+        split_windows=split.windows,
     )
 
 

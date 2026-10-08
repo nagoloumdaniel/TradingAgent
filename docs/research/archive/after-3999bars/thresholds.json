@@ -1,0 +1,14 @@
+{
+  "digest": "a2de0101d3213950dbd743390e1ec231cc64b4afb3c2dcd3413de8a3980633b8",
+  "format": "tradingagent.acceptance-thresholds/1",
+  "max_correlation": 0.7,
+  "max_drawdown_eur": "200",
+  "max_parameter_dispersion": 0.5,
+  "min_monte_carlo_probability": 0.5,
+  "min_out_of_sample_retention": 0.5,
+  "min_profit_factor_net": 1.2,
+  "min_profitable_regime_ratio": 0.5,
+  "min_stability_score": 0.5,
+  "min_trades": 30,
+  "version": "campaign-20261007"
+}

@@ -1,0 +1,32 @@
+# PLAFOND RELEVE A DEMO SANS VALIDATION — decision de l'operateur, 2026-10-08.
+#
+# RM-016 veut qu'un manifeste declare le lieu le plus eleve ou il peut servir, et la regle
+# du projet est de ne relevar ce plafond qu'apres une validation hors echantillon. Ce n'est
+# PAS le cas ici : la campagne a refuse 5 portes sur 9 sur ces deux strategies.
+#
+# Ce fichier existe donc pour repeter le systeme sur le COMPTE DE DEMONSTRATION, ou aucun
+# argent reel n'est en jeu. `max_mode: DEMO` est un plafond a lui seul : il ne peut pas
+# atteindre le compte reel, qui exigerait `max_mode: LIVE` ET les neuf portes franchies.
+#
+# Les chiffres de la campagne, pour memoire : profit factor net 0,81 (BTC) / 0,90 (or)
+# contre 1,20 exige ; p-value minimale 0,3497, soit 21 fois au-dessus de la ligne de
+# Bonferroni ; 0 survivant sur 6 apres correction du taux de fausses decouvertes.
+# Production manifest for gold. Supersedes 1.0.0, which referenced the inexistent
+# `frxXAUUSD` (see ROADMAP.md, Project Context). max_mode stays SIGNAL until a strategy
+# is validated out of sample and promoted through TASK-065 (RM-016).
+strategy_id: witness
+version: 1.1.1
+max_mode: DEMO
+allowed_symbols: [XAUUSD]
+timeframes: [M15]
+# 6 x ema_slow: recursive indicators need warm-up for backtest/production parity.
+history_bars: 300
+expiry_bars: 1
+ai_filter: shadow
+parameters:
+  ema_fast: 20
+  ema_slow: 50
+  atr_period: 14
+  stop_atr_multiplier: 1.5
+  take_profit_rr: 2.0
+  entry_zone_atr: 0.1

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-08T02:41:26.318688+00:00",
+  "generated_at": "2026-10-08T02:02:16.062846+00:00",
   "datasets": {
     "BTCUSD": {
       "dataset_id": "mt5-BTCUSD-2026-10-08",
@@ -36,13 +36,7 @@
       "train_bars": 350,
       "validation_bars": 250,
       "step_bars": 200,
-      "max_folds": null,
-      "fold_ceiling": "none: every fold that fits in the rolling window is played"
-    },
-    "split": {
-      "anchored": true,
-      "train_fraction": 0.6,
-      "validation_fraction": 0.2
+      "max_folds": 6
     },
     "monte_carlo_iterations": 1000,
     "stress_cost_multiplier": 2.0,
@@ -130,23 +124,22 @@
     },
     {
       "stage": "walk_forward",
-      "status": "failed",
+      "status": "passed",
       "evaluated": true,
-      "passed": false,
+      "passed": true,
       "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-      "reason": "walk_forward failed on: BTCUSD",
+      "reason": "walk_forward cleared on every market: 3/6 fold(s) profitable (50%) at or above 50%; 3/6 fold(s) profitable (50%) at or above 50%",
       "threshold": 0.5,
       "evidence": {
         "markets": {
           "BTCUSD": {
-            "folds": 45,
-            "profitable_folds": 21,
-            "ratio": 0.4666666666666667,
-            "trades": 202,
-            "net_profit": "-322.245458060130",
+            "folds": 6,
+            "profitable_folds": 3,
+            "ratio": 0.5,
+            "trades": 29,
+            "net_profit": "-12.842922625750",
             "skipped_folds": 0,
             "measurement": "validation blocks of the rolling origin, never the sealed set",
-            "rolling_bars": 9598,
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
@@ -156,14 +149,13 @@
             ]
           },
           "XAUUSD": {
-            "folds": 45,
-            "profitable_folds": 26,
-            "ratio": 0.5777777777777777,
-            "trades": 186,
-            "net_profit": "38.979220987950",
+            "folds": 6,
+            "profitable_folds": 3,
+            "ratio": 0.5,
+            "trades": 25,
+            "net_profit": "-4.732833999560",
             "skipped_folds": 0,
             "measurement": "validation blocks of the rolling origin, never the sealed set",
-            "rolling_bars": 9598,
             "market": "XAUUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
@@ -173,9 +165,7 @@
             ]
           }
         },
-        "failed_markets": [
-          "BTCUSD"
-        ]
+        "failed_markets": []
       }
     },
     {
@@ -409,7 +399,8 @@
     }
   ],
   "passing_gates": [
-    "backtest"
+    "backtest",
+    "walk_forward"
   ],
   "multiple_testing": {
     "method": "benjamini_hochberg",
@@ -456,39 +447,9 @@
       "holdout_still_sealed": false,
       "holdout_unlocks": 1,
       "out_of_sample_net_profit": "-18.983652360380",
-      "anchored": true,
-      "dataset_window": {
-        "name": "dataset",
-        "start": "2026-06-05T00:00:00+00:00",
-        "end": "2026-10-08T02:00:00+00:00",
-        "bars": 11999,
-        "anchored": true
-      },
-      "split_windows": [
-        {
-          "name": "train",
-          "start": "2026-06-05T00:00:00+00:00",
-          "end": "2026-08-19T00:00:00+00:00",
-          "bars": 7199,
-          "anchored": true
-        },
-        {
-          "name": "validation",
-          "start": "2026-08-19T00:00:00+00:00",
-          "end": "2026-09-13T01:45:00+00:00",
-          "bars": 2399,
-          "anchored": true
-        },
-        {
-          "name": "holdout",
-          "start": "2026-09-13T01:45:00+00:00",
-          "end": "2026-10-08T02:00:00+00:00",
-          "bars": 2401,
-          "anchored": true
-        }
-      ],
       "passing_gates": [
         "backtest",
+        "walk_forward",
         "parameter_robustness"
       ],
       "gates": [
@@ -535,21 +496,20 @@
         },
         {
           "stage": "walk_forward",
-          "status": "failed",
+          "status": "passed",
           "evaluated": true,
-          "passed": false,
+          "passed": true,
           "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-          "reason": "21/45 fold(s) profitable (47%) below 50%",
+          "reason": "3/6 fold(s) profitable (50%) at or above 50%",
           "threshold": 0.5,
           "evidence": {
-            "folds": 45,
-            "profitable_folds": 21,
-            "ratio": 0.4666666666666667,
-            "trades": 202,
-            "net_profit": "-322.245458060130",
+            "folds": 6,
+            "profitable_folds": 3,
+            "ratio": 0.5,
+            "trades": 29,
+            "net_profit": "-12.842922625750",
             "skipped_folds": 0,
             "measurement": "validation blocks of the rolling origin, never the sealed set",
-            "rolling_bars": 9598,
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
@@ -727,11 +687,11 @@
             "entry_zone_atr": 0.1
           },
           "walk_forward": {
-            "folds": 45,
-            "profitable_folds": 21,
-            "ratio": 0.4666666666666667,
-            "trades": 202,
-            "net_profit": "-322.245458060130"
+            "folds": 6,
+            "profitable_folds": 3,
+            "ratio": 0.5,
+            "trades": 29,
+            "net_profit": "-12.842922625750"
           },
           "monte_carlo": {
             "probability_of_profit": 0.369,
@@ -757,6 +717,7 @@
           "false_discovery_significant": false,
           "passing_gates": [
             "backtest",
+            "walk_forward",
             "parameter_robustness"
           ],
           "gates": [
@@ -792,21 +753,20 @@
             },
             {
               "stage": "walk_forward",
-              "status": "failed",
+              "status": "passed",
               "evaluated": true,
-              "passed": false,
+              "passed": true,
               "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-              "reason": "21/45 fold(s) profitable (47%) below 50%",
+              "reason": "3/6 fold(s) profitable (50%) at or above 50%",
               "threshold": 0.5,
               "evidence": {
-                "folds": 45,
-                "profitable_folds": 21,
-                "ratio": 0.4666666666666667,
-                "trades": 202,
-                "net_profit": "-322.245458060130",
+                "folds": 6,
+                "profitable_folds": 3,
+                "ratio": 0.5,
+                "trades": 29,
+                "net_profit": "-12.842922625750",
                 "skipped_folds": 0,
-                "measurement": "validation blocks of the rolling origin, never the sealed set",
-                "rolling_bars": 9598
+                "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
             },
             {
@@ -935,11 +895,11 @@
             "entry_zone_atr": 0.1
           },
           "walk_forward": {
-            "folds": 45,
-            "profitable_folds": 20,
-            "ratio": 0.4444444444444444,
-            "trades": 105,
-            "net_profit": "-67.537034199330"
+            "folds": 6,
+            "profitable_folds": 2,
+            "ratio": 0.3333333333333333,
+            "trades": 13,
+            "net_profit": "32.059604176750"
           },
           "monte_carlo": {
             "probability_of_profit": 0.439,
@@ -999,17 +959,16 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-              "reason": "20/45 fold(s) profitable (44%) below 50%",
+              "reason": "2/6 fold(s) profitable (33%) below 50%",
               "threshold": 0.5,
               "evidence": {
-                "folds": 45,
-                "profitable_folds": 20,
-                "ratio": 0.4444444444444444,
-                "trades": 105,
-                "net_profit": "-67.537034199330",
+                "folds": 6,
+                "profitable_folds": 2,
+                "ratio": 0.3333333333333333,
+                "trades": 13,
+                "net_profit": "32.059604176750",
                 "skipped_folds": 0,
-                "measurement": "validation blocks of the rolling origin, never the sealed set",
-                "rolling_bars": 9598
+                "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
             },
             {
@@ -1134,11 +1093,11 @@
             "entry_zone_atr": 0.1
           },
           "walk_forward": {
-            "folds": 45,
-            "profitable_folds": 13,
-            "ratio": 0.28888888888888886,
-            "trades": 60,
-            "net_profit": "-137.755586787740"
+            "folds": 6,
+            "profitable_folds": 0,
+            "ratio": 0.0,
+            "trades": 5,
+            "net_profit": "-40.057721657830"
           },
           "monte_carlo": {
             "probability_of_profit": 0.154,
@@ -1199,17 +1158,16 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-              "reason": "13/45 fold(s) profitable (29%) below 50%",
+              "reason": "0/6 fold(s) profitable (0%) below 50%",
               "threshold": 0.5,
               "evidence": {
-                "folds": 45,
-                "profitable_folds": 13,
-                "ratio": 0.28888888888888886,
-                "trades": 60,
-                "net_profit": "-137.755586787740",
+                "folds": 6,
+                "profitable_folds": 0,
+                "ratio": 0.0,
+                "trades": 5,
+                "net_profit": "-40.057721657830",
                 "skipped_folds": 0,
-                "measurement": "validation blocks of the rolling origin, never the sealed set",
-                "rolling_bars": 9598
+                "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
             },
             {
@@ -1321,37 +1279,6 @@
       "holdout_still_sealed": false,
       "holdout_unlocks": 1,
       "out_of_sample_net_profit": "56.784565290610",
-      "anchored": true,
-      "dataset_window": {
-        "name": "dataset",
-        "start": "2026-04-07T17:15:00+00:00",
-        "end": "2026-10-08T02:00:00+00:00",
-        "bars": 11999,
-        "anchored": true
-      },
-      "split_windows": [
-        {
-          "name": "train",
-          "start": "2026-04-07T17:15:00+00:00",
-          "end": "2026-07-27T14:00:00+00:00",
-          "bars": 7199,
-          "anchored": true
-        },
-        {
-          "name": "validation",
-          "start": "2026-07-27T14:00:00+00:00",
-          "end": "2026-09-01T17:00:00+00:00",
-          "bars": 2399,
-          "anchored": true
-        },
-        {
-          "name": "holdout",
-          "start": "2026-09-01T17:00:00+00:00",
-          "end": "2026-10-08T02:00:00+00:00",
-          "bars": 2401,
-          "anchored": true
-        }
-      ],
       "passing_gates": [
         "backtest",
         "walk_forward",
@@ -1406,17 +1333,16 @@
           "evaluated": true,
           "passed": true,
           "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-          "reason": "26/45 fold(s) profitable (58%) at or above 50%",
+          "reason": "3/6 fold(s) profitable (50%) at or above 50%",
           "threshold": 0.5,
           "evidence": {
-            "folds": 45,
-            "profitable_folds": 26,
-            "ratio": 0.5777777777777777,
-            "trades": 186,
-            "net_profit": "38.979220987950",
+            "folds": 6,
+            "profitable_folds": 3,
+            "ratio": 0.5,
+            "trades": 25,
+            "net_profit": "-4.732833999560",
             "skipped_folds": 0,
             "measurement": "validation blocks of the rolling origin, never the sealed set",
-            "rolling_bars": 9598,
             "market": "XAUUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
@@ -1593,11 +1519,11 @@
             "entry_zone_atr": 0.1
           },
           "walk_forward": {
-            "folds": 45,
-            "profitable_folds": 26,
-            "ratio": 0.5777777777777777,
-            "trades": 186,
-            "net_profit": "38.979220987950"
+            "folds": 6,
+            "profitable_folds": 3,
+            "ratio": 0.5,
+            "trades": 25,
+            "net_profit": "-4.732833999560"
           },
           "monte_carlo": {
             "probability_of_profit": 0.538,
@@ -1664,17 +1590,16 @@
               "evaluated": true,
               "passed": true,
               "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-              "reason": "26/45 fold(s) profitable (58%) at or above 50%",
+              "reason": "3/6 fold(s) profitable (50%) at or above 50%",
               "threshold": 0.5,
               "evidence": {
-                "folds": 45,
-                "profitable_folds": 26,
-                "ratio": 0.5777777777777777,
-                "trades": 186,
-                "net_profit": "38.979220987950",
+                "folds": 6,
+                "profitable_folds": 3,
+                "ratio": 0.5,
+                "trades": 25,
+                "net_profit": "-4.732833999560",
                 "skipped_folds": 0,
-                "measurement": "validation blocks of the rolling origin, never the sealed set",
-                "rolling_bars": 9598
+                "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
             },
             {
@@ -1804,11 +1729,11 @@
             "entry_zone_atr": 0.1
           },
           "walk_forward": {
-            "folds": 45,
-            "profitable_folds": 21,
-            "ratio": 0.4666666666666667,
-            "trades": 111,
-            "net_profit": "-51.092362881860"
+            "folds": 6,
+            "profitable_folds": 2,
+            "ratio": 0.3333333333333333,
+            "trades": 14,
+            "net_profit": "-18.687257123380"
           },
           "monte_carlo": {
             "probability_of_profit": 0.262,
@@ -1868,17 +1793,16 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-              "reason": "21/45 fold(s) profitable (47%) below 50%",
+              "reason": "2/6 fold(s) profitable (33%) below 50%",
               "threshold": 0.5,
               "evidence": {
-                "folds": 45,
-                "profitable_folds": 21,
-                "ratio": 0.4666666666666667,
-                "trades": 111,
-                "net_profit": "-51.092362881860",
+                "folds": 6,
+                "profitable_folds": 2,
+                "ratio": 0.3333333333333333,
+                "trades": 14,
+                "net_profit": "-18.687257123380",
                 "skipped_folds": 0,
-                "measurement": "validation blocks of the rolling origin, never the sealed set",
-                "rolling_bars": 9598
+                "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
             },
             {
@@ -2002,11 +1926,11 @@
             "entry_zone_atr": 0.1
           },
           "walk_forward": {
-            "folds": 45,
-            "profitable_folds": 19,
-            "ratio": 0.4222222222222222,
-            "trades": 59,
-            "net_profit": "96.857183033070"
+            "folds": 6,
+            "profitable_folds": 1,
+            "ratio": 0.16666666666666666,
+            "trades": 6,
+            "net_profit": "-26.038397944210"
           },
           "monte_carlo": {
             "probability_of_profit": 0.588,
@@ -2067,17 +1991,16 @@
               "evaluated": true,
               "passed": false,
               "evaluator": "campaign._walk_forward_folds -> protocol.walk_forward (rolling origin)",
-              "reason": "19/45 fold(s) profitable (42%) below 50%",
+              "reason": "1/6 fold(s) profitable (17%) below 50%",
               "threshold": 0.5,
               "evidence": {
-                "folds": 45,
-                "profitable_folds": 19,
-                "ratio": 0.4222222222222222,
-                "trades": 59,
-                "net_profit": "96.857183033070",
+                "folds": 6,
+                "profitable_folds": 1,
+                "ratio": 0.16666666666666666,
+                "trades": 6,
+                "net_profit": "-26.038397944210",
                 "skipped_folds": 0,
-                "measurement": "validation blocks of the rolling origin, never the sealed set",
-                "rolling_bars": 9598
+                "measurement": "validation blocks of the rolling origin, never the sealed set"
               }
             },
             {

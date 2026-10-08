@@ -31,7 +31,7 @@ propositions qui passent obligatoirement par le protocole de validation.
 | 9, 10 | Backtest réaliste, anti-surapprentissage | `backtest/harness.py`, `backtest/costs.py`, `research/protocol.py` |
 | 11, 12 | Walk-forward, Monte-Carlo, stress | `research/protocol.py` |
 | 13, 49 | Critères de sélection, portes de promotion | `registry/gates.py` |
-| 15, 16, 17 | Analyse des pertes, dégradation, boucle d'amélioration | `ai/analyst.py`, `ai/researcher.py`, `ai/daily.py` (passage quotidien câblé dans la boucle) |
+| 15, 16, 17 | Analyse des pertes, dégradation, boucle d'amélioration | `ai/analyst.py`, `ai/researcher.py`, `ai/daily.py` et `ai/improvement_cycle.py`, enchaînement quotidien composé par `app.py::_build_lab` |
 | 18, 19 | EA guardians | `mt5/Experts/TradingAgent/`, `ea/bridge.py`, `ea/health.py` |
 | 20 | Latence et slippage | `storage/telemetry.py`, `runtime/pipeline.py` |
 | 21, 22 | Risk management, kill switch | `risk/`, `control/guardian.py`, `control/cli.py` |
@@ -61,6 +61,24 @@ propositions qui passent obligatoirement par le protocole de validation.
   quand même. Une panne du modèle ne bloque jamais le système (§39).
 - **Une seule source de chiffres** : `analytics/`, lue par le web comme par les rapports.
   Le dashboard ne recalcule rien (§34).
+- **Une seule racine de composition, et elle compose** (`tradingagent/app.py`). Seuls `risk`
+  et cette racine peuvent atteindre `execution` ; seule cette racine peut importer `research`
+  et `backtest`, **dans le seul but de composer des dépendances**. Aucun autre module de
+  production — `ai/`, `runtime/`, `notify/`, `storage/`, et `core/` plus que tout autre —
+  n'a le droit de les charger. La règle est encodée dans `tests/test_architecture.py`
+  (`COMPOSITION_ROOT`, `OFFLINE_IMPORTERS`), avec un test qui prouve que l'exception ne fuit
+  pas : les mêmes `import` dans un autre module de production restent des violations.
+  **Pourquoi** : une racine de composition qui ne compose pas n'est qu'un nom. `ai/daily.py`
+  accepte un `ImprovementRunner` injecté, et `ai/improvement_cycle.py` n'importe ni
+  `research` ni `backtest` — si la racine n'avait pas le droit de les importer, l'enchaînement
+  quotidien resterait câblé à rien : l'escalade produit un message, et aucune variante n'est
+  jamais mesurée ni comparée. C'est le sens de la boucle du §17 : quelqu'un doit brancher les
+  briques, et ce quelqu'un ne peut être que la racine.
+- **Une seule maison pour les valeurs partagées** : `Measurement` et `Candidate` vivent dans
+  `core/improvement.py`, que `ai/` et `research/` ont tous les deux le droit d'importer, et
+  `research/improvement.py` les réexporte. Deux classes portant le même concept ne finissent
+  pas par coïncider, elles divergent : la comparaison entre une variante mesurée et la
+  version en place doit porter sur la même valeur, pas sur deux jumelles.
 
 ## Limites connues
 

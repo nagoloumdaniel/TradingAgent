@@ -8,6 +8,7 @@ silently skipping Monte-Carlo, and the false-discovery correction must pay for e
 """
 
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -102,6 +103,57 @@ def two_markets() -> dict[str, CandleDataset]:
         "frxXAUUSD": dataset("frxXAUUSD", 11, 2000.0),
         "cryBTCUSD": dataset("cryBTCUSD", 12, 60_000.0),
     }
+
+
+def prepend_history(one: CandleDataset, bars: int) -> CandleDataset:
+    """The same tape with `bars` older candles in front: what a longer fetch produces.
+
+    The prepended block is generated on the same grid and shifted back in time, so the
+    concatenation stays a strictly ordered, gap-free M15 series; the point under test is where
+    the newest windows land, not the price path of the older bars.
+    """
+    older = synthetic_dataset(
+        f"test-older-{bars}",
+        one.symbol,
+        M15,
+        START,
+        (SyntheticRegime(bars=bars, drift=0.00002, volatility=0.0012),),
+        seed=99,
+        start_price=one.candles[0].close,
+    )
+    shift = one.candles[0].open_time - older.candles[-1].close_time - timedelta(seconds=900)
+    moved = tuple(
+        replace(
+            candle,
+            open_time=candle.open_time + shift,
+        )
+        for candle in older.candles
+    )
+    return CandleDataset(
+        dataset_id=f"{one.dataset_id}+{bars}-prepended",
+        symbol=one.symbol,
+        timeframe=one.timeframe,
+        source=f"test:prepended+{bars}",
+        candles=moved + tuple(one.candles),
+    )
+
+
+def longer_tape() -> CandleDataset:
+    """A 3 000-bar tape: three 1 000-bar blocks glued into one ordered M15 series."""
+    blocks = [dataset("frxXAUUSD", seed, 2000.0) for seed in (11, 13, 15)]
+    step = timedelta(seconds=900 * BARS)
+    candles = tuple(
+        replace(candle, open_time=candle.open_time + step * index)
+        for index, block in enumerate(blocks)
+        for candle in block.candles
+    )
+    return CandleDataset(
+        dataset_id="test-long-frxXAUUSD",
+        symbol="frxXAUUSD",
+        timeframe=M15,
+        source="test:long",
+        candles=candles,
+    )
 
 
 def config_for(market: str, one_dataset: CandleDataset) -> BacktestConfig:
@@ -228,6 +280,96 @@ def test_the_default_walk_forward_plan_gives_every_fold_enough_bars_to_trade() -
     for market in verdict.evidence["markets"].values():
         assert market["folds"] >= 2
         assert market["skipped_folds"] == 0
+
+
+def test_the_default_plan_has_no_fold_ceiling() -> None:
+    """A ceiling makes the fold count a constant, so the fold set can never follow history.
+
+    Measured cost: the `max_folds=6` ceiling held the campaign to the first 1 600 bars of the
+    rolling window; without it the rolling origin walks to the end of the available history,
+    which is the *only* way the walk-forward gate can see recent bars at all.
+    """
+    from tradingagent.research.campaign import DEFAULT_WALK_FORWARD_PLAN
+
+    assert DEFAULT_WALK_FORWARD_PLAN.max_folds is None
+
+
+def test_the_default_plan_walks_the_rolling_origin_to_its_newest_bar() -> None:
+    """Integration proof, on the campaign's own default plan.
+
+    The rolling window of a market is train + validation (the sealed set is excluded, as it
+    must be). Unbounded, the origin advances until the last validation block is the newest block
+    that window can offer. Measured on a 3 000-bar tape, where a 6-fold ceiling is already
+    binding: 60 % of 3 000 bars roll (2 400), and 350 + 250 bars per fold with a 200-bar step
+    fits 10 folds, not 6.
+    """
+    from tradingagent.research.campaign import DEFAULT_WALK_FORWARD_PLAN
+
+    report = campaign(
+        datasets={"frxXAUUSD": longer_tape()}, walk_forward_plan=DEFAULT_WALK_FORWARD_PLAN
+    )
+    for market in report.markets:
+        windows = {window.name: window for window in market.split_windows}
+        assert market.dataset_window is not None
+        assert market.dataset_window.bars == 3_000
+        # The rolling window stops where the sealed set opens.
+        assert windows["holdout"].start >= windows["validation"].end
+        winner = market.winner
+        assert winner is not None and winner.gates is not None
+        outcome = winner.gates.walk_forward
+        assert outcome.skipped_folds == 0
+        rolling = windows["train"].bars + windows["validation"].bars
+        assert rolling == 2_400
+        # 10 folds of a 200-bar step reach the end of a 2 400-bar rolling window
+        # (600 + 9 * 200 + 600 == 2 400): a 6-fold ceiling would have hidden four of them.
+        assert outcome.folds == (rolling - 600) // 200 + 1 == 10
+        verdict = winner.verdict(ValidationStage.WALK_FORWARD)
+        assert verdict is not None
+        assert verdict.evidence["folds"] == outcome.folds
+        assert verdict.evidence["rolling_bars"] == rolling
+        assert verdict.evidence["measurement"] == (
+            "validation blocks of the rolling origin, never the sealed set"
+        )
+
+
+def test_a_campaign_reports_the_windows_it_measured_and_keeps_them_anchored() -> None:
+    """The second defect: prepending history must not slide the newest windows backwards.
+
+    A 1 000-bar campaign and a 4 000-bar campaign (the same tape with 3 000 older bars in front)
+    must end on the same bar, and the longer run's tail must contain everything the shorter run
+    read as validation and as holdout. `anchor=False` restores the old sliding cut, so the
+    change is opt-outable rather than forced -- and there the older run's validation window ends
+    *before* the newer run's sealed window opens, which is the confound this removes.
+    """
+    one = dataset("frxXAUUSD", 11, 2000.0)
+    short = campaign(datasets={"frxXAUUSD": one})
+    longer = campaign(datasets={"frxXAUUSD": prepend_history(one, 3_000)})
+    short_windows = {window.name: window for window in short.markets[0].split_windows}
+    long_windows = {window.name: window for window in longer.markets[0].split_windows}
+    assert set(short_windows) == {"train", "validation", "holdout"}
+    assert long_windows["holdout"].end == short_windows["holdout"].end == one.candles[-1].close_time
+    assert long_windows["train"].bars > short_windows["train"].bars
+    assert long_windows["validation"].bars > short_windows["validation"].bars
+    # The anchored tail starts where its training window ends, and it starts earlier than the
+    # unanchored one would: that is the training window absorbing the newly fetched history.
+    assert long_windows["validation"].start == long_windows["train"].end
+    assert long_windows["validation"].start <= one.candles[0].open_time
+    assert short_windows["train"].anchored is True
+    sliding = campaign(anchor=False)
+    sliding_windows = {window.name: window for window in sliding.markets[0].split_windows}
+    assert sliding_windows["holdout"].anchored is False
+    assert sliding_windows["holdout"].end == short_windows["holdout"].end
+
+
+def test_a_campaign_reports_the_dataset_window_it_measured_over() -> None:
+    """`dataset_window` is the whole tape, `split_windows` the three parts of it."""
+    report = campaign()
+    market = report.markets[0]
+    one = dataset("frxXAUUSD", 11, 2000.0)
+    assert market.dataset_window.bars == one.bars == BARS
+    assert market.dataset_window.start == one.candles[0].open_time
+    assert market.dataset_window.end == one.candles[-1].close_time
+    assert sum(window.bars for window in market.split_windows) == BARS
 
 
 def test_folds_too_short_to_trade_are_skipped_rather_than_counted_as_losses() -> None:

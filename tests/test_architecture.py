@@ -27,6 +27,13 @@ OFFLINE_ONLY = {"backtest", "research"}
 EXECUTION_GATEKEEPERS = {"risk", "execution"}
 # The composition root wires the executor into risk; it may import execution but never call it.
 COMPOSITION_ROOT = "tradingagent.app"
+# The root is also the one production module allowed to import `research` and `backtest`, and
+# only in order to compose dependencies: it builds the improvement chain out of the real
+# search, the real version builder and the real campaign, and hands the result to `ai.daily`,
+# which imports none of them. A composition root that cannot compose is only a name — without
+# this exception the daily chain stays wired to nothing. The exception is exactly one module
+# wide, and `test_the_research_exception_does_not_leak` proves it does not spread.
+OFFLINE_IMPORTERS = {COMPOSITION_ROOT}
 # Pure-calculation packages and the project packages each may depend on.
 # Pure means: no clock read, no network, no randomness, no I/O, no project state.
 PURE_PACKAGES = {
@@ -129,9 +136,14 @@ def find_violations(src_root: Path) -> list[str]:
                 and module != COMPOSITION_ROOT
             ):
                 violations.append(f"{module} imports {target}: only risk may reach execution")
-            if dependency in OFFLINE_ONLY and importer not in OFFLINE_ONLY:
+            if (
+                dependency in OFFLINE_ONLY
+                and importer not in OFFLINE_ONLY
+                and module not in OFFLINE_IMPORTERS
+            ):
                 violations.append(
-                    f"{module} imports {target}: backtest and research never load in production"
+                    f"{module} imports {target}: only the composition root {COMPOSITION_ROOT} "
+                    "may import research or backtest, and only to compose them"
                 )
     return violations
 
@@ -170,7 +182,8 @@ def build_tree(root: Path, files: dict[str, str]) -> Path:
         ("data/feed.py", "from tradingagent.execution.deriv import place_order\n"),
         ("__init__.py", "from tradingagent import execution\n"),
         ("reporting/daily.py", "from tradingagent.backtest import harness\n"),
-        ("app.py", "import tradingagent.research.explore\n"),
+        ("runtime/loop.py", "import tradingagent.research.explore\n"),
+        ("ai/improvement_cycle.py", "from tradingagent.research.improvement import search\n"),
         ("analytics/__init__.py", "from ..backtest import harness\n"),
         ("indicators/rsi.py", "import time\n"),
         ("indicators/rsi.py", "import urllib.request\n"),
@@ -201,6 +214,11 @@ def test_forbidden_import_is_detected(tmp_path: Path, relative: str, source: str
         ("risk/gate.py", "from tradingagent.execution import deriv\n"),
         ("risk/gate.py", "from ..execution import deriv\n"),
         ("app.py", "from tradingagent.execution import deriv\nfrom tradingagent import risk\n"),
+        ("app.py", "import tradingagent.research.explore\n"),
+        ("app.py", "from tradingagent.research.improvement import search_improvement\n"),
+        ("app.py", "from tradingagent.research.versioning import build_candidate\n"),
+        ("app.py", "from tradingagent.backtest.costs import CostModel\n"),
+        ("app.py", "import tradingagent.backtest.harness\n"),
         ("backtest/harness.py", "from tradingagent.strategies import base\n"),
         ("backtest/harness.py", "from ..analytics import metrics\n"),
         ("research/explore.py", "from tradingagent.backtest import harness\n"),
@@ -220,4 +238,53 @@ def test_forbidden_import_is_detected(tmp_path: Path, relative: str, source: str
 )
 def test_allowed_import_passes(tmp_path: Path, relative: str, source: str) -> None:
     src_root = build_tree(tmp_path, {relative: source})
+    assert find_violations(src_root) == []
+
+
+# The three imports the composition root needs to wire the daily improvement chain: the real
+# acceptance rule, the real version builder and the frozen datasets it measures on.
+COMPOSITION_SOURCE = (
+    "from tradingagent.research.improvement import search_improvement\n"
+    "from tradingagent.research.versioning import build_candidate, write_candidate\n"
+    "from tradingagent.backtest.datasets import DatasetStore\n"
+)
+# Every production package, one module each, plus the root package itself. None of them is the
+# composition root, so none of them may reach the offline layers.
+NOT_THE_COMPOSITION_ROOT = (
+    "core/improvement.py",
+    "ai/improvement_cycle.py",
+    "ai/daily.py",
+    "runtime/loop.py",
+    "signals/generator.py",
+    "risk/gate.py",
+    "reporting/daily.py",
+    "registry/store.py",
+    "data/feed.py",
+    "notify/bot.py",
+    "storage/repository.py",
+    "control/cli.py",
+    "__init__.py",
+)
+
+
+@pytest.mark.parametrize("relative", NOT_THE_COMPOSITION_ROOT)
+def test_the_research_exception_does_not_leak(tmp_path: Path, relative: str) -> None:
+    """Exactly one module may compose the offline layers; everywhere else it is still refused.
+
+    Naming a composition root only holds if the exception stops there. The very same imports
+    that are legal in `app.py` must be violations in `ai/`, `runtime/`, `risk/`, `notify/`,
+    `storage/` — and in `core/` most of all, since `core` is imported by everyone and must
+    import nobody: granting it `research` would put the offline layers in every module's
+    import graph.
+    """
+    src_root = build_tree(tmp_path / "elsewhere", {relative: COMPOSITION_SOURCE})
+    violations = find_violations(src_root)
+    assert violations, f"{relative} must not import research or backtest"
+    assert all("research" in violation or "backtest" in violation for violation in violations)
+    assert any(COMPOSITION_ROOT in violation for violation in violations), violations
+
+
+def test_the_composition_root_may_compose_the_offline_layers(tmp_path: Path) -> None:
+    """The other half of the rule: the same imports, in the root, are what wires the chain."""
+    src_root = build_tree(tmp_path / "root", {"app.py": COMPOSITION_SOURCE})
     assert find_violations(src_root) == []

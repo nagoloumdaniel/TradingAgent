@@ -40,6 +40,7 @@ from tradingagent.research.promotion import (
 from tradingagent.research.protocol import (
     CandidateScore,
     DataSplit,
+    DataWindow,
     FalseDiscoveryControl,
     Fold,
     GateStatus,
@@ -80,6 +81,7 @@ __all__ = [
     "CandidateSpec",
     "CorrelationPair",
     "DataSplit",
+    "DataWindow",
     "FalseDiscoveryControl",
     "Fold",
     "GateStatus",

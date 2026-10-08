@@ -1,0 +1,33 @@
+# PLAFOND RELEVE A DEMO SANS VALIDATION — decision de l'operateur, 2026-10-08.
+#
+# RM-016 veut qu'un manifeste declare le lieu le plus eleve ou il peut servir, et la regle
+# du projet est de ne relevar ce plafond qu'apres une validation hors echantillon. Ce n'est
+# PAS le cas ici : la campagne a refuse 5 portes sur 9 sur ces deux strategies.
+#
+# Ce fichier existe donc pour repeter le systeme sur le COMPTE DE DEMONSTRATION, ou aucun
+# argent reel n'est en jeu. `max_mode: DEMO` est un plafond a lui seul : il ne peut pas
+# atteindre le compte reel, qui exigerait `max_mode: LIVE` ET les neuf portes franchies.
+#
+# Les chiffres de la campagne, pour memoire : profit factor net 0,81 (BTC) / 0,90 (or)
+# contre 1,20 exige ; p-value minimale 0,3497, soit 21 fois au-dessus de la ligne de
+# Bonferroni ; 0 survivant sur 6 apres correction du taux de fausses decouvertes.
+# Second production strategy, assigned to bitcoin so each market runs a genuinely
+# different rule (Donchian breakout + trend filter vs EMA crossover). NOT a trading
+# recommendation: max_mode stays SIGNAL until TASK-064/TASK-065 validate it out of sample.
+strategy_id: trend_breakout
+version: 1.0.1
+max_mode: DEMO
+allowed_symbols: [BTCUSD]
+timeframes: [M15]
+# 5 x trend_period: the EMA(100) is recursive and must be warmed up identically in
+# backtest and production.
+history_bars: 600
+expiry_bars: 1
+ai_filter: shadow
+parameters:
+  channel_period: 20
+  trend_period: 100
+  atr_period: 14
+  stop_atr_multiplier: 2.0
+  take_profit_rr: 2.0
+  entry_zone_atr: 0.1

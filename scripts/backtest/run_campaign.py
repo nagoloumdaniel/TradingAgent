@@ -61,7 +61,7 @@ from tradingagent.research.promotion import (
     record_decision,
     write_thresholds,
 )
-from tradingagent.research.protocol import GateStatus, GateVerdict
+from tradingagent.research.protocol import DataWindow, GateStatus, GateVerdict
 from tradingagent.strategies.library.witness import Witness, WitnessParameters
 from tradingagent.strategies.manifest import StrategyManifest
 from tradingagent.strategies.registry import REGISTRY
@@ -80,6 +80,13 @@ GOLD = "frxXAUUSD"
 #: decides, and the campaign prints the number it used.
 DEFAULT_FALSE_DISCOVERY_RATE = 0.10
 MONTE_CARLO_ITERATIONS = 1_000
+#: The campaign cuts its tape with the **anchored** split: the newest validation and sealed
+#: windows stay where they are when older history is prepended, and the training window grows.
+#: Without it, extending a fetch slides every window backwards and the resulting before/after
+#: comparison reads two different market periods.
+ANCHOR_SPLIT = True
+TRAIN_FRACTION = 0.6
+VALIDATION_FRACTION = 0.2
 
 
 def witness_manifest(symbols: Sequence[str]) -> StrategyManifest:
@@ -254,6 +261,10 @@ def gate_to_dict(verdict: GateVerdict) -> dict[str, Any]:
     }
 
 
+def window_to_dict(window: DataWindow) -> dict[str, Any]:
+    return window.to_dict()
+
+
 def market_to_dict(market: MarketReport) -> dict[str, Any]:
     return {
         "market": market.market,
@@ -265,6 +276,13 @@ def market_to_dict(market: MarketReport) -> dict[str, Any]:
         "out_of_sample_net_profit": (
             None if market.out_of_sample is None else str(market.out_of_sample.net_profit)
         ),
+        # The periods actually measured, published so a before/after comparison can prove the
+        # newest windows did not move -- a comparison that cannot name them is not controlled.
+        "anchored": market.anchored,
+        "dataset_window": (
+            None if market.dataset_window is None else window_to_dict(market.dataset_window)
+        ),
+        "split_windows": [window_to_dict(window) for window in market.split_windows],
         "passing_gates": [stage.value for stage in market.passing_stages()],
         "gates": [gate_to_dict(item) for item in market.gate_verdicts],
         "candidates": [candidate_to_dict(candidate) for candidate in market.candidates],
@@ -295,7 +313,19 @@ def campaign_to_dict(
                 "train_bars": DEFAULT_WALK_FORWARD_PLAN.train_bars,
                 "validation_bars": DEFAULT_WALK_FORWARD_PLAN.validation_bars,
                 "step_bars": DEFAULT_WALK_FORWARD_PLAN.step_bars,
+                # None means "no ceiling": the rolling origin walks to the end of the rolling
+                # window, so the fold count follows the history instead of being a constant.
                 "max_folds": DEFAULT_WALK_FORWARD_PLAN.max_folds,
+                "fold_ceiling": (
+                    "none: every fold that fits in the rolling window is played"
+                    if DEFAULT_WALK_FORWARD_PLAN.max_folds is None
+                    else f"at most {DEFAULT_WALK_FORWARD_PLAN.max_folds} folds"
+                ),
+            },
+            "split": {
+                "anchored": ANCHOR_SPLIT,
+                "train_fraction": TRAIN_FRACTION,
+                "validation_fraction": VALIDATION_FRACTION,
             },
             "monte_carlo_iterations": MONTE_CARLO_ITERATIONS,
             "stress_cost_multiplier": STRESS_COST_MULTIPLIER,
@@ -382,6 +412,41 @@ def print_report(report: CampaignReport, datasets: Mapping[str, CandleDataset]) 
         print(
             f"  {pair.market_a} / {pair.market_b}: {value} over {pair.aligned_bars} bars [{flag}]"
         )
+
+
+def print_windows(report: CampaignReport) -> None:
+    """The periods each market actually measured, so a comparison can be held to them.
+
+    A before/after comparison that cannot show its windows is comparing two market regimes,
+    not one regime with more data. The split is anchored, which is what keeps the validation
+    and sealed windows in place while the training window grows.
+    """
+    print("== Windows measured (anchored split: the newest windows do not move) ==")
+    for market in report.markets:
+        split = {window.name: window for window in market.split_windows}
+        dataset = market.dataset_window
+        source = ""
+        if dataset is not None:
+            source = (
+                f"{dataset.bars:6d} bars {dataset.start.isoformat()} -> {dataset.end.isoformat()}"
+            )
+        print(f"  {market.market}: tape {source}")
+        for name in ("train", "validation", "holdout"):
+            window = split.get(name)
+            if window is None:
+                print(f"    {name:11s} (not reported)")
+                continue
+            print(
+                f"    {name:11s} {window.bars:6d} bars "
+                f"{window.start.isoformat()} -> {window.end.isoformat()}"
+            )
+        winner = market.winner
+        if winner is not None and winner.gates is not None:
+            outcome = winner.gates.walk_forward
+            print(
+                f"    walk-forward {outcome.folds} fold(s) played, "
+                f"{outcome.skipped_folds} skipped; the last one is the newest available"
+            )
 
 
 def print_gates(report: CampaignReport) -> None:
@@ -683,8 +748,12 @@ def main() -> int:
         false_discovery_rate=DEFAULT_FALSE_DISCOVERY_RATE,
         monte_carlo_iterations=args.monte_carlo_iterations,
         confirm_holdout=True,
+        anchor=ANCHOR_SPLIT,
+        train_fraction=TRAIN_FRACTION,
+        validation_fraction=VALIDATION_FRACTION,
     )
     print_report(report, datasets)
+    print_windows(report)
     print_gates(report)
 
     args.output.mkdir(parents=True, exist_ok=True)

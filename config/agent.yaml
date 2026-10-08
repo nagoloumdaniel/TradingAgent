@@ -8,10 +8,10 @@
 markets:
   - symbol: XAUUSD
     enabled: true
-    strategy: witness@1.1.0
+    strategy: witness@1.1.1
   - symbol: BTCUSD
     enabled: true
-    strategy: trend_breakout@1.0.0
+    strategy: trend_breakout@1.0.1
 risk:
   simulated:
     risk_per_trade_pct: 0.5

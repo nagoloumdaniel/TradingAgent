@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 
 from tradingagent.ai.researcher import BacktestEvidence, ValidationEvidence
 from tradingagent.analytics.model import Performance
+from tradingagent.core.improvement import Measurement
 from tradingagent.core.states import Severity, ValidationStage
 from tradingagent.storage.models import (
     BacktestRunRow,
@@ -205,6 +206,27 @@ def record_run(engine: Engine, run: MeasuredRun, *, at: datetime) -> int:
         return int(primary_key[0])
 
 
+def baseline_of(evidence: MarketEvidence) -> Measurement | None:
+    """The measurement a recorded run already holds, in the shape a search compares.
+
+    `None` when the run declares no objective: a run that measured something else is not a
+    baseline, and reading it as zero would make every variant look like an improvement. The
+    two figures the bridge stores *alongside* the objective are dropped — they describe the
+    search that produced the number (how many comparisons it cost, which figure was
+    maximised), not what the strategy achieved.
+    """
+    if evidence.objective is None:
+        return None
+    return Measurement(
+        objective=evidence.objective,
+        metrics={
+            key: value
+            for key, value in evidence.metrics.items()
+            if key not in (OBJECTIVE_METRIC, COMPARISONS_METRIC)
+        },
+    )
+
+
 def record_gate(
     engine: Engine,
     *,
@@ -360,6 +382,7 @@ __all__ = [
     "OBJECTIVE_METRIC",
     "MarketEvidence",
     "MeasuredRun",
+    "baseline_of",
     "evidence_for",
     "journal",
     "measured_number",

@@ -8,6 +8,7 @@ decide on evidence where it is missing.
 
 import importlib.util
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -35,6 +36,7 @@ from tradingagent.research.promotion import (
     evaluate_promotion,
 )
 from tradingagent.research.protocol import (
+    DataWindow,
     GateStatus,
     GateVerdict,
     MonteCarloReport,
@@ -220,6 +222,38 @@ def test_the_script_reports_every_stage_of_the_gate_protocol() -> None:
     # Every market carries its own nine verdicts too, so a reader never has to take the
     # campaign aggregate on trust.
     assert [item["stage"] for item in document["markets"][0]["gates"]] == stages
+
+
+def test_the_script_publishes_the_windows_a_comparison_must_hold_fixed() -> None:
+    """A before/after comparison needs the periods, or it is comparing two market regimes."""
+    module = load_script()
+    report, market = campaign_report()
+    document = module.campaign_to_dict(report, {}, THRESHOLDS)
+    # The report fixture predates the windows, so the writers must tolerate their absence and
+    # the campaign-level protocol must still state how the tape was cut.
+    assert document["gate_protocol"]["split"] == {
+        "anchored": True,
+        "train_fraction": 0.6,
+        "validation_fraction": 0.2,
+    }
+    assert document["markets"][0]["split_windows"] == []
+    assert document["markets"][0]["dataset_window"] is None
+    measured = replace(
+        market,
+        anchored=True,
+        dataset_window=DataWindow("dataset", START, START + timedelta(minutes=15), 2, True),
+        split_windows=(
+            DataWindow("train", START, START + timedelta(minutes=15), 1, True),
+            DataWindow("validation", START, START + timedelta(minutes=15), 1, True),
+        ),
+    )
+    windows = module.campaign_to_dict(replace(report, markets=(measured,)), {}, THRESHOLDS)
+    published = windows["markets"][0]
+    assert published["anchored"] is True
+    assert [item["name"] for item in published["split_windows"]] == ["train", "validation"]
+    assert published["dataset_window"]["bars"] == 2
+    assert published["split_windows"][0]["start"] == START.isoformat()
+    assert published["split_windows"][0]["anchored"] is True
 
 
 def test_the_script_marks_the_two_gates_it_cannot_evaluate() -> None:

@@ -18,11 +18,20 @@ right to. So the loop does three things about it:
 * acceptance demands a gain *outside* the noise band the caller declares, and the incumbent
   stays in place when the attempts run out. Failing to improve is a normal result, not an
   error: it means the version in production is still the best one measured so far.
+
+`Measurement` and `Candidate` are **not** defined here: they live in
+`core/improvement.py`, the one layer `ai` and `research` may both import, and they are
+re-exported below so every caller keeps importing them from here. The improvement chain
+(`ai/improvement_cycle.py`) measures a variant and this module decides whether it beats the
+incumbent — two modules handing each other values must agree on the value, and two classes
+that merely look alike do not agree, they drift.
 """
 
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
+
+from tradingagent.core.improvement import Candidate, Measurement
 
 # A change has to beat the incumbent by this much before it is worth promoting. A threshold
 # of zero would accept a gain indistinguishable from rounding.
@@ -30,29 +39,6 @@ DEFAULT_MIN_RELATIVE_GAIN = 0.10
 # Bounded on purpose. An unbounded search is a promise nobody can keep, and the later
 # attempts are the ones most likely to be noise wearing the costume of a discovery.
 DEFAULT_MAX_ATTEMPTS = 12
-
-
-@dataclass(frozen=True)
-class Measurement:
-    """What one version of a strategy achieved on one market.
-
-    `objective` is the number the search maximises — the caller chooses it, and choosing it
-    is a business decision, not a technical one. `metrics` carries the rest so a refusal can
-    be explained with figures rather than adjectives.
-    """
-
-    objective: float
-    metrics: Mapping[str, float] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class Candidate:
-    """One proposed change, before it is measured."""
-
-    label: str
-    parameters: Mapping[str, float]
-    rationale: str = ""
-    payload: Any = None
 
 
 @dataclass(frozen=True)
