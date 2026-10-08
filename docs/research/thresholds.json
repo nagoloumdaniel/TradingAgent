@@ -1,5 +1,5 @@
 {
-  "digest": "eb47c8e328c1361ca1a1701c3bc6b31fa2824cecd33129cfd19fe0b0ddf9f619",
+  "digest": "a2de0101d3213950dbd743390e1ec231cc64b4afb3c2dcd3413de8a3980633b8",
   "format": "tradingagent.acceptance-thresholds/1",
   "max_correlation": 0.7,
   "max_drawdown_eur": "200",
@@ -10,5 +10,5 @@
   "min_profitable_regime_ratio": 0.5,
   "min_stability_score": 0.5,
   "min_trades": 30,
-  "version": "synthetic-20261007"
+  "version": "campaign-20261007"
 }

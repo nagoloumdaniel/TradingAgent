@@ -4,11 +4,27 @@ Overfitting is made *structurally* hard: the out-of-sample set is sealed behind 
 token, so no optimisation routine can read it by accident, and the tools that could try
 only receive plain candle tuples. A stability report replaces the single profit figure: a
 strategy that only shines on its training window is reported as fragile.
+
+Two things were missing from that protocol and live here now, because a selection that tries
+many candidates must be able to price its own luck:
+
+* `monte_carlo_p_value` gives each survivor the probability that a rule *without* directional
+  edge would have done as well, and `price_false_discoveries` applies the Benjamini-Hochberg
+  correction over every attempt the selection made -- every (candidate, market) pair is one
+  test, and an attempt that produced no p-value is counted as ``p = 1``, never dropped;
+* `GateVerdict` and `GateStatus` carry the verdict of one gate of §49 together with the
+  function that measured it, the figures behind it and the threshold it was compared against,
+  so `NOT_EVALUABLE` is reportable instead of being silently read as a pass.
+
+Statistics are separated from verdicts on purpose: this module measures, `promotion` decides,
+and neither knows the other's policy.
 """
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
+from enum import StrEnum
 from math import inf
 from typing import Any
 
@@ -18,12 +34,18 @@ from tradingagent.analytics.performance import compute_performance
 from tradingagent.backtest.datasets import CandleDataset
 from tradingagent.backtest.randomness import DeterministicRandom, percentile, standard_deviation
 from tradingagent.core.market import Candle
+from tradingagent.core.states import ValidationStage
 
 OOS_RETENTION_MIN = 0.5
 PARAMETER_CV_MAX = 0.5
 PROFITABLE_REGIME_MIN = 0.5
 STABILITY_SCORE_MIN = 0.5
 MIN_TRADES_FOR_STABILITY = 30
+#: Tolerated proportion of false discoveries among the candidates a selection retains. 0.10 is
+#: the usual convention and it is *not* sacred: every report prints it next to its numbers.
+DEFAULT_FALSE_DISCOVERY_RATE = 0.10
+#: Draws of the sign-flip null used to estimate one candidate's p-value.
+DEFAULT_MONTE_CARLO_ITERATIONS = 1_000
 
 
 class SealedAccessError(RuntimeError):
@@ -155,6 +177,37 @@ def walk_forward(candles: Sequence[Candle], plan: WalkForwardPlan) -> list[Fold]
         start += plan.step_bars
         index += 1
     return folds
+
+
+@dataclass(frozen=True)
+class WalkForwardOutcome:
+    """How a candidate behaved on the rolling origin, folds included.
+
+    A campaign and the discovery laboratory judge the same kind of evidence, so they share the
+    shape of it. ``ratio`` -- the share of *played* folds that were profitable -- is what the
+    walk-forward gate reads; it is deliberately not a profit figure, and a candidate with no
+    fold at all has a ratio of ``0.0`` rather than a missing value.
+    """
+
+    folds: int
+    profitable_folds: int
+    trades: int
+    net_profit: Decimal
+    skipped_folds: int = 0
+
+    @property
+    def ratio(self) -> float:
+        """The share of *played* folds that were profitable.
+
+        ``folds`` counts the folds that actually ran, so a fold the manifest could not trade is
+        excluded here rather than scored as a loss, and it is reported in ``skipped_folds``.
+        """
+        return self.profitable_folds / self.folds if self.folds else 0.0
+
+    @property
+    def testable(self) -> bool:
+        """Whether at least one fold was actually evaluated on this evidence."""
+        return self.folds > 0
 
 
 @dataclass(frozen=True)
@@ -295,6 +348,280 @@ def _max_drawdown(pnls: Sequence[float]) -> float:
         peak = max(peak, equity)
         worst = max(worst, peak - equity)
     return worst
+
+
+# --------------------------------------------------------------------------------------
+# Significance and false-discovery control: a survivor of many attempts is not yet a
+# discovery, and only a p-value can say how many attempts the correction must pay for.
+# --------------------------------------------------------------------------------------
+#
+# The honest difficulty is that no other function of this module produces a p-value:
+# `stability_report` is a robustness score, and `monte_carlo` resamples the realized P&L,
+# which centres on the observed total and therefore answers "what other orderings of these
+# same trades?" rather than "what would a rule without edge have done?". So the p-value is
+# built here, explicitly, and its assumptions are written down rather than implied.
+
+
+def monte_carlo_p_value(
+    pnls: Sequence[float],
+    *,
+    iterations: int = DEFAULT_MONTE_CARLO_ITERATIONS,
+    seed: int = 0,
+) -> float:
+    """The probability that a random draw *without edge* does at least as well.
+
+    Null hypothesis: the entry rule carries no directional information on that tape. Under
+    it the sign of each realized trade is as good as a fair coin -- the magnitudes are what
+    the market and the costs gave, but the direction says nothing. The statistic is the total
+    net profit; the null distribution is drawn by flipping the sign of every trade with an
+    independent fair coin (a sign-flip randomization test, the Fisher test for paired
+    observations), and the p-value is the share of those draws that reach the observed total.
+
+    Two deliberate details:
+
+    * the estimate is ``(count + 1) / (iterations + 1)``, never exactly zero: with
+      ``iterations`` draws a Monte-Carlo p-value cannot resolve below ``1 / (iterations + 1)``,
+      and reporting a zero would claim a precision this method does not have;
+    * an empty sample returns ``1.0``: no trade is no evidence of an edge.
+
+    What it does *not* do: the trades are treated as exchangeable, so clustered regimes and
+    overlapping positions make the p-value optimistic, and the test only sees *directional*
+    edge -- a rule whose gross edge is smaller than its costs shows a small total and lands
+    near ``1.0``, which errs on the safe side.
+    """
+    if iterations < 1:
+        raise ValueError("iterations must be positive")
+    values = [float(value) for value in pnls]
+    if not values:
+        return 1.0
+    observed = sum(values)
+    stream = DeterministicRandom(seed)
+    at_least_as_good = 0
+    for _ in range(iterations):
+        total = 0.0
+        for value in values:
+            total += value if stream.random() < 0.5 else -value
+        if total >= observed:
+            at_least_as_good += 1
+    return (at_least_as_good + 1) / (iterations + 1)
+
+
+def bonferroni_threshold(hypotheses: int, *, alpha: float = DEFAULT_FALSE_DISCOVERY_RATE) -> float:
+    """The per-test threshold of the Bonferroni correction, shown only for comparison.
+
+    Bonferroni divides the level by the number of tests and is therefore stricter than
+    Benjamini-Hochberg whenever more than one test looks promising. It is reported so a
+    reader can see how much of the result comes from the correction and how much from the
+    choice of method; it never decides anything here. With no test at all, nothing has to be
+    cleared, so the threshold is ``1.0``.
+    """
+    if hypotheses < 0:
+        raise ValueError("hypotheses cannot be negative")
+    if not 0 < alpha <= 1:
+        raise ValueError("alpha must be in (0, 1]")
+    return alpha / hypotheses if hypotheses else 1.0
+
+
+def _benjamini_hochberg_cut_off(p_values: Sequence[float], alpha: float) -> float | None:
+    """The p-value cut-off of the BH step-up: the largest ``p_(k)`` with ``p_(k) <= k/m*alpha``.
+
+    ``None`` means "no rank qualifies", i.e. nothing is a discovery. Kept separate from the
+    flags so the rule is written in one place and the decisions are a plain comparison.
+    """
+    ordered = sorted(p_values)
+    cut_off: float | None = None
+    for rank, value in enumerate(ordered, start=1):
+        if value <= rank / len(ordered) * alpha:
+            cut_off = value
+    return cut_off
+
+
+def benjamini_hochberg(
+    p_values: Sequence[float], *, alpha: float = DEFAULT_FALSE_DISCOVERY_RATE
+) -> tuple[bool, ...]:
+    """Benjamini-Hochberg step-up: which hypotheses survive at a false-discovery rate alpha.
+
+    Sort the p-values ascending; the largest rank ``k`` with ``p_(k) <= k / m * alpha`` fixes
+    the cut-off, and every hypothesis with ``p <= p_(k)`` is rejected (i.e. *kept* here: a
+    small p-value is what makes a candidate a discovery). With a single candidate the rule
+    collapses to ``p <= alpha``, which is the honest reading of "no selection happened".
+
+    Flags come back in the order the p-values were given, so a caller can zip them straight
+    back onto its candidates.
+    """
+    if not 0 < alpha <= 1:
+        raise ValueError("alpha must be in (0, 1]")
+    for value in p_values:
+        if not 0.0 <= value <= 1.0:
+            raise ValueError(f"p-values must lie in [0, 1], got {value}")
+    if not p_values:
+        return ()
+    cut_off = _benjamini_hochberg_cut_off(p_values, alpha)
+    if cut_off is None:
+        return tuple(False for _ in p_values)
+    return tuple(value <= cut_off for value in p_values)
+
+
+@dataclass(frozen=True)
+class MultipleTestingReport:
+    """What a false-discovery control did to one selection.
+
+    ``hypotheses`` is the number of candidates that were tried, not the number that reached
+    the end of the protocol: that is the number of attempts the correction must pay for.
+    ``expected_false_discoveries`` is ``hypotheses * alpha``, the count of candidates a naive
+    per-test rule would wave through on luck alone; ``expected_false_discovery_rate`` is the
+    ``alpha`` Benjamini-Hochberg actually bounds among the retained.
+    """
+
+    method: str
+    alpha: float
+    hypotheses: int
+    discoveries_before: int
+    discoveries_after: int
+    rejected_by_correction: int
+    bonferroni_threshold: float
+    expected_false_discoveries: float
+
+    @property
+    def expected_false_discovery_rate(self) -> float:
+        """The tolerated false-discovery rate: the guarantee Benjamini-Hochberg gives."""
+        return self.alpha
+
+
+@dataclass(frozen=True)
+class MultipleTestingOutcome:
+    """One (label, p-value) pair and whether the correction let it through.
+
+    ``p_value`` is ``None`` when the candidate never produced one -- it never cleared the
+    protocol, so it carries no out-of-sample evidence. ``significant`` is false in that case:
+    a candidate without a measurement cannot be a discovery.
+    """
+
+    label: str
+    p_value: float | None
+    significant: bool
+    rank: int
+    cut_off: float
+
+
+@dataclass(frozen=True)
+class FalseDiscoveryControl:
+    """The verdict of the control, one entry per hypothesis, plus the totals."""
+
+    outcomes: tuple[MultipleTestingOutcome, ...]
+    report: MultipleTestingReport
+    alpha: float
+
+    def demoted(self) -> tuple[MultipleTestingOutcome, ...]:
+        return tuple(outcome for outcome in self.outcomes if not outcome.significant)
+
+
+def price_false_discoveries(
+    labelled_p_values: Sequence[tuple[str, float | None]],
+    *,
+    alpha: float = DEFAULT_FALSE_DISCOVERY_RATE,
+) -> FalseDiscoveryControl:
+    """Price every hypothesis of one selection and demote the ones the correction rejects.
+
+    Every (candidate, market) evaluation is one test. A candidate that never produced a
+    p-value is counted with ``p = 1`` rather than dropped: the number of tests must equal the
+    number of attempts the selection actually made, which makes the correction *conservative*
+    rather than flattering. A demoted hypothesis keeps the p-value that demoted it and is told
+    the threshold *its own rank* required, ``rank/m * alpha``: quoting another candidate's
+    threshold would hide what it failed to clear.
+    """
+    count = len(labelled_p_values)
+    raw = [1.0 if p_value is None else p_value for _, p_value in labelled_p_values]
+    survives = benjamini_hochberg(raw, alpha=alpha)
+    ranks = [1 + sum(1 for other in raw if other < value) for value in raw]
+    outcomes = tuple(
+        MultipleTestingOutcome(
+            label=label,
+            p_value=p_value,
+            significant=bool(significant) and p_value is not None,
+            rank=ranks[position],
+            cut_off=ranks[position] / count * alpha if count else alpha,
+        )
+        for position, ((label, p_value), significant) in enumerate(
+            zip(labelled_p_values, survives, strict=True)
+        )
+    )
+    accepted = sum(1 for outcome in outcomes if outcome.significant)
+    return FalseDiscoveryControl(
+        outcomes=outcomes,
+        report=MultipleTestingReport(
+            method="benjamini_hochberg",
+            alpha=alpha,
+            hypotheses=count,
+            # A hypothesis with no p-value cannot be a discovery, so the number of survivors
+            # before the correction is the number of measured ones the rule did not demote.
+            discoveries_before=sum(1 for _, p_value in labelled_p_values if p_value is not None),
+            discoveries_after=accepted,
+            rejected_by_correction=count
+            - accepted
+            - sum(1 for _, p_value in labelled_p_values if p_value is None),
+            bonferroni_threshold=bonferroni_threshold(count, alpha=alpha),
+            expected_false_discoveries=count * alpha,
+        ),
+        alpha=alpha,
+    )
+
+
+# --------------------------------------------------------------------------------------
+# Promotion gates: which of the nine a measured campaign can decide, and on what number.
+# --------------------------------------------------------------------------------------
+
+
+class GateStatus(StrEnum):
+    """The verdict of one gate of §49. ``NOT_EVALUABLE`` is a first-class result.
+
+    There is deliberately no "probably fine": a gate the available evidence cannot decide is
+    reported as such, with the reason and with what it would take to decide it. A gate
+    "passed" without proof would be the worst possible outcome of a validation campaign.
+    """
+
+    PASSED = "passed"
+    FAILED = "failed"
+    NOT_EVALUABLE = "not_evaluable"
+
+    @property
+    def decided(self) -> bool:
+        return self is not GateStatus.NOT_EVALUABLE
+
+
+@dataclass(frozen=True)
+class GateVerdict:
+    """One gate of §49, the function that measured it, and the numbers behind the verdict.
+
+    ``evidence`` maps a figure name to its value, always JSON-ready. ``threshold`` is the
+    frozen threshold the figure was compared against; ``None`` means this module invented no
+    threshold and the verdict rests on a sign or an existence, which is stated in ``reason``.
+    """
+
+    stage: ValidationStage
+    status: GateStatus
+    evaluator: str
+    reason: str
+    evidence: Mapping[str, Any] = field(default_factory=dict)
+    threshold: float | None = None
+
+    @property
+    def passed(self) -> bool:
+        return self.status is GateStatus.PASSED
+
+    @property
+    def evaluable(self) -> bool:
+        return self.status.decided
+
+
+def not_evaluable(stage: ValidationStage, reason: str) -> GateVerdict:
+    """A gate the caller cannot measure, named with the evidence it would need."""
+    return GateVerdict(
+        stage=stage,
+        status=GateStatus.NOT_EVALUABLE,
+        evaluator="none: this evidence cannot be produced by a backtest campaign",
+        reason=reason,
+    )
 
 
 @dataclass(frozen=True)

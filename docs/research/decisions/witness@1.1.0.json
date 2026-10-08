@@ -1,7 +1,7 @@
 {
-  "decided_at": "2026-10-07T22:11:23.732831+00:00",
+  "decided_at": "2026-10-08T01:34:38.189833+00:00",
   "decided_by": "research-campaign",
-  "evidence_digest": "1f8200c9ffe89a12c37d9a485dd30d1af4fc138143e5926da9a990d5fbfe2eb4",
+  "evidence_digest": "4a1221f9b5fc001b4b4be92250b60794637ba44995228bafa84f7269bed51d6f",
   "format": "tradingagent.promotion-decision/1",
   "promoted": false,
   "reasons": [
@@ -9,8 +9,9 @@
     "out-of-sample retention 0.43 below 0.50",
     "parameter dispersion 0.62 above 0.50",
     "stability score 0.41 below 0.50",
-    "net profit factor 1.18 below 1.20"
+    "net profit factor 1.18 below 1.20",
+    "no promotion is decided: the candidate won its market but the Benjamini-Hochberg correction demoted it, so it is not a discovery"
   ],
   "strategy_ref": "witness@1.0.0",
-  "thresholds_digest": "eb47c8e328c1361ca1a1701c3bc6b31fa2824cecd33129cfd19fe0b0ddf9f619"
+  "thresholds_digest": "a2de0101d3213950dbd743390e1ec231cc64b4afb3c2dcd3413de8a3980633b8"
 }

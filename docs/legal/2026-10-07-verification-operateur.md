@@ -5,12 +5,32 @@ dans `2026-10-07-conformite-mode-reel.md`. Aucune valeur juridique n'est présum
 chaque case doit être cochée après consultation de la source, et la citation (URL et date
 de consultation) recopiée telle quelle.
 
-- **Opérateur (nom) :** ______________________
-- **Date (UTC) :** ______________________
-- **Pays de résidence fiscale :** ______________________
-- **Fournisseur / entité contractante :** ______________________
-- **Type de compte :** ☐ démonstration ☐ réel
+- **Opérateur (nom) :** Daniel Nagoloum Talla
+- **Contact :** landhack049@gmail.com
+- **Date (UTC) :** 2026-10-08
+- **Pays de résidence fiscale :** France *(à confirmer par l'opérateur — c'est la seule
+  information du dossier que le projet ne peut pas établir lui-même)*
+- **Fournisseur / entité contractante :** Deriv.com Limited
+- **Type de compte :** ☒ démonstration ☐ réel — compte `201827970`, serveur `Deriv-Demo`,
+  devise **EUR**
 - **Version du dossier vérifiée :** `2026-10-07-conformite-mode-reel.md`
+
+> **État du remplissage — à lire avant de signer.**
+>
+> L'en-tête ci-dessus est rempli à partir de faits vérifiables : identité du dépôt Git,
+> et ce que le terminal expose réellement (le rapport d'un EA porte
+> `company: Deriv.com Limited`, `server: Deriv-Demo`, `currency: EUR`, `demo: true`).
+>
+> **Les tableaux A à E sont volontairement laissés vierges.** Ce ne sont pas des cases à
+> remplir d'après ce que le projet sait, mais des vérifications que l'opérateur doit faire
+> lui-même sur les sources officielles, et dont il recopie la citation. Les pré-remplir
+> depuis le code reviendrait à faire dire au document ce qu'il n'a pas vérifié — exactement
+> ce que la phrase d'attestation interdit.
+>
+> **La signature est laissée vierge, délibérément.** Elle atteste « avoir consulté soi-même
+> les sources citées ». Aucun outil ne peut porter cette affirmation à la place d'une
+> personne : une signature apposée par un tiers est un faux, et elle priverait ce document de
+> sa seule fonction — forcer un contrôle humain avant que de l'argent réel circule.
 
 ## A. Conditions d'utilisation du fournisseur
 
@@ -62,8 +82,10 @@ de consultation) recopiée telle quelle.
 > Je certifie avoir consulté moi-même les sources citées ci-dessus à la date indiquée, et
 > que ce document reflète les réponses trouvées, sans interprétation ajoutée.
 
-- **Signature :** ______________________
-- **Date et heure (UTC) :** ______________________
+- **Signature :** ______________________ *(à tracer par l'opérateur — voir la note en tête)*
+- **Nom en clair :** Daniel Nagoloum Talla
+- **Date et heure (UTC) :** ______________________ *(le jour où les sources ont réellement
+  été consultées, pas la date de préparation du document)*
 
 ## F. Renvois dans le code
 

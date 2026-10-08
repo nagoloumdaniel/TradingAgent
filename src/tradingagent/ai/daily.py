@@ -1,12 +1,17 @@
 """The daily AI Lab pass, wired into the agent loop (cahier v3 §5, §15, §16, §17, §52).
 
 Once per UTC day, the analyst reads the trades that closed and the researcher turns what it
-learned into falsifiable hypotheses. Nothing here can trade: the only tables this module
-writes are `ai_analyses`, `ai_proposals` and the `system_events` marker that makes the pass
-idempotent.
+learned into falsifiable hypotheses. Nothing here can trade: the only tables this module and
+the chain it can call write are `ai_analyses`, `ai_proposals`, `backtest_runs`,
+`validation_runs` and the `system_events` entries that make the pass idempotent and the
+chain's refusals auditable.
 
 The pass is deliberately dumb about *when*: the loop calls `run_once` every cycle and the
 day marker makes it a no-op until midnight UTC, which keeps a scheduler out of the loop.
+
+The improvement chain is optional and injected. It needs a measurement to compare against, and
+measuring is research work, which this project never loads in production; without a chain the
+pass behaves exactly as it did before one existed.
 """
 
 import logging
@@ -20,18 +25,18 @@ from sqlalchemy.orm import Session
 
 from tradingagent.ai.analyst import LossContext, LossObservation, LossVerdict, TradeAnalyst
 from tradingagent.ai.escalation import DEFAULT_TRIGGER, Escalation, escalations, failure_patterns
+from tradingagent.ai.evidence import evidence_for
+from tradingagent.ai.improvement_cycle import CycleOutcome, ImprovementRunner
 from tradingagent.ai.lab_store import LabStore
 from tradingagent.ai.researcher import (
     BacktestEvidence,
     Hypothesis,
     StrategyResearcher,
-    ValidationEvidence,
 )
 from tradingagent.analytics.model import Trade
 from tradingagent.core.states import Severity
 from tradingagent.runtime.ports import NotifierPort
 from tradingagent.storage.models import (
-    BacktestRunRow,
     ExecutionEventRow,
     OrderRow,
     PositionRow,
@@ -39,7 +44,6 @@ from tradingagent.storage.models import (
     StrategyVersionRow,
     SystemEventRow,
     TradeRow,
-    ValidationRunRow,
 )
 
 log = logging.getLogger(__name__)
@@ -102,6 +106,7 @@ class LabRun:
     verdicts: tuple[LossVerdict, ...]
     proposals: tuple[Hypothesis, ...]
     escalations: tuple[Escalation, ...] = ()
+    cycles: tuple[CycleOutcome, ...] = ()
     skipped: bool = False
 
 
@@ -115,6 +120,7 @@ class DailyLab:
         analyst: TradeAnalyst,
         researcher: StrategyResearcher | None = None,
         notifier: NotifierPort | None = None,
+        cycle: ImprovementRunner | None = None,
         trigger: int = DEFAULT_TRIGGER,
         now: Callable[[], datetime] = _utc_now,
     ) -> None:
@@ -122,6 +128,7 @@ class DailyLab:
         self._analyst = analyst
         self._researcher = researcher
         self._notifier = notifier
+        self._cycle = cycle
         self._trigger = trigger
         self._now = now
 
@@ -134,13 +141,16 @@ class DailyLab:
         verdicts = await self._analyse(facts, now)
         escalated = await self._escalate(now)
         proposals = await self._research(facts, now)
+        cycles = await self._improve(escalated, now)
         self._mark(day, len(facts), len(proposals), now)
         log.info(
-            "AI Lab: %d trade(s) examined, %d verdict(s), %d escalation(s), %d proposal(s)",
+            "AI Lab: %d trade(s) examined, %d verdict(s), %d escalation(s), %d proposal(s), "
+            "%d improvement cycle(s)",
             len(facts),
             len(verdicts),
             len(escalated),
             len(proposals),
+            len(cycles),
         )
         return LabRun(
             day=day,
@@ -148,6 +158,7 @@ class DailyLab:
             verdicts=verdicts,
             proposals=proposals,
             escalations=escalated,
+            cycles=cycles,
         )
 
     # -- the trigger ----------------------------------------------------------------------
@@ -166,6 +177,32 @@ class DailyLab:
         for escalation in decided:
             await self._alert(escalation.message())
         return decided
+
+    # -- the chain the escalation starts --------------------------------------------------
+
+    async def _improve(
+        self, escalated: Sequence[Escalation], now: datetime
+    ) -> tuple[CycleOutcome, ...]:
+        """Hand each escalation to the improvement chain, if one is wired.
+
+        The chain proposes variants, measures them, compares them with the version in place and
+        — only on a real improvement — writes a candidate manifest that still has to clear the
+        nine gates. Nothing here can trade, and nothing here adopts anything.
+
+        The chain is optional on purpose: it needs a measurement, and measuring is research
+        work, which never loads in production (`tests/test_architecture.py`). When it is absent
+        the pass is exactly what it was before. When it is present and no proof has been
+        recorded yet, it stops and *says so* — that is a result to report, not a failure to
+        swallow, and it is the state the lab starts each market in.
+        """
+        if self._cycle is None or not escalated:
+            return ()
+        outcomes: list[CycleOutcome] = []
+        for escalation in escalated:
+            outcome = self._cycle.run(escalation, at=now)
+            outcomes.append(outcome)
+            await self._alert(outcome.message())
+        return tuple(outcomes)
 
     # -- analysis -------------------------------------------------------------------------
 
@@ -215,32 +252,15 @@ class DailyLab:
         return tuple(proposals)
 
     def _evidence(self, market: str) -> BacktestEvidence | None:
-        """The latest recorded backtest for this market, with its validation history."""
-        with Session(self._engine) as session:
-            run = session.scalars(
-                select(BacktestRunRow)
-                .where(BacktestRunRow.market == market)
-                .order_by(BacktestRunRow.id.desc())
-                .limit(1)
-            ).first()
-            if run is None:
-                return None
-            validations = session.scalars(
-                select(ValidationRunRow).where(
-                    ValidationRunRow.ref == run.ref, ValidationRunRow.market == market
-                )
-            ).all()
-        return BacktestEvidence(
-            market=market,
-            ref=run.ref,
-            parameters={},
-            metrics={key: float(value) for key, value in run.metrics.items()},
-            dataset_id=run.dataset_id,
-            validations=tuple(
-                ValidationEvidence(stage=str(row.stage), passed=bool(row.passed))
-                for row in validations
-            ),
-        )
+        """The latest recorded backtest for this market, with its validation history.
+
+        Read through `ai.evidence`, the one module that knows how a measured result is
+        written: campaign runs and improvement cycles both land in `backtest_runs`, and this
+        is how the researcher finally sees them. `None` means nothing was ever measured for
+        that market — which the researcher treats as "no hypothesis", never as "healthy".
+        """
+        found = evidence_for(self._engine, market)
+        return None if found is None else found.to_backtest_evidence()
 
     # -- persistence helpers --------------------------------------------------------------
 

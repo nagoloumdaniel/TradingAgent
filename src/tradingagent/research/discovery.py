@@ -43,7 +43,6 @@ from tradingagent.analytics.model import Performance
 from tradingagent.backtest.costs import CostModel
 from tradingagent.backtest.datasets import CandleDataset
 from tradingagent.backtest.harness import BacktestConfig, run_backtest
-from tradingagent.backtest.randomness import DeterministicRandom
 from tradingagent.core.market import Candle, Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.signal import SignalCandidate
@@ -51,7 +50,12 @@ from tradingagent.core.timeframe import Timeframe
 from tradingagent.indicators.momentum import rsi
 from tradingagent.indicators.moving_average import ema
 from tradingagent.indicators.volatility import atr
+
+# The statistics themselves live in `protocol`, where the campaign needs them too; the aliases
+# keep `discovery`'s published names -- and its monkeypatch points -- intact.
 from tradingagent.research.protocol import (
+    DEFAULT_FALSE_DISCOVERY_RATE,
+    DEFAULT_MONTE_CARLO_ITERATIONS,
     MIN_TRADES_FOR_STABILITY,
     OOS_RETENTION_MIN,
     PARAMETER_CV_MAX,
@@ -65,10 +69,14 @@ from tradingagent.research.protocol import (
     out_of_sample_retention,
     period_report,
     perturb_parameters,
+    price_false_discoveries,
     split_dataset,
     stability_report,
     walk_forward,
 )
+from tradingagent.research.protocol import benjamini_hochberg as _benjamini_hochberg
+from tradingagent.research.protocol import bonferroni_threshold as _bonferroni_threshold
+from tradingagent.research.protocol import monte_carlo_p_value as _monte_carlo_p_value
 from tradingagent.strategies.base import Strategy, StrategyContext
 from tradingagent.strategies.library.trend_breakout import TrendBreakout
 from tradingagent.strategies.library.witness import Witness
@@ -76,11 +84,6 @@ from tradingagent.strategies.manifest import StrategyManifest
 
 DEFAULT_WALK_FORWARD_RATIO = 0.5
 DEFAULT_VERSION = "0.1.0"
-#: Tolerated proportion of false discoveries among the candidates a run retains. 0.10 is the
-#: usual convention and it is *not* sacred: the report always prints it next to the numbers.
-DEFAULT_FALSE_DISCOVERY_RATE = 0.10
-#: Draws of the sign-flip null used to estimate one candidate's out-of-sample p-value.
-DEFAULT_MONTE_CARLO_ITERATIONS = 1_000
 
 
 class DiscardCause(StrEnum):
@@ -717,9 +720,14 @@ class DiscoveryProtocol:
     min_stability_score: float = STABILITY_SCORE_MIN
     min_profitable_regime_ratio: float = PROFITABLE_REGIME_MIN
     min_out_of_sample_retention: float = OOS_RETENTION_MIN
+    #: The validation block is deliberately larger than the manifest history the families
+    #: declare: a block must first feed the recursive indicators their warm-up before it can
+    #: place a single trade. At 100 bars the reference strategy opens nothing at all on a real
+    #: 4 000-bar tape, and a rolling gate scored on six empty blocks says nothing about the
+    #: rule -- only about the size of the window. 250 bars is measured to trade.
     walk_forward: WalkForwardPlan = field(
         default_factory=lambda: WalkForwardPlan(
-            train_bars=250, validation_bars=100, step_bars=150, max_folds=6
+            train_bars=350, validation_bars=250, step_bars=200, max_folds=6
         )
     )
     spread_fraction: float = 5e-5
@@ -1066,11 +1074,16 @@ def early_discard_cause(
     protocol: DiscoveryProtocol,
     invalid_perturbations: int = 0,
 ) -> DiscardCause | None:
-    """Gates that roll-forward evidence can decide, before the sealed set is touched."""
+    """Gates that roll-forward evidence can decide, before the sealed set is touched.
+
+    A rolling origin with **no fold at all** is not evidence of overfitting: nothing was
+    measured. It is reported as `insufficient_data`, which is a fact about the window, and
+    never as a verdict on the rule.
+    """
     if in_sample_trades < protocol.min_trades:
         return DiscardCause.TOO_FEW_TRADES
     if walk_forward_outcome.folds < 1:
-        return DiscardCause.OVERFITTING
+        return DiscardCause.INSUFFICIENT_DATA
     if walk_forward_outcome.ratio < protocol.min_walk_forward_ratio:
         return DiscardCause.OVERFITTING
     if invalid_perturbations > 0:
@@ -1111,120 +1124,28 @@ def discard_cause(
     return None
 
 
-# --------------------------------------------------------------------------------------
-# False-discovery control: a survivor of fifty-one attempts is not yet a discovery.
-# --------------------------------------------------------------------------------------
-#
-# Every candidate of a run is one hypothesis tested ("this candidate has no edge"). Keeping
-# the one that looks best out of many and calling it a discovery is the classic multiple-
-# comparison trap: with enough attempts, chance alone produces a presentable survivor. The
-# ladder above judges each candidate *alone*; the functions below judge the *selection*.
-#
-# The honest difficulty is that the existing protocol produces no p-value: `stability_report`
-# is a robustness score, and `protocol.monte_carlo` resamples the realized P&L, which centres
-# on the observed total and therefore answers "what other orderings of these same trades?"
-# rather than "what would a rule without edge have done?". So the p-value is built here,
-# explicitly, and its assumptions are written down rather than implied.
-
-
 def monte_carlo_p_value(
-    pnls: Sequence[float],
-    *,
-    iterations: int = DEFAULT_MONTE_CARLO_ITERATIONS,
-    seed: int = 0,
+    pnls: Sequence[float], *, iterations: int = DEFAULT_MONTE_CARLO_ITERATIONS, seed: int = 0
 ) -> float:
-    """The probability that a random draw *without edge* does at least as well.
+    """The sign-flip null of one candidate, measured by `protocol.monte_carlo_p_value`.
 
-    Null hypothesis: the entry rule carries no directional information on that tape. Under
-    it the sign of each realized trade is as good as a fair coin -- the magnitudes are what
-    the market and the costs gave, but the direction says nothing. The statistic is the total
-    net profit; the null distribution is drawn by flipping the sign of every trade with an
-    independent fair coin (a sign-flip randomization test, the Fisher test for paired
-    observations), and the p-value is the share of those draws that reach the observed total.
-
-    Two deliberate details:
-
-    * the estimate is ``(count + 1) / (iterations + 1)``, never exactly zero: with
-      ``iterations`` draws a Monte-Carlo p-value cannot resolve below ``1 / (iterations + 1)``,
-      and reporting a zero would claim a precision this method does not have;
-    * an empty out-of-sample sample returns ``1.0``: no trade is no evidence of an edge.
-
-    What it does *not* do: the trades are treated as exchangeable, so clustered regimes and
-    overlapping positions make the p-value optimistic, and the test only sees *directional*
-    edge -- a rule whose gross edge is smaller than its costs shows a small total and lands
-    near ``1.0``, which errs on the safe side.
+    The statistic lives in `protocol` now, next to the other statistics both the laboratory and
+    the campaign use, and this module keeps the name it has always published: a reader of the
+    discovery report looks for the p-value here, and a test can still replace it here.
     """
-    if iterations < 1:
-        raise ValueError("iterations must be positive")
-    values = [float(value) for value in pnls]
-    if not values:
-        return 1.0
-    observed = sum(values)
-    stream = DeterministicRandom(seed)
-    at_least_as_good = 0
-    for _ in range(iterations):
-        total = 0.0
-        for value in values:
-            total += value if stream.random() < 0.5 else -value
-        if total >= observed:
-            at_least_as_good += 1
-    return (at_least_as_good + 1) / (iterations + 1)
-
-
-def bonferroni_threshold(hypotheses: int, *, alpha: float = DEFAULT_FALSE_DISCOVERY_RATE) -> float:
-    """The per-test threshold of the Bonferroni correction, shown only for comparison.
-
-    Bonferroni divides the level by the number of tests and is therefore stricter than
-    Benjamini-Hochberg whenever more than one test looks promising. It is reported so a
-    reader can see how much of the result comes from the correction and how much from the
-    choice of method; it never decides anything here. With no test at all, nothing has to be
-    cleared, so the threshold is ``1.0``.
-    """
-    if hypotheses < 0:
-        raise ValueError("hypotheses cannot be negative")
-    if not 0 < alpha <= 1:
-        raise ValueError("alpha must be in (0, 1]")
-    return alpha / hypotheses if hypotheses else 1.0
-
-
-def _benjamini_hochberg_cut_off(p_values: Sequence[float], alpha: float) -> float | None:
-    """The p-value cut-off of the BH step-up: the largest ``p_(k)`` with ``p_(k) <= k/m*alpha``.
-
-    ``None`` means "no rank qualifies", i.e. nothing is a discovery. Kept separate from the
-    flags so the rule is written in one place and the decisions are a plain comparison.
-    """
-    ordered = sorted(p_values)
-    cut_off: float | None = None
-    for rank, value in enumerate(ordered, start=1):
-        if value <= rank / len(ordered) * alpha:
-            cut_off = value
-    return cut_off
+    return _monte_carlo_p_value(pnls, iterations=iterations, seed=seed)
 
 
 def benjamini_hochberg(
     p_values: Sequence[float], *, alpha: float = DEFAULT_FALSE_DISCOVERY_RATE
 ) -> tuple[bool, ...]:
-    """Benjamini-Hochberg step-up: which hypotheses survive at a false-discovery rate alpha.
+    """Which hypotheses clear the Benjamini-Hochberg step-up, from `protocol`."""
+    return _benjamini_hochberg(p_values, alpha=alpha)
 
-    Sort the p-values ascending; the largest rank ``k`` with ``p_(k) <= k / m * alpha`` fixes
-    the cut-off, and every hypothesis with ``p <= p_(k)`` is rejected (i.e. *kept* here: a
-    small p-value is what makes a candidate a discovery). With a single candidate the rule
-    collapses to ``p <= alpha``, which is the honest reading of "no selection happened".
 
-    Flags come back in the order the p-values were given, so a caller can zip them straight
-    back onto its candidates.
-    """
-    if not 0 < alpha <= 1:
-        raise ValueError("alpha must be in (0, 1]")
-    for value in p_values:
-        if not 0.0 <= value <= 1.0:
-            raise ValueError(f"p-values must lie in [0, 1], got {value}")
-    if not p_values:
-        return ()
-    cut_off = _benjamini_hochberg_cut_off(p_values, alpha)
-    if cut_off is None:
-        return tuple(False for _ in p_values)
-    return tuple(value <= cut_off for value in p_values)
+def bonferroni_threshold(hypotheses: int, *, alpha: float = DEFAULT_FALSE_DISCOVERY_RATE) -> float:
+    """The per-test Bonferroni threshold, reported for comparison only, from `protocol`."""
+    return _bonferroni_threshold(hypotheses, alpha=alpha)
 
 
 def control_false_discoveries(
@@ -1234,50 +1155,50 @@ def control_false_discoveries(
 ) -> tuple[tuple[CandidateOutcome, ...], MultipleTestingReport]:
     """Demote the survivors that do not clear the false-discovery correction.
 
-    Every candidate of the run is one test. The ones that never reached the sealed set carry
-    no out-of-sample evidence and are counted with ``p = 1``; that keeps the number of tests
-    equal to the number of candidates the laboratory actually tried, which makes the
-    correction *conservative* rather than flattering. A demoted candidate keeps its p-value
-    and receives :attr:`DiscardCause.FALSE_DISCOVERY`, never a silent deletion.
+    The rule itself belongs to `protocol.price_false_discoveries`, which speaks in
+    ``(label, p_value)`` pairs so any selection can be priced with it; this wrapper only
+    translates the verdicts back onto the candidates of a discovery run. A candidate that
+    never reached the sealed set carries no out-of-sample evidence and is counted with
+    ``p = 1``: the number of tests stays equal to the number of candidates the laboratory
+    actually tried, which makes the correction *conservative* rather than flattering. A
+    demoted candidate keeps its p-value and receives :attr:`DiscardCause.FALSE_DISCOVERY`,
+    never a silent deletion.
     """
-    count = len(candidates)
-    p_values = [1.0 if candidate.p_value is None else candidate.p_value for candidate in candidates]
-    survives = benjamini_hochberg(p_values, alpha=alpha)
-    # A demoted candidate is quoted the threshold *its own rank* required, ``rank/m * alpha``:
-    # Benjamini-Hochberg rejects exactly the p-values above their rank threshold, so the line
-    # says what the candidate failed to clear without borrowing another candidate's number.
-    ranks = [1 + sum(1 for other in p_values if other < value) for value in p_values]
+    control = price_false_discoveries(
+        tuple((candidate.label, candidate.p_value) for candidate in candidates), alpha=alpha
+    )
     controlled: list[CandidateOutcome] = []
-    demoted = 0
-    for position, (candidate, p_value, significant) in enumerate(
-        zip(candidates, p_values, survives, strict=True)
-    ):
-        if candidate.retained and not significant:
-            demoted += 1
+    for candidate, outcome in zip(candidates, control.outcomes, strict=True):
+        if candidate.retained and not outcome.significant:
+            shown = 1.0 if candidate.p_value is None else candidate.p_value
             controlled.append(
                 replace(
                     candidate,
                     retained=False,
                     cause=DiscardCause.FALSE_DISCOVERY,
                     detail=(
-                        f"p={p_value:.4f} > seuil de Benjamini-Hochberg "
-                        f"{ranks[position] / count * alpha:.4f} au rang {ranks[position]} "
-                        f"sur {count} test(s) à alpha={alpha:.2f}"
+                        f"p={shown:.4f} > "
+                        f"seuil de Benjamini-Hochberg {outcome.cut_off:.4f} au rang "
+                        f"{outcome.rank} sur {control.report.hypotheses} test(s) "
+                        f"à alpha={alpha:.2f}"
                     ),
                 )
             )
             continue
         controlled.append(candidate)
+    # ``discoveries_before`` counts the survivors *as the protocol left them*, p-value or
+    # not: a survivor with no measurement is a discovery the correction has to answer for,
+    # not one it may ignore.
     before = sum(1 for candidate in candidates if candidate.retained)
     return tuple(controlled), MultipleTestingReport(
         method="benjamini_hochberg",
         alpha=alpha,
-        hypotheses=count,
+        hypotheses=control.report.hypotheses,
         discoveries_before=before,
-        discoveries_after=before - demoted,
-        rejected_by_correction=demoted,
-        bonferroni_threshold=bonferroni_threshold(count, alpha=alpha),
-        expected_false_discoveries=count * alpha,
+        discoveries_after=control.report.discoveries_after,
+        rejected_by_correction=before - control.report.discoveries_after,
+        bonferroni_threshold=control.report.bonferroni_threshold,
+        expected_false_discoveries=control.report.expected_false_discoveries,
     )
 
 

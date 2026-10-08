@@ -96,13 +96,15 @@ def tiny_grid() -> dict[str, dict[str, tuple[float, ...]]]:
     }
 
 
-def synthetic(seed: int = 11, drift: float = 0.0, volatility: float = 0.003) -> CandleDataset:
+def synthetic(
+    seed: int = 11, drift: float = 0.0, volatility: float = 0.003, bars: int = BARS
+) -> CandleDataset:
     return synthetic_dataset(
-        f"synthetic-{seed}-{drift}",
+        f"synthetic-{seed}-{drift}-{bars}",
         "frxXAUUSD",
         M15,
         START,
-        (SyntheticRegime(bars=BARS, drift=drift, volatility=volatility),),
+        (SyntheticRegime(bars=bars, drift=drift, volatility=volatility),),
         seed=seed,
         decimals=5,
     )
@@ -488,7 +490,10 @@ def overfitted_template(scope: TemplateScope, grid: Grid) -> Iterator[CandidateP
 
 
 def test_a_family_fitted_on_the_training_window_is_discarded_as_overfitting() -> None:
-    drifting = synthetic(seed=7, drift=0.004, volatility=0.0008)
+    # A fold must be wide enough to hold the memoriser's declared history *and* trade: a
+    # rolling origin that cannot run would say `insufficient_data`, which is a fact about the
+    # window, not the overfitting this test is about.
+    drifting = synthetic(seed=7, drift=0.004, volatility=0.0008, bars=1200)
     # The band is read off the training window, but after the warm-up of the manifest:
     # the whole point is a parameter fitted on the in-sample tape.
     window = drifting.candles[55:75]
@@ -496,10 +501,14 @@ def test_a_family_fitted_on_the_training_window_is_discarded_as_overfitting() ->
     band_high = max(candle.high for candle in window)
     grid = {"overfitted": {"band_low": (band_low,), "band_high": (band_high,)}}
     families = (FamilyTemplate("overfitted", "gabarit surajusté", overfitted_template),)
-
-    report = discover(
-        {"frxXAUUSD": drifting}, grid, small_protocol(min_trades=1), families=families
+    protocol = small_protocol(
+        min_trades=1,
+        walk_forward=WalkForwardPlan(
+            train_bars=200, validation_bars=200, step_bars=200, max_folds=3
+        ),
     )
+
+    report = discover({"frxXAUUSD": drifting}, grid, protocol, families=families)
 
     assert report.candidates
     assert report.retained() == ()
@@ -511,6 +520,7 @@ def test_a_family_fitted_on_the_training_window_is_discarded_as_overfitting() ->
     for candidate in report.candidates:
         assert candidate.cause is DiscardCause.OVERFITTING
         assert candidate.walk_forward is not None
+        assert candidate.walk_forward.folds >= 1
         assert candidate.walk_forward.ratio < 0.5
         assert candidate.train is not None
         assert candidate.train.trades >= 1
