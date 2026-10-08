@@ -249,6 +249,38 @@ def test_the_stress_gate_is_measured_on_the_doubled_costs_and_named_as_such() ->
         assert market["criteria_borrowed_from"] == ValidationStage.COSTS.value
 
 
+def test_the_costs_gate_reads_the_charged_run_and_the_stress_gate_the_doubled_one() -> None:
+    """Two gates, two cost models, two figures -- and the published net is the 1x one.
+
+    Measured defect: `CandidateReport.cost_net` held `stressed.performance`, so the costs gate
+    was decided on the validation window replayed at *twice* the charged costs and displayed
+    the stress gate's figure on every market (0,81 = 0,81, 0,67 = 0,67, 0,46 = 0,46). The
+    "net profit factor" the report published was therefore not the net profit factor at 1x.
+    """
+    report = campaign()
+    measured = 0
+    for market in report.markets:
+        winner = market.winner
+        assert winner is not None and winner.gates is not None
+        costs = winner.verdict(ValidationStage.COSTS)
+        stress = winner.verdict(ValidationStage.STRESS)
+        assert costs is not None and stress is not None
+        # The charged run: the validation window under the configured cost model, once.
+        assert winner.cost_net == winner.validation
+        assert costs.evidence["net_profit"] == str(winner.validation.net_profit)
+        assert costs.evidence["profit_factor"] == winner.validation.profit_factor
+        assert costs.evidence["profit_factor"] == winner.cost_net.profit_factor
+        assert costs.evidence["trades"] == winner.validation.trades
+        assert costs.evidence["measurement"] == "validation window with charged costs (1x)"
+        # The stressed run: the same window with the costs doubled, and only that one.
+        assert stress.evidence["net_profit"] == str(winner.gates.stressed.net_profit)
+        assert stress.evidence["profit_factor"] == winner.gates.stressed.profit_factor
+        assert stress.evidence["cost_multiplier"] == 2.0
+        assert stress.evidence["measurement"] == "validation window with costs doubled (2x)"
+        measured += 1
+    assert measured, "no market was measured, so this test proves nothing"
+
+
 def test_the_campaign_reports_the_two_gates_it_cannot_measure() -> None:
     report = campaign()
     for stage in (ValidationStage.PAPER, ValidationStage.RISK):

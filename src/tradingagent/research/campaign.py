@@ -148,6 +148,11 @@ class CandidateReport:
     label: str
     train: Performance
     validation: Performance
+    #: The validation window replayed under the **charged** cost model -- the 1x run, the one
+    #: the `costs` gate is decided on. It is deliberately not the stressed run: that one lives
+    #: in `gates.stressed`, at `STRESS_COST_MULTIPLIER` times the charged costs, and the
+    #: `stress` gate is its only reader. Publishing one figure under both gates made the "net
+    #: profit factor" of the report the factor measured at twice the costs.
     cost_net: Performance
     stability_score: float
     fragile: bool
@@ -529,9 +534,10 @@ def _run_candidate(
         label=candidate.label,
         train=train_result.performance,
         validation=validation_result.performance,
-        # `cost_net` has always meant "the validation window replayed with stressed costs":
-        # the stress gate reads `gates.stressed`, this field keeps the published contract.
-        cost_net=stressed.performance,
+        # `cost_net` is the validation window under the charged cost model -- the 1x run, and
+        # the one the `costs` gate reads. The doubled run is `gates.stressed`, which only the
+        # `stress` gate reads: the two gates must never publish the same figure.
+        cost_net=validation_result.performance,
         stability_score=stability.score,
         fragile=stability.fragile,
         reasons=stability.reasons,
@@ -714,6 +720,13 @@ def _backtest_gate(report: CandidateReport, thresholds: AcceptanceThresholds) ->
 
 
 def _costs_gate(report: CandidateReport, thresholds: AcceptanceThresholds) -> GateVerdict:
+    """The validation window under the **charged** cost model, once: the 1x reading.
+
+    The figure is deliberately the one the rule was measured with in the first place. Reading
+    a stressed performance here made this gate print the `stress` gate's number on every
+    market -- 0,81 = 0,81 -- and published a "net profit factor" measured at twice the costs.
+    The stress gate keeps that doubled reading, and only it.
+    """
     factor = report.cost_net.profit_factor
     drawdown = report.cost_net.max_drawdown
     reasons: list[str] = []
@@ -725,14 +738,17 @@ def _costs_gate(report: CandidateReport, thresholds: AcceptanceThresholds) -> Ga
     return GateVerdict(
         stage=ValidationStage.COSTS,
         status=GateStatus.PASSED if not reasons else GateStatus.FAILED,
-        evaluator="campaign._run_candidate -> run_backtest with the charged CostModel",
+        evaluator=(
+            "campaign._run_candidate -> run_backtest with the charged CostModel (1x), the same "
+            "run as the validation window"
+        ),
         reason="costs are survivable" if not reasons else "; ".join(reasons),
         evidence={
             "net_profit": str(report.cost_net.net_profit),
             "profit_factor": factor,
             "max_drawdown": str(drawdown),
             "trades": report.cost_net.trades,
-            "measurement": "validation window with charged costs",
+            "measurement": "validation window with charged costs (1x)",
         },
         threshold=thresholds.min_profit_factor_net,
     )
@@ -900,6 +916,7 @@ def _stress_gate(gates: CandidateGates, thresholds: AcceptanceThresholds) -> Gat
             "profit_factor": factor,
             "trades": stressed.trades,
             "max_drawdown": str(stressed.max_drawdown),
+            "measurement": "validation window with costs doubled (2x)",
             # Inventing a laxer bar for the stressed run would be lowering a threshold by the
             # back door: the rule must clear what it must clear at charged costs, but at two.
             "criteria_borrowed_from": ValidationStage.COSTS.value,

@@ -7,6 +7,7 @@ import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from enum import StrEnum
 
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.timeframe import Timeframe
@@ -45,6 +46,61 @@ MODE_SHORT_LABELS = {
 }
 
 
+class Usage(StrEnum):
+    """How /help groups the palette: read, choose, act. The order is the reading order."""
+
+    CONSULTER = "CONSULTER"
+    CONTROLER = "CONTRÔLER"
+    AGIR = "AGIR"
+
+
+USAGE_TAGLINES = {
+    Usage.CONSULTER: "lire l'état, rien ne change",
+    Usage.CONTROLER: "choisir, avec les conséquences annoncées",
+    Usage.AGIR: "arrêter ou reprendre l'agent",
+}
+
+# One line per command: what to type, then what it is for, in one sentence. The table is
+# keyed by command name so a caller that registers three positional arguments — the
+# composition root, the tests — documents nothing twice. A command with no entry here
+# still appears in /help, under AUTRES, with the description it was registered with.
+COMMAND_HELP: dict[str, tuple[Usage, str, str]] = {
+    "help": (Usage.CONSULTER, "/help", "cette page, la palette groupée par usage"),
+    "status": (Usage.CONSULTER, "/status", "mode, arrêt actif, quarantaines, marchés"),
+    "markets": (Usage.CONSULTER, "/markets", "marchés suivis et fraîcheur des bougies"),
+    "marche": (Usage.CONSULTER, "/marche SYM", "un marché : suivi, position, haltes, calendrier"),
+    "signals": (Usage.CONSULTER, "/signals", "les derniers signaux produits"),
+    "positions": (Usage.CONSULTER, "/positions", "les positions ouvertes et leur entrée"),
+    "performance": (Usage.CONSULTER, "/performance", "les trades clôturés, gagnants et PnL"),
+    "report": (Usage.CONSULTER, "/report PERIODE", "le rapport quotidien, hebdo ou mensuel"),
+    "propositions": (
+        Usage.CONSULTER,
+        "/propositions [SYM]",
+        "ce que l'IA propose et la décision prise",
+    ),
+    "portes": (Usage.CONSULTER, "/portes SYM [REF]", "les portes de promotion manquantes"),
+    "mode": (Usage.CONTROLER, "/mode", "voir et changer le mode, conséquences comprises"),
+    "disable": (Usage.CONTROLER, "/disable SYM", "couper un marché précis"),
+    "enable": (Usage.CONTROLER, "/enable SYM", "rouvrir un marché précis"),
+    "pause": (Usage.AGIR, "/pause", "suspendre les nouveaux ordres, garder les positions"),
+    "resume": (Usage.AGIR, "/resume", "reprendre après une pause ou un arrêt d'urgence"),
+    "close_all": (Usage.AGIR, "/close_all", "fermer toutes les positions au marché"),
+    "emergency_stop": (Usage.AGIR, "/emergency_stop", "tout arrêter, sans clôturer les positions"),
+}
+
+HELP_HEADER = "🧭 Commandes du bot, par usage"
+HELP_FOOTER = (
+    "Les commandes qui changent l'état demandent « confirmer ».\n"
+    "Tape /mode ou /pause : les choix s'affichent en boutons."
+)
+HELP_OTHER_GROUP = "AUTRES"
+HELP_OTHER_TAGLINE = "sans fiche détaillée"
+
+# The width of the column that holds what to type, and the width of one line on a phone.
+HELP_COLUMN = 20
+LINE_WIDTH = 80
+
+
 class CommandRouter:
     def __init__(self) -> None:
         self._handlers: dict[str, tuple[str, Handler]] = {}
@@ -65,11 +121,33 @@ class CommandRouter:
         return await entry[1](request)
 
     async def _help(self, _: CommandRequest) -> str:
-        lines = ["Commandes disponibles :"]
-        lines += [
-            f"/{name} : {description}" for name, (description, _h) in sorted(self._handlers.items())
-        ]
-        return "\n".join(lines)
+        """The palette, grouped by usage: the operator reads three short sections."""
+        blocks: list[str] = [HELP_HEADER]
+        for usage in Usage:
+            names = sorted(
+                name
+                for name in self._handlers
+                if name in COMMAND_HELP and COMMAND_HELP[name][0] is usage
+            )
+            if not names:
+                continue
+            heading = f"▸ {usage.value} — {USAGE_TAGLINES[usage]}"
+            blocks.append("\n".join([heading, *(self._help_line(name) for name in names)]))
+        others = sorted(name for name in self._handlers if name not in COMMAND_HELP)
+        if others:
+            heading = f"▸ {HELP_OTHER_GROUP} — {HELP_OTHER_TAGLINE}"
+            blocks.append("\n".join([heading, *(self._help_line(name) for name in others)]))
+        blocks.append(HELP_FOOTER)
+        return "\n\n".join(blocks)
+
+    def _help_line(self, name: str) -> str:
+        documented = COMMAND_HELP.get(name)
+        if documented is None:
+            signature, purpose = f"/{name}", self._handlers[name][0]
+        else:
+            signature, purpose = documented[1], documented[2]
+        line = f"  {signature:<{HELP_COLUMN}} {' '.join(purpose.split())}".rstrip()
+        return line if len(line) <= LINE_WIDTH else line[: LINE_WIDTH - 3].rstrip() + "..."
 
 
 def age(at: datetime, since: datetime) -> str:

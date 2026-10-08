@@ -193,8 +193,11 @@ def candidate_to_dict(candidate: CandidateReport) -> dict[str, Any]:
         "reasons": list(candidate.reasons),
         "train_net_profit": str(candidate.train.net_profit),
         "validation_net_profit": str(candidate.validation.net_profit),
+        # The charged run, once: the figure the `costs` gate is decided on. Its stressed
+        # counterpart is published under `stressed`, with the multiplier that produced it.
         "cost_net_profit": str(candidate.cost_net.net_profit),
         "cost_net_profit_factor": candidate.cost_net.profit_factor,
+        "cost_net_cost_multiplier": 1.0,
         "parameters": {key: float(value) for key, value in candidate.parameters.items()},
         "walk_forward": (
             None
@@ -329,6 +332,13 @@ def campaign_to_dict(
             },
             "monte_carlo_iterations": MONTE_CARLO_ITERATIONS,
             "stress_cost_multiplier": STRESS_COST_MULTIPLIER,
+            # The two cost gates read two different runs, and the report has to say which is
+            # which: they used to publish one figure twice, and the "net profit factor" was
+            # the one measured at twice the charged costs.
+            "cost_measurement": (
+                "the costs gate reads the validation window under the charged cost model (1x); "
+                "the stress gate reads the same window with those costs doubled (2x)"
+            ),
             "false_discovery_rate": DEFAULT_FALSE_DISCOVERY_RATE,
             "p_value_measurement": (
                 "validation window, measured for every candidate before any holdout is opened"
@@ -396,12 +406,12 @@ def print_report(report: CampaignReport, datasets: Mapping[str, CandleDataset]) 
             print(
                 f"   {marker} {candidate.label:14s} stability={candidate.stability_score:.3f} "
                 f"train={candidate.train.net_profit:>9} val={candidate.validation.net_profit:>9} "
-                f"cost_net={candidate.cost_net.net_profit:>9} "
-                f"PF={candidate.cost_net.profit_factor} fragile={candidate.fragile}"
+                f"cost_net(1x)={candidate.cost_net.net_profit:>9} "
+                f"PF(1x)={candidate.cost_net.profit_factor} fragile={candidate.fragile}"
             )
             print(
                 f"       walk-forward folds {folds} · Monte-Carlo P(profit)={probability} "
-                f"p={p_value} · stressed PF={stressed_factor}"
+                f"p={p_value} · PF(2x)={stressed_factor}"
             )
             for reason in candidate.reasons:
                 print(f"       - {reason}")

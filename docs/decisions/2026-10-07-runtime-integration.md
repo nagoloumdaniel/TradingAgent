@@ -85,6 +85,14 @@ restent plafonnés à `max_mode: SIGNAL` : aucune exécution réelle n'est possi
 TASK-064 et TASK-065 (RM-016). `witness@1.0.0` est conservé : un manifeste déjà utilisé ne
 se réécrit jamais.
 
+**Mise à jour du 2026-10-08.** Les versions publiées ensuite (`witness@1.1.1`,
+`trend_breakout@1.0.1`) relèvent le plafond à `DEMO`, à la demande de l'opérateur, pour
+répéter le système sur un compte de démonstration : la campagne a refusé 6 portes sur 9, et
+les chiffres sont écrits dans l'en-tête de chaque manifeste. L'invariant « jamais au-dessus de
+`SIGNAL` » est remplacé par « jamais au-dessus sans dérogation écrite et datée » — voir
+`docs/decisions/2026-10-08-mode-ceiling-derogation.md`. `LIVE` reste hors d'atteinte sans la
+validation complète des neuf portes du §49.
+
 ## D-07 — Capital de départ du paper trading
 
 **Décision.** Le compte simulé du `PaperBroker` démarre à 1 000 € (constante

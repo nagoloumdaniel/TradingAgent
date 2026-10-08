@@ -198,6 +198,16 @@ Chargement tout ou rien. Conserver l'ancienne configuration quand la nouvelle es
   - symbole du marché absent de `allowed_symbols` du manifeste (**RM-003**) ;
   - `max_mode` du manifeste inférieur au mode de l'agent : **refus de démarrer** plutôt que de faire tourner ce marché dans un mode dégradé sans le signaler (**RM-016**).
 
+### 4.4 Plafond de `max_mode` : aucune escalade silencieuse
+
+`load_strategy_catalog` refuse tout manifeste de `config/strategies/` dont le `max_mode`
+dépasse `SIGNAL` sans porter, dans son en-tête, une dérogation opérateur explicite et datée
+nommant les chiffres de validation qui manquent (marqueur `DEROGATION OPERATEUR`, date ISO,
+profit factor mesuré et exigé, p-value minimale et ligne de Bonferroni, survivants après
+correction). Au-dessus de la dérogation, `max_mode: LIVE` exige la validation complète des
+neuf portes du §49 : une dérogation borne le plafond à `DEMO`, jamais au compte réel
+(**RM-016**, **RM-017**). Détail : `docs/decisions/2026-10-08-mode-ceiling-derogation.md`.
+
 ## 5. Test d'architecture
 
 - `strategies` devient un paquet pur, comme `indicators`. Dépendances autorisées : `core` pour `indicators`, `core` et `indicators` pour `strategies`.

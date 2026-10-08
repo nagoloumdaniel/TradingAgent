@@ -25,6 +25,7 @@ from tradingagent.notify.commands import (
     age,
     market_line,
 )
+from tradingagent.notify.replies import Button, Keyboard, Reply, encode_callback
 from tradingagent.notify.signal_template import DIRECTION_LABELS
 from tradingagent.registry.gates import PROMOTION_GATES, missing_gates
 from tradingagent.registry.store import StrategyRegistry
@@ -45,6 +46,9 @@ REPORT_PERIODS = {
     "monthly": Period.MONTHLY,
     "mensuel": Period.MONTHLY,
 }
+
+# The periods as the operator names them, and the words the command takes.
+REPORT_CHOICES = (("daily", "Quotidien"), ("weekly", "Hebdomadaire"), ("monthly", "Mensuel"))
 
 # One line of a read answer never exceeds this, so it stays readable on a phone.
 LINE_WIDTH = 80
@@ -91,6 +95,24 @@ def _unknown_market(symbol: str, markets: Sequence[tuple[str, bool]]) -> str | N
     if not known:
         return "Aucun marché configuré.\nRien à afficher."
     return f"Marché inconnu : {symbol}\nMarchés suivis : {', '.join(known)}."
+
+
+def _market_buttons(
+    command: str, markets: Sequence[tuple[str, bool]], at: datetime
+) -> Keyboard | None:
+    """One button per followed market, or None when no market is known.
+
+    A read command that needs a market to answer offers the markets instead of asking the
+    operator to spell one on a phone keyboard.
+    """
+    if not markets:
+        return None
+    return Keyboard(
+        tuple(
+            (Button(symbol, encode_callback(command, (symbol,), at)),)
+            for symbol, _enabled in markets
+        )
+    )
 
 
 def markets_handler(
@@ -161,18 +183,32 @@ def performance_handler(engine: Engine) -> Handler:
 
 def report_handler(engine: Engine, now: Callable[[], datetime]) -> Handler:
     """`/report daily|weekly|monthly`: the same numbers the scheduled report sends,
-    assembled from the database alone (F-022)."""
+    assembled from the database alone (F-022).
 
-    async def report(request: CommandRequest) -> str:
+    Without an argument the daily report is answered — and the three periods come as
+    buttons, so switching does not mean retyping the command.
+    """
+
+    async def report(request: CommandRequest) -> Reply:
         name = request.args[0].lower() if request.args else "daily"
         period = REPORT_PERIODS.get(name)
         if period is None:
-            return "Usage : /report daily|weekly|monthly"
+            return Reply("Usage : /report daily|weekly|monthly", _report_buttons(request.at))
         window = window_containing(period, now())
         generator = ReportGenerator(ReportData(engine), AccountStore(engine))
-        return await asyncio.to_thread(generator.build, window)
+        built = await asyncio.to_thread(generator.build, window)
+        return Reply(built, _report_buttons(request.at))
 
     return report
+
+
+def _report_buttons(at: datetime) -> Keyboard:
+    return Keyboard(
+        tuple(
+            (Button(label, encode_callback("report", (period,), at)),)
+            for period, label in REPORT_CHOICES
+        )
+    )
 
 
 # --- The per-market control centre -------------------------------------------
@@ -192,16 +228,24 @@ def market_handler(
 ) -> Handler:
     """`/marche <SYMBOLE>`: everything the operator needs about one market, in four blocks."""
 
-    async def read_market(request: CommandRequest) -> str:
+    async def read_market(request: CommandRequest) -> Reply:
         if not markets:
-            return "Aucun marché configuré.\nRien à afficher."
+            return Reply("Aucun marché configuré.\nRien à afficher.")
         if not request.args:
             known = ", ".join(_known_symbols(markets))
-            return f"Quel marché ? Exemple : /marche XAUUSD\nMarchés suivis : {known}."
+            # One button per market: reading a market is the operator's next move, and
+            # picking it here saves typing a symbol on a phone keyboard.
+            pick = Keyboard(
+                tuple(
+                    (Button(symbol, encode_callback("marche", (symbol,), request.at)),)
+                    for symbol, _enabled in markets
+                )
+            )
+            return Reply(f"Quel marché ? Exemple : /marche XAUUSD\nMarchés suivis : {known}.", pick)
         symbol = request.args[0].strip().upper()
         unknown = _unknown_market(symbol, markets)
         if unknown is not None:
-            return unknown
+            return Reply(unknown)
         enabled = dict(markets)[symbol]
 
         halt = await asyncio.to_thread(halts.status)
@@ -271,7 +315,17 @@ def market_handler(
             _block("Position", held),
             _block("Dernière activité", activity),
         ]
-        return "\n\n".join(blocks)
+        # The two controls this market has, as buttons: the operator acts from the very
+        # page that told them the state, and both still ask for confirmation.
+        controls = Keyboard(
+            (
+                (
+                    Button("Arrêter ce marché", encode_callback("disable", (symbol,), request.at)),
+                    Button("Reprendre ce marché", encode_callback("enable", (symbol,), request.at)),
+                ),
+            )
+        )
+        return Reply("\n\n".join(blocks), controls)
 
     return read_market
 
@@ -313,25 +367,26 @@ def gates_handler(engine: Engine, markets: Sequence[tuple[str, bool]] = ()) -> H
     rule the registry refuses a promotion with: the answer here is the answer there.
     """
 
-    async def read_gates(request: CommandRequest) -> str:
+    async def read_gates(request: CommandRequest) -> Reply:
         if not request.args:
-            return (
+            usage = (
                 "Quel marché ? Exemple : /portes XAUUSD\n"
                 "Pour une version précise : /portes XAUUSD witness@1.1.0"
             )
+            return Reply(usage, _market_buttons("portes", markets, request.at))
         symbol = request.args[0].strip().upper()
         unknown = _unknown_market(symbol, markets)
         if unknown is not None:
-            return unknown
+            return Reply(unknown)
         wanted = request.args[1].strip() if len(request.args) > 1 else None
         registry = StrategyRegistry(engine)
         rows = await asyncio.to_thread(registry.list_market, symbol)
         if wanted is not None:
             rows = [row for row in rows if row.ref == wanted]
             if not rows:
-                return f"Version inconnue : {wanted} pour {symbol}."
+                return Reply(f"Version inconnue : {wanted} pour {symbol}.")
         if not rows:
-            return f"Aucune stratégie enregistrée pour {symbol}."
+            return Reply(f"Aucune stratégie enregistrée pour {symbol}.")
 
         blocks = [f"Portes de promotion · {symbol}"]
         for row in rows:
@@ -347,7 +402,7 @@ def gates_handler(engine: Engine, markets: Sequence[tuple[str, bool]] = ()) -> H
             else:
                 lines.append("    Toutes les portes sont franchies : promotion possible.")
             blocks.append("\n".join(lines))
-        return "\n\n".join(blocks)
+        return Reply("\n\n".join(blocks))
 
     return read_gates
 

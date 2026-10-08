@@ -25,8 +25,13 @@ from typing import Any
 
 import truststore
 from sqlalchemy import Engine
-from telegram import Update
-from telegram.ext import Application, ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram.ext import (
+    Application,
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    MessageHandler,
+    filters,
+)
 
 from tradingagent.ai.analyst import TradeAnalyst
 from tradingagent.ai.daily import DailyLab
@@ -94,6 +99,11 @@ from tradingagent.notify.sensitive_commands import (
     resume_handler,
 )
 from tradingagent.notify.service import CommandService
+from tradingagent.notify.telegram_app import (
+    ALLOWED_UPDATES,
+    callback_handler,
+    message_handler,
+)
 from tradingagent.observability import Metrics, ResourceMonitor, configure_json_logging
 from tradingagent.registry.store import StrategyRegistry, UnknownStrategyRef
 from tradingagent.reporting.service import ReportService
@@ -314,16 +324,10 @@ def _build_command_service(
 
 def _build_telegram(settings: Settings, service: CommandService) -> Application:
     application = ApplicationBuilder().token(settings.telegram_bot_token.get_secret_value()).build()
-
-    async def on_message(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-        message, user, chat = update.effective_message, update.effective_user, update.effective_chat
-        if message is None or user is None or chat is None or not message.text:
-            return
-        reply = await service.handle(user.id, chat.type == chat.PRIVATE, message.text)
-        if reply:
-            await message.reply_text(reply)
-
-    application.add_handler(MessageHandler(filters.TEXT, on_message))
+    # The handler pair lives in the adapter, so the buttons exist here exactly as they do
+    # in `tradingagent-bot`: a second copy would drift and silently drop the markup.
+    application.add_handler(MessageHandler(filters.TEXT, message_handler(service)))
+    application.add_handler(CallbackQueryHandler(callback_handler(service)))
     return application
 
 
@@ -945,7 +949,7 @@ async def run(
             await application.initialize()
             await application.start()
             if application.updater is not None:
-                await application.updater.start_polling(allowed_updates=[Update.MESSAGE])
+                await application.updater.start_polling(allowed_updates=list(ALLOWED_UPDATES))
         if cycles is not None:
             for _ in range(cycles):
                 report = await loop.run_once()

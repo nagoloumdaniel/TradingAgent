@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-08T02:41:26.318688+00:00",
+  "generated_at": "2026-10-08T02:58:20.998991+00:00",
   "datasets": {
     "BTCUSD": {
       "dataset_id": "mt5-BTCUSD-2026-10-08",
@@ -46,6 +46,7 @@
     },
     "monte_carlo_iterations": 1000,
     "stress_cost_multiplier": 2.0,
+    "cost_measurement": "the costs gate reads the validation window under the charged cost model (1x); the stress gate reads the same window with those costs doubled (2x)",
     "false_discovery_rate": 0.1,
     "p_value_measurement": "validation window, measured for every candidate before any holdout is opened",
     "out_of_sample_measurement": "sealed holdout, unlocked once per market for the selected candidate"
@@ -88,17 +89,17 @@
       "status": "failed",
       "evaluated": true,
       "passed": false,
-      "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
+      "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel (1x), the same run as the validation window",
       "reason": "costs failed on: BTCUSD, XAUUSD",
       "threshold": 1.2,
       "evidence": {
         "markets": {
           "BTCUSD": {
-            "net_profit": "-70.600459091020",
-            "profit_factor": 0.8121974704824612,
-            "max_drawdown": "135.083607475970",
+            "net_profit": "-29.902304372220",
+            "profit_factor": 0.915718432082609,
+            "max_drawdown": "110.683222360810",
             "trades": 57,
-            "measurement": "validation window with charged costs",
+            "measurement": "validation window with charged costs (1x)",
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
@@ -108,11 +109,11 @@
             ]
           },
           "XAUUSD": {
-            "net_profit": "-39.019163823570",
-            "profit_factor": 0.901626406884966,
-            "max_drawdown": "118.113684769630",
+            "net_profit": "14.955379002170",
+            "profit_factor": 1.0400490455874667,
+            "max_drawdown": "89.360955721670",
             "trades": 63,
-            "measurement": "validation window with charged costs",
+            "measurement": "validation window with charged costs (1x)",
             "market": "XAUUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
@@ -289,6 +290,7 @@
             "profit_factor": 0.8121974704824612,
             "trades": 57,
             "max_drawdown": "135.083607475970",
+            "measurement": "validation window with costs doubled (2x)",
             "criteria_borrowed_from": "costs",
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
@@ -304,6 +306,7 @@
             "profit_factor": 0.901626406884966,
             "trades": 63,
             "max_drawdown": "118.113684769630",
+            "measurement": "validation window with costs doubled (2x)",
             "criteria_borrowed_from": "costs",
             "market": "XAUUSD",
             "candidate": "fast-1.5R",
@@ -515,15 +518,15 @@
           "status": "failed",
           "evaluated": true,
           "passed": false,
-          "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-          "reason": "net profit factor 0.81 below 1.20",
+          "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel (1x), the same run as the validation window",
+          "reason": "net profit factor 0.92 below 1.20",
           "threshold": 1.2,
           "evidence": {
-            "net_profit": "-70.600459091020",
-            "profit_factor": 0.8121974704824612,
-            "max_drawdown": "135.083607475970",
+            "net_profit": "-29.902304372220",
+            "profit_factor": 0.915718432082609,
+            "max_drawdown": "110.683222360810",
             "trades": 57,
-            "measurement": "validation window with charged costs",
+            "measurement": "validation window with charged costs (1x)",
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
@@ -623,6 +626,7 @@
             "profit_factor": 0.8121974704824612,
             "trades": 57,
             "max_drawdown": "135.083607475970",
+            "measurement": "validation window with costs doubled (2x)",
             "criteria_borrowed_from": "costs",
             "market": "BTCUSD",
             "candidate": "fast-1.5R",
@@ -716,8 +720,9 @@
           ],
           "train_net_profit": "-329.583093482060",
           "validation_net_profit": "-29.902304372220",
-          "cost_net_profit": "-70.600459091020",
-          "cost_net_profit_factor": 0.8121974704824612,
+          "cost_net_profit": "-29.902304372220",
+          "cost_net_profit_factor": 0.915718432082609,
+          "cost_net_cost_multiplier": 1.0,
           "parameters": {
             "ema_fast": 10.0,
             "ema_slow": 30.0,
@@ -779,15 +784,15 @@
               "status": "failed",
               "evaluated": true,
               "passed": false,
-              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 0.81 below 1.20",
+              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel (1x), the same run as the validation window",
+              "reason": "net profit factor 0.92 below 1.20",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "-70.600459091020",
-                "profit_factor": 0.8121974704824612,
-                "max_drawdown": "135.083607475970",
+                "net_profit": "-29.902304372220",
+                "profit_factor": 0.915718432082609,
+                "max_drawdown": "110.683222360810",
                 "trades": 57,
-                "measurement": "validation window with charged costs"
+                "measurement": "validation window with charged costs (1x)"
               }
             },
             {
@@ -859,6 +864,7 @@
                 "profit_factor": 0.8121974704824612,
                 "trades": 57,
                 "max_drawdown": "135.083607475970",
+                "measurement": "validation window with costs doubled (2x)",
                 "criteria_borrowed_from": "costs"
               }
             },
@@ -924,8 +930,9 @@
           ],
           "train_net_profit": "-176.027504850080",
           "validation_net_profit": "-12.352505847300",
-          "cost_net_profit": "-35.127772539240",
-          "cost_net_profit_factor": 0.8513376679392156,
+          "cost_net_profit": "-12.352505847300",
+          "cost_net_profit_factor": 0.9446259460542761,
+          "cost_net_cost_multiplier": 1.0,
           "parameters": {
             "ema_fast": 20.0,
             "ema_slow": 50.0,
@@ -982,15 +989,15 @@
               "status": "failed",
               "evaluated": true,
               "passed": false,
-              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 0.85 below 1.20",
+              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel (1x), the same run as the validation window",
+              "reason": "net profit factor 0.94 below 1.20",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "-35.127772539240",
-                "profit_factor": 0.8513376679392156,
-                "max_drawdown": "91.745394725470",
+                "net_profit": "-12.352505847300",
+                "profit_factor": 0.9446259460542761,
+                "max_drawdown": "80.843866671930",
                 "trades": 33,
-                "measurement": "validation window with charged costs"
+                "measurement": "validation window with charged costs (1x)"
               }
             },
             {
@@ -1058,6 +1065,7 @@
                 "profit_factor": 0.8513376679392156,
                 "trades": 33,
                 "max_drawdown": "91.745394725470",
+                "measurement": "validation window with costs doubled (2x)",
                 "criteria_borrowed_from": "costs"
               }
             },
@@ -1123,8 +1131,9 @@
           ],
           "train_net_profit": "-106.287867731310",
           "validation_net_profit": "-67.459363796660",
-          "cost_net_profit": "-77.925685578240",
-          "cost_net_profit_factor": 0.4724980116867805,
+          "cost_net_profit": "-67.459363796660",
+          "cost_net_profit_factor": 0.5176196601907626,
+          "cost_net_cost_multiplier": 1.0,
           "parameters": {
             "ema_fast": 30.0,
             "ema_slow": 80.0,
@@ -1182,15 +1191,15 @@
               "status": "failed",
               "evaluated": true,
               "passed": false,
-              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 0.47 below 1.20",
+              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel (1x), the same run as the validation window",
+              "reason": "net profit factor 0.52 below 1.20",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "-77.925685578240",
-                "profit_factor": 0.4724980116867805,
-                "max_drawdown": "136.160396777530",
+                "net_profit": "-67.459363796660",
+                "profit_factor": 0.5176196601907626,
+                "max_drawdown": "129.055876400030",
                 "trades": 16,
-                "measurement": "validation window with charged costs"
+                "measurement": "validation window with charged costs (1x)"
               }
             },
             {
@@ -1258,6 +1267,7 @@
                 "profit_factor": 0.4724980116867805,
                 "trades": 16,
                 "max_drawdown": "136.160396777530",
+                "measurement": "validation window with costs doubled (2x)",
                 "criteria_borrowed_from": "costs"
               }
             },
@@ -1382,15 +1392,15 @@
           "status": "failed",
           "evaluated": true,
           "passed": false,
-          "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-          "reason": "net profit factor 0.90 below 1.20",
+          "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel (1x), the same run as the validation window",
+          "reason": "net profit factor 1.04 below 1.20",
           "threshold": 1.2,
           "evidence": {
-            "net_profit": "-39.019163823570",
-            "profit_factor": 0.901626406884966,
-            "max_drawdown": "118.113684769630",
+            "net_profit": "14.955379002170",
+            "profit_factor": 1.0400490455874667,
+            "max_drawdown": "89.360955721670",
             "trades": 63,
-            "measurement": "validation window with charged costs",
+            "measurement": "validation window with charged costs (1x)",
             "market": "XAUUSD",
             "candidate": "fast-1.5R",
             "candidates_tried": 3,
@@ -1489,6 +1499,7 @@
             "profit_factor": 0.901626406884966,
             "trades": 63,
             "max_drawdown": "118.113684769630",
+            "measurement": "validation window with costs doubled (2x)",
             "criteria_borrowed_from": "costs",
             "market": "XAUUSD",
             "candidate": "fast-1.5R",
@@ -1582,8 +1593,9 @@
           ],
           "train_net_profit": "-8.424119543790",
           "validation_net_profit": "14.955379002170",
-          "cost_net_profit": "-39.019163823570",
-          "cost_net_profit_factor": 0.901626406884966,
+          "cost_net_profit": "14.955379002170",
+          "cost_net_profit_factor": 1.0400490455874667,
+          "cost_net_cost_multiplier": 1.0,
           "parameters": {
             "ema_fast": 10.0,
             "ema_slow": 30.0,
@@ -1647,15 +1659,15 @@
               "status": "failed",
               "evaluated": true,
               "passed": false,
-              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 0.90 below 1.20",
+              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel (1x), the same run as the validation window",
+              "reason": "net profit factor 1.04 below 1.20",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "-39.019163823570",
-                "profit_factor": 0.901626406884966,
-                "max_drawdown": "118.113684769630",
+                "net_profit": "14.955379002170",
+                "profit_factor": 1.0400490455874667,
+                "max_drawdown": "89.360955721670",
                 "trades": 63,
-                "measurement": "validation window with charged costs"
+                "measurement": "validation window with charged costs (1x)"
               }
             },
             {
@@ -1727,6 +1739,7 @@
                 "profit_factor": 0.901626406884966,
                 "trades": 63,
                 "max_drawdown": "118.113684769630",
+                "measurement": "validation window with costs doubled (2x)",
                 "criteria_borrowed_from": "costs"
               }
             },
@@ -1793,8 +1806,9 @@
           ],
           "train_net_profit": "-210.779944013730",
           "validation_net_profit": "-56.558534107190",
-          "cost_net_profit": "-88.133055260190",
-          "cost_net_profit_factor": 0.7043914539170326,
+          "cost_net_profit": "-56.558534107190",
+          "cost_net_profit_factor": 0.7988743441094445,
+          "cost_net_cost_multiplier": 1.0,
           "parameters": {
             "ema_fast": 20.0,
             "ema_slow": 50.0,
@@ -1851,15 +1865,15 @@
               "status": "failed",
               "evaluated": true,
               "passed": false,
-              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 0.70 below 1.20",
+              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel (1x), the same run as the validation window",
+              "reason": "net profit factor 0.80 below 1.20",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "-88.133055260190",
-                "profit_factor": 0.7043914539170326,
-                "max_drawdown": "89.778051477830",
+                "net_profit": "-56.558534107190",
+                "profit_factor": 0.7988743441094445,
+                "max_drawdown": "73.219411818330",
                 "trades": 38,
-                "measurement": "validation window with charged costs"
+                "measurement": "validation window with charged costs (1x)"
               }
             },
             {
@@ -1927,6 +1941,7 @@
                 "profit_factor": 0.7043914539170326,
                 "trades": 38,
                 "max_drawdown": "89.778051477830",
+                "measurement": "validation window with costs doubled (2x)",
                 "criteria_borrowed_from": "costs"
               }
             },
@@ -1991,8 +2006,9 @@
           ],
           "train_net_profit": "-41.609719716410",
           "validation_net_profit": "29.868887403060",
-          "cost_net_profit": "10.264626193380",
-          "cost_net_profit_factor": 1.0603528730727783,
+          "cost_net_profit": "29.868887403060",
+          "cost_net_profit_factor": 1.1865813423955311,
+          "cost_net_cost_multiplier": 1.0,
           "parameters": {
             "ema_fast": 30.0,
             "ema_slow": 80.0,
@@ -2050,15 +2066,15 @@
               "status": "failed",
               "evaluated": true,
               "passed": false,
-              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel",
-              "reason": "net profit factor 1.06 below 1.20",
+              "evaluator": "campaign._run_candidate -> run_backtest with the charged CostModel (1x), the same run as the validation window",
+              "reason": "net profit factor 1.19 below 1.20",
               "threshold": 1.2,
               "evidence": {
-                "net_profit": "10.264626193380",
-                "profit_factor": 1.0603528730727783,
-                "max_drawdown": "56.680088933530",
+                "net_profit": "29.868887403060",
+                "profit_factor": 1.1865813423955311,
+                "max_drawdown": "53.355615658600",
                 "trades": 23,
-                "measurement": "validation window with charged costs"
+                "measurement": "validation window with charged costs (1x)"
               }
             },
             {
@@ -2126,6 +2142,7 @@
                 "profit_factor": 1.0603528730727783,
                 "trades": 23,
                 "max_drawdown": "56.680088933530",
+                "measurement": "validation window with costs doubled (2x)",
                 "criteria_borrowed_from": "costs"
               }
             },

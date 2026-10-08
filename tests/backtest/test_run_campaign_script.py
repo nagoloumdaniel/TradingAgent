@@ -268,6 +268,28 @@ def test_the_script_marks_the_two_gates_it_cannot_evaluate() -> None:
         assert by_stage[stage]["threshold"] is None
 
 
+def test_the_script_publishes_the_charged_and_the_stressed_figures_separately() -> None:
+    """The report must not print one cost figure twice: 1x and 2x are two measurements."""
+    module = load_script()
+    report, market = campaign_report()
+    winner = market.candidates[0]
+    assert winner.gates is not None
+    doubled = performance_of([0.5] * 20 + [-1.0] * 10)
+    tuned = replace(winner, gates=replace(winner.gates, stressed=doubled))
+    document = module.campaign_to_dict(
+        replace(report, markets=(replace(market, candidates=(tuned,)),)), {}, THRESHOLDS
+    )
+    published = document["markets"][0]["candidates"][0]
+    # The charged run (1x) is the one the costs gate was decided on.
+    assert published["cost_net_profit_factor"] == traded().profit_factor
+    # The doubled run (2x) is published apart, with the multiplier that produced it.
+    assert published["stressed"]["profit_factor"] == doubled.profit_factor
+    assert published["stressed"]["cost_multiplier"] == 2.0
+    assert published["cost_net_profit_factor"] != published["stressed"]["profit_factor"]
+    assert "1x" in document["gate_protocol"]["cost_measurement"]
+    assert "2x" in document["gate_protocol"]["cost_measurement"]
+
+
 def test_the_gate_figure_helper_reads_the_worst_market_reading() -> None:
     module = load_script()
     verdict = GateVerdict(

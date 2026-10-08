@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from tradingagent.config.strategy_catalog import load_strategy_catalog
+from tradingagent.config.strategy_catalog import load_strategy_catalog, mode_ceiling_problems
 from tradingagent.core.market import Candle, Direction
 from tradingagent.core.mode import TradingMode, mode_rank
 from tradingagent.core.timeframe import Timeframe
@@ -172,12 +172,25 @@ def test_replay_with_shipped_parameters_produces_valid_buys_and_sells() -> None:
     assert directions == {Direction.BUY, Direction.SELL}
 
 
-def test_shipped_manifest_never_exceeds_signal_mode() -> None:
+def test_shipped_witness_manifests_document_every_ceiling_above_signal() -> None:
+    """The invariant is "no silent escalation", not "never above SIGNAL".
+
+    `witness@1.1.1` carries the operator derogation of 2026-10-08: a DEMO rehearsal on a
+    demonstration account, with the campaign's figures written in its header. That is a
+    documented decision, so it is allowed -- and the catalog refuses the same ceiling on any
+    manifest that does not carry the banner. `test_mode_ceiling.py` exercises the rule itself,
+    both halves; this test pins it to the manifests that actually ship.
+    """
     catalog = load_strategy_catalog(SHIPPED, REGISTRY)
     witnesses = [loaded for loaded in catalog.values() if loaded.manifest.strategy_id == "witness"]
     assert witnesses
     for loaded in witnesses:
-        assert mode_rank(loaded.manifest.max_mode) <= mode_rank(TradingMode.SIGNAL)
+        path = SHIPPED / f"{loaded.manifest.ref}.yaml"
+        text = path.read_text(encoding="utf-8")
+        assert mode_ceiling_problems(text, loaded.manifest.max_mode) == []
+        assert mode_rank(loaded.manifest.max_mode) <= mode_rank(TradingMode.LIVE)
+    # DEMO is a bounded ceiling: it is below LIVE, which the real account requires.
+    assert mode_rank(TradingMode.DEMO) < mode_rank(TradingMode.LIVE)
 
 
 def test_shipped_manifest_includes_the_warm_up() -> None:

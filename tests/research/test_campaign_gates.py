@@ -9,6 +9,8 @@ passed without proof is the worst possible outcome of a validation campaign.
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import pytest
+
 from tradingagent.analytics.model import Performance, Trade
 from tradingagent.analytics.performance import compute_performance
 from tradingagent.core.market import Direction
@@ -184,6 +186,32 @@ def test_the_costs_gate_reads_the_charged_run_not_the_gross_one() -> None:
     report = candidate(cost_net=losing(trades=60, per_trade=-0.5))
     assert verdicts(report)[ValidationStage.COSTS].status is GateStatus.FAILED
     assert verdicts(candidate())[ValidationStage.COSTS].status is GateStatus.PASSED
+
+
+def test_the_costs_gate_and_the_stress_gate_publish_distinct_figures() -> None:
+    """1x costs and 2x costs are two measurements, and each gate must publish its own.
+
+    Measured defect: the costs gate read a field that held the *stressed* performance, so it
+    printed exactly the stress gate's figure (0,81 = 0,81, 0,67 = 0,67, 0,46 = 0,46) and the
+    published "net profit factor" was the one measured at twice the charged costs. A reader
+    could not tell the two gates apart, and neither figure was named correctly.
+    """
+    report = candidate(
+        cost_net=traded(win=1.5, loss=-1.0),  # 20 x 1.5 against 10 x 1.0 -> factor 3.0
+        stressed=traded(win=1.0, loss=-1.0),  # 20 x 1.0 against 10 x 1.0 -> factor 2.0
+    )
+    items = verdicts(report)
+    costs = items[ValidationStage.COSTS]
+    stress = items[ValidationStage.STRESS]
+    assert costs.evidence["profit_factor"] == pytest.approx(3.0)
+    assert stress.evidence["profit_factor"] == pytest.approx(2.0)
+    assert costs.evidence["profit_factor"] != stress.evidence["profit_factor"]
+    assert costs.evidence["net_profit"] != stress.evidence["net_profit"]
+    # Each figure is named for the cost model it was measured under.
+    assert costs.evidence["measurement"] == "validation window with charged costs (1x)"
+    assert stress.evidence["measurement"] == "validation window with costs doubled (2x)"
+    assert stress.evidence["cost_multiplier"] == 2.0
+    assert "cost_multiplier" not in costs.evidence
 
 
 def test_the_walk_forward_gate_needs_a_majority_of_profitable_folds() -> None:
