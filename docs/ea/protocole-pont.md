@@ -262,9 +262,27 @@ chaque cycle de la boucle d'exécution. Republier sans rien changer est utile : 
 | **Stop absent sur une position** | **fermeture immédiate** de la position, en `CRITICAL`, et ce même quand l'EA est arrêté | événement `PROTECTION` | — |
 | **Objectif (TP) absent ou décalé après exécution** | simple `WARNING` : un objectif manquant n'expose aucun argent, il ne justifie pas une fermeture | événement `PROTECTION` en `WARNING` | corriger le backend, ou constater que le courtier a refusé le TP |
 
-**Repartir d'un arrêt local** : c'est une action d'opérateur, jamais un redémarrage.
-L'EA relit `control\<SYMBOLE>_halt.txt` au démarrage et **reste arrêté** tant que ce
-fichier existe. Supprimez-le seulement après avoir compris et corrigé la cause.
+**Repartir d'un arrêt local** : le cas dépend du **motif**, et il n'y en a qu'un qui se
+répare tout seul.
+
+| Motif de l'arrêt | Qui le lève |
+|---|---|
+| `backend silencieux depuis N s` | **l'EA lui-même**, dès que le battement de cœur repasse sous la limite |
+| `divergence d'etat…` (RM-014) | l'opérateur, après réconciliation à la main |
+| `kill switch publie par le backend` | le backend, en republiant `kill_switch: false` |
+
+L'EA relit `control\<SYMBOLE>_halt.txt` au démarrage et **reste arrêté** tant que ce fichier
+existe. Les deux derniers motifs restent des verrous d'opérateur : une divergence doit être
+comprise, et un kill switch appartient à celui qui l'a posé.
+
+**Pourquoi le silence se lève seul, et pas les autres.** Du 2026-10-08, mesuré sur 60 s :
+l'âge de l'état oscillait entre 4 et 16 s (jamais près de la limite de 30 s), le backend
+republiait normalement, et `local_halt` restait vrai avec `orders_sent: 0`. L'arrêt armé
+pendant une coupure ne se relevait jamais, donc **plus aucun ordre ne pouvait partir alors
+qu'aucune condition de sécurité n'était remplie**. Un filet de sécurité qui ne se relâche
+pas devient un blocage qu'on finit par contourner à la main, ce qui est plus dangereux que
+le défaut d'origine. Le retour de la liaison, lui, est une chose que l'EA constate par
+lui-même — c'est la seule condition qu'il peut vérifier sans aide.
 
 ## 8. Idempotence
 

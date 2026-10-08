@@ -737,6 +737,8 @@ Priorités : `P0` bloquant, `P1` essentiel, `P2` important, `P3` souhaitable. Le
 **Condition :** la connexion au fournisseur est perdue au-delà du seuil configuré.
 **Comportement attendu :** suspension du trading, notification, et interdiction de reprise avant restauration d'une série saine.
 
+**Précision du 2026-10-08 — la reprise est automatique, et seulement pour ce motif.** L'arrêt local de l'Expert Advisor pour *backend silencieux* se lève de lui-même dès que le battement de cœur repasse sous la limite. Mesuré le 2026-10-08 sur 60 s : l'âge de l'état oscillait entre 4 et 16 s (limite 30 s), le backend republiait, et `local_halt` restait vrai avec `orders_sent: 0` — plus aucun ordre ne pouvait partir alors qu'aucune condition de sécurité n'était remplie. L'arrêt était un verrou à sens unique. Les autres motifs restent des verrous d'opérateur (voir RM-015).
+
 ### RM-014 — Divergence d'état
 **Condition :** la réconciliation détecte un écart entre l'état local et l'état du compte.
 **Comportement attendu :** suspension immédiate du trading, notification détaillée, et reprise uniquement après intervention de l'opérateur.
@@ -745,6 +747,7 @@ Priorités : `P0` bloquant, `P1` essentiel, `P2` important, `P3` souhaitable. Le
 ### RM-015 — Arrêt d'urgence
 **Condition :** un arrêt d'urgence est actif.
 **Comportement attendu :** aucun nouvel ordre n'est accepté, quelle que soit la source de la demande. Les ordres en attente sont traités selon la configuration. Les positions ouvertes ne sont clôturées que si cette option a été explicitement activée.
+**Portée de l'arrêt, précisée le 2026-10-08 :** un arrêt d'urgence (global, ou `kill switch` publié par le backend) et un arrêt sur divergence **ne se lèvent que par une action explicite** — l'opérateur pour les deux premiers cas, le backend en republiant `kill_switch: false` pour le troisième. Seule la suspension pour perte de contact (RM-013) se relève seule, parce que le retour de la liaison est la seule condition que l'EA constate par lui-même sans aide.
 
 ### RM-016 — Promotion d'une stratégie
 **Condition :** une stratégie change d'état, par exemple de candidate à active en compte de démonstration.

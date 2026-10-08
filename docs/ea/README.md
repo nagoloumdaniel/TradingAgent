@@ -197,11 +197,18 @@ sécurité, pas une dépendance du moteur.
 | Relire le journal complet | `read_events(<bridge>/reports, "BTCUSD")` ou `reports/BTCUSD_events.jsonl` |
 | Arrêter tous les nouveaux ordres depuis Python | `publish_state(..., kill_switch=True)` — immédiat, réversible |
 | Arrêter un EA pour de bon (kill switch local) | créer `control\<SYMBOLE>_halt.txt` avec le motif, ou laisser l'EA le faire lui-même sur divergence |
-| **Repartir** après un arrêt local | comprendre la cause, corriger, **supprimer `control\<SYMBOLE>_halt.txt`**, redémarrer l'EA |
+| **Repartir** après un arrêt local pour silence | rien à faire : l'EA lève l'arrêt seul dès que le backend republie |
+| **Repartir** après un arrêt local sur divergence ou kill switch | comprendre la cause, corriger, **supprimer `control\<SYMBOLE>_halt.txt`**, redémarrer l'EA |
 
-Un arrêt local **survit au redémarrage du terminal**. C'est voulu : il ne se lève que par
-une action explicite de l'opérateur, comme l'arrêt d'urgence de
-[../operations/arret-urgence.md](../operations/arret-urgence.md).
+Un arrêt local **survit au redémarrage du terminal**. C'est voulu : une divergence d'état
+(RM-014) et un kill switch publié par le backend ne se lèvent que par une action explicite,
+comme l'arrêt d'urgence de [../operations/arret-urgence.md](../operations/arret-urgence.md).
+**Une exception, ajoutée le 2026-10-08 :** l'arrêt pour *backend silencieux* se lève
+automatiquement quand le battement de cœur repasse sous la limite. Sans cela, un arrêt armé
+pendant une coupure restait armé alors que le backend republiait — mesuré sur 60 s avec un
+âge d'état entre 4 et 16 s et `orders_sent: 0` — et plus aucun ordre ne pouvait partir sans
+qu'aucune condition de sécurité ne soit remplie. Le détail et la justification sont dans
+[protocole-pont.md](protocole-pont.md) §7.
 
 ### Défaut corrigé le 2026-10-07 : le champ `data` rendait le rapport invalide
 

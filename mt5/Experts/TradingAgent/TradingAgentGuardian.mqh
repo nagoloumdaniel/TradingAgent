@@ -669,6 +669,8 @@ private:
    //--- etat
    bool              ReadState();
    void              CheckStateFreshness(const datetime now);
+   bool              IsBackendSilenceHalt() const;
+   void              Resume();
    void              LoadApplied();
    void              LoadHalt();
    void              MarkApplied(const string orderId);
@@ -1157,6 +1159,46 @@ bool CTradingAgentGuardian::ReadState()
 //+------------------------------------------------------------------+
 //| Un etat lu puis jamais rafraichi est une perte de contact avec le |
 //| backend (RM-013) : l'EA ne doit plus ouvrir quoi que ce soit.     |
+//|                                                                   |
+//| La levee est automatique, et c'est le seul motif d'arret qui en   |
+//| beneficie. L'arret etait un verrou a sens unique : arme pendant   |
+//| une coupure, il restait arme alors que le backend republiait. Le  |
+//| 2026-10-08, mesure sur 60 s, l'age de l'etat oscillait entre 4 et |
+//| 16 s (jamais 30) et local_halt restait vrai, orders_sent a 0 :    |
+//| plus aucun ordre ne pouvait partir, sans qu'aucune condition ne   |
+//| soit remplie. Un arret qui ne se leve pas est un arret qu'on finit|
+//| par contourner a la main, et c'est ainsi qu'un filet de securite   |
+//| devient une source de risque.                                     |
+//|                                                                   |
+//| Les autres motifs restent des verrous d'operateur : une divergence|
+//| d'etat (RM-014) doit etre reconciliee a la main, et un kill switch|
+//| publie par le backend doit etre leve par le backend. Seule la     |
+//| perte de contact se repare toute seule, parce que le retour de la |
+//| liaison est une chose que l'EA constate par lui-meme.             |
+//+------------------------------------------------------------------+
+bool CTradingAgentGuardian::IsBackendSilenceHalt() const
+{
+   if(!m_halt)
+      return false;
+   // La raison est ecrite par Halt() et relue par LoadHalt() : la comparer au prefixe
+   // garde le motif d'origine a travers un redemarrage du terminal.
+   return StringFind(m_haltReason, "backend silencieux") == 0;
+}
+
+
+//+------------------------------------------------------------------+
+//| Leve l'arret local et efface sa trace sur disque. Le journal est  |
+//| ecrit par l'appelant, qui sait pourquoi l'arret tombe.             |
+//+------------------------------------------------------------------+
+void CTradingAgentGuardian::Resume()
+{
+   m_halt       = false;
+   m_haltReason = "";
+   if(FileIsExist(m_haltFile))
+      FileDelete(m_haltFile);
+}
+
+
 //+------------------------------------------------------------------+
 void CTradingAgentGuardian::CheckStateFreshness(const datetime now)
 {
@@ -1164,7 +1206,17 @@ void CTradingAgentGuardian::CheckStateFreshness(const datetime now)
       return;
    double age = (double)(now - m_publishedAt);
    if(age <= (double)m_staleSeconds)
+   {
+      if(IsBackendSilenceHalt())
+      {
+         Resume();
+         LogEvent(TA_EV_STATE, TA_INFO,
+                  "backend de nouveau a l'ecoute (age " + DoubleToString(age, 0)
+                  + " s, limite " + IntegerToString(m_staleSeconds)
+                  + " s): arret local leve", 0, "{}");
+      }
       return;
+   }
    Halt("backend silencieux depuis " + DoubleToString(age, 0)
         + " s (limite " + IntegerToString(m_staleSeconds) + ")", TA_EV_STATE);
 }
