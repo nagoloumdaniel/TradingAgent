@@ -145,6 +145,7 @@ class SignalPipeline:
                 Severity.WARNING,
                 {"signal_id": signal_id, "ai_filter": str(review.ai_filter)},
                 now,
+                symbol=detail.symbol,
             )
             return ProcessOutcome(signal_id, "ai_blocked", review.reason)
 
@@ -162,6 +163,7 @@ class SignalPipeline:
                 Severity.CRITICAL,
                 {"signal_id": signal_id, "symbol": detail.symbol},
                 now,
+                symbol=detail.symbol,
             )
             return ProcessOutcome(signal_id, "notification_pending", "Telegram unreachable")
         transition(self._engine, signal_id, SignalState.SENT, now, "signal sent to Telegram")
@@ -242,6 +244,8 @@ class SignalPipeline:
             decision = decide(context, self._expected_login)
         except AccountModeMismatchError as error:
             log.critical("account does not match the mode: %s", error)
+            # No symbol: this event describes the account, not the market that happened to
+            # reveal it, and it halts every market at once (RM-017).
             self._event("account_mismatch", Severity.CRITICAL, {"detail": str(error)}, now)
             return None
         self._decisions.record(detail.id, decision, now)
@@ -331,6 +335,7 @@ class SignalPipeline:
                 Severity.WARNING,
                 {"signal_id": detail.id, "retcode": result.retcode, "detail": result.message},
                 now,
+                symbol=detail.symbol,
             )
             return ProcessOutcome(detail.id, "order_rejected", result.message)
 
@@ -373,6 +378,7 @@ class SignalPipeline:
                 Severity.CRITICAL,
                 {"signal_id": detail.id, "ticket": result.ticket, "closed": closed.closed},
                 now,
+                symbol=detail.symbol,
             )
             return ProcessOutcome(detail.id, "stop_missing", "position closed immediately")
 
@@ -437,9 +443,17 @@ class SignalPipeline:
         return calendar.status_at(now) if calendar is not None else SlotStatus.UNCERTAIN
 
     def _event(
-        self, kind: str, severity: Severity, detail: dict[str, object], at: datetime
+        self,
+        kind: str,
+        severity: Severity,
+        detail: dict[str, object],
+        at: datetime,
+        symbol: str | None = None,
     ) -> None:
-        SignalRepository(self._engine).record_system_event(kind, severity, detail, at)
+        """Journal one event; `symbol` is the market it happened on, when there is one."""
+        SignalRepository(self._engine).record_system_event(
+            kind, severity, detail, at, symbol=symbol
+        )
 
 
 def _refusal_message(detail: SignalDetail, decision: RiskDecision) -> str:

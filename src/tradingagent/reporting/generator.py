@@ -51,6 +51,16 @@ class ReportGenerator:
         self._account = account
         self._comparison = comparison
 
+    def sole_market(self, window: Window) -> str | None:
+        """The one market this window traded, or None when it traded none or several.
+
+        A report is written for the account, not for an instrument: the market it can be
+        filed under is the one its window actually carries. The same call fills the
+        "Marchés actifs" line of the report, so the column and the text can never disagree.
+        """
+        markets = self._data.active_markets_between(window.start, window.end)
+        return markets[0] if len(markets) == 1 else None
+
     def build(self, window: Window) -> str:
         trades = [trade for _, trade in self._data.trades_between(window.start, window.end)]
         performance = compute_performance(trades)

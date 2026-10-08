@@ -24,6 +24,40 @@ def test_the_navigation_is_a_single_button_theme_control(client: TestClient) -> 
     assert body.count('class="theme-icon') == 2  # the moon and the sun, in one button
 
 
+def _rule(css: str, selector: str) -> str:
+    match = re.search(rf"{re.escape(selector)}\s*\{{(.*?)\}}", css, re.S)
+    assert match is not None, f"the stylesheet must declare {selector}"
+    return match.group(1)
+
+
+def test_the_floating_nav_is_a_centred_pill(client: TestClient) -> None:
+    """The operator: the nav must sit in the middle, not fill the length of the screen.
+
+    A fixed ceiling plus auto margins is what makes the pill short of both edges by the
+    *same* amount at every width; the screenshot proves the measured result.
+    """
+    css = _css(client.get("/").text)
+    rule = _rule(css, ".top")
+
+    assert "--nav-max" in css
+    assert "max-width: var(--nav-max)" in rule
+    assert "justify-self: center" in rule
+    assert re.search(r"margin:\s*10px\s+auto\s+0", rule)
+
+
+def test_the_centred_nav_keeps_a_symmetric_gutter_on_a_narrow_screen(
+    client: TestClient,
+) -> None:
+    css = _css(client.get("/").text)
+    block = re.search(r"@media \(max-width: 880px\) \{(.*?)\n\}", css, re.S)
+
+    assert block is not None
+    rule = _rule(block.group(1), ".top")
+    # A width that accounts for the gutter, never `100%` plus margins: that pair overflows.
+    assert "width: calc(100% - 24px)" in rule
+    assert re.search(r"margin:\s*8px\s+auto\s+0", rule)
+
+
 def test_the_sidebar_is_frozen_on_desktop(client: TestClient) -> None:
     css = _css(client.get("/").text)
     rule = re.search(r"nav\.side \{(.*?)\}", css, re.S)

@@ -352,7 +352,7 @@ def create_app(
             at,
             query=q or "",
             market=paging.resolve_market(market, markets),
-            page=_page_number(page_number),
+            page=paging.page_number(page_number),
         )
         return page(
             request,
@@ -391,7 +391,7 @@ def create_app(
             strategy=strategy or "",
             mode=_mode(mode),
             query=q or "",
-            page=_page_number(page_number),
+            page=paging.page_number(page_number),
         )
         return page(
             request,
@@ -440,26 +440,150 @@ def create_app(
         )
 
     @app.get("/scalping", response_class=HTMLResponse)
-    def scalping_page(request: Request) -> HTMLResponse:
-        return page(request, "scalping", view=queries.scalping_view(engine))
+    def scalping_page(
+        request: Request,
+        market: str | None = None,
+        page_number: str | None = Query(default=None, alias="page"),
+    ) -> HTMLResponse:
+        """The §32 cuts of one market.
+
+        Every trade carries its symbol, so the market is *derivable* here and is filtered in
+        SQL like everywhere else: the cuts, the costs and the latencies all describe the same
+        instrument. The hourly cut is the only one that can outgrow a display, and it carries
+        its page in the URL.
+        """
+        markets = queries.available_markets(engine)
+        return page(
+            request,
+            "scalping",
+            view=queries.scalping_view(
+                engine,
+                market=paging.resolve_market(market, markets),
+                page=paging.page_number(page_number),
+            ),
+            markets=markets,
+        )
 
     @app.get("/strategies", response_class=HTMLResponse)
-    def strategies_page(request: Request) -> HTMLResponse:
-        return page(request, "strategies", views=queries.strategies(engine))
+    def strategies_page(
+        request: Request,
+        q: str | None = None,
+        market: str | None = None,
+        page_number: str | None = Query(default=None, alias="page"),
+    ) -> HTMLResponse:
+        """The registry and its evidence, ten rows at a time, one market at a time.
+
+        ``strategy_registry`` carries the market, so the filter is mechanical and the count,
+        the search and the page all happen in SQL.
+        """
+        markets = queries.strategy_markets(engine)
+        return page(
+            request,
+            "strategies",
+            listing=queries.strategy_page(
+                engine,
+                market=paging.resolve_market(market, markets),
+                query=q or "",
+                page=paging.page_number(page_number),
+            ),
+        )
 
     @app.get("/ai-lab", response_class=HTMLResponse)
-    def ai_lab_page(request: Request) -> HTMLResponse:
-        return page(request, "ai_lab", lab=queries.ai_lab(engine))
+    def ai_lab_page(
+        request: Request,
+        q: str | None = None,
+        market: str | None = None,
+        page_number: str | None = Query(default=None, alias="page"),
+        proposals: str | None = None,
+        validations: str | None = None,
+        backtests: str | None = None,
+    ) -> HTMLResponse:
+        """The four lists of the laboratory, each with its own page and a shared market.
+
+        Four tables carry a market column, so the filter is mechanical; each list is counted
+        and bounded on its own, and its own query parameter keeps the other three still.
+        """
+        markets = queries.ai_markets(engine)
+        return page(
+            request,
+            "ai_lab",
+            lab=queries.ai_lab_pages(
+                engine,
+                market=paging.resolve_market(market, markets),
+                query=q or "",
+                analyses_page=paging.page_number(page_number),
+                proposals_page=paging.page_number(proposals),
+                validations_page=paging.page_number(validations),
+                backtests_page=paging.page_number(backtests),
+            ),
+        )
 
     @app.get("/risk", response_class=HTMLResponse)
-    def risk_page(request: Request) -> HTMLResponse:
-        data = queries.risk_view(engine, clock(), limits_path, reports_dir)
-        return page(request, "risk", data=data, ea_halted=queries.ea_halted(data.ea))
+    def risk_page(
+        request: Request,
+        q: str | None = None,
+        market: str | None = None,
+        page_number: str | None = Query(default=None, alias="page"),
+        hpage: str | None = None,
+    ) -> HTMLResponse:
+        """The risk state, and the two append-only logs it carries.
+
+        ``system_events`` names the instrument of an event, or nothing when the event
+        concerns the account as a whole: the selector shows one market's events plus those,
+        and never another instrument's. ``halt_commands`` has no market column, so its
+        history is paged and searched only.
+        """
+        data = queries.risk_view(
+            engine,
+            clock(),
+            limits_path,
+            reports_dir,
+            market=paging.resolve_market(market, queries.event_markets(engine)),
+            query=q or "",
+            events_page=paging.page_number(page_number),
+            history_page=paging.page_number(hpage),
+        )
+        return page(
+            request,
+            "risk",
+            data=data,
+            markets=queries.event_markets(engine),
+            ea_halted=queries.ea_halted(data.ea),
+        )
 
     @app.get("/system", response_class=HTMLResponse)
-    def system_page(request: Request) -> HTMLResponse:
-        data = queries.system_view(engine, clock(), ea_reports_dir=reports_dir)
-        return page(request, "system", data=data, ea_halted=queries.ea_halted(data.ea))
+    def system_page(
+        request: Request,
+        q: str | None = None,
+        market: str | None = None,
+        page_number: str | None = Query(default=None, alias="page"),
+        epage: str | None = None,
+    ) -> HTMLResponse:
+        """The health page: the probes, the paged logs, and a bounded EA journal.
+
+        The market selector scopes the two logs (telemetry and errors); the probes above
+        stay whole, because a health page that hid a market would hide the failure it exists
+        to report. ``execution_events`` always names its instrument; the account-wide events
+        of ``system_events`` stay visible whatever is selected. The EA journal comes from the
+        bridge's JSON reports rather than from a table: it is bounded to one display and
+        says how many lines were read.
+        """
+        data = queries.system_view(
+            engine,
+            clock(),
+            ea_reports_dir=reports_dir,
+            market=paging.resolve_market(market, queries.event_markets(engine)),
+            query=q or "",
+            page=paging.page_number(page_number),
+            errors_page=paging.page_number(epage),
+        )
+        return page(
+            request,
+            "system",
+            data=data,
+            markets=queries.event_markets(engine),
+            ea_halted=queries.ea_halted(data.ea),
+        )
 
     @app.get("/reports", response_class=HTMLResponse)
     def reports_page(
@@ -474,7 +598,7 @@ def create_app(
         therefore no market selector here — one that filtered nothing would be worse than no
         selector at all — and the page states what it does hold.
         """
-        stored = queries.report_page(engine, query=q or "", page=_page_number(page_number))
+        stored = queries.report_page(engine, query=q or "", page=paging.page_number(page_number))
         opened = (
             queries.report_by_id(engine, report_id)
             if report_id is not None
@@ -579,22 +703,6 @@ def _mode(value: str | None) -> TradingMode | None:
         return TradingMode(value)
     except ValueError:
         return None
-
-
-def _page_number(value: str | None) -> int:
-    """A stale or garbled ``?page=`` degrades to the first page, never to a 422.
-
-    The upper bound is not checked here: :func:`queries.position_page` knows how many pages
-    the filtered history holds and clamps to the last one, which is the useful answer for a
-    bookmark made against a database that has since shrunk.
-    """
-    if not value:
-        return 1
-    try:
-        number = int(value)
-    except ValueError:
-        return 1
-    return number if number > 0 else 1
 
 
 def _stamp(at: datetime) -> str:

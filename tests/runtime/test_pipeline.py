@@ -271,7 +271,8 @@ def test_a_position_without_its_stop_is_closed_immediately(engine: Engine) -> No
     assert outcome.kind == "stop_missing"
     assert parts.broker.closed == [(555001, "stop missing after execution")]
     assert state_of(engine, signal_id) is SignalState.ERROR
-    assert len(events_of(engine, "stop_missing")) == 1
+    [event] = events_of(engine, "stop_missing")
+    assert event.symbol == "XAUUSD"  # the market the operator filters /risk by
 
 
 def test_an_account_that_contradicts_the_mode_never_trades(engine: Engine) -> None:
@@ -283,7 +284,10 @@ def test_an_account_that_contradicts_the_mode_never_trades(engine: Engine) -> No
     assert outcome.kind == "account_mismatch"
     assert parts.notifier.messages == []
     assert parts.broker.placed == []
-    assert len(events_of(engine, "account_mismatch")) == 1
+    [event] = events_of(engine, "account_mismatch")
+    # Deliberately no symbol: the condition is the account's, not the market's, and it
+    # halts every market at once. Filing it under XAUUSD would misread the incident.
+    assert event.symbol is None
 
 
 def test_a_known_signal_is_never_processed_twice(engine: Engine) -> None:

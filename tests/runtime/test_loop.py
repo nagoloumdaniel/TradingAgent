@@ -386,7 +386,8 @@ def test_an_ea_that_stops_beating_is_reported_offline(engine: Engine, tmp_path: 
 
     asyncio.run(loop.run_once())
 
-    assert events_of(engine, "ea_offline")
+    [offline] = events_of(engine, "ea_offline")
+    assert offline.symbol == "XAUUSD"  # the Guardian that went quiet, not the whole agent
     assert loop._ea_offline == {"XAUUSD"}
 
 

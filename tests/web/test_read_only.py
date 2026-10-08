@@ -53,6 +53,7 @@ READ_PATHS = (
     "/events?cycles=1",
     "/healthz",
     "/static/nexagold.png",
+    "/static/nexagold-dark.png",
     "/export/trades.csv",
     "/export/trades.json",
     "/export/performance.json",

@@ -126,6 +126,9 @@
   --radius: 14px;
   --radius-sm: 9px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* La nav flottante ne remplit pas l'écran : c'est une pilule centrée, tenue à égale
+     distance des deux bords par une largeur maximale et des marges automatiques. */
+  --nav-max: 1080px;
 }
 
 :root[data-theme="light"] {
@@ -235,7 +238,12 @@ body {
 .top {
   grid-area: top;
   position: sticky; top: 10px; z-index: 20;
-  margin: 10px 18px 0;
+  /* Au milieu, et pas sur toute la longueur : une largeur maximale et des marges
+     automatiques laissent la même marge des deux côtés à toute largeur d'écran. En grille,
+     `justify-self: center` fait le même travail sans dépendre des marges automatiques. */
+  width: 100%; max-width: var(--nav-max);
+  margin: 10px auto 0;
+  justify-self: center;
   display: flex; flex-wrap: wrap; align-items: center;
   gap: 6px 14px;
   padding: 8px 12px 8px 16px;
@@ -249,6 +257,12 @@ body {
 .brand { display: flex; align-items: center; gap: 11px; margin: 0;
          font-size: 15.5px; font-weight: 600; letter-spacing: -0.015em; }
 .brand img { width: 27px; height: 27px; display: block; }
+/* Le glyphe est blanc : invisible sur le thème clair. Les deux variantes sont dans le
+   document, la feuille de style n'en montre qu'une — donc le bon dessin est là dès le
+   premier rendu, sans script et sans clignotement. */
+.brand .brand-mark-light { display: none; }
+:root[data-theme="light"] .brand .brand-mark-dark { display: none; }
+:root[data-theme="light"] .brand .brand-mark-light { display: block; }
 .brand .name { display: flex; align-items: center; gap: 9px; }
 .brand .tag {
   padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 999px;
@@ -655,8 +669,8 @@ footer code { background: none; border: 0; padding: 0; }
   }
   body[data-drawer="open"] nav.side { transform: none; visibility: visible; }
   .menu-toggle { display: inline-grid; }
-  .top { top: 8px; margin: 8px 12px 0; border-radius: var(--radius);
-         padding: 8px 10px 8px 14px; gap: 4px 10px; }
+  .top { top: 8px; width: calc(100% - 24px); margin: 8px auto 0;
+         border-radius: var(--radius); padding: 8px 10px 8px 14px; gap: 4px 10px; }
   .theme-toggle { margin-left: 0; }
   main { padding: 18px 16px 52px; }
   /* 1 / -1 plutôt que span 2 : si la grille retombe à une seule colonne, la carte héro
@@ -749,7 +763,10 @@ footer code { background: none; border: 0; padding: 0; }
 
 <header class="top">
   <h1 class="brand">
-    <img src="/static/nexagold.png" alt="" width="27" height="27">
+    {# Deux fichiers, une seule marque : le glyphe est blanc pour le thème sombre et noir
+       pour le thème clair, où le blanc serait invisible. #}
+    <img class="brand-mark brand-mark-dark" src="/static/nexagold.png" alt="" width="27" height="27">
+    <img class="brand-mark brand-mark-light" src="/static/nexagold-dark.png" alt="" width="27" height="27">
     <span class="name">TradingAgent<span class="tag">lecture seule</span></span>
   </h1>
   {# N'existe qu'en dessous de 880 px : au-delà, la barre latérale est déjà à l'écran. #}

@@ -1,17 +1,34 @@
 {% extends "base.html" %}
+{% from "_macros.html" import pager, market_select %}
 {% block title %}Scalping{% endblock %}
 {% block content %}
 
-<h2>Statistiques de scalping</h2>
+<h2>Statistiques de scalping — {{ view.market or 'aucun marché' }}</h2>
+<p class="muted">Le marché est un paramètre de la requête : les trades, les coûts et les
+   latences sont lus en SQL pour <strong>{{ view.market }}</strong> seulement. Chaque découpe
+   décrit la sélection entière de ce marché, pas une page de dix lignes : une distribution ne
+   se calcule pas sur un dixième de son échantillon.</p>
+
+<form class="filters" method="get" action="/scalping">
+  {% if markets %}
+    {{ market_select(view.hours, markets) }}
+  {% else %}
+    <p class="muted">Aucun marché en base : il n'y a rien à séparer.</p>
+  {% endif %}
+  <div><button type="submit">Filtrer</button></div>
+</form>
 
 {% if view.trades == 0 %}
-  <div class="empty">Aucun trade clôturé : les découpes apparaîtront dès la première clôture.</div>
+  <div class="empty">
+    Aucun trade clôturé pour {{ view.market or 'cette base' }} : les découpes apparaîtront dès
+    la première clôture.
+  </div>
 {% else %}
   <div class="cards">
     <div class="card">
       <div class="label">Trades analysés</div>
-      <div class="value">{{ view.trades }}</div>
-      <div class="note">toutes stratégies, tous marchés</div>
+      <div class="value" id="scalping-trades">{{ view.trades }}</div>
+      <div class="note">toutes stratégies de {{ view.market }}</div>
     </div>
     <div class="card">
       <div class="label">Latence médiane</div>
@@ -35,7 +52,10 @@
   </div>
 {% endif %}
 
-{% macro bucket_table(title, note, buckets) %}
+{# Chaque découpe est un tableau borné : identifiant de corps stable pour la revue visuelle,
+   et la couleur du résultat vient de `format.ratio_class` — vert au-dessus de zéro, rouge en
+   dessous, aucune couleur à zéro. #}
+{% macro bucket_table(title, note, buckets, table_id) %}
 <h2>{{ title }}</h2>
 <p class="muted">{{ note }}</p>
 <div class="table-wrap">
@@ -46,12 +66,12 @@
       <th class="num">Réussite</th><th class="num">Espérance</th>
     </tr>
   </thead>
-  <tbody>
+  <tbody id="{{ table_id }}">
     {% for bucket in buckets %}
       <tr>
         <td>{{ bucket.key }}</td>
         <td class="num">{{ bucket.sample }}</td>
-        <td class="num {{ 'pos' if bucket.net_profit > 0 else 'neg' if bucket.net_profit < 0 else '' }}">
+        <td class="num {{ display.ratio_class(bucket.net_profit) }}">
           {{ display.money(bucket.net_profit, signed=True) }}
         </td>
         <td class="num">{{ display.percent(bucket.win_rate) }}</td>
@@ -65,12 +85,15 @@
 </div>
 {% endmacro %}
 
-{{ bucket_table("Par heure (UTC)", "Où la stratégie gagne et où elle perd, heure par heure.", view.hours) }}
-{{ bucket_table("Par session", "Sessions conventionnelles déduites de l'heure UTC, pas les horaires du courtier.", view.sessions) }}
-{{ bucket_table("Par jour de la semaine", "Un marché crypto ouvre aussi le week-end ; l'or non.", view.weekdays) }}
-{{ bucket_table("Par spread", "Bandes de spread au moment du signal, uniquement quand la donnée existe.", view.spreads) }}
-{{ bucket_table("Par durée de position", "Bandes en secondes, du plus court au plus long (0 s, 15 min, 1 h, 4 h).", view.durations) }}
-{{ bucket_table("Par taille", "Volume de la position, lu depuis la base.", view.sizes) }}
+{{ bucket_table("Par heure (UTC)",
+                "Où la stratégie gagne et où elle perd, heure par heure. Vingt-quatre heures au plus, dix par affichage.",
+                view.hours.rows, "hours-body") }}
+{{ pager(view.hours, "Pagination des découpes horaires") }}
+{{ bucket_table("Par session", "Sessions conventionnelles déduites de l'heure UTC, pas les horaires du courtier.", view.sessions, "sessions-body") }}
+{{ bucket_table("Par jour de la semaine", "Un marché crypto ouvre aussi le week-end ; l'or non.", view.weekdays, "weekdays-body") }}
+{{ bucket_table("Par spread", "Bandes de spread au moment du signal, uniquement quand la donnée existe.", view.spreads, "spreads-body") }}
+{{ bucket_table("Par durée de position", "Bandes en secondes, du plus court au plus long (0 s, 15 min, 1 h, 4 h).", view.durations, "durations-body") }}
+{{ bucket_table("Par taille", "Volume de la position, lu depuis la base.", view.sizes, "sizes-body") }}
 
 <h2>Coûts</h2>
 <div class="table-wrap">

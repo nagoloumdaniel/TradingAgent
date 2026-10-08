@@ -311,6 +311,7 @@ class AgentLoop:
                     Severity.CRITICAL,
                     {"signal_id": generation.signal_id, "detail": repr(error)},
                     now,
+                    symbol=symbol,
                 )
                 continue
             report.outcomes.append(outcome)
@@ -394,7 +395,9 @@ class AgentLoop:
         for symbol, status in health.items():
             if status is EaStatus.OFFLINE and symbol not in self._ea_offline:
                 self._ea_offline.add(symbol)
-                self._events.record("ea_offline", Severity.WARNING, {"symbol": symbol}, now)
+                self._events.record(
+                    "ea_offline", Severity.WARNING, {"symbol": symbol}, now, symbol=symbol
+                )
                 await self._alerts.component_failure(
                     f"ea:{symbol}", "heartbeat older than the timeout", now
                 )

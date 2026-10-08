@@ -1,11 +1,33 @@
 {% extends "base.html" %}
+{% from "_macros.html" import pager, market_select, search_field %}
 {% block title %}Stratégies{% endblock %}
 {% block content %}
+{% set listing_page = listing.page %}
 
-<h2>Registre des stratégies</h2>
-<p class="muted">Le statut vient de <code>strategy_registry</code> ; les chiffres viennent du
-   paquet <code>analytics</code> appliqué aux trades réellement produits. Une référence absente
-   du registre est affichée quand même, avec un statut vide : c'est exactement ce qu'il faut voir.</p>
+<h2>Registre des stratégies — {{ listing_page.total }} au total</h2>
+<p class="muted">Un seul marché à la fois, <strong>{{ listing_page.market }}</strong> :
+   {{ listing_page.showing }}. Le statut vient de <code>strategy_registry</code> ; les chiffres
+   viennent du paquet <code>analytics</code> appliqué aux trades réellement produits. Une
+   référence absente du registre est affichée quand même, avec un statut vide : c'est
+   exactement ce qu'il faut voir.</p>
+
+<form class="filters" method="get" action="/strategies" role="search">
+  {% if listing.markets %}
+    {{ market_select(listing_page, listing.markets) }}
+  {% else %}
+    <p class="muted">Aucun marché en base : il n'y a rien à séparer.</p>
+  {% endif %}
+  {{ search_field("strategies-q", "Recherche", listing_page.query,
+                  "référence, stratégie, version") }}
+  <div><button type="submit">Rechercher</button></div>
+  {% if listing_page.query %}
+    <div><a href="/strategies?market={{ listing_page.market }}">Réinitialiser</a></div>
+  {% endif %}
+</form>
+
+{% if listing_page.query %}
+  <p class="muted">{{ listing_page.total }} stratégie(s) pour « {{ listing_page.query }} ».</p>
+{% endif %}
 
 <div class="table-wrap">
 <table>
@@ -15,8 +37,8 @@
         <th class="num">Résultat net</th><th class="num">Réussite</th><th class="num">Facteur de profit</th>
         <th class="num">Drawdown max</th></tr>
   </thead>
-  <tbody>
-    {% for view in views %}
+  <tbody id="strategies-body">
+    {% for view in listing_page.rows %}
       <tr>
         <td>{{ view.ref }}</td>
         <td>{{ view.market }}</td>
@@ -29,20 +51,26 @@
         <td>{{ view.origin or '—' }}</td>
         <td>{{ display.moment(view.promoted_at) }}</td>
         <td class="num">{{ view.performance.trades }}</td>
-        <td class="num {% if view.performance.net_profit < 0 %}neg{% elif view.performance.net_profit > 0 %}pos{% endif %}">{{ display.money(view.performance.net_profit, signed=True) }}</td>
+        {# Vert au-dessus de zéro, rouge en dessous, et aucune couleur à zéro : la règle vit
+           dans `format.ratio_class`, jamais recopiée dans le gabarit. #}
+        <td class="num {{ display.ratio_class(view.performance.net_profit) }}">{{ display.money(view.performance.net_profit, signed=True) }}</td>
         <td class="num">{{ display.percent(view.performance.win_rate) }}</td>
-        <td class="num">{{ display.ratio(view.performance.profit_factor) }}</td>
+        <td class="num {{ display.ratio_class(view.performance.profit_factor) }}">{{ display.ratio(view.performance.profit_factor) }}</td>
         <td class="num">{{ display.money(view.performance.max_drawdown) }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="12" class="empty">Aucune stratégie enregistrée.</td></tr>
+      <tr><td colspan="12" class="empty">{{ listing_page.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
 
+{{ pager(listing_page, "Pagination des stratégies") }}
+
 <h2>Validation et backtests</h2>
-{% for view in views %}
+<p class="muted">Les mêmes dix références que ci-dessus : le détail suit la page, il ne
+   parcourt pas tout le registre.</p>
+{% for view in listing_page.rows %}
   <h3>{{ view.ref }} — {{ view.market }}</h3>
   {% if view.promotion_reason %}<p class="muted">Motif de promotion : {{ view.promotion_reason }}</p>{% endif %}
 
@@ -89,7 +117,7 @@
   <p class="muted">Les métriques sont affichées telles qu'enregistrées : aucun backtest n'est
      relancé, aucune métrique n'est recalculée.</p>
 {% else %}
-  <p class="empty">Rien à détailler.</p>
+  <p class="empty">{{ listing_page.empty_message }}</p>
 {% endfor %}
 
 {% endblock %}

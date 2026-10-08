@@ -126,6 +126,13 @@ class Page[T]:
     filters: tuple[tuple[str, str], ...] = ()
     noun: str = "ligne"
     feminine: bool = False
+    page_param: str = "page"
+    """The query parameter this page answers to.
+
+    One page can carry several lists — the AI laboratory has four — and each must page on
+    its own: ``?proposals=2`` moves the proposals and leaves the analyses alone. The default
+    is the name every single-list page uses.
+    """
 
     @property
     def first_row(self) -> int:
@@ -166,7 +173,7 @@ class Page[T]:
 
     def url(self, number: int) -> str:
         """The link to another page, carrying the search, the market and every filter."""
-        parameters: list[tuple[str, str]] = [("page", str(number))]
+        parameters: list[tuple[str, str]] = [(self.page_param, str(number))]
         if self.query:
             parameters.append(("q", self.query))
         if self.market:

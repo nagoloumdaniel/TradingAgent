@@ -153,12 +153,22 @@ class SignalRepository:
         return Decimal(str(statistics.median(distances)))
 
     def record_system_event(
-        self, kind: str, severity: Severity, detail: Mapping[str, Any], at: datetime
+        self,
+        kind: str,
+        severity: Severity,
+        detail: Mapping[str, Any],
+        at: datetime,
+        symbol: str | None = None,
     ) -> None:
+        """One observability event; `symbol` is the market it belongs to, when there is one."""
         with self._engine.begin() as connection:
             connection.execute(
                 insert(SystemEventRow).values(
-                    kind=kind, severity=severity, detail=dict(detail), occurred_at=at
+                    kind=kind,
+                    severity=severity,
+                    detail=dict(detail),
+                    occurred_at=at,
+                    symbol=symbol,
                 )
             )
 

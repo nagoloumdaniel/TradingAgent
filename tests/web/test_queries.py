@@ -166,10 +166,11 @@ def test_risk_view_reports_exposure_limits_and_the_halt_history(
     exposures = {exposure.market: exposure for exposure in view.exposures}
     assert exposures[seed.XAU].notional == seed.XAU_NOTIONAL
     assert exposures[seed.BTC].notional == seed.BTC_NOTIONAL
-    assert [command.scope for command in view.history] == ["market:BTCUSD"]
-    assert view.history[0].reason == "volatilité excessive"
+    # The two lists that grow without bound are pages now: counted in SQL, ten rows a time.
+    assert [command.scope for command in view.history.rows] == ["market:BTCUSD"]
+    assert view.history.rows[0].reason == "volatilité excessive"
     assert {"broker_disconnected", "clock_mismatch", "cycle"} <= {
-        event.kind for event in view.events
+        event.kind for event in view.events.rows
     }
 
 
@@ -243,8 +244,8 @@ def test_system_view_assembles_every_probe(populated: seed.Seeded, engine: Engin
     assert view.database.ok is True
     assert view.halt.halted is False
     assert {entry.symbol for entry in view.markets} == {seed.XAU, seed.BTC}
-    assert len(view.telemetry) == 4
-    assert {event.kind for event in view.errors} == {"broker_disconnected", "clock_mismatch"}
+    assert view.telemetry.total == 4
+    assert {event.kind for event in view.errors.rows} == {"broker_disconnected", "clock_mismatch"}
 
 
 def test_recent_events_can_be_restricted_to_warnings_and_above(

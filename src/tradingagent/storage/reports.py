@@ -2,6 +2,11 @@
 
 The unique (period, window_start) key makes regeneration after a crash idempotent: the
 second write loses, the first report is the one that gets sent.
+
+A report carries the market it is about, when it is about exactly one — the rule lives in
+`ReportGenerator.sole_market`, and a report covering several markets stores NULL. The
+column exists so the operator's `/reports` page can be filtered without lying about what
+the figures cover.
 """
 
 from dataclasses import dataclass
@@ -24,6 +29,7 @@ class StoredReport:
     window_end: datetime
     content: str
     sent_at: datetime | None
+    market: str | None
 
 
 class ReportStore:
@@ -31,14 +37,26 @@ class ReportStore:
         self._engine = engine
 
     def save(
-        self, period: str, window_start: datetime, window_end: datetime, content: str, at: datetime
+        self,
+        period: str,
+        window_start: datetime,
+        window_end: datetime,
+        content: str,
+        at: datetime,
+        market: str | None = None,
     ) -> None:
+        """One report, with the market it is about when the caller knows one.
+
+        `market` is the single market the window covered, or None for a report spanning
+        several: the column is nullable, and an empty cell is an honest answer.
+        """
         statement = insert_ignoring_duplicates(self._engine, ReportRow, UNIQUE_KEY).values(
             period=period,
             window_start=window_start,
             window_end=window_end,
             content=content,
             generated_at=at,
+            market=market,
         )
         with self._engine.begin() as connection:
             connection.execute(statement)
@@ -88,4 +106,5 @@ def _stored(row: ReportRow) -> StoredReport:
         window_end=row.window_end,
         content=row.content,
         sent_at=row.sent_at,
+        market=row.market,
     )

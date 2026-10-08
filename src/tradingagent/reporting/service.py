@@ -43,6 +43,7 @@ class ReportService:
             last_end = await asyncio.to_thread(self._reports.latest_window_end, period.value)
             for window in missed_windows(period, last_end, now):
                 content = await asyncio.to_thread(self._generator.build, window)
+                market = await asyncio.to_thread(self._generator.sole_market, window)
                 await asyncio.to_thread(
                     self._reports.save,
                     period.value,
@@ -50,6 +51,7 @@ class ReportService:
                     window.end,
                     content,
                     now,
+                    market=market,
                 )
                 stored = await asyncio.to_thread(self._reports.find, period.value, window.start)
                 if stored is None:

@@ -16,6 +16,7 @@ into a display total — exposure and counters — never an indicator.
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -24,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import Engine, String, cast, desc, func, or_, select, text
+from sqlalchemy import Engine, String, and_, cast, desc, func, or_, select, text, tuple_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -1929,6 +1930,9 @@ class SystemEventView:
     severity: Severity
     detail: dict[str, Any]
     occurred_at: datetime
+    # The instrument the event belongs to, when the caller knew one. Account-wide events
+    # (clock mismatch, kill switch, mode command) carry none, and none is ever guessed.
+    symbol: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1946,13 +1950,13 @@ class HaltView:
 class RiskView:
     at: datetime
     halt: HaltStatus
-    history: tuple[HaltView, ...]
+    history: Page[HaltView]
     halted_pairs: tuple[tuple[str, str], ...]
     halted_markets: tuple[str, ...]
     exposures: tuple[ExposureView, ...]
     limits: tuple[RiskLimits, ...]
     refusals: RefusedRisk
-    events: tuple[SystemEventView, ...]
+    events: Page[SystemEventView]
     ea: tuple[EaView, ...]
 
 
@@ -2024,26 +2028,279 @@ def recent_events(
             severity=row.severity,
             detail=dict(row.detail),
             occurred_at=row.occurred_at,
+            symbol=row.symbol,
         )
         for row in rows
     )
 
 
 def risk_view(
-    engine: Engine, at: datetime, limits_path: Path, ea_reports_dir: Path | None = None
+    engine: Engine,
+    at: datetime,
+    limits_path: Path,
+    ea_reports_dir: Path | None = None,
+    *,
+    market: str = paging.ALL_MARKETS,
+    query: str = "",
+    events_page: int = 1,
+    history_page: int = 1,
 ) -> RiskView:
+    """The risk page: the state, and the two logs that grow without bound.
+
+    ``system_events`` carries the instrument of an event (``symbol``, null when the event
+    concerns the account as a whole), so the events are separated by market — a market's own
+    events plus the account-wide ones, never another instrument's. ``halt_commands`` scopes
+    its commands with a free-form ``scope`` rather than a market column: that list stays
+    paged and searched, with no market filter it could honestly apply.
+    """
     positions = open_positions(engine, at)
+    events = event_page(
+        engine,
+        market=market,
+        query=query,
+        page=events_page,
+        path="/risk",
+        noun="événement",
+        filters=(("hpage", str(history_page)),),
+    )
+    history = halt_page(
+        engine,
+        query=query,
+        page=history_page,
+        filters=((events.page_param, str(events_page)),),
+    )
     return RiskView(
         at=at,
         halt=halt_status(engine),
-        history=halt_history(engine),
+        history=history,
         halted_pairs=halted_pairs(engine),
         halted_markets=halted_markets(engine),
         exposures=exposures(positions),
         limits=risk_limits(limits_path),
         refusals=ReportData(engine).refused_risk_between(EPOCH, FOREVER),
-        events=recent_events(engine, limit=50),
+        events=events,
         ea=ea_views(ea_reports_dir, at),
+    )
+
+
+# ---------------------------------------------------------------------------------------
+# The two logs of the risk page, and the two of the system page: one shape, four uses.
+#
+# Both live in append-only tables that grow all year, so both are counted and bounded in
+# SQL, and both answer a search that is a bound parameter. `system_events` now carries the
+# instrument of the event (`symbol`, nullable) and `execution_events` always has: the market
+# is therefore a query parameter here too — with one rule of its own, below.
+# ---------------------------------------------------------------------------------------
+
+RISK_PAGE_SIZE = paging.PAGE_SIZE
+EVENT_SEARCH_FIELDS: tuple[str, ...] = ("type", "marché", "gravité", "détail")
+HALT_SEARCH_FIELDS: tuple[str, ...] = ("portée", "action", "source", "acteur", "motif")
+TELEMETRY_SEARCH_FIELDS: tuple[str, ...] = ("type", "marché", "détail")
+# What the events table writes when an event belongs to no market: the account as a whole.
+ACCOUNT_WIDE = "tous marchés"
+
+
+def event_markets(engine: Engine) -> tuple[str, ...]:
+    """The markets the events name, plus the ones the database trades.
+
+    A market that has only written events — never a position or a signal — must still be
+    offered, otherwise its events would be unreachable behind the default.
+    """
+    named = [
+        str(value)
+        for value in _distinct(engine, SystemEventRow.symbol)
+        if value is not None and str(value)
+    ]
+    return tuple(sorted({*named, *available_markets(engine)}))
+
+
+def _event_market(column: Any, market: str) -> Any | None:
+    """One market's events, **plus the account-wide ones**, which belong to every market.
+
+    ``system_events.symbol`` is null for what concerns the account as a whole — a clock
+    mismatch, a kill switch, a mode command. Filtering on equality alone would hide them
+    behind every market selector, which on a risk page is the one alert the operator must
+    not lose. Two instruments still never share a table: BTCUSD events stay out of the
+    XAUUSD page. An empty market is not a market: it means "nothing to separate" and adds
+    no condition at all.
+    """
+    if not market:
+        return None
+    return or_(column == market, column.is_(None))
+
+
+def event_page(
+    engine: Engine,
+    *,
+    market: str = paging.ALL_MARKETS,
+    query: str = "",
+    minimum: Severity | None = None,
+    page: int = 1,
+    page_size: int = RISK_PAGE_SIZE,
+    path: str = "/risk",
+    noun: str = "événement",
+    feminine: bool = False,
+    page_param: str = "page",
+    filters: tuple[tuple[str, str], ...] = (),
+) -> Page[SystemEventView]:
+    """One page of system events, newest first, filtered, searched and bounded in SQL."""
+    needle = query.strip()
+    scoped = _event_market(SystemEventRow.symbol, market)
+    conditions: list[Any] = [] if scoped is None else [scoped]
+    if minimum is not None:
+        conditions.append(SystemEventRow.severity != Severity.INFO)
+    conditions.extend(
+        paging.text_search(
+            needle,
+            (
+                SystemEventRow.kind,
+                SystemEventRow.symbol,
+                SystemEventRow.severity,
+                SystemEventRow.detail,
+            ),
+        )
+    )
+    with Session(engine) as session:
+        found = _slice(
+            session,
+            SystemEventRow,
+            conditions,
+            (desc(SystemEventRow.occurred_at), desc(SystemEventRow.id)),
+            page,
+            max(1, page_size),
+        )
+    return Page(
+        rows=tuple(
+            SystemEventView(
+                kind=row.kind,
+                severity=row.severity,
+                detail=dict(row.detail),
+                occurred_at=row.occurred_at,
+                symbol=row.symbol,
+            )
+            for row in found.rows
+        ),
+        total=found.total,
+        page=found.page,
+        pages=found.pages,
+        page_size=max(1, page_size),
+        query=needle,
+        market=market,
+        path=path,
+        noun=noun,
+        feminine=feminine,
+        page_param=page_param,
+        filters=filters,
+    )
+
+
+def halt_page(
+    engine: Engine,
+    *,
+    query: str = "",
+    page: int = 1,
+    page_size: int = RISK_PAGE_SIZE,
+    filters: tuple[tuple[str, str], ...] = (),
+) -> Page[HaltView]:
+    """One page of halt and resume commands, newest first, searched and bounded in SQL."""
+    needle = query.strip()
+    conditions = paging.text_search(
+        needle,
+        (
+            HaltCommandRow.scope,
+            HaltCommandRow.action,
+            HaltCommandRow.source,
+            HaltCommandRow.actor,
+            HaltCommandRow.reason,
+        ),
+    )
+    with Session(engine) as session:
+        found = _slice(
+            session,
+            HaltCommandRow,
+            conditions,
+            (desc(HaltCommandRow.id),),
+            page,
+            max(1, page_size),
+        )
+    return Page(
+        rows=tuple(
+            HaltView(
+                scope=row.scope,
+                action=row.action,
+                source=row.source,
+                actor=row.actor,
+                reason=row.reason,
+                close_positions=row.close_positions,
+                occurred_at=row.occurred_at,
+            )
+            for row in found.rows
+        ),
+        total=found.total,
+        page=found.page,
+        pages=found.pages,
+        page_size=max(1, page_size),
+        query=needle,
+        path="/risk",
+        noun="commande d'arrêt",
+        feminine=True,
+        page_param="hpage",
+        filters=filters,
+    )
+
+
+def telemetry_page(
+    engine: Engine,
+    *,
+    market: str = paging.ALL_MARKETS,
+    query: str = "",
+    page: int = 1,
+    page_size: int = paging.PAGE_SIZE,
+    filters: tuple[tuple[str, str], ...] = (),
+) -> Page[TelemetryView]:
+    """One page of execution telemetry, newest first, filtered, searched and bounded in SQL.
+
+    ``execution_events.symbol`` is never null — a hop belongs to an order, and an order to an
+    instrument — so here the market is a plain equality, with no account-wide case.
+    """
+    needle = query.strip()
+    conditions: list[Any] = []
+    if market:
+        conditions.append(ExecutionEventRow.symbol == market)
+    conditions.extend(
+        paging.text_search(
+            needle, (ExecutionEventRow.kind, ExecutionEventRow.symbol, ExecutionEventRow.detail)
+        )
+    )
+    with Session(engine) as session:
+        found = _slice(
+            session,
+            ExecutionEventRow,
+            conditions,
+            (desc(ExecutionEventRow.occurred_at), desc(ExecutionEventRow.id)),
+            page,
+            max(1, page_size),
+        )
+    return Page(
+        rows=tuple(
+            TelemetryView(
+                id=int(row.id),
+                kind=row.kind,
+                symbol=row.symbol,
+                detail=dict(row.detail),
+                occurred_at=row.occurred_at,
+            )
+            for row in found.rows
+        ),
+        total=found.total,
+        page=found.page,
+        pages=found.pages,
+        page_size=max(1, page_size),
+        query=needle,
+        market=market,
+        path="/system",
+        noun="événement d'exécution",
+        filters=filters,
     )
 
 
@@ -2091,15 +2348,41 @@ class LatencyView:
 
 
 @dataclass(frozen=True)
+class JournalEntry:
+    """One line of a Guardian's journal, with the market it came from.
+
+    The journal is the only list of this page that does not live in the database: it is read
+    from the bridge's JSON reports, so it cannot be counted and paged in SQL. It is
+    therefore *bounded* — the newest lines first, and the total is stated on the page — and
+    never rendered whole.
+    """
+
+    symbol: str
+    at: datetime
+    seq: int
+    severity: str
+    kind: str
+    message: str
+    ticket: int | None
+
+
+@dataclass(frozen=True)
 class SystemView:
     at: datetime
     database: DatabaseHealth
     markets: tuple[MarketHealth, ...]
     latencies: tuple[LatencyView, ...]
-    telemetry: tuple[TelemetryView, ...]
-    errors: tuple[SystemEventView, ...]
+    telemetry: Page[TelemetryView]
+    errors: Page[SystemEventView]
+    journal: tuple[JournalEntry, ...]
+    journal_total: int
     halt: HaltStatus
     ea: tuple[EaView, ...]
+
+
+# How many journal lines the system page draws, and the ceiling the table itself never
+# exceeds: one display, like every other list of the dashboard.
+EA_JOURNAL_LIMIT = paging.PAGE_SIZE
 
 
 def database_health(engine: Engine) -> DatabaseHealth:
@@ -2190,21 +2473,78 @@ def telemetry(engine: Engine, limit: int = 25) -> tuple[TelemetryView, ...]:
     )
 
 
+def ea_journal(views: Sequence[EaView], limit: int = EA_JOURNAL_LIMIT) -> tuple[JournalEntry, ...]:
+    """The newest journal lines of every Guardian, merged, bounded to one display.
+
+    A report carries every event the EA chose to write; a Guardian that has been running for
+    a month can carry hundreds. The page draws the newest ``limit`` of them across all the
+    EAs and says how many were read: a truncated list that hides its own truncation is the
+    defect this replaces.
+    """
+    entries = [
+        JournalEntry(
+            symbol=view.symbol,
+            at=event.at,
+            seq=event.seq,
+            severity=event.severity,
+            kind=event.kind,
+            message=event.message,
+            ticket=event.ticket,
+        )
+        for view in views
+        for event in view.events
+    ]
+    return tuple(sorted(entries, key=lambda entry: (entry.at, entry.seq), reverse=True)[:limit])
+
+
 def system_view(
     engine: Engine,
     at: datetime,
     symbols: Sequence[str] = (),
     ea_reports_dir: Path | None = None,
+    *,
+    market: str = paging.ALL_MARKETS,
+    query: str = "",
+    page: int = 1,
+    errors_page: int = 1,
 ) -> SystemView:
+    """The health page: the probes, and the three lists that can grow.
+
+    The four market probes (freshness, Guardians, data, latencies) describe every market, as
+    a health page must; the two logs answer the market selector, and the errors keep the
+    account-wide events visible whatever the selected market is.
+    """
+    views = ea_views(ea_reports_dir, at)
+    telemetry = telemetry_page(
+        engine,
+        market=market,
+        query=query,
+        page=page,
+        filters=(("epage", str(errors_page)),),
+    )
+    errors = event_page(
+        engine,
+        market=market,
+        query=query,
+        minimum=Severity.WARNING,
+        page=errors_page,
+        path="/system",
+        noun="erreur",
+        feminine=True,
+        page_param="epage",
+        filters=((telemetry.page_param, str(page)),),
+    )
     return SystemView(
         at=at,
         database=database_health(engine),
         markets=market_health(engine, at, symbols),
         latencies=latency_views(engine),
-        telemetry=telemetry(engine),
-        errors=recent_events(engine, minimum=Severity.WARNING, limit=25),
+        telemetry=telemetry,
+        errors=errors,
+        journal=ea_journal(views),
+        journal_total=sum(len(view.events) for view in views),
         halt=halt_status(engine),
-        ea=ea_views(ea_reports_dir, at),
+        ea=views,
     )
 
 
@@ -2294,6 +2634,451 @@ def _report(row: ReportRow) -> ReportView:
 
 
 # ---------------------------------------------------------------------------------------
+# One page of any table, counted and bounded in SQL.
+#
+# Every list page below asks for its ten rows through this one function, so "the count and
+# the LIMIT are in the database" is stated once instead of once per page. Nothing is ever
+# read whole and sliced afterwards: the defect that made a page carry four hundred rows to
+# display ten cannot come back through a copy of the paging code.
+# ---------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _Slice:
+    """What the database returned for one page: the rows, and the count behind them."""
+
+    rows: list[Any]
+    total: int
+    page: int
+    pages: int
+
+
+def _slice(
+    session: Session,
+    table: Any,
+    conditions: Sequence[Any],
+    order_by: Sequence[Any],
+    page: int,
+    size: int,
+    *,
+    entities: bool = True,
+) -> _Slice:
+    """Count then limit. ``entities`` is ``False`` for a subquery, whose rows are tuples."""
+    total = int(session.scalar(select(func.count()).select_from(table).where(*conditions)) or 0)
+    current, pages = paging.page_bounds(total, page, size)
+    statement = (
+        select(table)
+        .where(*conditions)
+        .order_by(*order_by)
+        .limit(size)
+        .offset((current - 1) * size)
+    )
+    rows = list(session.scalars(statement)) if entities else list(session.execute(statement).all())
+    return _Slice(rows=rows, total=total, page=current, pages=pages)
+
+
+def _filtered(market: str, column: Any, needle: str, columns: Sequence[Any]) -> list[Any]:
+    """The market, then the search — every branch a bound parameter."""
+    conditions: list[Any] = []
+    if market:
+        conditions.append(column == market)
+    conditions.extend(paging.text_search(needle, columns))
+    return conditions
+
+
+def _siblings(**pages: int) -> tuple[tuple[str, str], ...]:
+    """The other lists' page numbers, carried by a page link so they do not move."""
+    return tuple((name, str(value)) for name, value in pages.items())
+
+
+# ---------------------------------------------------------------------------------------
+# The strategies page: one market at a time, ten rows, counted and searched in SQL.
+#
+# A strategy the dashboard can show comes from one of two places: the registry, which is the
+# deployment state, and the trades themselves, because a reference that produced trades
+# without a registry row is exactly what the operator needs to see. Both are filtered in
+# SQL; their union is what gets counted and paged, so a registry of four hundred rows is
+# never read to display ten.
+# ---------------------------------------------------------------------------------------
+
+STRATEGY_PAGE_SIZE = paging.PAGE_SIZE
+STRATEGY_SEARCH_FIELDS: tuple[str, ...] = ("référence", "stratégie", "version", "marché")
+
+
+@dataclass(frozen=True)
+class StrategyListing:
+    """One page of strategies, and the markets the selector may offer."""
+
+    page: Page[StrategyView]
+    markets: tuple[str, ...]
+
+
+def _strategy_identities() -> Any:
+    """(marché, référence, stratégie, version) of every strategy the database knows.
+
+    ``UNION`` rather than ``UNION ALL``: a reference that is both registered and traded is
+    one line, not two.
+    """
+    registry = select(
+        StrategyRegistryRow.market.label("market"),
+        StrategyRegistryRow.ref.label("ref"),
+        StrategyRegistryRow.strategy_id.label("strategy_id"),
+        StrategyRegistryRow.version.label("version"),
+    )
+    traded = (
+        select(
+            PositionRow.symbol.label("market"),
+            StrategyVersionRow.ref.label("ref"),
+            StrategyVersionRow.strategy_id.label("strategy_id"),
+            StrategyVersionRow.version.label("version"),
+        )
+        .select_from(TradeRow)
+        .join(PositionRow, TradeRow.position_id == PositionRow.id)
+        .join(OrderRow, PositionRow.order_id == OrderRow.id)
+        .join(SignalRow, OrderRow.signal_id == SignalRow.id)
+        .join(StrategyVersionRow, SignalRow.strategy_version_id == StrategyVersionRow.id)
+    )
+    return registry.union(traded).subquery()
+
+
+def strategy_markets(engine: Engine) -> tuple[str, ...]:
+    """Every market a strategy is registered for or has traded on, sorted."""
+    return tuple(
+        sorted({*_distinct(engine, StrategyRegistryRow.market), *available_markets(engine)})
+    )
+
+
+def strategy_page(
+    engine: Engine,
+    *,
+    market: str = paging.ALL_MARKETS,
+    query: str = "",
+    page: int = 1,
+    page_size: int = STRATEGY_PAGE_SIZE,
+) -> StrategyListing:
+    """The registry and its evidence, one page, filtered and bounded in the database."""
+    needle = query.strip()
+    size = max(1, page_size)
+    identities = _strategy_identities()
+    conditions = _filtered(
+        market,
+        identities.c.market,
+        needle,
+        (identities.c.ref, identities.c.strategy_id, identities.c.version, identities.c.market),
+    )
+    with Session(engine) as session:
+        found = _slice(
+            session,
+            identities,
+            conditions,
+            (identities.c.market, identities.c.ref),
+            page,
+            size,
+            entities=False,
+        )
+    return StrategyListing(
+        page=Page(
+            rows=_strategy_views(engine, found.rows),
+            total=found.total,
+            page=found.page,
+            pages=found.pages,
+            page_size=size,
+            query=needle,
+            market=market,
+            path="/strategies",
+            noun="stratégie",
+            feminine=True,
+        ),
+        markets=strategy_markets(engine),
+    )
+
+
+def _strategy_views(engine: Engine, identities: Sequence[Any]) -> tuple[StrategyView, ...]:
+    """The full view of the strategies on the page — and only of those.
+
+    The figures and the evidence are read for the ten visible references, never for the
+    whole registry: a page that computes four hundred performances to draw ten would undo
+    the paging the SQL just did.
+    """
+    pairs = [(str(row.market), str(row.ref)) for row in identities]
+    if not pairs:
+        return ()
+    with Session(engine) as session:
+        registry = {
+            (str(row.market), str(row.ref)): row
+            for row in session.scalars(
+                select(StrategyRegistryRow).where(
+                    tuple_(StrategyRegistryRow.market, StrategyRegistryRow.ref).in_(pairs)
+                )
+            ).all()
+        }
+        trades = _trades_by_strategy(session, pairs)
+    backtests = backtest_runs(engine)
+    validations = validation_runs(engine)
+    views: list[StrategyView] = []
+    for row in identities:
+        market, ref = str(row.market), str(row.ref)
+        known = registry.get((market, ref))
+        views.append(
+            StrategyView(
+                ref=ref,
+                market=market,
+                # A reference only the trades know keeps the identity `strategy_versions`
+                # recorded for it: the dashboard invents no version.
+                strategy_id=str(known.strategy_id if known is not None else row.strategy_id),
+                version=str(known.version if known is not None else row.version),
+                status=None if known is None else known.status,
+                origin=None if known is None else known.origin,
+                promoted_at=None if known is None else known.promoted_at,
+                updated_at=None if known is None else known.updated_at,
+                promotion_reason=None if known is None else known.promotion_reason,
+                performance=compute_performance(trades.get((market, ref), [])),
+                last_backtest=_latest_backtest(backtests, ref, market),
+                validations=tuple(
+                    item for item in validations if item.ref == ref and item.market == market
+                ),
+            )
+        )
+    return tuple(views)
+
+
+def _trades_by_strategy(
+    session: Session, pairs: Sequence[tuple[str, str]]
+) -> dict[tuple[str, str], list[Trade]]:
+    """The closed trades of the named (market, reference) pairs, grouped and read once."""
+    conditions = or_(
+        *[
+            and_(PositionRow.symbol == market, StrategyVersionRow.ref == ref)
+            for market, ref in pairs
+        ]
+    )
+    grouped: dict[tuple[str, str], list[Trade]] = defaultdict(list)
+    for row in session.execute(_trade_statement([conditions])).all():
+        entry = _trade_entry(*row)
+        grouped[(entry.trade.symbol, entry.trade.strategy_ref)].append(entry.trade)
+    return dict(grouped)
+
+
+# ---------------------------------------------------------------------------------------
+# The AI laboratory: four lists, four page parameters, one market.
+#
+# Analyses, proposals, validations and backtests all carry a market column, so the filter is
+# mechanical there. Each list is counted and bounded on its own: reading the proposals must
+# not move the analyses, which is why each `Page` answers to its own query parameter.
+# ---------------------------------------------------------------------------------------
+
+AI_PAGE_SIZE = paging.PAGE_SIZE
+ANALYSIS_SEARCH_FIELDS: tuple[str, ...] = ("type", "marché", "référence", "modèle", "réponse")
+PROPOSAL_SEARCH_FIELDS: tuple[str, ...] = ("marché", "référence", "hypothèse", "statut", "motif")
+VALIDATION_SEARCH_FIELDS: tuple[str, ...] = ("référence", "marché", "portail", "détail")
+BACKTEST_SEARCH_FIELDS: tuple[str, ...] = ("référence", "marché", "jeu de données", "empreinte")
+
+
+@dataclass(frozen=True)
+class AiLabListing:
+    analyses: Page[AnalysisView]
+    proposals: Page[ProposalView]
+    validations: Page[ValidationView]
+    backtests: Page[BacktestView]
+    markets: tuple[str, ...]
+
+
+def ai_markets(engine: Engine) -> tuple[str, ...]:
+    """Every market the laboratory holds a row for, plus the ones the database trades."""
+    return tuple(
+        sorted(
+            {
+                *_distinct(engine, AiAnalysisRow.market),
+                *_distinct(engine, AiProposalRow.market),
+                *_distinct(engine, ValidationRunRow.market),
+                *_distinct(engine, BacktestRunRow.market),
+                *available_markets(engine),
+            }
+        )
+    )
+
+
+def ai_lab_pages(
+    engine: Engine,
+    *,
+    market: str = paging.ALL_MARKETS,
+    query: str = "",
+    analyses_page: int = 1,
+    proposals_page: int = 1,
+    validations_page: int = 1,
+    backtests_page: int = 1,
+    page_size: int = AI_PAGE_SIZE,
+) -> AiLabListing:
+    """The four lists of the laboratory, each one page, each bounded in the database."""
+    needle = query.strip()
+    size = max(1, page_size)
+    with Session(engine) as session:
+        analyses = _slice(
+            session,
+            AiAnalysisRow,
+            _filtered(
+                market,
+                AiAnalysisRow.market,
+                needle,
+                (
+                    AiAnalysisRow.kind,
+                    AiAnalysisRow.market,
+                    AiAnalysisRow.ref,
+                    AiAnalysisRow.model,
+                    AiAnalysisRow.response,
+                    AiAnalysisRow.findings,
+                ),
+            ),
+            (desc(AiAnalysisRow.created_at), desc(AiAnalysisRow.id)),
+            analyses_page,
+            size,
+        )
+        proposals = _slice(
+            session,
+            AiProposalRow,
+            _filtered(
+                market,
+                AiProposalRow.market,
+                needle,
+                (
+                    AiProposalRow.market,
+                    AiProposalRow.ref,
+                    AiProposalRow.hypothesis,
+                    AiProposalRow.status,
+                    AiProposalRow.decision_reason,
+                    AiProposalRow.proposed_change,
+                ),
+            ),
+            (desc(AiProposalRow.created_at), desc(AiProposalRow.id)),
+            proposals_page,
+            size,
+        )
+        validations = _slice(
+            session,
+            ValidationRunRow,
+            _filtered(
+                market,
+                ValidationRunRow.market,
+                needle,
+                (
+                    ValidationRunRow.ref,
+                    ValidationRunRow.market,
+                    ValidationRunRow.stage,
+                    ValidationRunRow.detail,
+                ),
+            ),
+            (desc(ValidationRunRow.created_at), desc(ValidationRunRow.id)),
+            validations_page,
+            size,
+        )
+        backtests = _slice(
+            session,
+            BacktestRunRow,
+            _filtered(
+                market,
+                BacktestRunRow.market,
+                needle,
+                (
+                    BacktestRunRow.ref,
+                    BacktestRunRow.market,
+                    BacktestRunRow.dataset_id,
+                    BacktestRunRow.fingerprint,
+                ),
+            ),
+            (desc(BacktestRunRow.created_at), desc(BacktestRunRow.id)),
+            backtests_page,
+            size,
+        )
+    common: dict[str, Any] = {
+        "page_size": size,
+        "query": needle,
+        "market": market,
+        "path": "/ai-lab",
+    }
+    return AiLabListing(
+        analyses=Page(
+            rows=tuple(_analysis_view(row) for row in analyses.rows),
+            total=analyses.total,
+            page=analyses.page,
+            pages=analyses.pages,
+            page_param="page",
+            filters=_siblings(
+                proposals=proposals.page, validations=validations.page, backtests=backtests.page
+            ),
+            noun="analyse",
+            feminine=True,
+            **common,
+        ),
+        proposals=Page(
+            rows=tuple(_proposal(row) for row in proposals.rows),
+            total=proposals.total,
+            page=proposals.page,
+            pages=proposals.pages,
+            page_param="proposals",
+            filters=_siblings(
+                page=analyses.page, validations=validations.page, backtests=backtests.page
+            ),
+            noun="proposition",
+            feminine=True,
+            **common,
+        ),
+        validations=Page(
+            rows=tuple(_validation(row) for row in validations.rows),
+            total=validations.total,
+            page=validations.page,
+            pages=validations.pages,
+            page_param="validations",
+            filters=_siblings(
+                page=analyses.page, proposals=proposals.page, backtests=backtests.page
+            ),
+            noun="validation",
+            feminine=True,
+            **common,
+        ),
+        backtests=Page(
+            rows=tuple(_backtest(row) for row in backtests.rows),
+            total=backtests.total,
+            page=backtests.page,
+            pages=backtests.pages,
+            page_param="backtests",
+            filters=_siblings(
+                page=analyses.page, proposals=proposals.page, validations=validations.page
+            ),
+            noun="backtest",
+            **common,
+        ),
+        markets=ai_markets(engine),
+    )
+
+
+def _proposal(row: AiProposalRow) -> ProposalView:
+    return ProposalView(
+        id=int(row.id),
+        market=row.market,
+        ref=row.ref,
+        analysis_id=row.analysis_id,
+        hypothesis=row.hypothesis,
+        proposed_change=dict(row.proposed_change),
+        status=str(row.status),
+        decided_by=row.decided_by,
+        decision_reason=row.decision_reason,
+        created_at=row.created_at,
+        decided_at=row.decided_at,
+    )
+
+
+def _validation(row: ValidationRunRow) -> ValidationView:
+    return ValidationView(
+        ref=row.ref,
+        market=row.market,
+        stage=row.stage,
+        passed=row.passed,
+        detail=dict(row.detail),
+        created_at=row.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------------------
 # §32: the scalping cuts. Every figure comes from `analytics.scalping` (pure) and
 # `storage.scalping` (the only layer that touches the database); the page recomputes
 # nothing. The bucket edges are declared here, as configuration, never inside the maths.
@@ -2307,8 +3092,18 @@ SIZE_EDGES: tuple[Decimal, ...] = (Decimal(0), Decimal("0.01"), Decimal("0.05"),
 
 @dataclass(frozen=True)
 class ScalpingView:
+    """The §32 cuts of one market, plus the display bound of the hourly cut.
+
+    The market is read from the data: every trade carries its symbol, so the selection is a
+    bound ``WHERE positions.symbol = :market`` and never a client-side hide. ``hours`` is a
+    `Page` because that cut is the only one that can outgrow a display (24 UTC hours at
+    most); the others are bounded by construction (4 sessions, 7 weekdays, 5 size bands, 5
+    duration bands, 6 spread bands) and are rendered whole.
+    """
+
+    market: str
     trades: int
-    hours: tuple[Bucket, ...]
+    hours: Page[Bucket]
     sessions: tuple[Bucket, ...]
     weekdays: tuple[Bucket, ...]
     spreads: tuple[Bucket, ...]
@@ -2318,18 +3113,62 @@ class ScalpingView:
     execution: ExecutionCosts
 
 
-def scalping_view(engine: Engine) -> ScalpingView:
-    trades = all_trades(engine)
+def market_trades(engine: Engine, market: str = paging.ALL_MARKETS) -> tuple[Trade, ...]:
+    """Every closed trade of one market, filtered in SQL — the input of the cuts.
+
+    A distribution needs all of its sample: unlike a log, this read is not a display of ten
+    rows, and the filter that scopes it is a bound parameter like every other. An empty
+    ``market`` is the only case that reads more than one instrument, and it is only ever set
+    when the database holds none.
+    """
+    conditions: list[Any] = []
+    if market:
+        conditions.append(PositionRow.symbol == market)
+    with Session(engine) as session:
+        rows = session.execute(_trade_statement(conditions)).all()
+    return tuple(_trade_entry(*row).trade for row in rows)
+
+
+def scalping_view(
+    engine: Engine,
+    *,
+    market: str = paging.ALL_MARKETS,
+    page: int = 1,
+    page_size: int = paging.PAGE_SIZE,
+) -> ScalpingView:
+    """The cuts of one market. Every figure still comes from ``analytics.scalping``."""
+    trades = market_trades(engine, market)
+    hours = tuple(by_hour(trades))
+    size = max(1, page_size)
+    current, pages = paging.page_bounds(len(hours), page, size)
     return ScalpingView(
+        market=market,
         trades=len(trades),
-        hours=by_hour(trades),
+        # The buckets are produced by the pure analytics module, so there is no table for
+        # SQL to LIMIT here: the bound is applied to what `by_hour` returned, and the page
+        # still carries its state in the URL like every other display. Re-deriving the
+        # bucketing in SQL to page it there would be a second implementation of a figure
+        # the analytics package owns (§34).
+        hours=Page(
+            rows=hours[(current - 1) * size : current * size],
+            total=len(hours),
+            page=current,
+            pages=pages,
+            page_size=size,
+            market=market,
+            path="/scalping",
+            noun="découpe horaire",
+            feminine=True,
+        ),
         sessions=by_session(trades),
         weekdays=by_weekday(trades),
         spreads=by_spread(trades, SPREAD_EDGES),
         durations=by_duration(trades, DURATION_EDGES),
         sizes=by_size(trades, size_of(engine), SIZE_EDGES),
         costs=cost_summary(trades),
-        execution=execution_costs(engine),
+        # The execution costs are read from the telemetry of the same market: a latency
+        # measured on BTCUSD under an XAUUSD distribution would describe neither.
+        execution=execution_costs(engine, symbol=market or None),
     )
 
 
@@ -2471,13 +3310,26 @@ def watermark(engine: Engine) -> ChartWatermark:
 # ``HaltView.scope`` is rendered as stored; ``halted_pairs`` already returns the parsed
 # (strategy, market) pairs the risk page displays.
 __all__ = [
+    "AI_PAGE_SIZE",
+    "ANALYSIS_SEARCH_FIELDS",
+    "BACKTEST_SEARCH_FIELDS",
+    "EA_JOURNAL_LIMIT",
     "EPOCH",
+    "EVENT_SEARCH_FIELDS",
     "FOREVER",
+    "HALT_SEARCH_FIELDS",
     "POSITION_PAGE_SIZE",
     "POSITION_SEARCH_FIELDS",
+    "PROPOSAL_SEARCH_FIELDS",
+    "RISK_PAGE_SIZE",
+    "STRATEGY_PAGE_SIZE",
+    "STRATEGY_SEARCH_FIELDS",
+    "TELEMETRY_SEARCH_FIELDS",
     "TOTAL",
+    "VALIDATION_SEARCH_FIELDS",
     "AccountFigures",
     "AiLab",
+    "AiLabListing",
     "AnalysisView",
     "BacktestView",
     "CandleChart",
@@ -2490,6 +3342,7 @@ __all__ = [
     "ExecutionView",
     "ExposureView",
     "HaltView",
+    "JournalEntry",
     "LatencyView",
     "MarketContext",
     "MarketHealth",
@@ -2506,6 +3359,7 @@ __all__ = [
     "RiskView",
     "ScalpingView",
     "SignalView",
+    "StrategyListing",
     "StrategyVersionView",
     "StrategyView",
     "SystemEventView",
@@ -2520,6 +3374,8 @@ __all__ = [
     "account_figures",
     "ai_analyses",
     "ai_lab",
+    "ai_lab_pages",
+    "ai_markets",
     "ai_proposals",
     "all_trade_entries",
     "all_trades",
@@ -2530,10 +3386,13 @@ __all__ = [
     "database_health",
     "day_start",
     "ea_halted",
+    "ea_journal",
     "ea_views",
     "equity_series",
+    "event_page",
     "exposures",
     "halt_history",
+    "halt_page",
     "halt_status",
     "halted_markets",
     "halted_pairs",
@@ -2542,6 +3401,7 @@ __all__ = [
     "market_context",
     "market_health",
     "market_summaries",
+    "market_trades",
     "month_start",
     "open_positions",
     "overview",
@@ -2556,8 +3416,11 @@ __all__ = [
     "selectable_markets",
     "selectable_strategies",
     "strategies",
+    "strategy_markets",
+    "strategy_page",
     "system_view",
     "telemetry",
+    "telemetry_page",
     "trade_detail",
     "trade_entries",
     "trade_page",

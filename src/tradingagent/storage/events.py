@@ -21,12 +21,27 @@ class SystemEventStore:
         self._engine = engine
 
     def record(
-        self, kind: str, severity: Severity, detail: Mapping[str, Any], at: datetime
+        self,
+        kind: str,
+        severity: Severity,
+        detail: Mapping[str, Any],
+        at: datetime,
+        symbol: str | None = None,
     ) -> None:
+        """One event, with the instrument it concerns when the caller knows one.
+
+        The signature gains an optional parameter, so the account-wide writers stay
+        untouched and store NULL: a wrong symbol on `/risk` would be worse than an empty
+        column, and the detail still carries what the caller had.
+        """
         with self._engine.begin() as connection:
             connection.execute(
                 insert(SystemEventRow).values(
-                    kind=kind, severity=severity, detail=dict(detail), occurred_at=at
+                    kind=kind,
+                    severity=severity,
+                    detail=dict(detail),
+                    occurred_at=at,
+                    symbol=symbol,
                 )
             )
 

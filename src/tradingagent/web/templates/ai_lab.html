@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import pager, market_select, search_field %}
 {% block title %}Labo IA{% endblock %}
 {% block content %}
 
@@ -7,24 +8,42 @@
    est ce qu'elle a produit, ce que l'opérateur en a fait, et le verdict des portails de validation.
    Aucun chiffre n'est recalculé ici.</p>
 
+{# Un seul marché pour les quatre listes, et une seule recherche : quatre formulaires
+   auraient demandé de comprendre lequel filtre quoi. #}
+<form class="filters" method="get" action="/ai-lab" role="search">
+  {% if lab.markets %}
+    {{ market_select(lab.analyses, lab.markets) }}
+  {% else %}
+    <p class="muted">Aucun marché en base : il n'y a rien à séparer.</p>
+  {% endif %}
+  {{ search_field("ai-lab-q", "Recherche", lab.analyses.query,
+                  "type, marché, référence, modèle, hypothèse, portail") }}
+  <div><button type="submit">Rechercher</button></div>
+  {% if lab.analyses.query %}
+    <div><a href="/ai-lab?market={{ lab.analyses.market }}">Réinitialiser</a></div>
+  {% endif %}
+</form>
+
 <div class="cards">
-  <div class="card"><div class="label">Analyses</div><div class="value">{{ lab.analyses | length }}</div>
+  <div class="card"><div class="label">Analyses</div><div class="value">{{ lab.analyses.total }}</div>
     <div class="note">observations enregistrées</div></div>
-  <div class="card"><div class="label">Propositions</div><div class="value">{{ lab.proposals | length }}</div>
+  <div class="card"><div class="label">Propositions</div><div class="value">{{ lab.proposals.total }}</div>
     <div class="note">hypothèses soumises</div></div>
-  <div class="card"><div class="label">Validations</div><div class="value">{{ lab.validations | length }}</div>
+  <div class="card"><div class="label">Validations</div><div class="value">{{ lab.validations.total }}</div>
     <div class="note">portails évalués</div></div>
-  <div class="card"><div class="label">Backtests</div><div class="value">{{ lab.backtests | length }}</div>
+  <div class="card"><div class="label">Backtests</div><div class="value">{{ lab.backtests.total }}</div>
     <div class="note">exécutions enregistrées</div></div>
 </div>
 
 <h2>Analyses</h2>
+<p class="muted">Marché <strong>{{ lab.analyses.market }}</strong> ·
+   {{ lab.analyses.showing }}.</p>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Le (UTC)</th><th>Type</th><th>Marché</th><th>Référence</th><th>Modèle</th>
              <th class="num">Coût</th><th>Constats</th><th>Réponse</th></tr></thead>
-  <tbody>
-    {% for analysis in lab.analyses %}
+  <tbody id="analyses-body">
+    {% for analysis in lab.analyses.rows %}
       <tr>
         <td>{{ display.precise(analysis.created_at) }}</td>
         <td>{{ analysis.kind }}</td>
@@ -36,19 +55,20 @@
         <td>{% if analysis.response %}<details><summary>lire</summary><pre>{{ analysis.response }}</pre></details>{% else %}—{% endif %}</td>
       </tr>
     {% else %}
-      <tr><td colspan="8" class="empty">Aucune analyse enregistrée.</td></tr>
+      <tr><td colspan="8" class="empty">{{ lab.analyses.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
+{{ pager(lab.analyses, "Pagination des analyses") }}
 
 <h2>Hypothèses et propositions</h2>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Le (UTC)</th><th>Marché</th><th>Référence</th><th>Hypothèse</th>
              <th>Changement proposé</th><th>Statut</th><th>Décidé par</th><th>Motif</th><th>Décidé le</th></tr></thead>
-  <tbody>
-    {% for proposal in lab.proposals %}
+  <tbody id="proposals-body">
+    {% for proposal in lab.proposals.rows %}
       <tr>
         <td>{{ display.precise(proposal.created_at) }}</td>
         <td>{{ proposal.market }}</td>
@@ -61,18 +81,19 @@
         <td>{{ display.precise(proposal.decided_at) }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="9" class="empty">Aucune proposition enregistrée.</td></tr>
+      <tr><td colspan="9" class="empty">{{ lab.proposals.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
+{{ pager(lab.proposals, "Pagination des propositions") }}
 
 <h2>Validations</h2>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Le (UTC)</th><th>Référence</th><th>Marché</th><th>Portail</th><th>Verdict</th><th>Détail</th></tr></thead>
-  <tbody>
-    {% for validation in lab.validations %}
+  <tbody id="validations-body">
+    {% for validation in lab.validations.rows %}
       <tr>
         <td>{{ display.precise(validation.created_at) }}</td>
         <td>{{ validation.ref }}</td>
@@ -82,19 +103,20 @@
         <td>{{ validation.detail | describe }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="6" class="empty">Aucune validation enregistrée.</td></tr>
+      <tr><td colspan="6" class="empty">{{ lab.validations.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
+{{ pager(lab.validations, "Pagination des validations") }}
 
 <h2>Backtests enregistrés</h2>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Le (UTC)</th><th>Référence</th><th>Marché</th><th>Jeu de données</th>
              <th>Fenêtre (UTC)</th><th>Empreinte</th><th>Métriques</th><th>Coûts</th><th>Rapport</th></tr></thead>
-  <tbody>
-    {% for backtest in lab.backtests %}
+  <tbody id="backtests-body">
+    {% for backtest in lab.backtests.rows %}
       <tr>
         <td>{{ display.precise(backtest.created_at) }}</td>
         <td>{{ backtest.ref }}</td>
@@ -107,10 +129,11 @@
         <td>{{ backtest.report_path or '—' }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="9" class="empty">Aucun backtest enregistré.</td></tr>
+      <tr><td colspan="9" class="empty">{{ lab.backtests.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
+{{ pager(lab.backtests, "Pagination des backtests") }}
 
 {% endblock %}

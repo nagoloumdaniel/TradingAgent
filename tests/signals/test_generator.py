@@ -310,6 +310,16 @@ def test_a_crashing_strategy_does_not_stop_the_others(engine: Engine) -> None:
     assert ("strategy_error", Severity.WARNING) in events(engine)
 
 
+def test_an_event_is_journalled_against_the_market_that_produced_it(engine: Engine) -> None:
+    """`/risk` filters `system_events` by symbol: the generator knows the market it
+    evaluated, so it writes it rather than leaving the dashboard an empty column."""
+    close(generator(engine, loaded(Flaky)), stored(engine))
+
+    with engine.connect() as connection:
+        rows = connection.execute(select(SystemEventRow.kind, SystemEventRow.symbol)).all()
+    assert ("strategy_error", "XAUUSD") in [(kind, symbol) for kind, symbol in rows]
+
+
 def replay(gen: SignalGenerator, engine: Engine, times: int) -> list[GenerationStatus]:
     """Evaluate `times` consecutive closes of gold, one per quarter."""
     statuses = []

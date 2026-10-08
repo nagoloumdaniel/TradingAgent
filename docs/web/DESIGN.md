@@ -87,7 +87,7 @@ l'action, sans avoir à deviner ce que représente l'icône.
 
 | Surface | Traitement |
 |---|---|
-| Barre de navigation **flottante** | `backdrop-filter: blur(16px) saturate(170%)`, rayon 999 px, marges de 18 px : une barre d'**une seule ligne**, donc une petite surface |
+| Barre de navigation **flottante** | `backdrop-filter: blur(16px) saturate(170%)`, rayon 999 px, **pilule centrée** : `max-width: var(--nav-max)` (1080 px), `margin: 10px auto 0`, `justify-self: center` — mesuré à 1440 px : 180 px de marge de chaque côté, à 800 px : 12 px |
 | Barre latérale (carte de verre) | `blur(14px)` |
 | Carte héro | `blur(16px) saturate(150%)` — une seule par page |
 | Toutes les autres cartes | surface translucide + liseré lumineux, **sans flou** |
@@ -101,6 +101,43 @@ sans rien dire de plus : le flou ne se voit que là où quelque chose passe derr
 
 Le fond translucide reste opaque à 72 % (`--glass-strong`) : sans `backdrop-filter`
 (navigateur ancien, mode économie d'énergie), la barre demeure parfaitement lisible.
+
+### La barre est centrée, pas pleine largeur (2026-10-08)
+
+L'opérateur : « la nav doit être au milieu (ne pas remplir la longueur de l'écran) ». La
+barre n'occupe donc plus les deux bords : elle est une **pilule centrée**, de 1080 px au
+maximum, tenue à égale distance des deux bords par `margin: auto` et `justify-self: center`.
+La mesure est faite sur une capture où la barre est peinte en magenta, parce que
+l'alignement ne se lit pas dans le HTML :
+
+| Largeur | Largeur de la pilule | Marge gauche | Marge droite |
+|---|---|---|---|
+| 1440 px | 1080 px | 180 px | 180 px |
+| 800 px (règle `max-width: 880px`) | 776 px | 12 px | 12 px |
+
+La marge est **symétrique par construction** : `width: 100%` plus `max-width` pour la borne,
+et sous 880 px `width: calc(100% - 24px)` — jamais `width: 100%` *avec* des marges
+horizontales, qui déborderait de la largeur du viewport.
+
+## Le logo — deux fichiers, une seule marque (2026-10-08)
+
+Le glyphe est **blanc sur fond transparent** : sur le thème clair, il disparaissait. Il existe
+donc deux fichiers, et la feuille de style — jamais un script — décide lequel se dessine :
+
+| Fichier | Thème | Ce qu'il contient |
+|---|---|---|
+| `static/nexagold.png` | sombre (défaut) | le glyphe blanc d'origine, 443 × 443, inchangé |
+| `static/nexagold-dark.png` | clair | le même glyphe, **luminance inversée, canal alpha conservé** |
+
+La dérivation n'est pas une retouche à la main : la luminance de chaque pixel est inversée
+(`255 − L`) et l'alpha est recopié tel quel, donc la couverture du dessin est identique au
+pixel près — 68 195 pixels opaques, 128 054 pixels transparents, luminance moyenne des pixels
+opaques 5,1 contre 249,9 pour l'original. Un test le vérifie sur les fichiers réels
+(`tests/web/test_brand.py`, décodeur PNG en bibliothèque standard : pas de Pillow en
+dépendance pour mesurer une image). Les **deux** `<img>` sont dans le document et une seule
+est affichée, pour que le bon dessin soit là dès le premier rendu.
+
+Le favicon reste le glyphe blanc : il ne suit pas le thème de la page.
 
 ## Barre latérale figée, et tiroir sur téléphone
 
@@ -184,6 +221,44 @@ Sur `/trades`, les cartes de synthèse décrivent la **sélection entière** fil
 les dix lignes visibles : une carte calculée sur dix lignes sur quatre cents serait un
 mensonge. Les montants sont stockés en texte sous SQLite, donc l'agrégation a lieu dans
 `analytics` — après le filtre SQL, jamais dans le navigateur.
+
+### Les cinq pages restantes (2026-10-08)
+
+`/scalping`, `/strategies`, `/ai-lab`, `/risk` et `/system` ont reçu le même traitement, par
+la même primitive. Une seule fonction compte et borne une table (`queries._slice`) : un
+`COUNT` puis un `LIMIT`/`OFFSET`, jamais une lecture complète coupée en Python. Un test
+écoute les requêtes réellement exécutées et exige de voir `SELECT COUNT(*)` **et** `LIMIT`
+dans le journal de chaque liste (`tests/web/test_remaining_pages.py`) : c'est la seule façon
+de prouver la règle plutôt que de la commenter.
+
+| Page | Table(s) | Marché | Recherche | Remarque |
+|---|---|---|---|---|
+| `/strategies` | `strategy_registry` ∪ les références vues dans les trades | oui (`market`) | oui | l'union est comptée et paginée en SQL ; les performances ne sont calculées que pour les dix références affichées |
+| `/ai-lab` | `ai_analyses`, `ai_proposals`, `validation_runs`, `backtest_runs` | oui (les quatre) | oui | **quatre** paramètres de page (`page`, `proposals`, `validations`, `backtests`) : lire les propositions ne déplace pas les analyses |
+| `/scalping` | découpes horaires | oui — dérivable, le symbole est porté par chaque trade | non | voir ci-dessous |
+| `/risk` | `system_events`, `halt_commands` | oui pour les événements | oui | l'historique des arrêts n'a pas de colonne marché : pagination + recherche seules |
+| `/system` | `execution_events`, `system_events`, journal EA | oui pour les deux logs | oui | le journal EA ne vient pas de la base : il est **borné**, pas paginé |
+
+Trois décisions qui méritent d'être écrites :
+
+1. **`/scalping` est une page d'agrégats, pas une liste.** Les découpes viennent de
+   `analytics.scalping`, qui a besoin de tout son échantillon : une distribution ne se calcule
+   pas sur dix lignes. Le marché, lui, est bien un paramètre lié (`positions.symbol = :market`),
+   appliqué aux trades, aux coûts et aux latences. La découpe horaire est la seule qui peut
+   dépasser un affichage (24 heures au plus) : elle est donc paginée, et la page dit que les
+   autres découpes sont bornées par construction (4 sessions, 7 jours, 5-6 bandes). Il n'y a
+   pas de champ de recherche : il n'y a aucun texte à filtrer, et un filtre sur des libellés
+   serait un tri côté client — précisément ce que le traitement supprime.
+2. **Un marché nullable n'est pas un marché.** `system_events.symbol` vaut `NULL` pour ce qui
+   concerne le compte entier — décalage d'horloge, kill switch, changement de mode. Le filtre
+   est donc « **ce marché, plus les événements sans marché** » : deux instruments ne partagent
+   jamais une table, et l'alerte qui ne concerne aucun instrument reste affichée quel que soit
+   le marché choisi. La colonne « Marché » écrit « tous marchés » quand la ligne n'en a pas.
+   `execution_events.symbol`, elle, n'est jamais nulle : là, l'égalité simple suffit.
+3. **Le journal des EA est borné, pas paginé.** Il est lu dans les rapports JSON du pont, pas
+   dans une table : il ne peut donc pas être compté en SQL. La page affiche les **dix**
+   événements les plus récents, tous gardiens confondus, et écrit « 10 sur 120 » à côté : une
+   troncature silencieuse serait le défaut qu'on remplace.
 
 ## Filigranes — de vrais graphiques
 
@@ -302,8 +377,10 @@ uv run python scripts/preview_dashboard.py --port 8799 --demo    # base jetable 
 contiennent que quelques points, ce qui suffit à exercer le code mais pas à juger un
 graphique (et sous le seuil, le filigrane ne se dessine pas — c'est voulu).
 
-Captures de référence versionnées dans `docs/web/screenshots/` :
-`overview-desktop.png`, `header-logo.png`, `scalping.png`, `system.png`.
+Captures de référence versionnées dans `docs/web/screenshots/` : `overview-desktop.png`,
+`header-logo.png`, `scalping.png`, `system.png`, et pour le passage du 2026-10-08 :
+`scalping-2026-10-1440.png`, `strategies-2026-10-1440.png`, `ai-lab-2026-10-1440.png`,
+`risk-2026-10-1440.png`, `system-2026-10-1440.png`, `overview-2026-10-light-logo.png`.
 
 ## Le logo
 
@@ -311,10 +388,11 @@ Captures de référence versionnées dans `docs/web/screenshots/` :
 443 × 443, adopté le 2026-10-07. Il vient du projet **NexaGoldAI**
 (`apps/web/public/nexagold.png`), dont le dépôt local et le dépôt GitHub ont été
 supprimés le même jour à la demande de l'opérateur : cette copie est désormais la
-seule qui subsiste.
+seule qui subsiste. Sa variante pour le thème clair est `nexagold-dark.png` (§ « Le logo —
+deux fichiers, une seule marque »).
 
 Il est servi par un montage `/static` local, jamais par un CDN : le tableau de bord
 reste consultable hors ligne, comme le reste de l'interface. `StaticFiles` ne répond
 qu'à `GET` et `HEAD`, donc ce montage ne dessert pas la promesse de lecture seule —
-un test le vérifie (`tests/web/test_read_only.py`), et le chemin est inclus dans le
+un test le vérifie (`tests/web/test_read_only.py`), et les **deux** chemins sont inclus dans le
 test empirique qui compte les lignes de toutes les tables avant et après.

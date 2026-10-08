@@ -264,6 +264,10 @@ class ReportRow(Base):
     content: Mapped[str] = mapped_column(Text)
     generated_at: Mapped[datetime]
     sent_at: Mapped[datetime | None]
+    # The market the report is about, when the window holds exactly one. A report that
+    # covers several markets has no single market: the column stays NULL, and the
+    # `/reports` page shows it under "tous marchés" rather than under a lie.
+    market: Mapped[str | None] = mapped_column(String(32), index=True)
 
 
 class SystemEventRow(Base):
@@ -274,6 +278,9 @@ class SystemEventRow(Base):
     severity: Mapped[Severity] = mapped_column(enum_type(Severity))
     detail: Mapped[dict[str, Any]] = mapped_column(JSON)
     occurred_at: Mapped[datetime] = mapped_column(index=True)
+    # The instrument the event belongs to, when the caller knows one. Account-wide events
+    # (clock mismatch, live activation, mode command) have no symbol: NULL, never a guess.
+    symbol: Mapped[str | None] = mapped_column(String(32), index=True)
 
 
 class AuditLogRow(Base):

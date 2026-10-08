@@ -145,15 +145,20 @@ def test_trades_page_opens_the_detail_of_one_signal(
 
 
 def test_strategies_page_shows_the_registry_and_the_evidence(seeded_client: TestClient) -> None:
-    body = seeded_client.get("/strategies").text
-    assert seed.WITNESS in body
-    assert "validé sur 12 mois" in body
-    assert "walk_forward" in body
-    assert "monte_carlo" in body
-    assert "réussi" in body
-    assert "échoué" in body
-    assert "xau-h1-2024" in body
-    assert "1.4" in body  # the stored backtest metric, displayed as recorded
+    """One market at a time: the XAU registry row, then the BTC one behind its own link."""
+    xau = seeded_client.get("/strategies").text
+    assert seed.WITNESS in xau
+    assert "validé sur 12 mois" in xau
+    assert "walk_forward" in xau
+    assert "réussi" in xau
+    assert "xau-h1-2024" in xau
+    assert "1.4" in xau  # the stored backtest metric, displayed as recorded
+    assert seed.BREAKOUT not in xau
+
+    btc = seeded_client.get("/strategies", params={"market": seed.BTC}).text
+    assert seed.BREAKOUT in btc
+    assert "monte_carlo" in btc
+    assert "échoué" in btc
 
 
 def test_ai_lab_page_shows_analyses_and_proposals(seeded_client: TestClient) -> None:

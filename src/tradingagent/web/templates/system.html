@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import pager, search_field, market_select %}
 {% block title %}Système{% endblock %}
 {% block content %}
 
@@ -15,13 +16,27 @@
     <div class="note">lecture pessimiste de <code>halt_commands</code></div></div>
   <div class="card"><div class="label">Marchés connus</div><div class="value">{{ data.markets | length }}</div>
     <div class="note">positions, bougies et télémétrie confondues</div></div>
-  <div class="card"><div class="label">Erreurs récentes</div><div class="value">{{ data.errors | length }}</div>
+  <div class="card"><div class="label">Erreurs récentes</div><div class="value">{{ data.errors.total }}</div>
     <div class="note">avertissements et critiques</div></div>
 </div>
 
 {% if not data.database.ok %}
   <div class="banner bad">Base injoignable : {{ data.database.error }}</div>
 {% endif %}
+
+{# Une seule recherche et un seul marché pour les deux listes de cette page. Les sondes
+   au-dessus décrivent tous les marchés — une page de santé qui en cacherait un cacherait la
+   panne qu'elle existe pour montrer — tandis que la télémétrie et les erreurs répondent au
+   marché choisi. #}
+<form class="filters" method="get" action="/system" role="search">
+  {% if markets %}{{ market_select(data.telemetry, markets) }}{% endif %}
+  {{ search_field("system-q", "Recherche", data.telemetry.query,
+                  "type, marché, détail, gravité") }}
+  <div><button type="submit">Rechercher</button></div>
+  {% if data.telemetry.query %}
+    <div><a href="/system?market={{ data.telemetry.market }}">Réinitialiser</a></div>
+  {% endif %}
+</form>
 
 <h2>Marché, données et EA</h2>
 <h3>Gardiens EA</h3>
@@ -57,23 +72,29 @@
 </table>
 </div>
 
+{# Le journal ne vient pas de la base mais des rapports JSON : il ne peut donc pas être
+   compté et paginé en SQL. Il est borné — les lignes les plus récentes, et le total lu est
+   écrit à côté, parce qu'une troncature silencieuse serait le défaut qu'on remplace. #}
 <h3>Journal des EA (derniers événements)</h3>
+<p class="muted">
+  <span id="ea-journal-count">{{ data.journal | length }} sur {{ data.journal_total }}</span>
+  événement(s) lu(s) dans les rapports : les plus récents d'abord, tous gardiens confondus,
+  bornés à un affichage.
+</p>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Marché</th><th>Le (UTC)</th><th>Séquence</th><th>Gravité</th><th>Type</th><th>Message</th><th>Ticket</th></tr></thead>
-  <tbody>
-    {% for guardian in data.ea %}
-      {% for event in guardian.events %}
-        <tr>
-          <td>{{ guardian.symbol }}</td>
-          <td>{{ display.precise(event.at) }}</td>
-          <td class="num">{{ event.seq }}</td>
-          <td><span class="badge">{{ event.severity or '—' }}</span></td>
-          <td>{{ event.kind }}</td>
-          <td>{{ event.message }}</td>
-          <td>{{ event.ticket if event.ticket is not none else '—' }}</td>
-        </tr>
-      {% endfor %}
+  <tbody id="ea-journal-body">
+    {% for event in data.journal %}
+      <tr>
+        <td>{{ event.symbol }}</td>
+        <td>{{ display.precise(event.at) }}</td>
+        <td class="num">{{ event.seq }}</td>
+        <td><span class="badge">{{ event.severity or '—' }}</span></td>
+        <td>{{ event.kind }}</td>
+        <td>{{ event.message }}</td>
+        <td>{{ event.ticket if event.ticket is not none else '—' }}</td>
+      </tr>
     {% else %}
       <tr><td colspan="7" class="empty">Aucun événement EA enregistré.</td></tr>
     {% endfor %}
@@ -131,30 +152,37 @@
 </div>
 
 <h2>Dernières erreurs et avertissements</h2>
+<p class="muted">Marché <strong>{{ data.errors.market or 'tous' }}</strong> ·
+   {{ data.errors.total }} erreur(s) ou avertissement(s), {{ data.errors.showing }}.
+   Les événements sans marché concernent le compte entier : ils restent affichés.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Le (UTC)</th><th>Gravité</th><th>Type</th><th>Détail</th></tr></thead>
-  <tbody>
-    {% for event in data.errors %}
+  <thead><tr><th>Le (UTC)</th><th>Marché</th><th>Gravité</th><th>Type</th><th>Détail</th></tr></thead>
+  <tbody id="errors-body">
+    {% for event in data.errors.rows %}
       <tr>
         <td>{{ display.precise(event.occurred_at) }}</td>
+        <td>{{ event.symbol or 'tous marchés' }}</td>
         <td><span class="badge {{ display.severity_class(event.severity) }}">{{ display.severity_label(event.severity) }}</span></td>
         <td>{{ event.kind }}</td>
         <td>{{ event.detail | describe }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="4" class="empty">Aucune erreur enregistrée.</td></tr>
+      <tr><td colspan="5" class="empty">{{ data.errors.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
+{{ pager(data.errors, "Pagination des erreurs") }}
 
 <h2>Télémétrie d'exécution récente</h2>
+<p class="muted">Marché <strong>{{ data.telemetry.market or 'tous' }}</strong> ·
+   {{ data.telemetry.total }} événement(s), {{ data.telemetry.showing }}.</p>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Le (UTC)</th><th>Marché</th><th>Type</th><th>Détail</th></tr></thead>
-  <tbody>
-    {% for event in data.telemetry %}
+  <tbody id="telemetry-body">
+    {% for event in data.telemetry.rows %}
       <tr>
         <td>{{ display.precise(event.occurred_at) }}</td>
         <td>{{ event.symbol }}</td>
@@ -162,10 +190,11 @@
         <td>{{ event.detail | describe }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="4" class="empty">Aucun événement d'exécution enregistré.</td></tr>
+      <tr><td colspan="4" class="empty">{{ data.telemetry.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
+{{ pager(data.telemetry, "Pagination de la télémétrie") }}
 
 {% endblock %}

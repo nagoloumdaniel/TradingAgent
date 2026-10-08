@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import pager, search_field, market_select %}
 {% block title %}Risque{% endblock %}
 {% block content %}
 
@@ -31,6 +32,20 @@
     <div class="value">{{ data.refusals.count }}</div>
     <div class="note">risque évité {{ display.money(data.refusals.avoided_risk_eur) }} (F-011)</div></div>
 </div>
+
+{# Les deux listes de cette page vivent dans des tables qui grossissent toute l'année :
+   `system_events` et `halt_commands`. La première nomme le marché de l'événement quand il y
+   en a un ; la seconde range ses commandes sous une portée libre, sans marché — elle reste
+   donc paginée et cherchable, sans filtre qu'elle pourrait honnêtement appliquer. #}
+<form class="filters" method="get" action="/risk" role="search">
+  {% if markets %}{{ market_select(data.events, markets) }}{% endif %}
+  {{ search_field("risk-q", "Recherche", data.events.query,
+                  "type, marché, gravité, détail, portée, acteur, motif") }}
+  <div><button type="submit">Rechercher</button></div>
+  {% if data.events.query %}
+    <div><a href="/risk?market={{ data.events.market }}">Réinitialiser</a></div>
+  {% endif %}
+</form>
 
 {% if data.halted_pairs %}
 <h3>Paires en quarantaine</h3>
@@ -140,31 +155,39 @@
 </div>
 
 <h2>Événements système</h2>
+<p class="muted">Marché <strong>{{ data.events.market or 'tous' }}</strong> ·
+   {{ data.events.total }} événement(s) pour cette recherche, {{ data.events.showing }}.
+   Les événements sans marché — horloge, kill switch, changement de mode — concernent le
+   compte entier : ils restent affichés quel que soit le marché choisi.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Le (UTC)</th><th>Gravité</th><th>Type</th><th>Détail</th></tr></thead>
-  <tbody>
-    {% for event in data.events %}
+  <thead><tr><th>Le (UTC)</th><th>Marché</th><th>Gravité</th><th>Type</th><th>Détail</th></tr></thead>
+  <tbody id="risk-events-body">
+    {% for event in data.events.rows %}
       <tr>
         <td>{{ display.precise(event.occurred_at) }}</td>
+        <td>{{ event.symbol or 'tous marchés' }}</td>
         <td><span class="badge {{ display.severity_class(event.severity) }}">{{ display.severity_label(event.severity) }}</span></td>
         <td>{{ event.kind }}</td>
         <td>{{ event.detail | describe }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="4" class="empty">Aucun événement enregistré.</td></tr>
+      <tr><td colspan="5" class="empty">{{ data.events.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
+{{ pager(data.events, "Pagination des événements système") }}
 
 <h2>Historique des arrêts et reprises</h2>
+<p class="muted">{{ data.history.total }} commande(s) pour cette recherche,
+   {{ data.history.showing }}.</p>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Le (UTC)</th><th>Portée</th><th>Action</th><th>Source</th><th>Acteur</th>
              <th>Fermeture</th><th>Motif</th></tr></thead>
-  <tbody>
-    {% for command in data.history %}
+  <tbody id="halt-history-body">
+    {% for command in data.history.rows %}
       <tr>
         <td>{{ display.precise(command.occurred_at) }}</td>
         <td>{{ command.scope }}</td>
@@ -176,10 +199,11 @@
         <td>{{ command.reason }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="7" class="empty">Aucune commande d'arrêt enregistrée.</td></tr>
+      <tr><td colspan="7" class="empty">{{ data.history.empty_message }}</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
+{{ pager(data.history, "Pagination de l'historique des arrêts") }}
 
 {% endblock %}

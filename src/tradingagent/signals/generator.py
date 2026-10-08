@@ -255,4 +255,5 @@ class SignalGenerator:
                 "detail": detail,
             },
             now,
+            symbol=symbol,
         )
