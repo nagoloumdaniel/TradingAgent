@@ -1012,8 +1012,9 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - [x] le contrat `Candle` accepte, valide et rejette le volume (fini, ≥ 0) — prouvé par `tests/core/test_market.py`
   - [x] l'agrégation somme un seau complet et renvoie `None` sur un seau incomplet — prouvé par `tests/backtest/test_aggregate_volume.py`
   - [x] l'adaptateur MT5 ne jette plus `tick_volume` — prouvé par `tests/data/test_market_data.py`
-  - [ ] un jeu gelé avec volume se relit à l'identique et son empreinte change avec le volume — **en cours**
-  - [ ] `storage/candles.py` : la base ne stocke pas le volume, donc un `Candle` relu de la base a `volume=None`. **À trancher** : soit une colonne `tick_volume` et une migration, soit un VWAP de production qui lit le flux et non la base. Tant que ce point est ouvert, **un VWAP de production ne verra aucun volume**.
+  - [x] un jeu gelé avec volume se relit à l'identique et son empreinte change avec le volume — prouvé par `tests/backtest/test_datasets.py`
+  - [x] la base conserve le volume : colonne `tick_volume` ajoutée par la migration `0008`, `NULL` pour tout l'historique antérieur (jamais `0`, qui serait une mesure inventée) — prouvé par `tests/storage/test_candles.py`, et le contrôle de dérive modèle/migration `test_models_and_migration_do_not_drift` refuse un type qui divergent. **La migration est appliquée automatiquement au démarrage de l'agent** (`app.py:744` appelle `upgrade`).
+  - [ ] **re-geler un jeu de données avec volume** : les 8 jeux existants restent sans volume, par construction. À faire lors du prochain téléchargement (TASK-067 en a besoin pour le VWAP).
 - **Skills :** `test-driven-development`, `market-data`
 
 ### TASK-067 — Stratégie de base BTCUSD : VWAP, momentum, pullback/retest
@@ -1033,7 +1034,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-068 — VWAP de session ancré à 00:00 UTC
 
-- [x] Statut : **DONE le 2026-10-08.** `indicators/vwap.py` : VWAP aligné sur les entrées, remis à zéro selon un horodatage, **ancre en paramètre** (défaut 00:00 UTC). 11 tests. **Réserve importante :** le VWAP lit le volume, et `storage/candles.py` ne stocke pas encore le volume (voir TASK-066) : en production, un VWAP calculé depuis la base verrait `volume=None` partout et rendrait `None`. Il fonctionne sur un flux vivant et sur les jeux gelés, pas encore sur l'historique lu en base.
+- [x] Statut : **DONE le 2026-10-08.** `indicators/vwap.py` : VWAP aligné sur les entrées, remis à zéro selon un horodatage, **ancre en paramètre** (défaut 00:00 UTC). 11 tests. Le volume qu'il lit traverse désormais toute la chaîne, base comprise (TASK-066) : un VWAP de production verra du volume sur les bougies collectées après le 2026-10-08, et `None` sur celles d'avant, qui n'en ont jamais porté.
 - **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-066
 - **Décision d'opérateur du 2026-10-08 :** l'ancre est la **journée UTC** commençant à 00:00, exposée en paramètre pour pouvoir être changée sans réécrire l'indicateur.
 - **Pourquoi l'ancre est une décision et pas un détail :** un VWAP n'est pas une moyenne mobile. Sa valeur dépend entièrement du point de départ, et deux ancres différentes donnent deux indicateurs différents sur la même série.

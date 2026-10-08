@@ -83,6 +83,11 @@ class CandleRow(Base):
     high: Mapped[float]
     low: Mapped[float]
     close: Mapped[float]
+    #: The broker's tick volume, named as MT5 names it. NULL means "not recorded", which is
+    #: every row written before this column existed; 0 means "no trade in that bar". The two
+    #: are kept apart because a volume-weighted price cannot be computed from unknown
+    #: weights, while a zero genuinely weighs nothing.
+    tick_volume: Mapped[float | None]
     source: Mapped[str] = mapped_column(String(32))
     ingested_at: Mapped[datetime]
 

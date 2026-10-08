@@ -24,6 +24,77 @@ def stored(engine: Engine) -> int:
         return connection.execute(select(func.count()).select_from(CandleRow)).scalar_one()
 
 
+def with_volume(first: int, count: int, volume: float | None) -> list[Candle]:
+    return [
+        Candle(
+            Timeframe.M15,
+            START + STEP * i,
+            100.0 + i,
+            101.5 + i,
+            99.25 + i,
+            100.75 + i,
+            volume=volume,
+        )
+        for i in range(first, first + count)
+    ]
+
+
+# -- volume : la base doit le conserver, sinon un VWAP de production est aveugle ----------
+
+
+def test_a_stored_volume_comes_back_identical(engine: Engine) -> None:
+    """Sans colonne, l'agent collecte le volume puis le perd en écrivant : le VWAP de
+    production ne verrait alors aucun volume, alors que le flux en porte un."""
+    store = CandleStore(engine)
+    store.save("XAUUSD", with_volume(0, 3, 42.0), INGESTED)
+
+    restored = store.latest("XAUUSD", Timeframe.M15, 3)
+
+    assert [candle.volume for candle in restored] == [42.0, 42.0, 42.0]
+
+
+def test_a_candle_without_volume_stays_without_volume(engine: Engine) -> None:
+    """Les barres écrites avant la colonne n'ont pas de volume : elles doivent rester `None`,
+    et jamais devenir 0 — « non enregistré » n'est pas « aucun échange »."""
+    store = CandleStore(engine)
+    store.save("XAUUSD", m15(0, 2), INGESTED)
+
+    restored = store.latest("XAUUSD", Timeframe.M15, 2)
+
+    assert [candle.volume for candle in restored] == [None, None]
+
+
+def test_a_zero_volume_survives_as_zero(engine: Engine) -> None:
+    """Une barre sans échange est une mesure à zéro, pas une donnée manquante."""
+    store = CandleStore(engine)
+    store.save("XAUUSD", with_volume(0, 2, 0.0), INGESTED)
+
+    restored = store.latest("XAUUSD", Timeframe.M15, 2)
+
+    assert [candle.volume for candle in restored] == [0.0, 0.0]
+
+
+def test_the_volume_survives_the_between_window(engine: Engine) -> None:
+    """Les deux chemins de lecture doivent porter le volume, pas seulement `latest`."""
+    store = CandleStore(engine)
+    store.save("XAUUSD", with_volume(0, 4, 7.5), INGESTED)
+
+    restored = store.between("XAUUSD", Timeframe.M15, START, START + STEP * 2)
+
+    assert [candle.volume for candle in restored] == [7.5, 7.5]
+
+
+def test_the_first_stored_bar_wins_even_for_the_volume(engine: Engine) -> None:
+    """Une barre close ne change plus : le volume stocké ne se réécrit pas non plus."""
+    store = CandleStore(engine)
+    store.save("XAUUSD", with_volume(0, 1, 10.0), INGESTED)
+    store.save("XAUUSD", with_volume(0, 1, 99.0), INGESTED)
+
+    restored = store.latest("XAUUSD", Timeframe.M15, 1)
+
+    assert restored[0].volume == 10.0
+
+
 def test_saved_candles_come_back_identical_and_in_order(engine: Engine) -> None:
     store = CandleStore(engine)
     candles = m15(0, 10)

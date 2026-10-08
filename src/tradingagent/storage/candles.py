@@ -36,6 +36,10 @@ class CandleStore:
                 "high": candle.high,
                 "low": candle.low,
                 "close": candle.close,
+                # NULL when the series carries no volume, never 0: a bar written before the
+                # `tick_volume` column existed was never recorded, and a VWAP must not read
+                # "unknown" as "nothing traded".
+                "tick_volume": candle.volume,
                 "source": self._source,
                 "ingested_at": ingested_at,
             }
@@ -80,10 +84,23 @@ class CandleStore:
     def _candles(self, query: "_CandleSelect") -> list[Candle]:
         with self._engine.connect() as connection:
             rows = connection.execute(query).all()
-        return [Candle(*row) for row in rows]
+        # Named arguments, not `Candle(*row)`: `volume` is keyword-only on purpose, so that
+        # adding it could never shift a price into it through a positional call.
+        return [
+            Candle(
+                timeframe=timeframe,
+                open_time=open_time,
+                open=open_price,
+                high=high,
+                low=low,
+                close=close,
+                volume=tick_volume,
+            )
+            for timeframe, open_time, open_price, high, low, close, tick_volume in rows
+        ]
 
 
-_CandleSelect = Select[Timeframe, datetime, float, float, float, float]
+_CandleSelect = Select[Timeframe, datetime, float, float, float, float, float | None]
 
 
 def _series(symbol: str, timeframe: Timeframe) -> _CandleSelect:
@@ -94,4 +111,5 @@ def _series(symbol: str, timeframe: Timeframe) -> _CandleSelect:
         CandleRow.high,
         CandleRow.low,
         CandleRow.close,
+        CandleRow.tick_volume,
     ).where(CandleRow.symbol == symbol, CandleRow.timeframe == timeframe)
