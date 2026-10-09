@@ -51,7 +51,13 @@ repos:
         # such as `[A-Z-]` matches one character and would silently miss `datasets-long`,
         # which is exactly the failure being repaired here. A file such as
         # `datasets-report.json` still goes through the 500 kB check.
-        exclude: ^docs/research/(datasets|datasets-long|datasets-h1|archive)/
+        #
+        # `datasets-native-h1` was added on 2026-10-09: 87 694 native H1 bars of BTCUSD since
+        # 2011, 8.3 MB, and the only set in the repository that no campaign had ever read. It
+        # is the evidence behind the project's first out-of-sample threshold crossing, so it is
+        # versioned rather than left to be re-fetched from a terminal that may not serve it
+        # again -- the same reason the other sets are here.
+        exclude: ^docs/research/(datasets|datasets-long|datasets-h1|datasets-native-h1|archive)/
       - id: end-of-file-fixer
         name: end-of-file-fixer
         entry: uv run end-of-file-fixer

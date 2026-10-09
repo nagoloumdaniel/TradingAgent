@@ -50,8 +50,11 @@ FROZEN: dict[str, float] = {
 
 SETS: dict[str, str] = {
     "M15 (référence, où le candidat a été trouvé)": "docs/research/datasets-long",
-    "H1 (nouveau découpage, test de confirmation)": "docs/research/datasets-h1/long-60000/H1",
-    "H4 (découpage encore plus grossier)": "docs/research/datasets-h1/long-60000/H4",
+    "H1 agrégé (nouveau découpage)": "docs/research/datasets-h1/long-60000/H1",
+    "H4 agrégé (découpage plus grossier)": "docs/research/datasets-h1/long-60000/H4",
+    # Le seul jeu réellement neuf : H1 natif du terminal, 87 694 bougies depuis 2011-03-23,
+    # qu'aucune campagne n'avait lu. C'est lui qui tranche, pas les agrégations ci-dessus.
+    "H1 NATIF depuis 2011 (jamais lu)": "docs/research/datasets-native-h1",
 }
 
 RISK_EUR = Decimal("10")

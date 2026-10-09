@@ -311,16 +311,89 @@ jamais lu, pour trancher.
 
 ---
 
-## 9. Ce qu'il faudrait pour rouvrir la question
+## 9. Le test décisif : H1 **natif** depuis 2011, jamais lu
+
+Le rapport demandait « du BTCUSD H1 natif depuis 2011, jamais lu ». Il a été récupéré du
+terminal le 2026-10-09 (87 694 bougies, 2011-03-23 → 2026-10-09) et **les paramètres gelés y
+ont été appliqués une seule fois**, sans ajustement. C'est la seule mesure du projet faite sur
+des données qu'aucune campagne n'avait touchées.
+
+| Bloc | Ops | Réussite | Net | PF |
+|---|---|---|---|---|
+| **Total 2011→2026** | **179** | 45,8 % | **+300,64 €** | **1,291** |
+| **dont 2011-2024 — JAMAIS VU** | **136** | **44,9 %** | **+186,73 €** | **1,233** |
+| dont 2025-2026 — période déjà vue | 43 | 48,8 % | +113,91 € | 1,493 |
+
+**Le chiffre qui compte : PF 1,233 sur 136 opérations à 44,9 % de réussite, sur une période que
+le candidat n'a jamais vue.** Le seuil du dépôt est de 1,20. C'est la première fois qu'une
+règle de ce projet franchit un seuil **hors des données qui l'ont produite**.
+
+**Décomposition par période, et elle est instructive :**
+
+| Période | Ops | Réussite | Net | PF |
+|---|---|---|---|---|
+| 2011-2014 | **0** | — | — | — |
+| 2015-2018 | 20 | 55,0 % | +60,56 € | 1,581 |
+| 2019-2022 | 70 | 44,3 % | +98,81 € | 1,241 |
+| 2023-2026 | 89 | 44,9 % | +141,28 € | 1,273 |
+
+**Pourquoi 2011-2014 ne produit rien — et ce n'est pas un bug.** Le relevé des bougies le dit :
+
+| Année | Bougies | Premier prix | Dernier prix |
+|---|---|---|---|
+| 2011 | **278** | 0,87 $ | 5,27 $ |
+| 2012 | **366** | 5,22 $ | 13,30 $ |
+| 2013 | **365** | 13,28 $ | 741,32 $ |
+| 2015 | **365** | 312,72 $ | 433,01 $ |
+| 2016 | **3 692** | 431,58 $ | 979,36 $ |
+| 2019 | 8 739 | 3 827,67 $ | 7 193,76 $ |
+| 2024 | 8 784 | 42 502,34 $ | 93 547,54 $ |
+
+**De 2011 à 2015, il n'y a que 278 à 366 bougies H1 par an, contre 3 692 en 2016 et 8 700
+ensuite.** Le BTC a très peu traité pendant ses premières années : les heures sans échange
+n'existent pas dans les données, donc la série est clairsemée. Une règle qui exige la cassure
+d'un canal de 50 heures **ne trouve presque rien à faire dans un marché qui n'ouvre que quand
+quelqu'un échange**. Le silence de 2011-2014 est un fait de marché, pas une absence de
+données — et il est cohérent avec les 20 opérations de 2015-2018, quand la liquidité arrive.
+
+**⚠️ Les deux limites qui interdisent de crier victoire, et elles sont sérieuses :**
+
+1. **Le modèle de coûts est invraisemblable pour la première décennie.** Il applique
+   `0,00007 × prix` de spread et de slippage, plus 0,50 € fixes. À 0,87 $ le BTC en 2011, cela
+   suppose un spread de **0,006 centime** — quand les spreads réels de l'époque se comptaient en
+   **pour cent**. Sur les premières années, le backtest est donc **optimiste d'un ordre de
+   grandeur**, et le PF de 1,581 en 2015-2018 n'est pas fiable. **La seule fenêtre où ce modèle
+   tient à peu près est 2019-2026 : PF 1,259 sur 159 opérations.** C'est le chiffre à retenir,
+   et il reste au-dessus du seuil.
+
+2. **L'instrument n'est pas le même sur quinze ans.** Le BTC de 2011 à 1 $ sur un marché
+   naissant et celui de 2024 à 90 000 $ sur un marché institutionnel ne sont pas le même actif.
+   Qu'un résultat tienne sur les deux est encourageant ; **cela ne prouve pas qu'une seule
+   stratégie les couvre.**
+
+**Ce que ça vaut, en une phrase :** une règle de suivi de tendance avec filtre de cassure, sur
+BTCUSD H1, gagne **hors des données qui l'ont produite** (PF 1,233 sur 136 opérations) et sur
+la période où les coûts modélisés sont crédibles (PF 1,259 sur 159 opérations). Ce n'est
+**toujours pas une promotion** — échantillon petit, un seul marché, quinze ans d'un actif qui a
+changé de nature — mais c'est **la première piste du projet qui franchit un seuil hors
+échantillon**, et elle mérite un vrai protocole de validation.
+
+**Ce que ce test ne fait pas :** le scellé M15 du BTC a été lu 3 fois et reste entamé. Le H1
+natif est un jeu **neuf**, donc ce test ne consomme rien — mais il ne valide pas non plus le
+réglage sur M15, qui est un autre marché en pratique.
+
+---
+
+## 10. Ce qu'il faudrait pour rouvrir la question
 
 | Piste | Pourquoi |
 |---|---|
-| **Obtenir du BTCUSD H1 natif depuis 2011, jamais lu** | c'est la seule chose qui trancherait : 42 opérations agrégées ne remplacent pas une réplication hors échantillon |
+| **Refaire le protocole complet en H1 natif, sur un scellé neuf** | c'est la seule config où un seuil est franchi hors échantillon : elle mérite les 9 portes, pas un test de confirmation |
+| **Corriger le modèle de coûts pour l'ère 2011-2018** | il suppose 0,006 centime de spread en 2011, quand le réel se comptait en pour cent : les PF de cette période ne veulent rien dire |
 | Tester le canal de cassure comme **paramètre libre** | il vaut aujourd'hui `ema_slow`, ce qui lie deux choix qui n'ont pas de raison de l'être |
-| **Chiffrer la part des frais dans le gain H1** | le stop y vaut quatre fois plus de points, donc les mêmes 0,50 € pèsent quatre fois moins : une partie du PF de 1,39 vient de là |
 | Mesurer le filtre sur une **autre règle parente** | ici il n'a été testé qu'autour du croisement EMA |
 | **Ne pas retravailler la variante 04** | dispersion de 6,50 : la poursuivre serait chercher un edge dans du bruit |
-| **Ne pas retravailler l'or avec cette règle** | elle échoue aux trois découpages (PF 0,600 / 0,524 / 0,700) |
+| **Ne pas retravailler l'or avec cette règle** | elle échoue aux quatre découpages (PF 0,600 / 0,524 / 0,700, et le H1 natif or n'a pas été récupéré) |
 
 **Rien n'a été promu.** `config/strategies/` n'a pas été touché, `strategies/registry.py` non
 plus, et `BreakoutOnly` n'est pas au registre de production — un test le vérifie.

@@ -1136,6 +1136,34 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 - **Ce que cette correction change pour les verdicts déjà rendus :** les deux campagnes « 0 retenu » ont été jugées sur 3 % de leur série. Elles restent valides comme refus — un candidat qui échoue sur les semaines anciennes ne devient pas bon ailleurs — mais **elles ne disaient rien des deux ans et demi**, et c'est désormais écrit dans leurs rapports.
 - **Skills :** `test-driven-development`, `statistical-rigor`
 
+### TASK-105 — Premier franchissement de seuil hors échantillon (BTCUSD H1 natif)
+
+- [x] Statut : **DONE le 2026-10-09**, et **aucune promotion n'en découle.**
+- **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-104 · **Couvre :** EF-027
+- **Le fait.** Le rapport de recherche demandait « du BTCUSD H1 natif depuis 2011, jamais lu ». Il a été récupéré du terminal Deriv le 2026-10-09 — **87 694 bougies, 2011-03-23 → 2026-10-09**, empreinte `e467bc32…` — et les paramètres gelés du candidat survivant (`ema_fast=25, ema_slow=50, atr=14, stop=1,5 ATR, tp=1,7`) y ont été appliqués **une seule fois**, sans aucun ajustement.
+
+| Bloc | Ops | Réussite | Net | PF |
+|---|---|---|---|---|
+| Total 2011 → 2026 | 179 | 45,8 % | +300,64 € | 1,291 |
+| **dont 2011-2024 — jamais vu** | **136** | **44,9 %** | **+186,73 €** | **1,233** |
+| dont 2025-2026 — déjà vu | 43 | 48,8 % | +113,91 € | 1,493 |
+
+- **Pourquoi c'est notable :** le seuil du dépôt est `min_profit_factor_net = 1,20`. C'est la **première fois qu'une règle de ce projet franchit un seuil hors des données qui l'ont produite** — 136 opérations, PF **1,233**.
+- **Décomposition par période :** 2011-2014 → **0 opération** ; 2015-2018 → 20 ops, PF 1,581 ; 2019-2022 → 70 ops, PF 1,241 ; 2023-2026 → 89 ops, PF 1,273.
+- **Le silence de 2011-2014 est un fait de marché, pas un bug :** le terminal ne sert que **278 à 366 bougies H1 par an** de 2011 à 2015, contre 3 692 en 2016 et ~8 700 ensuite. Le BTC des débuts traitait à peine, donc les heures sans échange n'existent pas dans les données. Une règle qui exige la cassure d'un canal de 50 heures n'a rien à faire dans un marché qui n'ouvre que quand quelqu'un échange.
+- **Les deux limites qui interdisent de crier victoire :**
+  1. **Le modèle de coûts est invraisemblable avant 2019.** Il applique `0,00007 × prix` de spread : à 0,87 $ le BTC en 2011, cela suppose **0,006 centime** de spread, quand le réel se comptait en pour cent. Le backtest est donc optimiste d'un ordre de grandeur sur la première décennie, et le PF de 1,581 (2015-2018) n'est pas fiable. **La fenêtre crédible est 2019-2026 : PF 1,259 sur 159 opérations.** C'est le chiffre à retenir.
+  2. **L'instrument n'est pas le même sur quinze ans** : le BTC à 1 $ sur un marché naissant et celui à 90 000 $ sur un marché institutionnel ne sont pas le même actif. Qu'un résultat tienne sur les deux est encourageant ; cela ne prouve pas qu'une règle les couvre.
+- **Ce que ce test ne fait pas :** il ne consomme pas le scellé M15 du BTC (jeu neuf), mais il **ne valide pas non plus** le réglage M15 — c'est un autre marché en pratique. Le scellé M15 reste **entamé à 3 ouvertures**.
+- **Critères d'acceptation :**
+  - [x] le jeu natif est gelé et versionné, avec son empreinte — `docs/research/datasets-native-h1/`
+  - [x] les paramètres sont appliqués une seule fois, sans ajustement — `scripts/backtest/confirm_breakout_h1.py`
+  - [x] le résultat est décomposé entre période vue et période jamais vue
+  - [x] les limites du modèle de coûts sont documentées, pas passées sous silence
+  - [x] **aucune promotion** : `config/strategies/` intact, `BreakoutOnly` hors du registre de production
+- **Prochaine étape pour cette piste :** refaire le **protocole complet** (les 9 portes) en H1 natif avec un **scellé neuf**, et corriger le modèle de coûts pour l'ère 2011-2018 avant toute conclusion sur cette période.
+- **Skills :** `test-driven-development`, `statistical-rigor`
+
 ### QUALITY GATE — Phase 7 — **Fin de la V1**
 
 - [ ] **Durée et volume minimaux atteints** — trente jours et trente opérations par stratégie : mesure dans le temps, en attente de l'exploitation.
