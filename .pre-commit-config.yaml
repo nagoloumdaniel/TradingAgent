@@ -57,7 +57,12 @@ repos:
         # is the evidence behind the project's first out-of-sample threshold crossing, so it is
         # versioned rather than left to be re-fetched from a terminal that may not serve it
         # again -- the same reason the other sets are here.
-        exclude: ^docs/research/(datasets|datasets-long|datasets-h1|datasets-native-h1|archive)/
+        # `datasets-volume` was added on 2026-10-09: the BTCUSD and XAUUSD M15 sets fetched with
+        # tick volume, which the older sets do not carry at all. The VWAP pullback rule refuses
+        # to run without volume -- a VWAP without volume is just a moving average -- so these
+        # are the only datasets that can measure it, and that measurement is the evidence.
+        exclude: >-
+          ^docs/research/(datasets|datasets-long|datasets-h1|datasets-native-h1|datasets-volume|archive)/
       - id: end-of-file-fixer
         name: end-of-file-fixer
         entry: uv run end-of-file-fixer

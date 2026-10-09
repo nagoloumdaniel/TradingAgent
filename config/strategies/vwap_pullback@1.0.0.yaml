@@ -1,0 +1,29 @@
+# Stratégie BTCUSD demandée par l'opérateur : VWAP ancré à 00:00 UTC, momentum, pullback.
+# C'est la règle de base, celle qui tourne AVANT toute assistance de l'IA.
+#
+# max_mode reste SIGNAL : elle n'a pas passé les neuf portes, et une stratégie qui n'a pas
+# été validée hors échantillon ne se voit pas ouvrir le mode DEMO parce qu'elle est neuve.
+# Le plafond ne se relève qu'après TASK-064/TASK-065, comme pour les deux autres.
+strategy_id: vwap_pullback
+version: 1.0.0
+max_mode: SIGNAL
+allowed_symbols: [BTCUSD]
+timeframes: [M15]
+# 8 x ema_slow : l'EMA(50) et le VWAP lissé sont récursifs et doivent être chauffés à
+# l'identique entre le backtest et la production. 400 barres couvrent la fenêtre de pente
+# (10), le VWAP lissé (20) et l'EMA lente (50) avec une marge confortable.
+history_bars: 400
+expiry_bars: 2
+ai_filter: shadow
+parameters:
+  ema_fast: 20
+  ema_slow: 50
+  vwap_period: 20
+  atr_period: 14
+  stop_atr_multiplier: 1.5
+  first_target_rr: 0.8
+  final_target_rr: 1.5
+  pullback_atr: 0.4
+  entry_zone_atr: 0.1
+  min_slope_atr: 0.005
+  slope_window: 10

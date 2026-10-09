@@ -28,7 +28,6 @@ from tradingagent.core.signal import SignalCandidate
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.market_calendar import MarketCalendar, Slot
 from tradingagent.indicators.features import entry_features
-from tradingagent.indicators.structure import last_swing_high, last_swing_low
 from tradingagent.indicators.volatility import atr
 from tradingagent.strategies.base import Strategy
 from tradingagent.strategies.evaluation import Outcome, OutcomeKind, evaluate
@@ -438,27 +437,55 @@ def _trail_structure(
 ) -> None:
     """Move the stop to the last swing confirmed **at bar `index`**, never loosening it.
 
-    The series passed in stops at `index` inclusive, so `swing_lows`/`swing_highs` cannot see a
-    later bar: whatever it returns is a swing the position could have known about when the bar
-    closed. That is the whole guarantee, and `structure.py` enforces it by only confirming a
-    swing once `strength` further bars have closed.
+    Only bars up to `index` are read, so a swing appearing later can never be used: the whole
+    guarantee `structure.py` enforces, that a swing is confirmed only once `strength` further
+    bars have closed, is what makes this safe.
+
+    **The scan is incremental, and it has to be.** Recomputing the swing series on every bar
+    made the backtest quadratic: measured at over twenty minutes of CPU for a single pass over
+    60 000 bars, against seconds for the rest of the harness. A swing at index `k` is confirmed
+    exactly when bar `k + strength` closes, so extending a prefix by one bar can only add
+    **that one** candidate -- and only once it is confirmed. Tracking it is therefore
+    equivalent, and linear.
     """
     strength = config.trailing_stop_swing_strength
-    if strength is None:
+    if strength is None or index < strength:
         return
-    window = primary[: index + 1]
-    if len(window) < strength * 2 + 1:
-        return
-    highs = [candle.high for candle in window]
-    lows = [candle.low for candle in window]
+    # Le seul candidat qui devient confirmable en fermant la barre `index` est celle d'il y a
+    # `strength` barres : rien d'autre ne change dans un préfixe qui grandit d'un cran.
+    candidate = index - strength
     if position.signal.direction is Direction.BUY:
-        level = last_swing_low(lows, strength=strength)
+        level = _confirmed_swing_low(primary, candidate, strength)
         if level is not None:
             position.stop = max(position.stop, level)
     else:
-        level = last_swing_high(highs, strength=strength)
+        level = _confirmed_swing_high(primary, candidate, strength)
         if level is not None:
             position.stop = min(position.stop, level)
+
+
+def _confirmed_swing_low(primary: Sequence[Candle], index: int, strength: int) -> float | None:
+    """Le plus bas de la barre `index` s'il est un creux confirmé, sinon rien.
+
+    La barre n'est examinée que si ses `strength` voisines de **chaque côté** existent déjà :
+    un creux ne se confirme pas sur un futur qui n'est pas encore écrit.
+    """
+    if index < strength or index + strength >= len(primary):
+        return None
+    low = primary[index].low
+    neighbours = [candle.low for candle in primary[index - strength : index]]
+    neighbours += [candle.low for candle in primary[index + 1 : index + strength + 1]]
+    return low if all(low < other for other in neighbours) else None
+
+
+def _confirmed_swing_high(primary: Sequence[Candle], index: int, strength: int) -> float | None:
+    """Le plus haut de la barre `index` s'il est un sommet confirmé, sinon rien."""
+    if index < strength or index + strength >= len(primary):
+        return None
+    high = primary[index].high
+    neighbours = [candle.high for candle in primary[index - strength : index]]
+    neighbours += [candle.high for candle in primary[index + 1 : index + strength + 1]]
+    return high if all(high > other for other in neighbours) else None
 
 
 def _trail(

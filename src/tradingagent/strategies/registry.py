@@ -5,6 +5,7 @@ from typing import Any
 
 from tradingagent.strategies.base import Strategy
 from tradingagent.strategies.library.trend_breakout import TrendBreakout
+from tradingagent.strategies.library.vwap_pullback import VwapPullback
 from tradingagent.strategies.library.witness import Witness
 from tradingagent.strategies.manifest import STRATEGY_ID_PATTERN
 
@@ -36,4 +37,4 @@ def build_registry(*classes: StrategyClass) -> Mapping[str, StrategyClass]:
     return MappingProxyType(registry)
 
 
-REGISTRY = build_registry(Witness, TrendBreakout)
+REGISTRY = build_registry(Witness, TrendBreakout, VwapPullback)

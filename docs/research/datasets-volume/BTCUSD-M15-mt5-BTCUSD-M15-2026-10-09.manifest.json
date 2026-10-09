@@ -1,0 +1,12 @@
+{
+  "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
+  "symbol": "BTCUSD",
+  "timeframe": "M15",
+  "source": "deriv-mt5:2026-10-09T01:46:21+00:00",
+  "start": "2025-01-21T16:30:00+00:00",
+  "end": "2026-10-09T01:45:00+00:00",
+  "bars": 59999,
+  "fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+  "gap_count": 38,
+  "first_gap": "2025-03-29T15:30:00+00:00"
+}
