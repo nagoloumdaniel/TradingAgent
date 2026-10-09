@@ -216,7 +216,7 @@ def count_signals(
         sessions[str(session_at(moment))] = sessions.get(str(session_at(moment)), 0) + 1
         by_hour[moment.hour] = by_hour.get(moment.hour, 0) + 1
         ratios.append(float(candidate.indicators.get("volume_ratio", 0.0)))
-        rsis.append(_rsi_of(series, index, bar.close))
+        rsis.append(_rsi_of(series, index))
         _tally_trend(trends, series, index, manifest.history_bars)
 
     above = {
@@ -266,9 +266,14 @@ def _signal_at(
     return outcome.candidate
 
 
-def _rsi_of(series: Sequence[Candle], index: int, _close: float) -> float:
-    """Le RSI(14) à cette barre, pour documenter ce que le filtre de momentum ne regarde pas."""
-    window = [candle.close for candle in series[max(0, index - 60) : index + 1]]
+def _rsi_of(series: Sequence[Candle], index: int) -> float:
+    """Le RSI(14) à cette barre, pour documenter ce que le filtre de momentum ne regarde pas.
+
+    Une fenêtre de 30 barres suffit : Wilder n'a besoin que de `period + 1` valeurs pour donner
+    sa première lecture, et l'itération suivante amortit tout écart de départ. En recalculer 60
+    à chaque barre coûtait plus cher que la mesure entière sans rien dire de plus.
+    """
+    window = [candle.close for candle in series[max(0, index - 29) : index + 1]]
     value = rsi(window, 14)[-1]
     return 50.0 if value is None else value
 
@@ -281,11 +286,10 @@ def _tally_trend(trends: dict[str, int], series: Sequence[Candle], index: int, b
     n'expliquerait plus les trades mesurés. Le décalage a été constaté : 72 signaux annoncés par
     une fenêtre glissante de 200 barres, 37 trades par le harnais.
     """
-    first = max(0, index - bars + 1)
-    window = series[first : index + 1]
-    highs = [candle.high for candle in window]
-    lows = [candle.low for candle in window]
-    closes = [candle.close for candle in window]
+    first = index - bars + 1
+    highs = [candle.high for candle in series[first : index + 1]]
+    lows = [candle.low for candle in series[first : index + 1]]
+    closes = [candle.close for candle in series[first : index + 1]]
     label = str(trend_of(highs, lows, closes, fast=20, slow=50, atr_period=14))
     trends[label] = trends.get(label, 0) + 1
 

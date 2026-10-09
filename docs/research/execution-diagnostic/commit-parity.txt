@@ -1,0 +1,37 @@
+feat(backtest): the entry_zone gate the backtest never applied, and the spread it never modelled
+
+Two agents worked this in parallel and their results meet in one place: the backtest has been
+measuring a market that is not the one the agent trades on.
+
+The first gap is structural. Production refuses a signal whose executable price leaves the
+published band -- RM-012, `risk.checks.check_entry_zone`. The harness never applied that gate
+and filled at half a spread, so the real effect of `entry_zone_atr` had never been measured by
+any campaign. The gate now exists in `BacktestConfig` as `entry_zone_parity`, off by default,
+with its basis selectable between the price actually paid and the fill level, and
+`BacktestResult.refused_entry_zone` counting the refusals. Off by default because every past
+campaign was measured without it and turning it on silently would change what their numbers
+mean.
+
+Measured on 8 000 bars with the observed spread: the gate refuses 56 of 128 candidate entries,
+44 %, and it refuses mostly losers -- the win rate rises 3,7 points and the profit factor from
+0,5816 to 0,7154. It discriminates usefully. But it also becomes impassable when the spread
+exceeds half the band, which is what happened on two of the four incident signals, where the
+margin was -0.12 USD: even a fill at the exact signal price was refused.
+
+The second gap is worse, and it was not the question being asked. The deposit's cost model
+applies 0,5 basis point of spread. The spread actually quoted on the demo account is 18.424 USD,
+which is 2,2 basis points -- 4,5 times the model. Switching to it with the gate still off moves
+the full-dataset backtest from -392.74 EUR and 0.9314 to -763.60 EUR and 0.8693. Every campaign
+this project has run was measured on a market more favourable than the real one, on the single
+line item that decides profitability.
+
+The recommendation in the report is therefore to widen the band before touching anything else,
+because the gate is useful but a 0,1 ATR band is narrower than the spread on bitcoin -- and to
+fix the cost model before either, since tuning a gate while the cost assumption is wrong by a
+factor of 4,5 is adjusting the lock on an open door.
+
+Five tests were written before the code and were red first. The width sweep and the remaining
+bases were still running when the report was written, and the report says so rather than
+implying completeness.
+
+pytest 349 passed on the backtest, strategy and execution suites; ruff clean; mypy clean.

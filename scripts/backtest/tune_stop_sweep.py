@@ -63,16 +63,33 @@ OUTPUT_DIR = ROOT / "docs" / "research" / "vwap-tuning"
 PINNED = OUTPUT_DIR / "vwap_pullback_pinned_bfa0e65.py"
 PINNED_REVISION = "bfa0e65"
 
+#: La source vivante, dont l'empreinte est enregistree dans chaque ligne de mesure.
+LIVE_SOURCE = ROOT / "src" / "tradingagent" / "strategies" / "library" / "vwap_pullback.py"
+
+
+def source_identity(live: bool) -> str:
+    """L'empreinte de ce qui a ete mesure : un chiffre sans sa source n'est pas auditable."""
+    path = LIVE_SOURCE if live else PINNED
+    return f"{path.name} sha256 {hashlib.sha256(path.read_bytes()).hexdigest()}"
+
 
 def load_strategy_module(live: bool = False) -> Any:
-    """La regle a mesurer : la copie figee, ou la source vivante si on le demande."""
+    """La regle a mesurer : la source vivante, ou la copie figee pour verifier un ecart.
+
+    La copie figee a servi pendant que l'axe B editait `src/` : le premier passage du
+    2026-10-09 avait rendu 50 fois « 0 trade » avec `TypeError: must be real number, not str`
+    sur **chaque** barre, parce que le fichier etait casse a cet instant. Ces mesures-la ne
+    disaient rien de la regle, elles disaient que le fichier changeait.
+
+    Les mesures de decision qui suivent lisent la **source vivante**, et chaque ligne porte son
+    empreinte : c'est la seule forme sous laquelle un chiffre est verifiable par un lecteur.
+    """
     if live:
         from tradingagent.strategies.library import vwap_pullback
 
-        print("== regle lue depuis src/ (source vivante) ==")
+        print(f"== regle lue depuis src/ : {source_identity(live=True)} ==")
         return vwap_pullback
-    digest = hashlib.sha256(PINNED.read_bytes()).hexdigest()
-    print(f"== regle figee sur {PINNED_REVISION} : {PINNED.name} sha256 {digest} ==")
+    print(f"== regle figee sur {PINNED_REVISION} : {source_identity(live=False)} ==")
     specification = importlib.util.spec_from_file_location("pinned_vwap_pullback", PINNED)
     if specification is None or specification.loader is None:
         raise SystemExit(f"{PINNED}: module chargeable introuvable")
@@ -630,10 +647,170 @@ def decision_extra() -> list[Arm]:
     return arms
 
 
+def decision_grid() -> list[Arm]:
+    """Le balayage de decision complet, sur le jeu entier, **ordonne par valeur decisionnelle**.
+
+    L'ordre n'est pas cosmetique : chaque mesure coute du temps reel, et si la serie doit
+    s'arreter, elle doit s'arreter apres avoir repondu. Les questions sont posees dans cet ordre.
+
+    1. **La reference contractuelle** — la spec de l'operateur (TP 0,8/1,5, stop 1,5), objectif
+       unique puis partiel 50/50 + break-even. C'est elle qui decide si le balayage sert a
+       quelque chose : une configuration qui ne la bat pas ne merite pas d'etre retenue.
+    2. **Le controle** — la geometrie a PF 0,990 sur 20 000 barres, sur le jeu entier.
+    3. **Le gradient du stop a objectifs larges** (TP 1,5/3,0) : 0,5 / 0,8 / 1,0 / 1,2 / 1,5 / 2,0
+       ATR. C'est la question du diagnostic MAE/MFE — le stop est-il trop large ?
+    4. **Le reste du croisement** stop x paire de TP, y compris 3,0/6,0 que l'exploration
+       place haut.
+    5. **Les briques de gestion** : trailing sur structure (2 et 3), holding maximal, partiel
+       asymetrique.
+
+    Toutes gardent `pullback_atr=0,4` et `entry_zone_atr=0,1`, donc **le meme jeu de signaux** :
+    seul le stop, les objectifs et la gestion changent. C'est ce qui rend l'ecart de PF
+    attribuable a la geometrie.
+    """
+    stops = (0.5, 0.8, 1.0, 1.2, 1.5, 2.0)
+    unique: dict[str, Any] = {
+        "partial_exit_fractions": (),
+        "move_stop_to_breakeven_after_first_target": False,
+    }
+
+    def geometry(stop: float, first: float, final: float, *, partial: bool) -> Arm:
+        suffix = "partiel" if partial else "sortie-unique"
+        return arm(
+            f"stop{stop:.1f}_tp{first:.1f}-{final:.1f}_{suffix}",
+            stop_atr_multiplier=stop,
+            first_target_rr=first,
+            final_target_rr=final,
+            **(unique if not partial else {}),
+        )
+
+    ordered: list[Arm] = []
+    # 1 et 2 : la reference contractuelle et le controle.
+    ordered.append(geometry(1.5, 0.8, 1.5, partial=True))
+    ordered.append(geometry(1.5, 0.8, 1.5, partial=False))
+    ordered.append(geometry(1.5, 1.5, 3.0, partial=True))
+    ordered.append(geometry(1.5, 1.5, 3.0, partial=False))
+    # 3 : le gradient complet du stop, a objectifs larges.
+    for stop in stops:
+        ordered.append(geometry(stop, 1.5, 3.0, partial=True))
+        ordered.append(geometry(stop, 1.5, 3.0, partial=False))
+    # 4 : le reste du croisement.
+    for first, final in ((0.8, 1.5), (1.0, 2.0), (2.0, 4.0), (3.0, 6.0)):
+        for stop in stops:
+            ordered.append(geometry(stop, first, final, partial=True))
+            ordered.append(geometry(stop, first, final, partial=False))
+    # 5 : les briques de gestion, testees sur les deux geometries de reference.
+    for stop in (1.0, 1.2, 1.5):
+        for first, final in ((0.8, 1.5), (1.5, 3.0)):
+            for strength in (2, 3):
+                ordered.append(
+                    arm(
+                        f"stop{stop:.1f}_tp{first:.1f}-{final:.1f}_swing{strength}",
+                        stop_atr_multiplier=stop,
+                        first_target_rr=first,
+                        final_target_rr=final,
+                        trailing_stop_swing_strength=strength,
+                    )
+                )
+    for stop in (1.2, 1.5):
+        for holding in (16, 48):
+            ordered.append(
+                arm(
+                    f"stop{stop:.1f}_tp1.5-3.0_holding{holding}",
+                    stop_atr_multiplier=stop,
+                    first_target_rr=1.5,
+                    final_target_rr=3.0,
+                    max_holding_bars=holding,
+                )
+            )
+        for left, right in ((0.3, 0.7), (0.7, 0.3)):
+            ordered.append(
+                arm(
+                    f"stop{stop:.1f}_tp1.5-3.0_partiel{int(left * 100)}-{int(right * 100)}",
+                    stop_atr_multiplier=stop,
+                    first_target_rr=1.5,
+                    final_target_rr=3.0,
+                    partial_exit_fractions=(left, right),
+                )
+            )
+    seen: set[str] = set()
+    return [a for a in ordered if not (a.label in seen or seen.add(a.label))]
+
+
+def decision_core60() -> list[Arm]:
+    """Le balayage de decision, ordonne pour qu'une serie interrompue ait quand meme repondu.
+
+    Une mesure sur le jeu entier coute environ six minutes et demie de temps reel sur cette
+    machine. Le budget ne permet pas les quatre-vingts configurations du croisement complet, et
+    l'ordre est donc la seule chose qui decide de ce qui sera su. Quatre blocs, dans cet ordre :
+
+    1. **la reference contractuelle** : la spec de l'operateur (TP 0,8/1,5, stop 1,5), objectif
+       unique puis partiel 50/50 + break-even. C'est elle qui juge tout le reste ;
+    2. **le controle** : la geometrie a PF 0,990 sur 20 000 barres, sur le jeu entier ;
+    3. **le gradient du stop** a objectifs larges (TP 1,5/3,0), de 0,5 a 2,0 ATR, dans les deux
+       modes de sortie. C'est la question du diagnostic MAE/MFE ;
+    4. **les objectifs lointains et les briques de gestion** : 2,0/4,0 et 3,0/6,0, le trailing
+       sur structure (2 et 3), le holding maximal. L'exploration sur 4 999 barres place ces
+       geometries en tete, contre le diagnostic MAE/MFE : c'est le desaccord a trancher.
+
+    Toutes gardent `pullback_atr=0,4` et `entry_zone_atr=0,1` : **le meme jeu de signaux** d'une
+    ligne a l'autre, donc un ecart de PF attributable a la geometrie seule.
+    """
+    catalogue = {candidate.label: candidate for candidate in decision_grid()}
+    labels = [
+        # 1. la reference contractuelle de l'operateur, ses deux modes de sortie
+        "stop1.5_tp0.8-1.5_partiel",
+        "stop1.5_tp0.8-1.5_sortie-unique",
+        # 2. le controle du lead, sur le jeu entier
+        "stop1.5_tp1.5-3.0_partiel",
+        "stop1.5_tp1.5-3.0_sortie-unique",
+        # 3. le gradient du stop a objectifs larges
+        "stop0.5_tp1.5-3.0_partiel",
+        "stop0.8_tp1.5-3.0_partiel",
+        "stop1.0_tp1.5-3.0_partiel",
+        "stop1.2_tp1.5-3.0_partiel",
+        "stop2.0_tp1.5-3.0_partiel",
+        "stop0.5_tp1.5-3.0_sortie-unique",
+        "stop0.8_tp1.5-3.0_sortie-unique",
+        "stop1.0_tp1.5-3.0_sortie-unique",
+        "stop1.2_tp1.5-3.0_sortie-unique",
+        "stop2.0_tp1.5-3.0_sortie-unique",
+        # 4. les objectifs lointains, que l'exploration place en tete
+        "stop1.5_tp2.0-4.0_partiel",
+        "stop2.0_tp2.0-4.0_partiel",
+        "stop1.5_tp3.0-6.0_partiel",
+        "stop1.2_tp2.0-4.0_partiel",
+        "stop1.0_tp2.0-4.0_partiel",
+        "stop2.0_tp1.0-2.0_partiel",
+        # 5. les briques de gestion, jamais mesurees sur cette regle avant cet axe
+        "stop1.5_tp0.8-1.5_swing3",
+        "stop1.5_tp1.5-3.0_swing3",
+        "stop1.0_tp1.5-3.0_swing3",
+        "stop1.5_tp0.8-1.5_swing2",
+        "stop1.5_tp1.5-3.0_swing2",
+        "stop1.2_tp1.5-3.0_swing2",
+        "stop1.5_tp1.5-3.0_holding48",
+        "stop1.2_tp1.5-3.0_holding16",
+        # 6. le reste du croisement, si le temps le permet
+        "stop1.0_tp0.8-1.5_partiel",
+        "stop0.8_tp0.8-1.5_partiel",
+        "stop2.0_tp0.8-1.5_partiel",
+        "stop0.5_tp0.8-1.5_partiel",
+        "stop1.2_tp1.5-3.0_partiel30-70",
+        "stop1.2_tp1.5-3.0_partiel70-30",
+    ]
+    missing = [label for label in labels if label not in catalogue]
+    if missing:
+        raise SystemExit(f"libelles absents de decision_grid : {missing}")
+    return [catalogue[label] for label in labels]
+
+
 GROUPS = {
     "stage1": stage1,
     "decision_core": decision_core,
     "decision_all": decision_all,
+    "decision_grid": decision_grid,
+    "decision_core60": decision_core60,
     "decision_priority": decision_priority,
     "decision_second": decision_second,
     "stage2_stops": stage2_stops,
@@ -737,6 +914,15 @@ def main() -> int:
         help="filtre de sous-chaine sur le libelle, pour reprendre une serie interrompue",
     )
     parser.add_argument(
+        "--range",
+        dest="span",
+        default=None,
+        help=(
+            "tranche START:END (1-based, END exclu) dans le groupe, pour diviser une serie "
+            "longue en deux lots disjoints mesures en parallele"
+        ),
+    )
+    parser.add_argument(
         "--live",
         action="store_true",
         help="mesurer la source vivante au lieu de la copie figee (verification d'ecart)",
@@ -744,6 +930,7 @@ def main() -> int:
     args = parser.parse_args()
 
     module = load_strategy_module(live=args.live)
+    origin = source_identity(live=args.live)
 
     datasets = DatasetStore(args.datasets).load_all()
     if SYMBOL not in datasets:
@@ -772,6 +959,15 @@ def main() -> int:
     )
 
     arms = [a for a in GROUPS[args.group]() if args.only is None or args.only in a.label]
+    if args.span:
+        # Deux lots disjoints mesures en parallele : la machine a seize cœurs et un backtest
+        # n'en occupe qu'un. La tranche est appliquee apres le filtre de libelle, et elle est
+        # inclusive au debut, exclusive a la fin, comme une tranche Python.
+        start_text, _, end_text = args.span.partition(":")
+        begin = int(start_text) - 1 if start_text else 0
+        finish = int(end_text) if end_text else len(arms)
+        arms = arms[begin:finish]
+        print(f"   tranche {args.span} : {len(arms)} configuration(s) du groupe")
     print(f"== {SYMBOL} {TIMEFRAME.value} : {len(candles)} barres, {window_label} ==")
     print(f"   {first.isoformat()} -> {last.isoformat()}")
     print(f"   prix de reference {price} ; spread {costs.spread} ; slippage {costs.slippage_fixed}")
@@ -791,8 +987,12 @@ def main() -> int:
             same_window = previous.get("window") == window_label or (
                 previous.get("window") is None and previous.get("bars") == len(candles)
             )
+            # Une mesure d'une autre source n'est pas une mesure de celle-ci : la ligne est
+            # refaite, sinon un balayage relance apres un commit melangerait deux regles.
+            same_source = previous.get("source") in (None, origin)
             if (
                 same_window
+                and same_source
                 and previous.get("status") == "ok"
                 and (previous.get("signals") or 0) > 0
             ):
@@ -809,13 +1009,15 @@ def main() -> int:
             row["window"] = window_label
             row["window_first"] = first.isoformat()
             row["window_last"] = last.isoformat()
+            row["source"] = origin
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
             handle.flush()
             print(
                 f"   [{number}/{len(arms)}] {candidate.label:<42} "
                 f"trades {row.get('trades')} reussite {row.get('win_rate')} "
                 f"net {row.get('net_eur')} PF {row.get('profit_factor')} "
-                f"({row['seconds']}s) {row['status']}"
+                f"({row['seconds']}s) {row['status']}",
+                flush=True,
             )
 
     print(f"== mesures ecrites dans {args.out} ==")

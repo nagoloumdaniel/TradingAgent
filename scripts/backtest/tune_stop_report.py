@@ -19,13 +19,32 @@ ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = ROOT / "docs" / "research" / "vwap-tuning"
 
 #: Les fichiers de mesure, dans l'ordre ou ils doivent apparaitre dans le rapport.
-SOURCES: tuple[tuple[str, str], ...] = (
-    ("Exploration, 4 999 bougies (elimination)", "axe-A-exploration-5k.jsonl"),
-    ("Second lot, 4 999 bougies", "axe-A-exploration-5k-lot2.jsonl"),
-    ("Decision, 59 999 bougies (jeu complet)", "axe-A-decision-60k.jsonl"),
-    ("Decision, second lot, 59 999 bougies", "axe-A-decision-60k-lot2.jsonl"),
-    ("Validation par moities de jeu", "axe-A-windows-60k.jsonl"),
-    ("Verification contre la source vivante", "axe-A-live-check.jsonl"),
+SOURCES: tuple[tuple[str, str, str], ...] = (
+    (
+        "Exploration, 4 999 bougies (elimination)",
+        "axe-A-exploration-5k.jsonl",
+        "copie gelee `bfa0e65` — le champ `source` n'existait pas encore",
+    ),
+    (
+        "Decision, 59 999 bougies (jeu complet) — lot 1",
+        "axe-A-decision-60k.jsonl",
+        "source vivante `src/`",
+    ),
+    (
+        "Decision, 59 999 bougies (jeu complet) — lot 2",
+        "axe-A-decision-60k-b.jsonl",
+        "source vivante `src/`",
+    ),
+    (
+        "Controle d'equivalence des sources (59 999 bougies)",
+        "axe-A-verification-source.jsonl",
+        "copie gelee `bfa0e65`, a rapprocher du lot 1",
+    ),
+    (
+        "Validation par moities de jeu (59 999 bougies)",
+        "axe-A-windows-60k.jsonl",
+        "source vivante `src/`",
+    ),
 )
 
 COLUMNS = (
@@ -126,12 +145,13 @@ def main() -> int:
 
     fragments: list[str] = []
     summary: list[str] = []
-    for title, name in SOURCES:
+    for title, name, origin in SOURCES:
         rows = load(OUTPUT_DIR / name)
         if not rows:
             continue
         windows = sorted({str(r.get("window", r.get("bars"))) for r in rows})
         fragments.append(f"### {title}\n")
+        fragments.append(f"Source : {origin}. {len(rows)} mesure(s).\n")
         for window in windows:
             subset = [r for r in rows if str(r.get("window", r.get("bars"))) == window]
             if len(windows) > 1:

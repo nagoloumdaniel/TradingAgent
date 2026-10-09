@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from itertools import pairwise
-from typing import Any
+from typing import Any, Literal
 
 from tradingagent.analytics.model import Performance, Trade
 from tradingagent.analytics.performance import compute_performance
@@ -85,6 +85,23 @@ class BacktestConfig:
     trailing_stop_swing_strength: int | None = None
     max_holding_bars: int | None = None
     session: TradingSession | None = None
+    #: RM-012 as production applies it: the price actually **paid** must stay inside the band
+    #: the strategy published. `risk.checks.check_entry_zone` measures the executable price
+    #: against `entry_low`/`entry_high` and refuses the signal when it falls out; the harness
+    #: never did, so a strategy cleared here could meet a gate that rejects most of its entries
+    #: (BTCUSD, 2026-10-09: a 0.1 x ATR band 18.31 USD wide against an 18.424 USD spread).
+    #:
+    #: **Off by default, and it has to be.** Every campaign measured so far ran without it;
+    #: switching it on silently would change what those numbers mean. A refusal here is final,
+    #: exactly as it is in production: the signal dies, it is not deferred to the next bar.
+    entry_zone_parity: bool = False
+    #: Which price the gate judges. `paid` is production as it stands today: the fill, costs
+    #: included, against a band the strategy built on the close. `reference` is the same gate
+    #: moved into the band's own price space (the level the fill starts from, spread excluded),
+    #: which is what "compare the ask to a band shifted by the spread" is worth — a research
+    #: basis for pricing the alternative, never a production behaviour of its own.
+    #: Ignored unless `entry_zone_parity` is on.
+    entry_zone_parity_basis: Literal["paid", "reference"] = "paid"
 
     def __post_init__(self) -> None:
         if self.risk_eur <= 0:
@@ -120,6 +137,9 @@ class BacktestResult:
     insufficient_history: int
     strategy_errors: tuple[str, ...]
     forced_closures: int
+    #: Entries `entry_zone_parity` refused because the price paid fell outside the band.
+    #: Zero unless the gate is on: it counts a refusal the harness previously did not model.
+    refused_entry_zone: int = 0
 
 
 @dataclass
@@ -184,6 +204,7 @@ def run_backtest(
 
     decisions = signals = entries = expired_signals = 0
     skipped_no_room = invalid_signals = insufficient_history = forced_closures = 0
+    refused_entry_zone = 0
     strategy_errors: list[str] = []
     pending: list[_PendingEntry] = []
     open_positions: list[_Position] = []
@@ -205,6 +226,15 @@ def run_backtest(
                 continue
             position = _try_enter(entry, bar, config, manifest, index, primary)
             if position is None:
+                continue
+            if config.entry_zone_parity and not _zone_accepts(
+                entry.signal, _gated_price(position, config)
+            ):
+                # RM-012: production refuses a price paid outside the band the strategy
+                # published, and the refusal ends the signal there. Deferring it to the next
+                # bar would let the harness take a trade production has already refused.
+                pending.remove(entry)
+                refused_entry_zone += 1
                 continue
             pending.remove(entry)
             open_positions.append(position)
@@ -287,6 +317,7 @@ def run_backtest(
         insufficient_history=insufficient_history,
         strategy_errors=tuple(strategy_errors),
         forced_closures=forced_closures,
+        refused_entry_zone=refused_entry_zone,
     )
 
 
@@ -317,6 +348,27 @@ def _atr_at(series: Sequence[Candle], index: int, period: int) -> float | None:
         period,
     )
     return values[-1]
+
+
+def _zone_accepts(signal: SignalCandidate, paid: float) -> bool:
+    """RM-012: the price paid must still be inside the band the strategy published.
+
+    Both sides count. A price above `entry_high` is the chase the rule exists to stop; a price
+    below `entry_low` means the move the strategy described no longer exists — the same two
+    refusals `risk.checks.check_entry_zone` produces in production, measured the same way.
+    """
+    return signal.entry_low <= paid <= signal.entry_high
+
+
+def _gated_price(position: _Position, config: BacktestConfig) -> float:
+    """What the gate judges: the paid price, or the price it started from.
+
+    `position.adverse[0]` is the cost added at the entry, so subtracting it returns the level
+    the fill was referenced on — the band's own price space.
+    """
+    if config.entry_zone_parity_basis == "reference" and position.adverse:
+        return position.entry_price - position.adverse[0]
+    return position.entry_price
 
 
 def _try_enter(

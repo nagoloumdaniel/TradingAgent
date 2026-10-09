@@ -326,3 +326,123 @@ def test_missing_primary_series_is_a_programming_error() -> None:
 def test_manifest_history_longer_than_data_is_refused() -> None:
     with pytest.raises(ValueError, match="history bars"):
         run(OneShot(NoParameters()), PNL_ROWS[:2], history_bars=10)
+
+
+# -- entry-zone parity: the gate production applies and the harness did not -----------------
+#
+# Hand-checked on PNL_ROWS: the signal fires on bar 1 (close 100.0) with the band
+# [100.0, 100.5]. Bar 2 opens at 100.2, so the reference is min(100.2, 100.5) = 100.2.
+# With spread 1.0 and fixed slippage 0.1 the paid price is 100.2 + 0.5 + 0.1 = 100.8, i.e.
+# **0.3 above the band**: RM-012 refuses that price in production, and so must the harness.
+
+ABOVE_THE_BAND = CostModel(spread=1.0, slippage_fixed=0.1)
+
+
+def test_entry_zone_parity_is_off_by_default() -> None:
+    """Every campaign measured so far must keep its meaning: the gate never acts unasked."""
+    assert BacktestConfig(symbol=GOLD).entry_zone_parity is False
+
+    result = run(OneShot(NoParameters()), PNL_ROWS, costs=ABOVE_THE_BAND)
+
+    assert len(result.trades) == 1
+    assert result.refused_entry_zone == 0
+
+
+def test_entry_zone_parity_refuses_a_price_paid_above_the_band() -> None:
+    result = run(OneShot(NoParameters()), PNL_ROWS, costs=ABOVE_THE_BAND, entry_zone_parity=True)
+
+    assert result.signals == 1
+    assert result.entries == 0
+    assert result.refused_entry_zone == 1
+    assert result.trades == ()
+    # Refused, not expired: the two are different events and the counters keep them apart.
+    assert result.expired_signals == 0
+
+
+def test_entry_zone_parity_accepts_a_price_paid_inside_the_band() -> None:
+    """Without costs the fill is 100.2, inside [100.0, 100.5]: the gate is not a blanket no."""
+    result = run(OneShot(NoParameters()), PNL_ROWS, entry_zone_parity=True)
+
+    assert result.entries == 1
+    assert result.refused_entry_zone == 0
+    assert len(result.trades) == 1
+
+
+def test_entry_zone_parity_refuses_a_price_paid_below_the_band() -> None:
+    """The other side of RM-012, the one signal #2 of the incident met: the price gapped
+    under the zone, so the breakout the strategy described no longer exists."""
+    rows = [
+        (99.0, 100.0, 98.5, 100.0),
+        (100.0, 100.5, 99.5, 100.0),
+        (99.5, 100.4, 99.2, 99.6),
+        (100.8, 102.5, 100.5, 102.0),
+    ]
+    taken = run(OneShot(NoParameters()), rows)  # fill 99.5, below entry_low
+    gated = run(OneShot(NoParameters()), rows, entry_zone_parity=True)
+
+    assert len(taken.trades) == 1 and taken.refused_entry_zone == 0
+    assert gated.trades == ()
+    assert gated.refused_entry_zone == 1
+
+
+def test_entry_zone_parity_refusal_is_final_and_never_deferred() -> None:
+    """Production ends the signal at the refusal; it does not wait for a better bar.
+
+    Bar 2 pays 100.8 (outside), bar 3 would pay 100.4 (inside) and is still within the
+    two-bar window. A gate that merely returned None would fill on bar 3 and make this
+    test fail: the refusal must drop the pending entry.
+    """
+    rows = [
+        (99.0, 100.0, 98.5, 100.0),
+        (100.0, 100.5, 99.5, 100.0),
+        (100.2, 101.0, 100.1, 100.8),
+        (99.8, 100.6, 99.7, 100.0),
+    ]
+    retried = run(
+        OneShot(NoParameters()),
+        rows,
+        costs=ABOVE_THE_BAND,
+        expiry_bars=2,
+        entry_zone_parity=True,
+    )
+
+    assert retried.refused_entry_zone == 1
+    assert retried.entries == 0
+    assert retried.trades == ()
+
+
+def test_entry_zone_parity_on_the_reference_is_the_band_shifted_by_the_costs() -> None:
+    """The `reference` basis judges the level the fill started from: 100.2, inside the band.
+
+    It is what "compare the ask to a band shifted by the spread" is worth, measured rather
+    than argued — the same order, judged where the strategy built its band instead of where
+    the costs left it. Only reachable when the gate is on.
+    """
+    on_the_reference = run(
+        OneShot(NoParameters()),
+        PNL_ROWS,
+        costs=ABOVE_THE_BAND,
+        entry_zone_parity=True,
+        entry_zone_parity_basis="reference",
+    )
+    on_the_paid_price = run(
+        OneShot(NoParameters()), PNL_ROWS, costs=ABOVE_THE_BAND, entry_zone_parity=True
+    )
+
+    assert on_the_reference.entries == 1
+    assert on_the_reference.refused_entry_zone == 0
+    assert on_the_paid_price.entries == 0
+
+
+def test_the_basis_is_inert_when_the_gate_is_off() -> None:
+    """Only one switch changes a measurement: the second field alone must do nothing."""
+    plain = run(OneShot(NoParameters()), PNL_ROWS, costs=ABOVE_THE_BAND)
+    shifted = run(
+        OneShot(NoParameters()),
+        PNL_ROWS,
+        costs=ABOVE_THE_BAND,
+        entry_zone_parity_basis="reference",
+    )
+
+    assert plain.trades == shifted.trades
+    assert plain.refused_entry_zone == shifted.refused_entry_zone == 0

@@ -1,4 +1,4 @@
-"""Le profileur de l'axe C : où partent les 3 minutes d'un backtest de 20 000 bougies.
+"""Le profileur de l'axe C : où partent les ~80 secondes d'un backtest de 20 000 bougies.
 
 Ce script existe pour répondre à une seule question, et il y répond de deux façons :
 
@@ -45,27 +45,37 @@ DATASET_DIR = ROOT / "docs" / "research" / "datasets-volume"
 REF = "vwap_pullback@1.0.0"
 MANIFEST_PATH = ROOT / "config" / "strategies" / f"{REF}.yaml"
 
-#: Les fichiers qui définissent le chemin mesuré. Leur empreinte est imprimée avec la mesure :
+#: Les modules qui définissent le chemin mesuré. Leur empreinte est imprimée avec la mesure :
 #: deux exécutions ne se comparent que si ces empreintes sont identiques, et d'autres agents
-#: écrivent dans ce dépôt pendant la mesure.
-MEASURED_SOURCES = (
-    "src/tradingagent/indicators/_checks.py",
-    "src/tradingagent/indicators/volatility.py",
-    "src/tradingagent/indicators/vwap.py",
-    "src/tradingagent/indicators/moving_average.py",
-    "src/tradingagent/backtest/harness.py",
-    "src/tradingagent/strategies/evaluation.py",
-    "src/tradingagent/strategies/library/vwap_pullback.py",
+#: écrivent dans ce dépôt pendant la mesure. Elles sont lues sur les modules **réellement
+#: importés**, pas sur un chemin recopié : un A/B qui fait pointer `PYTHONPATH` ailleurs (un
+#: worktree, par exemple) s'imprime alors lui-même comme tel, au lieu de mentir.
+MEASURED_MODULES = (
+    "tradingagent.indicators._checks",
+    "tradingagent.indicators.volatility",
+    "tradingagent.indicators.vwap",
+    "tradingagent.indicators.moving_average",
+    "tradingagent.indicators.features",
+    "tradingagent.backtest.harness",
+    "tradingagent.strategies.evaluation",
+    "tradingagent.strategies.library.vwap_pullback",
 )
 
 
 def source_hashes() -> dict[str, str]:
-    """L'empreinte SHA-256 de chaque fichier du chemin mesuré, préfixe court de 12 caractères."""
+    """L'empreinte SHA-256 du fichier source de chaque module mesuré, préfixe de 12 caractères."""
+    import importlib
+    import inspect
+
     fingerprints: dict[str, str] = {}
-    for relative in MEASURED_SOURCES:
-        path = ROOT / relative
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()[:12] if path.exists() else "absent"
-        fingerprints[Path(relative).name] = digest
+    for name in MEASURED_MODULES:
+        module = importlib.import_module(name)
+        path = inspect.getsourcefile(module)
+        if path is None:
+            fingerprints[name.rsplit(".", 1)[-1]] = "inconnu"
+            continue
+        digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()[:12]
+        fingerprints[Path(path).name] = digest
     return fingerprints
 
 

@@ -1,0 +1,397 @@
+{
+  "symbol": "BTCUSD",
+  "bars": 8000,
+  "dataset_id": "mt5-BTCUSD-M15-2026-10-09-tronque-8000",
+  "parameters": {
+    "ema_fast": 20,
+    "ema_slow": 50,
+    "vwap_period": 20,
+    "atr_period": 14,
+    "stop_atr_multiplier": 1.5,
+    "first_target_rr": 1.5,
+    "final_target_rr": 3.0,
+    "pullback_atr": 0.4,
+    "entry_zone_atr": 0.1,
+    "min_slope_atr": 0.005,
+    "slope_window": 10
+  },
+  "reference_expected": {
+    "trades": 883,
+    "win_rate": 0.402,
+    "net_eur": -392.74,
+    "profit_factor": 0.9314
+  },
+  "scenarios": {
+    "baseline_prod_spread": {
+      "label": "référence avec le spread observé (18,424 $)",
+      "parity": false,
+      "basis": "paid",
+      "entry_zone_atr": 0.1,
+      "spread_usd": 18.424,
+      "trades": 100,
+      "wins": 31,
+      "win_rate": 0.31,
+      "net_eur": -326.47865261584,
+      "profit_factor": 0.5815647780518983,
+      "expectancy": -3.2647865261584,
+      "max_drawdown": 347.30999479483,
+      "signals": 224,
+      "entries": 100,
+      "skipped_no_room": 124,
+      "expired_signals": 0,
+      "refused_entry_zone": 0,
+      "forced_closures": 0
+    },
+    "parity_paid_prod_spread": {
+      "label": "porte allumée avec le spread observé",
+      "parity": true,
+      "basis": "paid",
+      "entry_zone_atr": 0.1,
+      "spread_usd": 18.424,
+      "trades": 72,
+      "wins": 25,
+      "win_rate": 0.3472222222222222,
+      "net_eur": -147.5331885828,
+      "profit_factor": 0.7153923674069768,
+      "expectancy": -2.04907206365,
+      "max_drawdown": 168.36453076179,
+      "signals": 224,
+      "entries": 72,
+      "skipped_no_room": 96,
+      "expired_signals": 0,
+      "refused_entry_zone": 56,
+      "forced_closures": 0
+    }
+  },
+  "parity_paid_prod_spread_vs_baseline_prod_spread": {
+    "reference_trades": 100,
+    "gated_trades": 72,
+    "refused_by_counter": 56,
+    "suppressed": 28,
+    "created": 0,
+    "identity_holds": true,
+    "suppressed_net_eur": -178.94546403304,
+    "created_net_eur": 0.0,
+    "suppressed_win_rate": 0.21428571428571427,
+    "created_win_rate": 0.0
+  },
+  "verdicts_baseline_prod_spread": {
+    "trades_examined": 100,
+    "unmatched_signals": 0,
+    "reconstruction_mismatches": 0,
+    "refused": {
+      "count": 28,
+      "wins": 6,
+      "losses": 22,
+      "win_rate": 0.21428571428571427,
+      "net_eur": -178.94546403304,
+      "gross_gain_eur": 82.91759005503,
+      "gross_loss_eur": 261.86305408807,
+      "profit_factor": 0.3166448598248728,
+      "average_eur": -6.390909429751429,
+      "best_eur": 19.32745253829,
+      "worst_eur": -21.2029346703,
+      "by_direction": {
+        "BUY": 16,
+        "SELL": 12
+      }
+    },
+    "taken": {
+      "count": 72,
+      "wins": 25,
+      "losses": 47,
+      "win_rate": 0.3472222222222222,
+      "net_eur": -147.5331885828,
+      "gross_gain_eur": 370.84078206108,
+      "gross_loss_eur": 518.37397064388,
+      "profit_factor": 0.7153923674069768,
+      "average_eur": -2.04907206365,
+      "best_eur": 21.32764398914,
+      "worst_eur": -14.81028030944,
+      "by_direction": {
+        "BUY": 36,
+        "SELL": 36
+      }
+    },
+    "refused_share_of_trades": 0.28,
+    "refused_overshoot_usd_median": 1.6956880701436603,
+    "refused_overshoot_usd_max": 8.570978924377414,
+    "band_over_spread_median": 1.614716157981419,
+    "spread_usd": 18.424,
+    "reference_basis": {
+      "refused": {
+        "count": 0,
+        "wins": 0,
+        "losses": 0,
+        "win_rate": 0.0,
+        "net_eur": 0.0,
+        "gross_gain_eur": 0.0,
+        "gross_loss_eur": 0.0,
+        "profit_factor": null,
+        "average_eur": 0.0,
+        "best_eur": 0.0,
+        "worst_eur": 0.0,
+        "by_direction": {
+          "BUY": 0,
+          "SELL": 0
+        }
+      },
+      "share": 0.0
+    },
+    "structural_rule": {
+      "refused": {
+        "count": 31,
+        "wins": 9,
+        "losses": 22,
+        "win_rate": 0.2903225806451613,
+        "net_eur": -137.02488969327,
+        "gross_gain_eur": 116.82054596503,
+        "gross_loss_eur": 253.8454356583,
+        "profit_factor": 0.46020345279038827,
+        "average_eur": -4.420157732040968,
+        "best_eur": 20.31968121441,
+        "worst_eur": -14.81028030944,
+        "by_direction": {
+          "BUY": 31,
+          "SELL": 0
+        }
+      },
+      "share": 0.31
+    },
+    "width_curve": {
+      "0.05": {
+        "count": 32,
+        "wins": 12,
+        "losses": 20,
+        "win_rate": 0.375,
+        "net_eur": -36.6610115367,
+        "gross_gain_eur": 178.758905609,
+        "gross_loss_eur": 215.4199171457,
+        "profit_factor": 0.8298160540471093,
+        "average_eur": -1.145656610521875,
+        "best_eur": 21.32764398914,
+        "worst_eur": -10.82116771614,
+        "by_direction": {
+          "BUY": 15,
+          "SELL": 17
+        }
+      },
+      "0.10": {
+        "count": 72,
+        "wins": 25,
+        "losses": 47,
+        "win_rate": 0.3472222222222222,
+        "net_eur": -147.5331885828,
+        "gross_gain_eur": 370.84078206108,
+        "gross_loss_eur": 518.37397064388,
+        "profit_factor": 0.7153923674069768,
+        "average_eur": -2.04907206365,
+        "best_eur": 21.32764398914,
+        "worst_eur": -14.81028030944,
+        "by_direction": {
+          "BUY": 36,
+          "SELL": 36
+        }
+      },
+      "0.15": {
+        "count": 91,
+        "wins": 28,
+        "losses": 63,
+        "win_rate": 0.3076923076923077,
+        "net_eur": -279.96197292213,
+        "gross_gain_eur": 427.7599156768,
+        "gross_loss_eur": 707.72188859893,
+        "profit_factor": 0.6044180949717862,
+        "average_eur": -3.0765051969464836,
+        "best_eur": 21.32764398914,
+        "worst_eur": -21.2029346703,
+        "by_direction": {
+          "BUY": 46,
+          "SELL": 45
+        }
+      },
+      "0.20": {
+        "count": 95,
+        "wins": 30,
+        "losses": 65,
+        "win_rate": 0.3157894736842105,
+        "net_eur": -280.51829284394,
+        "gross_gain_eur": 450.27017043305,
+        "gross_loss_eur": 730.78846327699,
+        "profit_factor": 0.6161429648382183,
+        "average_eur": -2.9528241351993683,
+        "best_eur": 21.32764398914,
+        "worst_eur": -21.2029346703,
+        "by_direction": {
+          "BUY": 48,
+          "SELL": 47
+        }
+      },
+      "0.25": {
+        "count": 97,
+        "wins": 30,
+        "losses": 67,
+        "win_rate": 0.30927835051546393,
+        "net_eur": -304.11526278888,
+        "gross_gain_eur": 450.27017043305,
+        "gross_loss_eur": 754.38543322193,
+        "profit_factor": 0.5968701814800109,
+        "average_eur": -3.1352088947307215,
+        "best_eur": 21.32764398914,
+        "worst_eur": -21.2029346703,
+        "by_direction": {
+          "BUY": 50,
+          "SELL": 47
+        }
+      },
+      "0.30": {
+        "count": 98,
+        "wins": 31,
+        "losses": 67,
+        "win_rate": 0.3163265306122449,
+        "net_eur": -300.62706110582,
+        "gross_gain_eur": 453.75837211611,
+        "gross_loss_eur": 754.38543322193,
+        "profit_factor": 0.601494079993218,
+        "average_eur": -3.0676230725083675,
+        "best_eur": 21.32764398914,
+        "worst_eur": -21.2029346703,
+        "by_direction": {
+          "BUY": 51,
+          "SELL": 47
+        }
+      },
+      "0.40": {
+        "count": 98,
+        "wins": 31,
+        "losses": 67,
+        "win_rate": 0.3163265306122449,
+        "net_eur": -300.62706110582,
+        "gross_gain_eur": 453.75837211611,
+        "gross_loss_eur": 754.38543322193,
+        "profit_factor": 0.601494079993218,
+        "average_eur": -3.0676230725083675,
+        "best_eur": 21.32764398914,
+        "worst_eur": -21.2029346703,
+        "by_direction": {
+          "BUY": 51,
+          "SELL": 47
+        }
+      }
+    },
+    "sample": [
+      {
+        "opened_at": "2026-07-23T11:15:00+00:00",
+        "direction": "SELL",
+        "close": 65702.927,
+        "atr": 104.07598088931154,
+        "band_usd": 20.81519617786398,
+        "reference": 65702.927,
+        "paid": 65692.451261,
+        "pnl_eur": 19.32745253829,
+        "paid_inside": false,
+        "reference_inside": true,
+        "paid_vs_close_usd": 10.47573900000134,
+        "structural_rule_accepts": true
+      },
+      {
+        "opened_at": "2026-07-25T12:00:00+00:00",
+        "direction": "SELL",
+        "close": 64024.949,
+        "atr": 56.48210718999481,
+        "band_usd": 11.296421438004472,
+        "reference": 64024.949,
+        "paid": 64014.473261,
+        "pnl_eur": -11.60040546936,
+        "paid_inside": false,
+        "reference_inside": true,
+        "paid_vs_close_usd": 10.47573900000134,
+        "structural_rule_accepts": true
+      },
+      {
+        "opened_at": "2026-07-26T13:45:00+00:00",
+        "direction": "BUY",
+        "close": 64438.888,
+        "atr": 62.21806818144351,
+        "band_usd": 12.443613636292866,
+        "reference": 64438.89,
+        "paid": 64449.365739,
+        "pnl_eur": 17.71037437134,
+        "paid_inside": false,
+        "reference_inside": true,
+        "paid_vs_close_usd": 10.477739000001748,
+        "structural_rule_accepts": false
+      },
+      {
+        "opened_at": "2026-08-05T12:30:00+00:00",
+        "direction": "SELL",
+        "close": 64171.632,
+        "atr": 103.99705134535233,
+        "band_usd": 20.799410269071814,
+        "reference": 64171.632,
+        "paid": 64161.156261,
+        "pnl_eur": -21.2029346703,
+        "paid_inside": false,
+        "reference_inside": true,
+        "paid_vs_close_usd": 10.47573900000134,
+        "structural_rule_accepts": true
+      },
+      {
+        "opened_at": "2026-08-06T04:30:00+00:00",
+        "direction": "SELL",
+        "close": 64548.812,
+        "atr": 96.69139011413831,
+        "band_usd": 19.33827802282758,
+        "reference": 64548.812,
+        "paid": 64538.336261,
+        "pnl_eur": -11.17362541037,
+        "paid_inside": false,
+        "reference_inside": true,
+        "paid_vs_close_usd": 10.47573900000134,
+        "structural_rule_accepts": true
+      },
+      {
+        "opened_at": "2026-08-09T23:30:00+00:00",
+        "direction": "BUY",
+        "close": 64988.752,
+        "atr": 94.74718922548247,
+        "band_usd": 18.94943784509087,
+        "reference": 64988.752,
+        "paid": 64999.227739,
+        "pnl_eur": -11.18649919442,
+        "paid_inside": false,
+        "reference_inside": true,
+        "paid_vs_close_usd": 10.47573900000134,
+        "structural_rule_accepts": false
+      },
+      {
+        "opened_at": "2026-08-10T11:45:00+00:00",
+        "direction": "SELL",
+        "close": 65050.417,
+        "atr": 91.37964574704715,
+        "band_usd": 18.27592914941488,
+        "reference": 65050.417,
+        "paid": 65039.941261,
+        "pnl_eur": -11.21000198305,
+        "paid_inside": false,
+        "reference_inside": true,
+        "paid_vs_close_usd": 10.47573900000134,
+        "structural_rule_accepts": true
+      },
+      {
+        "opened_at": "2026-08-11T06:30:00+00:00",
+        "direction": "SELL",
+        "close": 63999.822,
+        "atr": 64.43778395343182,
+        "band_usd": 12.88755679067981,
+        "reference": 63999.822,
+        "paid": 63989.346261,
+        "pnl_eur": 4.79988038491,
+        "paid_inside": false,
+        "reference_inside": true,
+        "paid_vs_close_usd": 10.47573900000134,
+        "structural_rule_accepts": true
+      }
+    ]
+  }
+}
