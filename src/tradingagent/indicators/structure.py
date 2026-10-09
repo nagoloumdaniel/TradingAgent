@@ -87,6 +87,18 @@ def last_swing_low(lows: Sequence[float], *, strength: int = 2) -> float | None:
     return None if index is None else lows[index]
 
 
+def last_swing_high(highs: Sequence[float], *, strength: int = 2) -> float | None:
+    """Le prix du dernier sommet confirmé, ou `None` si la série n'en porte aucun.
+
+    Le pendant exact de :func:`last_swing_low`, et il manquait : une position vendeuse suit les
+    **sommets** comme une position acheteuse suit les creux, et sans cette fonction le trailing
+    sur structure n'aurait fonctionné que dans un sens.
+    """
+    confirmed = swing_highs(highs, strength=strength)
+    index = confirmed[-1] if confirmed else None
+    return None if index is None else highs[index]
+
+
 def structure_of(highs: Sequence[float], lows: Sequence[float], *, strength: int = 2) -> Structure:
     """Ce que disent les **deux derniers** sommets et les deux derniers creux confirmés.
 

@@ -1181,6 +1181,22 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - [x] **aucune promotion**
 - **Skills :** `test-driven-development`, `statistical-rigor`
 
+### TASK-106 — Trailing sur structure : le verrou de TASK-067 est levé
+
+- [x] Statut : **DONE le 2026-10-09.** Le chantier d'architecture annoncé depuis onze rounds comme « le verrou de la stratégie BTC » est fait.
+- **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-069, `indicators/structure.py` · **Couvre :** EF-026
+- **Le problème, tel qu'il était écrit dans la roadmap :** « `last_swing_low` donne le niveau dont un trailing sur structure a besoin — mais le harnais ne sait toujours faire qu'un trailing à **distance fixe** (`harness.py:74`), et `SignalCandidate` fige ses niveaux au moment de la décision. La brique de calcul est là ; le chantier d'architecture reste à faire. »
+- **Pourquoi ça change quelque chose :** un trailing à distance fixe **recule quand la volatilité monte**, même si la tendance est intacte : il sort sur du bruit. Suivre les creux successifs laisse respirer un mouvement qui continue et **serre** quand la structure se dégrade — un creux plus haut veut dire que le marché refuse de redescendre.
+- **Ce qui a été livré :**
+  - `BacktestConfig.trailing_stop_swing_strength: int | None = None` — la force de swing, validée (`>= 1`), et **désactivée par défaut** : le harnais reste celui d'avant tant qu'on ne la demande pas.
+  - `harness._trail_structure` — monte (BUY) ou descend (SELL) le stop au dernier swing **confirmé**, et **jamais** ne le desserre.
+  - `indicators/structure.last_swing_high` — **il manquait**, et c'est le code appelant qui l'a révélé : sans lui, le trailing n'aurait fonctionné que dans un sens.
+  - La boucle de trailing combine désormais les deux styles : suivre la structure **et** une distance ATR est possible.
+- **La garantie qui rend la chose utilisable, et elle est testée :** le harnais ne lit que les barres **jusqu'à la courante incluse**. Un creux n'étant confirmé qu'après `strength` barres, un swing non confirmé ne peut pas entrer dans le stop. `test_an_unconfirmed_swing_never_raises_the_stop` le prouve : le prix forme un creux à 98 puis s'effondre **avant** confirmation, et le stop n'est pas monté.
+- **Prix :** 8 tests dans `tests/backtest/test_structural_trailing.py`, 1 dans `tests/indicators/test_structure.py`. **Deux de mes fixtures étaient fausses** — des barres incohérentes (`low=104 > open=102,5`) que `Candle` refuse, et une assertion qui attendait `14,0` là où `13,0` est le **dernier** sommet confirmé. Le constructeur et la fonction avaient raison tous les deux.
+- **Ce qui reste pour la stratégie BTC (TASK-067) :** le trailing sur structure est disponible, mais la règle VWAP + momentum + pullback **n'est pas écrite**, et le TP1 partiel à 0,8 R suivi du passage à break-even est un comportement du **harnais** (`partial_exit_fractions` + `move_stop_to_breakeven_after_first_target`) qu'il faut configurer et mesurer, pas coder.
+- **Skills :** `test-driven-development`
+
 ### QUALITY GATE — Phase 7 — **Fin de la V1**
 
 - [ ] **Durée et volume minimaux atteints** — trente jours et trente opérations par stratégie : mesure dans le temps, en attente de l'exploitation.

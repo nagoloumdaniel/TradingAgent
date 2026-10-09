@@ -10,6 +10,7 @@ import pytest
 
 from tradingagent.indicators.structure import (
     Structure,
+    last_swing_high,
     last_swing_low,
     structure_of,
     swing_highs,
@@ -108,6 +109,18 @@ def test_the_last_confirmed_low_is_named_directly() -> None:
 def test_no_confirmed_low_means_no_level() -> None:
     """Une série trop courte rend `None` : il n'y a pas de creux à mettre derrière un stop."""
     assert last_swing_low([10.0, 11.0], strength=2) is None
+
+
+def test_the_last_confirmed_high_is_named_directly_too() -> None:
+    """Le pendant du creux, et il manquait : une position vendeuse suit les **sommets**.
+
+    Sans cette fonction, le trailing sur structure n'aurait fonctionné que dans un sens — ce
+    qui est exactement le genre de trou qu'on ne voit qu'en écrivant le code qui s'en sert.
+    """
+    # 14 puis 13 sont deux sommets confirmés, et c'est **13** qui est le dernier : une série de
+    # sommets décroissants est précisément ce qu'un vendeur veut voir.
+    assert last_swing_high([10.0, 14.0, 12.0, 13.0, 11.0], strength=1) == 13.0
+    assert last_swing_high([10.0, 11.0], strength=2) is None
 
 
 def test_rising_highs_and_lows_are_an_uptrend() -> None:

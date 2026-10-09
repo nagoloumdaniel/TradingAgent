@@ -28,6 +28,7 @@ from tradingagent.core.signal import SignalCandidate
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.market_calendar import MarketCalendar, Slot
 from tradingagent.indicators.features import entry_features
+from tradingagent.indicators.structure import last_swing_high, last_swing_low
 from tradingagent.indicators.volatility import atr
 from tradingagent.strategies.base import Strategy
 from tradingagent.strategies.evaluation import Outcome, OutcomeKind, evaluate
@@ -73,6 +74,16 @@ class BacktestConfig:
     partial_exit_fractions: tuple[float, ...] = ()
     move_stop_to_breakeven_after_first_target: bool = False
     trailing_stop_atr: float | None = None
+    #: Follow the last **confirmed** swing instead of a fixed distance: a rising sequence of
+    #: swing lows raises a long's stop, a falling sequence of swing highs lowers a short's.
+    #:
+    #: This is the piece `indicators/structure.py` was built for. A fixed ATR distance retreats
+    #: when volatility rises even though the trend is intact, so it exits on noise; the swing
+    #: only moves the stop when the market has actually made a new confirmed extreme. The value
+    #: is the swing strength, and only swings confirmed as of the current bar are ever read --
+    #: using an unconfirmed one would put a level into the stop that nobody knew was a swing
+    #: yet, and the backtest would be beautiful and false.
+    trailing_stop_swing_strength: int | None = None
     max_holding_bars: int | None = None
     session: TradingSession | None = None
 
@@ -85,6 +96,8 @@ class BacktestConfig:
             raise ValueError("atr_period must be positive")
         if self.trailing_stop_atr is not None and self.trailing_stop_atr <= 0:
             raise ValueError("trailing_stop_atr must be positive when set")
+        if self.trailing_stop_swing_strength is not None and self.trailing_stop_swing_strength < 1:
+            raise ValueError("trailing stop swing strength must be at least 1 when set")
         if self.max_holding_bars is not None and self.max_holding_bars < 1:
             raise ValueError("max_holding_bars must be at least 1 when set")
         if self.partial_exit_fractions and any(
@@ -215,10 +228,11 @@ def run_backtest(
                 open_positions.remove(position)
                 forced_closures += 1
 
-        if config.trailing_stop_atr is not None:
+        if config.trailing_stop_atr is not None or config.trailing_stop_swing_strength is not None:
             for position in open_positions:
                 if position.entry_index < index:
                     _trail(position, primary, index, config)
+                    _trail_structure(position, primary, index, config)
 
         if index < evaluation_start:
             continue
@@ -417,6 +431,34 @@ def _add_exit(
     position.contributions.append((fraction, fill))
     position.adverse.append(abs(fill - reference))
     position.remaining = max(0.0, position.remaining - fraction)
+
+
+def _trail_structure(
+    position: _Position, primary: Sequence[Candle], index: int, config: BacktestConfig
+) -> None:
+    """Move the stop to the last swing confirmed **at bar `index`**, never loosening it.
+
+    The series passed in stops at `index` inclusive, so `swing_lows`/`swing_highs` cannot see a
+    later bar: whatever it returns is a swing the position could have known about when the bar
+    closed. That is the whole guarantee, and `structure.py` enforces it by only confirming a
+    swing once `strength` further bars have closed.
+    """
+    strength = config.trailing_stop_swing_strength
+    if strength is None:
+        return
+    window = primary[: index + 1]
+    if len(window) < strength * 2 + 1:
+        return
+    highs = [candle.high for candle in window]
+    lows = [candle.low for candle in window]
+    if position.signal.direction is Direction.BUY:
+        level = last_swing_low(lows, strength=strength)
+        if level is not None:
+            position.stop = max(position.stop, level)
+    else:
+        level = last_swing_high(highs, strength=strength)
+        if level is not None:
+            position.stop = min(position.stop, level)
 
 
 def _trail(
