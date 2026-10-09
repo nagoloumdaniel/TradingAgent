@@ -15,7 +15,7 @@ Deux règles de lecture, et elles viennent toutes les deux d'un défaut réel :
 """
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import datetime
 
 from tradingagent.indicators._checks import require_finite
 
@@ -71,8 +71,11 @@ def vwap(
     for moment, high, low, close, volume in zip(
         open_times, highs, lows, closes, volumes, strict=True
     ):
-        # Un instant reste le même instant : 02:00+02:00 et 00:00Z sont la même session.
-        current = _session_index(moment.astimezone(UTC), session_anchor_minutes)
+        # Un instant reste le même instant : `timestamp()` porte déjà l'instant absolu, donc
+        # 02:00+02:00 et 00:00Z donnent le même nombre sans reconversion. Le `astimezone(UTC)`
+        # par barre ne changeait pas un chiffre — les tests le prouvent sur quatre écritures du
+        # même instant — et coûtait une conversion à chaque bougie de chaque fenêtre.
+        current = _session_index(moment, session_anchor_minutes)
         if current != session:
             session = current
             volume_sum = 0.0
@@ -82,14 +85,22 @@ def vwap(
             # un cumul qui ne veut plus rien dire. La session suivante repart proprement.
             result.append(None)
             continue
-        weighted_sum += typical_price(high, low, close) * volume
+        # Le prix typique est écrit ici au lieu d'appeler `typical_price` : la finitude des
+        # trois séries vient d'être vérifiée en entier, donc revalider chaque triplet à chaque
+        # barre ne protège rien de plus — c'était 7,84 millions d'appels sur 8,00 millions.
+        # `typical_price` garde son propre contrat, exposé, pour ses appelants directs.
+        weighted_sum += ((high + low + close) / 3.0) * volume
         volume_sum += volume
         result.append(None if volume_sum <= 0 else weighted_sum / volume_sum)
     return result
 
 
 def _session_index(moment: datetime, anchor_minutes: int) -> int:
-    """Le numéro de session d'un instant : change à chaque frontière de 24 h décalée."""
+    """Le numéro de session d'un instant : change à chaque frontière de 24 h décalée.
+
+    `moment` doit être conscient du fuseau — `vwap` le vérifie avant d'arriver ici — parce que
+    `timestamp()` lit l'instant absolu, et qu'un datetime naïf serait interprété en heure locale.
+    """
     seconds = int(moment.timestamp()) - anchor_minutes * 60
     return seconds // (_DAY_MINUTES * 60)
 

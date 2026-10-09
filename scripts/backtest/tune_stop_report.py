@@ -1,0 +1,165 @@
+"""Met les mesures de l'axe A en tableaux markdown, sans recopie manuelle.
+
+Les chiffres du rapport `docs/research/vwap-tuning/axe-A-stop.md` sont produits ici depuis les
+JSONL de mesure. Recopier un PF a la main est la facon la plus sure d'ecrire un chiffre faux
+dans un rapport qui doit servir a decider ; ce script supprime l'etape.
+
+    uv run python scripts/backtest/tune_stop_report.py
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[2]
+OUTPUT_DIR = ROOT / "docs" / "research" / "vwap-tuning"
+
+#: Les fichiers de mesure, dans l'ordre ou ils doivent apparaitre dans le rapport.
+SOURCES: tuple[tuple[str, str], ...] = (
+    ("Exploration, 4 999 bougies (elimination)", "axe-A-exploration-5k.jsonl"),
+    ("Second lot, 4 999 bougies", "axe-A-exploration-5k-lot2.jsonl"),
+    ("Decision, 59 999 bougies (jeu complet)", "axe-A-decision-60k.jsonl"),
+    ("Decision, second lot, 59 999 bougies", "axe-A-decision-60k-lot2.jsonl"),
+    ("Validation par moities de jeu", "axe-A-windows-60k.jsonl"),
+    ("Verification contre la source vivante", "axe-A-live-check.jsonl"),
+)
+
+COLUMNS = (
+    ("Configuration", lambda r: f"`{r['label']}`"),
+    ("Barres", lambda r: str(r.get("bars", ""))),
+    ("Trades", lambda r: str(r.get("trades", ""))),
+    ("Reussite", lambda r: _percent(r.get("win_rate"))),
+    ("Net EUR", lambda r: _number(r.get("net_eur"))),
+    ("PF", lambda r: _number(r.get("profit_factor"), 4)),
+    ("DD EUR", lambda r: _number(r.get("max_drawdown_eur"))),
+    ("MAE gagnants", lambda r: _number(r.get("winners_mae_r_median"))),
+    ("MFE gagnants", lambda r: _number(r.get("winners_mfe_r_median"))),
+    ("MAE perdants", lambda r: _number(r.get("losers_mae_r_median"))),
+    ("MFE perdants", lambda r: _number(r.get("losers_mfe_r_median"))),
+)
+
+
+def _number(value: Any, digits: int = 2) -> str:
+    if value is None:
+        return "—"
+    return f"{float(value):.{digits}f}".replace(".", ",")
+
+
+def _percent(value: Any) -> str:
+    if value is None:
+        return "—"
+    return f"{100 * float(value):.1f} %".replace(".", ",")
+
+
+def _harness(row: dict[str, Any]) -> str:
+    parts: list[str] = []
+    fractions = row["harness"]["partial_exit_fractions"]
+    if fractions:
+        parts.append("partiel " + "/".join(f"{100 * f:.0f}" for f in fractions))
+    else:
+        parts.append("sortie unique")
+    if row["harness"]["move_stop_to_breakeven_after_first_target"]:
+        parts.append("break-even")
+    if row["harness"]["trailing_stop_swing_strength"]:
+        parts.append(f"trailing structure {row['harness']['trailing_stop_swing_strength']}")
+    if row["harness"]["trailing_stop_atr"]:
+        parts.append(f"trailing ATR {row['harness']['trailing_stop_atr']}")
+    if row["harness"]["max_holding_bars"]:
+        parts.append(f"holding {row['harness']['max_holding_bars']}")
+    return " + ".join(parts)
+
+
+def _geometry(row: dict[str, Any]) -> str:
+    parameters = row["parameters"]
+    stop = _number(parameters["stop_atr_multiplier"], 1)
+    first = _number(parameters["first_target_rr"], 1)
+    final = _number(parameters["final_target_rr"], 1)
+    return f"stop {stop} ATR, TP {first}/{final}"
+
+
+def load(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            rows.append(json.loads(line))
+    return rows
+
+
+def table(rows: Sequence[dict[str, Any]], *, show_geometry: bool = False) -> str:
+    """Un tableau markdown, les meilleurs PF en tete, avec la geometrie et le harnais."""
+    if not rows:
+        return "_aucune mesure_\n"
+    header = ["Configuration"] + (["Geometrie", "Harnais"] if show_geometry else [])
+    header += [name for name, _ in COLUMNS[1:]]
+    lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+    ordered = sorted(
+        rows, key=lambda r: (r.get("profit_factor") is None, -(r.get("profit_factor") or 0))
+    )
+    for row in ordered:
+        if row.get("status") != "ok":
+            lines.append(f"| `{row['label']}` | {row['status']} |" + " |" * (len(header) - 2))
+            continue
+        cells = [f"`{row['label']}`"]
+        if show_geometry:
+            cells += [_geometry(row), _harness(row)]
+        cells += [render(row) for name, render in COLUMNS[1:]]
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines) + "\n"
+
+
+def best(rows: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
+    measured = [r for r in rows if r.get("status") == "ok" and r.get("profit_factor") is not None]
+    return max(measured, key=lambda r: r["profit_factor"]) if measured else None
+
+
+def main() -> int:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None and not stream.isatty():
+            reconfigure(encoding="utf-8", errors="replace")
+
+    fragments: list[str] = []
+    summary: list[str] = []
+    for title, name in SOURCES:
+        rows = load(OUTPUT_DIR / name)
+        if not rows:
+            continue
+        windows = sorted({str(r.get("window", r.get("bars"))) for r in rows})
+        fragments.append(f"### {title}\n")
+        for window in windows:
+            subset = [r for r in rows if str(r.get("window", r.get("bars"))) == window]
+            if len(windows) > 1:
+                fragments.append(f"Fenetre : `{window}`\n")
+            fragments.append(table(subset, show_geometry=True))
+            fragments.append("")
+        top = best(rows)
+        if top is not None:
+            summary.append(
+                f"- **{title}** : meilleur PF {_number(top['profit_factor'], 4)} "
+                f"(`{top['label']}`, {top.get('trades')} trades, "
+                f"net {_number(top.get('net_eur'))} EUR)"
+            )
+
+    target = OUTPUT_DIR / "axe-A-tableaux.md"
+    target.write_text(
+        "# Axe A — tableaux de mesure (engendres)\n\n"
+        "Ce fichier est produit par `scripts/backtest/tune_stop_report.py` depuis les JSONL de "
+        "mesure. Il ne se recopie pas a la main.\n\n" + "\n".join(fragments),
+        encoding="utf-8",
+    )
+    print("\n".join(summary))
+    print(f"\n== {target} ==")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+__all__: Sequence[str] = ["SOURCES", "best", "load", "main", "table"]

@@ -11,6 +11,11 @@ def atr(
 
     The first bar has no true range: it needs a previous close, and substituting
     high - low there would be an approximation.
+
+    Le true range est écrit ici plutôt que dans un helper : `atr` l'appelle une fois par barre,
+    et 21,9 millions d'appels de fonction pour une ligne d'arithmétique coûtaient plus cher que
+    l'arithmétique elle-même. L'ordre des opérations est celui du helper — `max` reçoit ses
+    trois candidats dans le même ordre, ce qui fixe le résultat au bit près, `-0.0` compris.
     """
     require_period(period)
     if not len(highs) == len(lows) == len(closes):
@@ -21,7 +26,12 @@ def atr(
     if len(closes) <= period:
         return result
     ranges = [
-        _true_range(highs[index], lows[index], closes[index - 1]) for index in range(1, len(closes))
+        max(
+            highs[index] - lows[index],
+            abs(highs[index] - closes[index - 1]),
+            abs(lows[index] - closes[index - 1]),
+        )
+        for index in range(1, len(closes))
     ]
     current = math.fsum(ranges[:period]) / period
     result[period] = current
@@ -29,7 +39,3 @@ def atr(
         current = wilder(current, ranges[index - 1], period)
         result[index] = current
     return result
-
-
-def _true_range(high: float, low: float, previous_close: float) -> float:
-    return max(high - low, abs(high - previous_close), abs(low - previous_close))

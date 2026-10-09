@@ -1,0 +1,216 @@
+{
+  "symbol": "BTCUSD",
+  "bars": 20000,
+  "window_start": "2026-03-14T15:30:00+00:00",
+  "window_end": "2026-10-09T01:30:00+00:00",
+  "parameters": {
+    "ema_fast": 20,
+    "ema_slow": 50,
+    "vwap_period": 20,
+    "atr_period": 14,
+    "stop_atr_multiplier": 1.5,
+    "first_target_rr": 1.5,
+    "final_target_rr": 3.0,
+    "pullback_atr": 0.4,
+    "entry_zone_atr": 0.1,
+    "min_slope_atr": 0.005,
+    "slope_window": 10
+  },
+  "variants": {
+    "référence (aucun filtre)": {
+      "trades": 268.0,
+      "wins": 105.0,
+      "win_rate": 0.3917910447761194,
+      "net_eur": -177.70938823619,
+      "profit_factor": 0.9001834434770253,
+      "expectancy": -0.6630947322245896,
+      "max_drawdown": 335.37577965727,
+      "signals": 603.0,
+      "entries": 268.0,
+      "skipped_no_room": 335.0,
+      "first_hour": 0.25,
+      "last_hour": 23.5,
+      "overrides": {}
+    },
+    "séance : overlap + Londres + New York": {
+      "trades": 178.0,
+      "wins": 67.0,
+      "win_rate": 0.37640449438202245,
+      "net_eur": -143.82293758987,
+      "profit_factor": 0.8810877576743675,
+      "expectancy": -0.807994031403764,
+      "max_drawdown": 291.24561883034,
+      "signals": 339.0,
+      "entries": 178.0,
+      "skipped_no_room": 161.0,
+      "first_hour": 7.5,
+      "last_hour": 22.25,
+      "overrides": {
+        "allowed_sessions": [
+          "overlap",
+          "london",
+          "new_york"
+        ]
+      }
+    },
+    "séance : overlap seul": {
+      "trades": 47.0,
+      "wins": 18.0,
+      "win_rate": 0.3829787234042553,
+      "net_eur": -7.04346054317,
+      "profit_factor": 0.9778401169460074,
+      "expectancy": -0.1498608626206383,
+      "max_drawdown": 79.65913201927,
+      "signals": 62.0,
+      "entries": 47.0,
+      "skipped_no_room": 15.0,
+      "first_hour": 13.5,
+      "last_hour": 16.25,
+      "overrides": {
+        "allowed_sessions": [
+          "overlap"
+        ]
+      }
+    },
+    "volume ≥ 1,0× la moyenne 20": {
+      "trades": 172.0,
+      "wins": 63.0,
+      "win_rate": 0.36627906976744184,
+      "net_eur": -311.30174871328,
+      "profit_factor": 0.7409457141429099,
+      "expectancy": -1.809893887867907,
+      "max_drawdown": 325.27949468363,
+      "signals": 255.0,
+      "entries": 172.0,
+      "skipped_no_room": 83.0,
+      "first_hour": 0.25,
+      "last_hour": 23.5,
+      "overrides": {
+        "volume_ratio_min": 1.0
+      }
+    },
+    "volume ≥ 1,2× la moyenne 20": {
+      "trades": 66.0,
+      "wins": 25.0,
+      "win_rate": 0.3787878787878788,
+      "net_eur": -102.53759098655,
+      "profit_factor": 0.7698913949960937,
+      "expectancy": -1.5535998634325758,
+      "max_drawdown": 135.32810375639,
+      "signals": 79.0,
+      "entries": 66.0,
+      "skipped_no_room": 13.0,
+      "first_hour": 0.5,
+      "last_hour": 23.5,
+      "overrides": {
+        "volume_ratio_min": 1.2
+      }
+    },
+    "tendance : seuil du régime (0,05)": {
+      "trades": 37.0,
+      "wins": 18.0,
+      "win_rate": 0.4864864864864865,
+      "net_eur": 47.25768362409,
+      "profit_factor": 1.2291351766614083,
+      "expectancy": 1.277234692542973,
+      "max_drawdown": 55.00396886544,
+      "signals": 72.0,
+      "entries": 37.0,
+      "skipped_no_room": 35.0,
+      "first_hour": 1.75,
+      "last_hour": 13.25,
+      "overrides": {
+        "trend_filter": true
+      }
+    },
+    "tendance : seuil 0,001": {
+      "trades": 186.0,
+      "wins": 76.0,
+      "win_rate": 0.40860215053763443,
+      "net_eur": -101.40119292256,
+      "profit_factor": 0.9141989142162638,
+      "expectancy": -0.5451677038847312,
+      "max_drawdown": 213.00550274184,
+      "signals": 407.0,
+      "entries": 186.0,
+      "skipped_no_room": 221.0,
+      "first_hour": 0.5,
+      "last_hour": 23.5,
+      "overrides": {
+        "trend_filter": true,
+        "trend_slope_atr": 0.001
+      }
+    },
+    "séance UT + volume ≥ 1,0×": {
+      "trades": 110.0,
+      "wins": 40.0,
+      "win_rate": 0.36363636363636365,
+      "net_eur": -198.94257004912,
+      "profit_factor": 0.7425021223604985,
+      "expectancy": -1.8085688186283637,
+      "max_drawdown": 219.31199630614,
+      "signals": 151.0,
+      "entries": 110.0,
+      "skipped_no_room": 41.0,
+      "first_hour": 7.5,
+      "last_hour": 22.25,
+      "overrides": {
+        "allowed_sessions": [
+          "overlap",
+          "london",
+          "new_york"
+        ],
+        "volume_ratio_min": 1.0
+      }
+    }
+  },
+  "signal_census": {
+    "signals": 603,
+    "sessions": {
+      "off": 19,
+      "tokyo": 245,
+      "london": 189,
+      "overlap": 62,
+      "new_york": 88
+    },
+    "by_hour": {
+      "0": 22,
+      "1": 27,
+      "2": 30,
+      "3": 34,
+      "4": 44,
+      "5": 46,
+      "6": 42,
+      "7": 32,
+      "8": 36,
+      "9": 38,
+      "10": 31,
+      "11": 23,
+      "12": 29,
+      "13": 23,
+      "14": 23,
+      "15": 16,
+      "16": 16,
+      "17": 10,
+      "18": 13,
+      "19": 17,
+      "20": 12,
+      "21": 20,
+      "22": 14,
+      "23": 5
+    },
+    "volume_ratio_median": 0.9677207428170989,
+    "volume_above": {
+      "0.8": 520,
+      "1.0": 255,
+      "1.2": 79,
+      "1.5": 16
+    },
+    "trend": {
+      "neutral": 531,
+      "up": 41,
+      "down": 31
+    },
+    "rsi_median": 50.2055172772706
+  }
+}

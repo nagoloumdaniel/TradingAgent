@@ -20,34 +20,8 @@ TP1 et le passage à break-even ne sont **pas** décidés ici : c'est le harnais
 (`partial_exit_fractions`, `move_stop_to_breakeven_after_first_target`), parce que ce sont des
 règles de gestion de position, pas de détection. Une stratégie qui les coderait elle-même
 devrait aussi simuler les remplissages, ce qui n'est pas son rôle.
-
-**Trois filtres optionnels, et leur état par défaut.** La spec de l'opérateur en demande six ;
-trois sont ces conditions. Les trois autres sont proposés ici — horaire, tendance, volume — et
-**tous sont éteints par défaut** : `allowed_sessions=()`, `trend_filter=False`,
-`volume_ratio_min=None` reproduisent exactement la règle mesurée à PF 0,990. Un filtre ne se
-rallume qu'après avoir montré, mesure en main, qu'il ne retire pas plus qu'il n'apporte.
-
-Chacun lit une brique existante, jamais un indicateur réécrit ici : `session_at` pour l'heure,
-`trend_of` pour la direction du marché, et le volume déjà présent dans les bougies pour la
-participation. Le filtre de **coût** de la spec ne figure pas ici et ne doit pas y venir : il
-appartient au moteur de risque, qui seul connaît le spread réel du broker.
-
-**Le filtre de tendance a un défaut structurel, et la mesure l'a montré.** `trend_of` lit la
-pente de la moyenne lente sur **une** barre, normalisée par l'ATR. Or l'événement que cette
-règle attend est précisément le moment où le prix **revient** sur le VWAP : sur les 105
-géométries de repli balayées le 2026-10-09, la pente d'une barre est nulle ou négative à
-chaque fois (-0,0022 sur le pullback nominal) et `trend_of` répond donc `NEUTRAL`. Avec son
-seuil de régime (0,05), ce filtre ne refuse pas les mauvais signaux : il refuse **tous** les
-signaux. Il reste dans le code parce qu'il est désactivable et testé, et parce que c'est le
-résultat le plus utile de cet axe ; il reste **éteint** pour la même raison.
-
-**Ce que ces filtres ne font pas.** Ils ne peuvent que **refuser** un signal — jamais en créer
-un, jamais desserrer un stop, jamais élargir une zone d'entrée. C'est la contrainte C-002, et
-elle est structurelle ici : chaque filtre est une sortie anticipée de `evaluate`, pas une
-branche qui fabrique une décision.
 """
 
-from collections.abc import Sequence
 from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -55,8 +29,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from tradingagent.core.market import Direction
 from tradingagent.core.signal import SignalCandidate
 from tradingagent.indicators.moving_average import ema
-from tradingagent.indicators.regime import DEFAULT_TREND_THRESHOLD, Trend, trend_of
-from tradingagent.indicators.session import Session, session_at
 from tradingagent.indicators.volatility import atr
 from tradingagent.indicators.vwap import vwap
 from tradingagent.strategies.base import Strategy, StrategyContext
@@ -88,47 +60,6 @@ class VwapPullbackParameters(BaseModel):
     #: interdirait la stratégie entière. Le momentum est une propriété de la **tendance**, pas
     #: du dernier pas.
     slope_window: int = Field(ge=2)
-
-    #: Les séances pendant lesquelles la règle a le droit de parler. **Vide = aucune contrainte.**
-    #:
-    #: Le VWAP du jour est un niveau que le marché défend quand il est là. À 04:00 UTC, le
-    #: bitcoin se traite encore, mais le flux qui pourrait repousser le niveau est à Londres et
-    #: à New York, pas à Tokyo : un contact sur un carnet mince est une barre traversée, pas un
-    #: rejet. Lire la séance de la **bougie qui déclenche** — `candles[-1].open_time` — et non
-    #: l'horloge de la machine, garde la règle pure et rejouable.
-    allowed_sessions: tuple[Session, ...] = ()
-
-    #: Exige que le marché soit encore en tendance **au moment de la décision**.
-    #:
-    #: Ce n'est pas un doublon de la pente déjà exigée, et la différence est mesurable : la
-    #: pente de la règle se mesure sur `slope_window` barres (« la tendance existe depuis dix
-    #: barres »), celle de `trend_of` sur **une** barre, normalisée par l'ATR (« elle pousse
-    #: encore »). Un marché qui a monté puis décroché satisfait la première et pas la seconde.
-    trend_filter: bool = False
-
-    #: Le seuil de pente sur **une** barre qui fait dire à `trend_of` que le marché tend encore.
-    #:
-    #: La valeur par défaut est celle du module de régime (`DEFAULT_TREND_THRESHOLD`), et non
-    #: `min_slope_atr` : les deux mesurent des pentes sur des fenêtres différentes, et réutiliser
-    #: le même nombre pour les deux ferait croire qu'elles se comparent. Elle est paramétrable
-    #: parce que la mesure a montré que ce seuil peut, à lui seul, rendre la règle muette — un
-    #: filtre qui refuse tout n'est pas un filtre, c'est une suppression.
-    trend_slope_atr: float = Field(default=DEFAULT_TREND_THRESHOLD, gt=0)
-
-    #: Volume de la barre de contact divisé par la moyenne des barres **précédentes**. `None`
-    #: éteint le filtre ; un seuil nul ou négatif est refusé plus bas, parce qu'il aurait l'air
-    #: de filtrer sans rien filtrer.
-    #:
-    #: Ce n'est pas le filtre « volume » de la spec au sens brut : le VWAP exige déjà un volume
-    #: sur **chaque** barre et se tait sinon. Ce seuil-ci est **relatif** à ce que le marché
-    #: fait d'habitude, ce qu'un volume absolu ne peut pas dire — 100 lots ne veulent rien dire
-    #: sans le contexte du marché et de l'heure.
-    volume_ratio_min: float | None = Field(default=None, gt=0)
-
-    #: Sur combien de barres **précédentes** la moyenne de volume est prise. La barre courante
-    #: en est exclue : l'inclure ferait monter sa propre référence et un pic de volume
-    #: s'auto-annulerait d'autant plus qu'il est fort.
-    volume_lookback: int = Field(default=20, ge=2)
 
     @model_validator(mode="after")
     def _coherent(self) -> Self:
@@ -187,9 +118,6 @@ class VwapPullback(Strategy[VwapPullbackParameters]):
         slope = (slow[-1] - earlier_slow) / (window * volatility)
         close = closes[-1]
         distance = abs(close - level)
-        # La séance de la bougie qui déclenche, jamais celle de la machine : `evaluated_at` est
-        # l'heure de clôture de cette barre, et la fenêtre du VWAP s'ancre sur son ouverture.
-        session = session_at(candles[-1].open_time)
 
         direction = self._direction(
             close=close,
@@ -205,59 +133,9 @@ class VwapPullback(Strategy[VwapPullbackParameters]):
         if direction is None:
             return None
 
-        # Les filtres viennent **après** la géométrie, et l'ordre est délibéré : `trend_of`
-        # recalcule deux EMA et un ATR, donc le payer sur les barres qui ne sont de toute façon
-        # pas des pullbacks multiplierait le coût d'un backtest pour rien.
-        if parameters.allowed_sessions and session not in parameters.allowed_sessions:
-            return None
-
-        side = Trend.UP if direction is Direction.BUY else Trend.DOWN
-        trend = (
-            trend_of(
-                highs,
-                lows,
-                closes,
-                fast=parameters.ema_fast,
-                slow=parameters.ema_slow,
-                atr_period=parameters.atr_period,
-                threshold=parameters.trend_slope_atr,
-            )
-            if parameters.trend_filter
-            else None
-        )
-        if parameters.trend_filter and trend is not side:
-            return None
-
-        ratio = _volume_ratio(measured, parameters.volume_lookback)
-        if parameters.volume_ratio_min is not None and (
-            ratio is None or ratio < parameters.volume_ratio_min
-        ):
-            return None
-
         sign = 1 if direction is Direction.BUY else -1
         risk = parameters.stop_atr_multiplier * volatility
         zone = parameters.entry_zone_atr * volatility
-        indicators = {
-            "vwap": level,
-            "reference": close,
-            "ema_fast": fast[-1],
-            "ema_slow": slow[-1],
-            "slope_atr": slope,
-            "atr": volatility,
-            "distance_atr": distance / volatility,
-        }
-        # Le ratio de volume n'est publié que s'il a été **mesuré** : écrire 0,0 quand
-        # l'historique est trop court affirmerait une mesure qui n'existe pas. Aujourd'hui la
-        # fenêtre vient toujours du manifeste (400 barres) et le cas ne se produit pas, mais
-        # une constante inventée finirait par être lue comme un vrai ratio.
-        if ratio is not None:
-            indicators["volume_ratio"] = ratio
-        # Le motif porte les **étiquettes** — séance, tendance — parce que `indicators` est
-        # vérifié fini et numérique (`core.signal`) : y glisser un `StrEnum` ferait lever la
-        # construction du signal. Un filtre éteint, lui, n'a rien mesuré et ne s'annonce pas.
-        filter_notes = [f"séance {session}"]
-        if trend is not None:
-            filter_notes.append(f"tendance {trend}")
         return SignalCandidate(
             direction=direction,
             entry_low=close - zone,
@@ -270,10 +148,17 @@ class VwapPullback(Strategy[VwapPullbackParameters]):
             reason=(
                 f"{'achat' if sign > 0 else 'vente'} sur retour au VWAP "
                 f"({level:.5f}) en tendance {'haussière' if sign > 0 else 'baissière'} ; "
-                f"TP1 {parameters.first_target_rr}R puis TP2 {parameters.final_target_rr}R "
-                f"({', '.join(filter_notes)})"
+                f"TP1 {parameters.first_target_rr}R puis TP2 {parameters.final_target_rr}R"
             ),
-            indicators=indicators,
+            indicators={
+                "vwap": level,
+                "reference": close,
+                "ema_fast": fast[-1],
+                "ema_slow": slow[-1],
+                "slope_atr": slope,
+                "atr": volatility,
+                "distance_atr": distance / volatility,
+            },
         )
 
     def _direction(
@@ -298,25 +183,6 @@ class VwapPullback(Strategy[VwapPullbackParameters]):
         if fast < slow and slope <= -parameters.min_slope_atr and high >= level > close:
             return Direction.SELL
         return None
-
-
-def _volume_ratio(volumes: Sequence[float], lookback: int) -> float | None:
-    """La barre courante rapportée à ce que le marché fait d'habitude, ou `None`.
-
-    La barre courante est exclue de sa propre référence — c'est tout l'intérêt du rapport : un
-    pic de volume qui entre dans sa propre moyenne se compare à moitié à lui-même, et le
-    rapport plafonne d'autant plus bas que le pic est fort.
-
-    `None` quand la référence est nulle : diviser par zéro donnerait l'infini, et un ratio
-    infini ferait passer n'importe quel seuil. Se taire est ici la seule réponse honnête.
-    """
-    if len(volumes) <= lookback:
-        return None
-    previous = volumes[-1 - lookback : -1]
-    average = sum(previous) / len(previous)
-    if average <= 0:
-        return None
-    return volumes[-1] / average
 
 
 def _last_smoothed(values: list[float | None], period: int) -> float | None:

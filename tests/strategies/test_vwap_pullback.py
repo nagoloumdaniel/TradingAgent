@@ -25,6 +25,7 @@ import pytest
 
 from tradingagent.core.market import Candle, Direction
 from tradingagent.core.timeframe import Timeframe
+from tradingagent.indicators.session import Session
 from tradingagent.strategies.base import StrategyContext
 from tradingagent.strategies.library.vwap_pullback import VwapPullback, VwapPullbackParameters
 
@@ -32,8 +33,10 @@ START = datetime(2026, 10, 5, 0, 0, tzinfo=UTC)  # 00:00 UTC : l'ancre du VWAP
 STEP = timedelta(minutes=15)
 
 
-def parameters(**overrides: float) -> VwapPullbackParameters:
-    base: dict[str, float] = {
+def parameters(**overrides: object) -> VwapPullbackParameters:
+    # `object` et non `float` : les filtres ajoutent des paramètres qui ne sont pas des nombres
+    # — les séances autorisées forment un tuple, `trend_filter` un booléen.
+    base: dict[str, object] = {
         "ema_fast": 20,
         "ema_slow": 50,
         "vwap_period": 20,
@@ -49,7 +52,7 @@ def parameters(**overrides: float) -> VwapPullbackParameters:
     return VwapPullbackParameters.model_validate({**base, **overrides})
 
 
-def rising_pullback() -> list[float]:
+def rising_pullback(*, length: int | None = None) -> list[float]:
     """Tendance haussière, repli qui vient **toucher** le VWAP, puis deux barres de reprise.
 
     Géométrie mesurée : distance au VWAP 0,46 pour une tolérance de 0,48, EMA rapide au-dessus
@@ -63,10 +66,10 @@ def rising_pullback() -> list[float]:
         closes.append(closes[-1] - 0.10)
     for _ in range(2):
         closes.append(closes[-1] + 0.04)
-    return closes
+    return closes if length is None else closes[:length]
 
 
-def falling_pullback() -> list[float]:
+def falling_pullback(*, length: int | None = None) -> list[float]:
     """Le miroir exact : tendance baissière, retour par le dessous, reprise à la baisse."""
     closes = [100.0]
     for _ in range(60):
@@ -75,19 +78,27 @@ def falling_pullback() -> list[float]:
         closes.append(closes[-1] + 0.10)
     for _ in range(2):
         closes.append(closes[-1] - 0.04)
-    return closes
+    return closes if length is None else closes[:length]
 
 
-def context(closes: list[float], *, half_range: float = 0.6) -> StrategyContext:
+def context(
+    closes: list[float],
+    *,
+    half_range: float = 0.6,
+    half_ranges: list[float] | None = None,
+    volumes: list[float] | None = None,
+) -> StrategyContext:
+    ranges = half_ranges if half_ranges is not None else [half_range] * len(closes)
+    measured = volumes if volumes is not None else [100.0] * len(closes)
     candles = tuple(
         Candle(
             timeframe=Timeframe.M15,
             open_time=START + STEP * index,
             open=price,
-            high=price + half_range,
-            low=price - half_range,
+            high=price + ranges[index],
+            low=price - ranges[index],
             close=price,
-            volume=100.0,
+            volume=measured[index],
         )
         for index, price in enumerate(closes)
     )
@@ -99,7 +110,7 @@ def context(closes: list[float], *, half_range: float = 0.6) -> StrategyContext:
     )
 
 
-def strategy(**overrides: float) -> VwapPullback:
+def strategy(**overrides: object) -> VwapPullback:
     return VwapPullback(parameters(**overrides))
 
 
@@ -266,3 +277,161 @@ def test_the_same_context_gives_the_same_decision_twice() -> None:
     second = rule.evaluate(context_)
 
     assert first == second
+
+
+# --------------------------------------------------------------------------------------
+# Les filtres de la spec opérateur — tous DÉSACTIVÉS par défaut
+# --------------------------------------------------------------------------------------
+
+
+def test_every_filter_is_off_by_default() -> None:
+    """Un filtre qui change le comportement sans qu'on l'ait demandé n'est pas un filtre.
+
+    C'est la condition qui rend la comparaison honnête : la règle mesurée reste celle qui
+    tourne tant que personne n'a prouvé qu'un filtre apporte quelque chose.
+    """
+    default = parameters()
+
+    assert default.allowed_sessions == ()
+    assert default.trend_filter is False
+    assert default.volume_ratio_min is None
+
+
+def test_the_session_filter_refuses_a_bar_outside_the_allowed_windows() -> None:
+    """L'heure de la bougie qui déclenche est la seule horloge que la règle ait le droit de lire.
+
+    La dernière barre du scénario ouvre à 18:00 UTC : elle appartient à la séance de New York.
+    En n'autorisant que l'overlap Londres/New York, la règle doit se taire — c'est la
+    vérification que le filtre regarde bien la bougie et non l'horloge de la machine.
+    """
+    filtered = strategy(allowed_sessions=(Session.OVERLAP,))
+
+    assert filtered.evaluate(context(rising_pullback())) is None
+
+
+def test_the_session_filter_lets_the_declared_session_through() -> None:
+    """Le pendant du test précédent : la même barre passe dès que sa séance est autorisée."""
+    filtered = strategy(allowed_sessions=(Session.NEW_YORK,))
+
+    candidate = filtered.evaluate(context(rising_pullback()))
+
+    assert candidate is not None
+    assert candidate.direction is Direction.BUY
+
+
+def test_the_session_filter_refuses_an_empty_but_nonzero_tail() -> None:
+    """Un signal hors des fenêtres autorisées disparaît, quel que soit le sens.
+
+    Sans ce test, on ne saurait pas si le silence du filtre vient du filtre ou d'une géométrie
+    que le changement de longueur a cassée : la version non filtrée sert de témoin.
+    """
+    closes = rising_pullback(length=73)
+
+    assert strategy().evaluate(context(closes)) is not None
+    assert strategy(allowed_sessions=(Session.TOKYO,)).evaluate(context(closes)) is None
+
+
+def test_the_trend_filter_refuses_a_market_that_does_not_trend() -> None:
+    """Le filtre de tendance lit la pente sur **une** barre, à la différence du momentum.
+
+    Les deux ne mesurent donc pas la même chose : `slope_window` répond « la tendance existe
+    depuis dix barres », `trend_of` répond « elle pousse encore maintenant ». Un marché plat
+    n'est ni haussier ni baissier, et la règle se tait au lieu de parier sur le bruit.
+    """
+    filtered = strategy(trend_filter=True)
+
+    assert filtered.evaluate(context([100.0] * 80)) is None
+
+
+def test_the_trend_filter_refuses_a_downtrend_for_a_buy() -> None:
+    """Le momentum de la règle et la tendance du filtre peuvent diverger.
+
+    La série monte puis replie jusqu'à **toucher** le VWAP : la pente sur dix barres reste
+    positive (+0,0109 mesurée) alors que celle d'une barre est déjà retournée (-0,0051). C'est
+    exactement le désaccord que le filtre doit trancher, et il tranche en refusant. Le témoin
+    non filtré est là pour prouver que le silence vient du filtre et non d'une géométrie cassée
+    par la fixture.
+    """
+    closes = rising_pullback()
+
+    assert strategy().evaluate(context(closes)) is not None
+    assert strategy(trend_filter=True).evaluate(context(closes)) is None
+
+
+def test_the_trend_filter_lets_a_real_uptrend_through() -> None:
+    """Le pendant positif existe, et il a fallu le chercher sur 105 géométries.
+
+    C'est le résultat le plus utile de cette paire de tests. Sur la fixture nominale — un repli
+    qui vient **toucher** le VWAP — la pente d'une barre vaut **-0,0022** : elle est négative
+    partout dans le balayage, `trend_of` répond `NEUTRAL`, et avec son seuil par défaut de 0,05
+    le filtre refuse **100 %** des signaux. Il faut une reprise après le contact et un seuil
+    quasi nul (1e-9, la plus petite valeur que le modèle accepte) pour que les deux mesures
+    s'accordent : c'est cette géométrie-ci, et le test la fige.
+
+    Ce test prouve le **mécanisme** — le filtre laisse passer ce qu'il reconnaît comme une
+    tendance — pas l'utilité du filtre, qui est mesurée séparément sur le vrai marché.
+    """
+    closes = [100.0]
+    for _ in range(60):
+        closes.append(closes[-1] + 0.04)
+    for _ in range(6):
+        closes.append(closes[-1] - 0.15)
+    closes.append(closes[-1] + 0.04)
+
+    filtered = strategy(trend_filter=True, trend_slope_atr=1e-9)
+    candidate = filtered.evaluate(context(closes))
+
+    assert candidate is not None
+    assert candidate.direction is Direction.BUY
+    # L'étiquette est dans le motif, jamais dans `indicators` : `core.signal` n'y accepte que
+    # des nombres finis, et un `StrEnum` y ferait lever la construction du signal.
+    assert "tendance up" in candidate.reason
+
+
+def test_the_volume_filter_refuses_a_touch_on_a_dried_up_bar() -> None:
+    """Un retour au VWAP sans volume est une barre traversée, pas un niveau défendu.
+
+    Le seuil est relatif à la moyenne des mêmes barres : un volume « faible » n'a de sens que
+    comparé à ce que ce marché fait d'habitude, jamais en valeur absolue.
+    """
+    volumes = [100.0] * len(rising_pullback())
+    volumes[-1] = 10.0
+    filtered = strategy(volume_ratio_min=1.0)
+
+    assert filtered.evaluate(context(rising_pullback(), volumes=volumes)) is None
+
+
+def test_the_volume_filter_lets_a_touch_on_an_active_bar_through() -> None:
+    """Le pendant : une barre au volume habituel ne doit rien changer."""
+    filtered = strategy(volume_ratio_min=1.0)
+
+    candidate = filtered.evaluate(context(rising_pullback()))
+
+    assert candidate is not None
+    assert candidate.direction is Direction.BUY
+
+
+def test_the_volume_filter_measures_the_bar_against_its_predecessors_only() -> None:
+    """La barre courante est exclue de sa propre référence, et ce test la sépare du voisin.
+
+    Les vingt barres précédentes valent 100 et la dernière 160 : rapport attendu 1,6. Si la
+    barre courante entrait dans sa propre moyenne, le rapport vaudrait 160/103 ≈ 1,55 — un pic
+    fort se raboterait lui-même d'autant plus qu'il est fort, ce qui est l'inverse du but.
+    """
+    closes = rising_pullback()
+    volumes = [100.0] * len(closes)
+    volumes[-1] = 160.0
+
+    candidate = strategy(volume_ratio_min=1.0).evaluate(context(closes, volumes=volumes))
+
+    assert candidate is not None
+    assert candidate.indicators["volume_ratio"] == pytest.approx(1.6, rel=1e-9)
+
+
+def test_the_parameters_refuse_a_volume_ratio_that_can_never_be_met() -> None:
+    """Un seuil nul ou négatif ne filtre rien tout en ayant l'air de filtrer.
+
+    Le refus est explicite plutôt que silencieux : `None` est la façon d'éteindre le filtre.
+    """
+    with pytest.raises(ValueError, match="volume_ratio_min"):
+        parameters(volume_ratio_min=0.0)

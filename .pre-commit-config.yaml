@@ -11,7 +11,14 @@ repos:
           --plugin tools/detect_secrets_plugins/project_tokens.py
           --baseline .secrets.baseline
         language: system
-        exclude: ^uv\.lock$|^docs/research/.*\.json$|^scripts/analysis/.*\.json$
+        # `tests/indicators/test_perf_invariance.py` carries two frozen SHA-256 digests of
+        # backtest output, and the entropy plugin cannot tell a digest from a key. The inline
+        # `pragma: allowlist secret` does not help here: the plugin reports the line where the
+        # hex literal *ends*, so a split literal puts the pragma on the wrong line, and a
+        # single-line literal puts it past the 100-character limit. Excluding the one file is
+        # the honest trade: it holds no credential and its purpose is to freeze a hash.
+        exclude: >-
+          ^uv\.lock$|^docs/research/.*\.json$|^scripts/analysis/.*\.json$|^tests/indicators/test_perf_invariance\.py$
       # The research artifacts are machine-written evidence: dataset fingerprints, evidence
       # digests, 64-character hex. The entropy plugin flags them every time, and they change
       # on every campaign run, so the baseline would need rewriting after each one — a

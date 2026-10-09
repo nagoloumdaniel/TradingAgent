@@ -27,6 +27,7 @@ import asyncio
 import hashlib
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import ROUND_FLOOR, Decimal
 from typing import TypeVar
@@ -66,9 +67,19 @@ from tradingagent.risk.model import (
 
 log = logging.getLogger(__name__)
 
-# MT5 truncates order comments; the hash keeps the key recoverable inside that budget.
-COMMENT_LIMIT = 31
+# The longest comment the MetaTrader5 *Python* module accepts, measured on 2026-10-09 against
+# version 5.0.6231 with `order_check` (which routes nothing to the market): 0 to 29 characters
+# pass, 30 and above come back as (-2, 'Invalid "comment" argument') before any IPC. An order
+# carrying 31 characters therefore never reached the broker. The MQL5 EA bridge truncates at 31
+# instead (`docs/ea/protocole-pont.md`), so 29 is the narrower of the two and the one this
+# module must respect. Raw output: tools/evidence-comment-probe.txt in
+# `docs/research/execution-diagnostic/`.
+COMMENT_LIMIT = 29
+# 64 bits of SHA-256. Out of reach of this project's order volume (a few thousand a year), and
+# short enough that a "ta-" + digest comment survives the EA's 31-character truncation whole.
 HASH_LENGTH = 16
+# What a prefix may take: the digest is never shortened to make room for one.
+PREFIX_LIMIT = COMMENT_LIMIT - HASH_LENGTH - 1
 DONE_RETCODES = (10008, 10009)  # placed, done
 STOP_TOLERANCE = Decimal("0.01")
 # The terminal can publish the fill before its position list shows it. A single stale read is
@@ -79,12 +90,22 @@ T = TypeVar("T")
 
 
 def key_comment(idempotency_key: str, prefix: str = "ta") -> str:
-    """A short, stable, non-reversible comment for one key.
+    """A short, stable, non-reversible comment for one key, never longer than the terminal takes.
 
-    The whole key is hashed, so the comment stays under MT5's limit and leaks nothing.
+    The whole key goes through SHA-256 and the digest is **never truncated**: uniqueness lives
+    in those 64 bits, so a shorter comment is paid for with the prefix, which is readable
+    decoration. Cutting from the right instead — what this function used to do — pushed the
+    comment to 31 characters whenever a caller passed a prefix (MetaTrader5 refuses 30 and
+    above, so the order never left), and a longer prefix erased the key material altogether:
+    every key sharing that prefix produced the very same comment.
+
+    Two different keys share a comment only if their 64-bit digests collide. The prefix cannot
+    create such a collision, it can only decorate the digest; the birthday bound sits around
+    2^32 orders and this project mints a few thousand a year.
     """
     digest = hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()[:HASH_LENGTH]
-    return f"{prefix}-{digest}"[:COMMENT_LIMIT]
+    stem = prefix[:PREFIX_LIMIT].rstrip("-")
+    return f"{stem}-{digest}" if stem else digest
 
 
 def _utc_now() -> datetime:
@@ -239,8 +260,15 @@ class MT5Broker:
                 stop_present=False,
                 message=problem,
             )
-        # The intent is journalled before anything leaves the process (R-05).
-        order_id = self._log.record_request(request, price, self._now())
+        # The comment is the only thread back to an order whose answer was lost: `_find_by_comment`
+        # looks for exactly this string. It is therefore derived from the idempotency key ALONE,
+        # never from `request.comment`, which the caller fills and the search cannot recompute —
+        # two different strings here and a lost answer becomes an orphaned position, or worse, a
+        # second order. `key_comment(key)` is what both ends compute, by construction.
+        comment = key_comment(request.idempotency_key)
+        # The intent is journalled before anything leaves the process (R-05), carrying the comment
+        # the broker will actually read: `orders.broker_comment` must not name a string nobody sent.
+        order_id = self._log.record_request(replace(request, comment=comment), price, self._now())
 
         trade = TradeRequest(
             symbol=request.symbol,
@@ -249,7 +277,7 @@ class MT5Broker:
             price=float(price),
             stop_loss=float(request.stop_loss),
             take_profit=None if request.take_profit is None else float(request.take_profit),
-            comment=key_comment(request.idempotency_key, request.comment),
+            comment=comment,
             deviation=self._deviation,
             magic=self._magic,
         )
@@ -562,6 +590,13 @@ class MT5Broker:
         return None
 
     async def _find_by_comment(self, idempotency_key: str) -> PositionInfo | None:
+        """The position `place` opened for this key, matched by the comment it sent.
+
+        This must compute the very string `place` sends — both call `key_comment(key)` with the
+        default prefix for exactly that reason. The caller's `OrderRequest.comment` is not part
+        of the formula: the search only ever holds the key, so anything else would be a comment
+        that cannot be recomputed, and a lost answer that can never be reconciled.
+        """
         comment = key_comment(idempotency_key)
         positions = await self._call(self._terminal.positions)
         for position in positions:
