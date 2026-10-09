@@ -147,6 +147,31 @@ def best(rows: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
     return max(measured, key=lambda r: r["profit_factor"]) if measured else None
 
 
+def splice(report: Path, sections: dict[str, str]) -> list[str]:
+    """Injecte chaque tableau entre ses marqueurs dans le rapport, sans y toucher autrement.
+
+    Le rapport est ecrit a la main ; ses tableaux ne le sont pas. Un chiffre recopie a la main
+    dans un rapport qui sert a decider est la faute la plus couteuse a rattraper, donc les
+    tableaux sont engendres ici et poses entre `<!-- DEBUT:cle -->` et `<!-- FIN:cle -->`.
+    L'operation est idempotente : relancer le script remplace ce qui est entre les marqueurs.
+    """
+    if not report.exists():
+        return []
+    text = report.read_text(encoding="utf-8")
+    replaced: list[str] = []
+    for key, fragment in sections.items():
+        start = f"<!-- DEBUT:{key} -->"
+        end = f"<!-- FIN:{key} -->"
+        if start not in text or end not in text:
+            continue
+        head, _, rest = text.partition(start)
+        _, _, tail = rest.partition(end)
+        text = f"{head}{start}\n{fragment}\n{end}{tail}"
+        replaced.append(key)
+    report.write_text(text, encoding="utf-8")
+    return replaced
+
+
 def main() -> int:
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
@@ -154,6 +179,7 @@ def main() -> int:
             reconfigure(encoding="utf-8", errors="replace")
 
     fragments: list[str] = []
+    sections: dict[str, str] = {}
     summary: list[str] = []
     for title, name, origin in SOURCES:
         rows = load(OUTPUT_DIR / name)
@@ -176,6 +202,35 @@ def main() -> int:
                 f"net {_number(top.get('net_eur'))} EUR)"
             )
 
+    def source(name: str) -> list[dict[str, Any]]:
+        return load(OUTPUT_DIR / name)
+
+    exploration = source("axe-A-exploration-5k.jsonl")
+    sections["exploration"] = (
+        f"Source : {SOURCES[0][2]}. {len(exploration)} mesure(s).\n\n"
+        + table(exploration, show_geometry=True)
+    )
+    decision_rows = source("axe-A-decision-60k.jsonl") + source("axe-A-decision-60k-b.jsonl")
+    sections["decision"] = (
+        f"Source : source vivante `fa76d2a`, harnais `338da61`, couts du depot. "
+        f"{len(decision_rows)} mesure(s) sur 59 999 bougies.\n\n"
+        + table(decision_rows, show_geometry=True)
+    )
+    controls = source("axe-A-verification-source.jsonl") + source("axe-A-harness-check.jsonl")
+    sections["controles"] = (
+        f"{len(controls)} mesure(s).\n\n" + table(controls, show_geometry=True)
+    )
+    spread = source("axe-A-spread-observe.jsonl")
+    sections["spread"] = (
+        f"Source : spread impose a 18,424 $, reste du modele du depot. "
+        f"{len(spread)} mesure(s).\n\n" + table(spread, show_geometry=True)
+    )
+    windows = source("axe-A-windows-60k.jsonl")
+    sections["fenetres"] = (
+        f"{len(windows)} mesure(s), deux moities disjointes, deux revisions du harnais.\n\n"
+        + table(windows, show_geometry=True)
+    )
+
     target = OUTPUT_DIR / "axe-A-tableaux.md"
     target.write_text(
         "# Axe A — tableaux de mesure (engendres)\n\n"
@@ -183,8 +238,11 @@ def main() -> int:
         "mesure. Il ne se recopie pas a la main.\n\n" + "\n".join(fragments),
         encoding="utf-8",
     )
+    report = OUTPUT_DIR / "axe-A-stop.md"
+    replaced = splice(report, sections)
     print("\n".join(summary))
     print(f"\n== {target} ==")
+    print(f"== tableaux injectes dans {report.name} : {', '.join(replaced) or 'aucun'} ==")
     return 0
 
 
@@ -192,4 +250,4 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-__all__: Sequence[str] = ["SOURCES", "best", "load", "main", "table"]
+__all__: Sequence[str] = ["SOURCES", "best", "load", "main", "splice", "table"]
