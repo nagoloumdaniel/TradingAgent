@@ -594,6 +594,12 @@ Priorités : `P0` bloquant, `P1` essentiel, `P2` important, `P3` souhaitable. Le
 | EF-029 | Un marché, une stratégie ou l'exécution sont désactivables immédiatement | P1 | F-014, F-019 | Commandes testées |
 | EF-030 | Le coût des appels au modèle est mesuré et plafonné | P2 | F-010 | Compteur consultable |
 | EF-031 | Export PDF des rapports | P3 | F-023 | `[À CONFIRMER]` |
+| EF-032 | Chaque opération close porte ses excursions MAE et MFE, exprimées en R | P1 | F-021 | Présentes sur `Trade` et ventilées dans l'analyse |
+| EF-033 | Chaque opération close porte le contexte de marché lu à son entrée | P1 | F-021 | Clés de régime, volatilité, séance et structure sur `Trade.features` |
+| EF-034 | Une mesure indéfinie est absente plutôt que nulle | P0 | F-021 | Clé manquante quand l'historique est insuffisant, jamais `0.0` |
+| EF-035 | Le walk-forward juge une part significative de la série, pas son préfixe | P0 | F-025 | Couverture des plis supérieure à 97 % |
+| EF-036 | Le stop peut suivre la structure confirmée au lieu d'une distance fixe | P1 | F-025 | Trailing sur le dernier swing confirmé, jamais desserré |
+| EF-037 | Un swing non confirmé ne peut pas entrer dans une décision | P0 | F-025 | Troncature de série : 0 violation |
 
 ### 8.2 Exigences non fonctionnelles
 
@@ -1142,6 +1148,11 @@ Ces décisions conditionnent le démarrage ou la poursuite du développement.
 | Respecter les horaires de l'or | EF-020 | F-005 | `markets` | Test sur fenêtre de fermeture |
 | Brancher une stratégie validée | EF-021, EF-022 | F-007, F-008 | `strategy_versions` | Rechargement en fonctionnement |
 | Valider avant d'exposer du capital | EF-025, EF-026, EF-027 | F-015, F-025, F-026 | `trades` | Campagne de paper trading et rapport de backtest |
+| Comprendre **pourquoi** une règle gagne ou perd | EF-032, EF-033 | F-021 | `trades` | Excursions et contexte présents sur chaque opération close |
+| Ne pas inventer une mesure absente | EF-034 | F-021 | `trades` | Clé manquante plutôt que `0.0` |
+| Juger une règle sur la série, pas sur son préfixe | EF-035 | F-025 | rapports de campagne | Couverture des plis mesurée |
+| Laisser courir ce qui continue, serrer ce qui se dégrade | EF-036 | F-025 | `trades` | Trailing sur structure testé |
+| Ne jamais décider sur une structure non confirmée | EF-037 | F-025 | `trades` | Troncature de série, 0 violation |
 
 ---
 

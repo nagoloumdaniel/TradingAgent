@@ -1070,8 +1070,8 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - [x] **structure de swing** (HH/HL/LH/LL, creux et sommets confirmés) — `indicators/structure.py`, 20 tests
   - [x] **aucune lecture du futur, prouvée par troncature** : publier une valeur à la barre `j` ne dépend que des barres `0..j`. Vérifié sur 60 000 bougies M15 réelles — 0 violation sur 5 troncatures × 3 forces — et verrouillé par `test_truncating_the_series_never_changes_what_was_already_published`
   - [x] **la barre courante n'est jamais un swing confirmé** — `test_the_current_bar_is_never_a_confirmed_swing`. C'est le décalage de `strength` barres qui rend la détection utilisable en direct
-  - [x] **MAE / MFE par trade**, mesurés en R — `analytics/model.py` (`Trade.mae_r`, `Trade.mfe_r`), calculés par `harness._record_excursion`, 8 tests dans `tests/backtest/test_trade_excursions.py`. Ce sont les deux nombres qui permettent de répondre à « le stop était-il trop serré ? » sans expérimenter
-  - [x] **instantané des conditions à l'entrée** — `indicators/features.py` (`entry_features`), porté par `Trade.features` et calculé par `harness._entry_features`. C'est la pièce qui relie un **contexte** à un résultat : sans elle, une analyse ne peut corréler que des paramètres à des résultats, jamais « cette règle gagne-t-elle en range et volatilité basse ? ». 11 tests plus 2 de câblage.
+  - [x] **MAE / MFE par trade**, mesurés en R — `analytics/model.py` (`Trade.mae_r`, `Trade.mfe_r`), calculés par `harness._record_excursion`, 8 tests dans `tests/backtest/test_trade_excursions.py`. Ce sont les deux nombres qui permettent de répondre à « le stop était-il trop serré ? » sans expérimenter. **Exigence : EF-032.**
+  - [x] **instantané des conditions à l'entrée** — `indicators/features.py` (`entry_features`), porté par `Trade.features` et calculé par `harness._entry_features`. C'est la pièce qui relie un **contexte** à un résultat : sans elle, une analyse ne peut corréler que des paramètres à des résultats, jamais « cette règle gagne-t-elle en range et volatilité basse ? ». 11 tests plus 2 de câblage. **Exigences : EF-032, EF-033, EF-034.**
   - [x] **le contexte n'utilise que les barres connues au remplissage** — `test_the_context_never_uses_a_bar_after_the_entry`. Le piège est réel : calculer le régime sur la série entière au lieu du préfixe donnerait des features parfaitement prédictives, et parfaitement fausses.
 - **La règle de lecture des features, et elle est structurante :** une mesure **indéfinie n'est pas publiée**. Sans assez de barres pour l'ATR, la clé `atr` est absente et non nulle. Un appelant qui lit une clé manquante doit comprendre « non mesuré », jamais « zéro » — les deux se ressemblent une fois rangés en base, et les confondre fausserait toute corrélation faite ensuite. Les verdicts (tendance, volatilité, structure, séance) sont des **rangs d'énumération**, donc des nombres qui s'agrègent ; `Session.OFF` valant 0, une clé absente se lit comme « hors séance », ce qui est la lecture prudente.
 - **Note de calibrage :** le nombre de barres nécessaires pour qu'une contraction de volatilité soit lue comme « calme » a été **mesuré**, pas choisi : le lissage de Wilder garde une mémoire longue (facteur 13/14 par barre), donc 40 barres étroites ne font tomber le rapport qu'à 0,98 alors qu'il en faut 120 pour atteindre 0,62.
@@ -1115,7 +1115,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 ### TASK-104 — Correction du protocole walk-forward
 
 - [x] Statut : **DONE le 2026-10-09.** Le défaut n'était pas un bug de code mais un **réglage** : `train=350, validation=250, step=200, max_folds=6` jouait six plis, soit **1 450 barres sur une fenêtre roulante de 48 000 — 3 % du jeu**, et sa tranche la plus ancienne. Deux campagnes ont rendu « 0 retenu sur 34 » et « 0 sur 16 » sur cette base.
-- **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-063 · **Couvre :** EF-027, RM-016
+- **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-063 · **Couvre :** EF-035, RM-016
 - **Le fait, mesuré le 2026-10-09 sur les jeux M15 de 60 000 bougies :**
 
 | Plan | Plis | Fenêtre jouée | Couverture | Coût relatif |
@@ -1139,7 +1139,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 ### TASK-105 — Premier franchissement de seuil hors échantillon, et sa réfutation par le protocole complet
 
 - [x] Statut : **DONE le 2026-10-09**, et **aucune promotion n'en découle.** Cette tâche porte **deux résultats opposés**, et le second prime sur le premier.
-- **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-104 · **Couvre :** EF-027
+- **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-104 · **Couvre :** EF-032, EF-033, EF-034
 - **1. Ce qui a été trouvé — mesure unique sur paramètres gelés.** Le rapport de recherche demandait « du BTCUSD H1 natif depuis 2011, jamais lu ». Il a été récupéré du terminal Deriv le 2026-10-09 — **87 694 bougies, 2011-03-23 → 2026-10-09**, empreinte `e467bc32…` — et les paramètres gelés du candidat survivant (`ema_fast=25, ema_slow=50, atr=14, stop=1,5 ATR, tp=1,7`) y ont été appliqués **une seule fois**, sans aucun ajustement.
 
 | Bloc | Ops | Réussite | Net | PF |
@@ -1184,7 +1184,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 ### TASK-106 — Trailing sur structure : le verrou de TASK-067 est levé
 
 - [x] Statut : **DONE le 2026-10-09.** Le chantier d'architecture annoncé depuis onze rounds comme « le verrou de la stratégie BTC » est fait.
-- **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-069, `indicators/structure.py` · **Couvre :** EF-026
+- **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-069, `indicators/structure.py` · **Couvre :** EF-036, EF-037
 - **Le problème, tel qu'il était écrit dans la roadmap :** « `last_swing_low` donne le niveau dont un trailing sur structure a besoin — mais le harnais ne sait toujours faire qu'un trailing à **distance fixe** (`harness.py:74`), et `SignalCandidate` fige ses niveaux au moment de la décision. La brique de calcul est là ; le chantier d'architecture reste à faire. »
 - **Pourquoi ça change quelque chose :** un trailing à distance fixe **recule quand la volatilité monte**, même si la tendance est intacte : il sort sur du bruit. Suivre les creux successifs laisse respirer un mouvement qui continue et **serre** quand la structure se dégrade — un creux plus haut veut dire que le marché refuse de redescendre.
 - **Ce qui a été livré :**
