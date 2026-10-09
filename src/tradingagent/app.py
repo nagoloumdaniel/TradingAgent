@@ -59,7 +59,7 @@ from tradingagent.config._yaml import read_yaml
 from tradingagent.config.agent import AgentConfig, load_agent_config
 from tradingagent.config.errors import ConfigError
 from tradingagent.config.settings import Settings, load_settings
-from tradingagent.config.strategy_catalog import StrategyCatalog
+from tradingagent.config.strategy_catalog import LoadedStrategy, StrategyCatalog
 from tradingagent.console import (
     ConsoleNotifier,
     configure_console_logging,
@@ -247,6 +247,29 @@ def _declared_symbols() -> list[str]:
     document = read_yaml(AGENT_CONFIG)
     markets = document.data.get("markets", [])
     return [str(market["symbol"]) for market in markets if isinstance(market, dict)]
+
+
+def _declared_strategies(
+    config: AgentConfig, catalog: StrategyCatalog
+) -> tuple[LoadedStrategy, ...]:
+    """Les stratégies que **la configuration déclare**, et pas tout le catalogue.
+
+    Le générateur évaluait chaque entrée du catalogue dont le symbole figurait dans
+    `allowed_symbols`. Comme le catalogue porte toutes les versions, `trend_breakout@1.0.0` et
+    `@1.0.1` produisaient **deux signaux pour la même bougie sur le même marché**, et
+    `witness@1.0.0`, `@1.1.0` et `@1.1.1` en produisaient trois sur l'or. L'opérateur recevait
+    deux alertes Telegram par bougie, et la version SIGNAL partait vers un exécuteur DEMO qui la
+    refusait : `order carries mode SIGNAL, this executor runs in DEMO`.
+
+    `agent.yaml` nomme déjà la version à faire tourner par marché. C'est cette déclaration qui
+    décide, et rien d'autre : une version qu'on ne déclare pas ne produit pas de signal.
+    """
+    wanted = {market.strategy for market in config.markets if market.enabled}
+    loaded = catalog.current()
+    missing = sorted(wanted - set(loaded))
+    if missing:
+        raise ConfigError(f"agent.yaml names unknown strateg(y/ies): {', '.join(missing)}")
+    return tuple(loaded[ref] for ref in sorted(wanted))
 
 
 def _subscriptions(config: AgentConfig, catalog: StrategyCatalog) -> tuple[Subscription, ...]:
@@ -809,7 +832,7 @@ async def build(
     report_service = ReportService(engine, sender=alert_sender)
 
     generator = SignalGenerator(
-        catalog.current().values(),
+        _declared_strategies(config, catalog),
         candles,
         signals,
         mode,

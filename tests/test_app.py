@@ -18,6 +18,7 @@ from tradingagent.app import (
     DailyImprovement,
     _build_command_service,
     _build_lab,
+    _declared_strategies,
     _declared_symbols,
     _register_configured_strategies,
     _subscriptions,
@@ -76,6 +77,63 @@ def test_each_market_gets_its_own_strategy() -> None:
     assert {subscription.symbol for subscription in subscriptions} == BROKER_SYMBOLS
     assert all(subscription.timeframe.value == "M15" for subscription in subscriptions)
     assert len({market.strategy for market in config.markets}) == 2
+
+
+# --------------------------------------------------------------------------------------
+# Une seule version par marché, sinon l'opérateur reçoit deux signaux par bougie.
+# --------------------------------------------------------------------------------------
+
+
+def test_only_the_declared_versions_reach_the_generator() -> None:
+    """Le catalogue porte **toutes** les versions ; la configuration en déclare une par marché.
+
+    Le générateur recevait `catalog.current().values()`, donc chaque version d'une stratégie
+    évaluait le même symbole : `trend_breakout@1.0.0` et `@1.0.1` produisaient deux signaux pour
+    la même bougie, et les trois `witness` en produisaient trois sur l'or. Deux conséquences
+    observées en production le 2026-10-09 : l'opérateur recevait deux alertes Telegram par
+    bougie, et la version SIGNAL partait vers un exécuteur DEMO qui la refusait.
+    """
+    catalog = StrategyCatalog(SHIPPED_STRATEGIES, REGISTRY)
+    config = load_agent_config(
+        SHIPPED_AGENT,
+        known_symbols=BROKER_SYMBOLS,
+        strategies={ref: loaded.manifest for ref, loaded in catalog.current().items()},
+        mode=TradingMode.SIGNAL,
+    )
+
+    declared = _declared_strategies(config, catalog)
+
+    assert {loaded.manifest.ref for loaded in declared} == {
+        market.strategy for market in config.markets
+    }
+    # Le catalogue en porte davantage : c'est bien la déclaration qui filtre, et pas le
+    # catalogue qui se trouverait être petit.
+    assert len(catalog.current()) > len(declared)
+
+
+def test_the_shipped_catalog_holds_several_versions_of_the_same_strategy() -> None:
+    """Le décor du test précédent : sans versions multiples, ce test ne prouverait rien."""
+    catalog = StrategyCatalog(SHIPPED_STRATEGIES, REGISTRY)
+
+    families = [ref.split("@")[0] for ref in catalog.current()]
+    assert len(families) > len(set(families))
+
+
+def test_a_declared_strategy_that_does_not_exist_stops_the_start_up() -> None:
+    """Une faute de frappe dans `agent.yaml` doit arrêter le démarrage, pas être ignorée."""
+    catalog = StrategyCatalog(SHIPPED_STRATEGIES, REGISTRY)
+    config = load_agent_config(
+        SHIPPED_AGENT,
+        known_symbols=BROKER_SYMBOLS,
+        strategies={ref: loaded.manifest for ref, loaded in catalog.current().items()},
+        mode=TradingMode.SIGNAL,
+    )
+    ghost = config.markets[0].model_copy(update={"strategy": "witness@9.9.9"})
+
+    with pytest.raises(ConfigError, match=r"witness@9\.9\.9"):
+        _declared_strategies(
+            config.model_copy(update={"markets": (ghost, *config.markets[1:])}), catalog
+        )
 
 
 def _settings() -> Settings:

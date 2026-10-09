@@ -1,0 +1,25 @@
+fix(app): one declared version per market, instead of every version in the catalogue
+
+The Telegram alerts show two signals for the same candle on bitcoin, one at mode SIGNAL for
+trend_breakout@1.0.0 and one at mode DEMO for @1.0.1, followed by an error on the first:
+
+    OrderRefusedError: order carries mode SIGNAL, this executor runs in DEMO: refused
+
+The cause is a single argument. The generator was built with `catalog.current().values()`, and
+the catalogue carries every version of every strategy, so `on_candle_closed` ran each version
+whose `allowed_symbols` matched the symbol. Bitcoin was evaluated twice per candle and gold
+three times, since witness ships 1.0.0, 1.1.0 and 1.1.1. agent.yaml already names the version
+to run per market and `_subscriptions` already used it for the candle subscriptions; signal
+generation was the one place that ignored it.
+
+Generation now receives exactly the strategies the configuration declares, and a name that
+does not resolve stops the start-up by name rather than being skipped in silence.
+
+Three tests hold it: the declared set equals the configured one while the catalogue is
+strictly larger, the shipped catalogue really does carry several versions of one strategy, so
+the first assertion is not vacuous, and a typo in agent.yaml raises instead of passing.
+
+What this does not fix: the entry_zone calibration found by the execution diagnostic is
+untouched, and gold still runs only witness.
+
+pytest 2636 passed, 9 skipped; ruff clean; mypy clean over 350 files.
