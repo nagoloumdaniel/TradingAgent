@@ -156,14 +156,108 @@ dispersion, plutôt que le filtre en général.
 
 ---
 
-## 6. Ce qu'il faudrait pour rouvrir la question
+## 6. Correction d'une conclusion trop rapide : la variante 04 n'est pas la piste
+
+Le paragraphe 5 présentait la variante 04 du BTC (24 plis rentables sur 46) comme « le meilleur
+candidat jamais mesuré par ce dépôt », en notant qu'elle tombait sur la dispersion. **C'était
+une lecture incomplète, et elle désignait la mauvaise piste.** Le détail des portes le montre
+sans ambiguïté :
+
+| Candidat | Plis rentables | Dispersion | Rétention | Stabilité | Périodes | Portes échouées |
+|---|---|---|---|---|---|---|
+| **BTC 06** | 39,1 % | **0,19** | **1,00** | **0,84** | **0,75** | **plis — une seule** |
+| BTC 04 | **52,2 %** | **6,50** | −0,08 | 0,05 | 0,25 | dispersion, rétention, stabilité, périodes |
+| BTC 02 | 37,0 % | 0,72 | 1,00 | 0,65 | 0,75 | plis, dispersion |
+| BTC 05 | 50,0 % | 0,82 | 0,00 | 0,00 | 0,00 | dispersion, rétention, stabilité, périodes |
+| BTC 07 | 34,8 % | 0,96 | 1,00 | 0,65 | 0,75 | plis, dispersion |
+| BTC 00, 01, 03 | 41,3 / 41,3 / 28,3 % | 0,17 à 0,96 | 0,00 | 0,05 à 0,25 | 0,25 | 4 à 5 portes |
+| **XAUUSD (les 8)** | 23,9 à 43,5 % | 0,14 à 0,38 | **toutes 0,00** | 0,16 à 0,28 | 0,14 à 0,43 | **4 à 5 portes chacune** |
+
+**Ce que ce tableau corrige :**
+
+1. **La variante 04 échoue à quatre portes, pas une.** Sa dispersion vaut **6,50**, soit
+   **treize fois le plafond de 0,50** : c'est un point aberrant, pas un candidat. Une règle
+   dont le résultat s'effondre quand on bouge un paramètre de 10 % n'a pas d'edge, elle a une
+   coïncidence. **Je l'ai mise en avant parce que j'ai lu le chiffre qui m'arrangeait** — les
+   plis rentables — sans regarder les trois autres portes qu'elle échouait.
+
+2. **La vraie piste est la variante 06** : `ema_fast=20, ema_slow=60, tp=1.5`. Elle franchit
+   **toutes les portes sauf une**, celle des plis rentables (**39,1 % contre 50 %**), avec la
+   dispersion la plus basse de la campagne (**0,19**), une rétention hors échantillon parfaite
+   (**1,00**), le meilleur score de stabilité (**0,84**) et 75 % de périodes profitables. Elle
+   échoue **de cinq plis sur 46.**
+
+3. **Sur l'or, aucun candidat n'a de rétention hors échantillon : les huit valent 0,00.** Le
+   filtre de cassure ne se comporte donc pas de la même façon sur les deux marchés, et il faut
+   le dire : la piste est **une piste BTC**, pas une propriété générale de la règle.
+
+**Ce qui reste vrai de tout ce rapport :** aucun candidat n'est retenu, le scellé n'a jamais
+été ouvert, rien n'est promu. Mais la conclusion utile n'est plus « le filtre est réfuté de
+justesse » — c'est **« un réglage précis, sur le BTC, franchit huit portes sur neuf »**, et
+c'est cette variante-là qui mérite d'être travaillée.
+
+---
+
+## 7. Le voisinage de la variante 06 : un candidat franchit les 9 portes, la sélection multiple le refuse
+
+La variante 06 ne tombait que sur les plis rentables (39,1 % contre 50 %). Son voisinage serré
+a donc été exploré — **27 combinaisons par marché, annoncées d'avance** (`ema_fast` ∈ {15, 20,
+25}, `ema_slow` ∈ {50, 60, 70}, `tp` ∈ {1,3 ; 1,5 ; 1,7}), soit 54 hypothèses.
+
+**Pour la première fois dans l'histoire de ce dépôt, un candidat a franchi les neuf portes.**
+
+| `BTCUSD breakout_only:20` | |
+|---|---|
+| Paramètres | `ema_fast=25, ema_slow=50, tp=1.7` — **les trois seuls degrés de liberté libérés** |
+| Plis rentables | 24 / 46 (52,2 %) |
+| Dispersion des paramètres | 0,31 (plafond 0,50) |
+| Rétention hors échantillon | 1,71 |
+| Score de stabilité | 0,72 |
+| Net apprentissage / validation | +47,42 € / +80,93 € |
+| **Net sur le jeu scellé** | **+24,62 €** |
+| **p-value** | **0,3467** |
+
+**Il est refusé, et c'est la bonne décision.** Le seuil de Benjamini-Hochberg vaut **0,0019**
+pour 54 hypothèses à α = 0,10, et sa p-value de **0,3467** est cent quatre-vingts fois
+au-dessus. Autrement dit : sur 54 réglages essayés, obtenir un survivant par hasard est
+**parfaitement banal**. Ce n'est pas un edge, c'est le résultat attendu d'une recherche.
+
+**Ce que la campagne montre par ailleurs, et qui est encourageant :**
+
+| Candidat | Plis | Dispersion | Rétention | Stabilité | Cause |
+|---|---|---|---|---|---|
+| 20 | **24/46 (52,2 %)** | 0,31 | 1,71 | 0,72 | `false_discovery` (p = 0,347) |
+| 18 | 28/46 (60,9 %) | 0,32 | 1,00 | 0,76 | `out_of_sample_negative` (−18,28 €) |
+| 19 | 26/46 (56,5 %) | 0,41 | 3,36 | 0,65 | `out_of_sample_negative` (net positif, rétention instable) |
+| 06 | 22/46 (47,8 %) | 0,35 | 1,69 | **0,79** | `overfitting` |
+
+**Quatre candidats sur 54 franchissent le seuil des plis**, contre **un seul sur 16** dans la
+campagne précédente. Les dispersions sont **saines** (0,31 à 0,41, contre 6,50 pour la variante
+04) et les scores de stabilité élevés (0,65 à 0,79). Le voisinage de la variante 06 est donc
+**un plateau réel**, pas une coïncidence — mais un plateau qui **ne survit pas à la correction
+de sélection multiple**.
+
+**Le jeu scellé du BTC a été ouvert 3 fois** (contre 0 pour l'or) : c'est la contrepartie
+normale du fait qu'un candidat soit allé au bout de l'échelle. **Le budget du scellé du BTC est
+donc entamé**, et il faudra en tenir compte avant toute nouvelle campagne sur ce marché — un
+scellé lu trois fois n'est plus tout à fait scellé.
+
+**Ce que ça change dans la lecture du projet :** la barrière n'est plus « aucune stratégie ne
+passe jamais rien ». C'est **« une piste existe, elle est réelle, et elle n'est pas encore
+distinguable du hasard compte tenu du nombre d'essais »**. Ce sont deux situations très
+différentes, et la seconde est celle où on continue.
+
+---
+
+## 8. Ce qu'il faudrait pour rouvrir la question
 
 | Piste | Pourquoi |
 |---|---|
-| **Comprendre la dispersion de la variante 04 du BTC** | elle franchit l'exigence de plis (24 sur 46) et n'est refusée que pour dispersion : c'est là qu'est la piste, pas dans le filtre en général |
+| **Explorer le voisinage de la variante 06** | elle ne tombe que sur les plis (39,1 % contre 50 %) : la question est de savoir si un réglage voisin franchit le seuil, ou s'il ne le franchit pas |
 | Tester le canal de cassure comme **paramètre libre** | il vaut aujourd'hui `ema_slow`, ce qui lie deux choix qui n'ont pas de raison de l'être |
 | Explorer en **H1**, où l'historique remonte à 2011 | 87 573 bougies, et un rapport coût/ATR plus favorable qu'en M15 |
 | Mesurer le filtre sur une **autre règle parente** | ici il n'a été testé qu'autour du croisement EMA |
+| **Ne pas retravailler la variante 04** | dispersion de 6,50 : la poursuivre serait chercher un edge dans du bruit |
 
 **Rien n'a été promu.** `config/strategies/` n'a pas été touché, `strategies/registry.py` non
 plus, et `BreakoutOnly` n'est pas au registre de production — un test le vérifie.

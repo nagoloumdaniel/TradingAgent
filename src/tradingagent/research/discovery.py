@@ -982,6 +982,64 @@ def breakout_only_template(scope: TemplateScope, grid: Grid) -> Iterator[Candida
         )
 
 
+def breakout_only_neighbourhood_template(
+    scope: TemplateScope, grid: Grid
+) -> Iterator[CandidateProposal]:
+    """Le voisinage du seul candidat qui n'échoue qu'à une porte.
+
+    La campagne du 2026-10-09 a montré que `ema_fast=20 / ema_slow=60 / tp=1.5` franchit
+    toutes les portes **sauf** celle des plis rentables (39,1 % contre 50 % requis), avec une
+    dispersion de 0,19 et une rétention hors échantillon de 1,00 — le profil le plus stable
+    jamais mesuré ici. Cette famille explore son **voisinage immédiat**, et non un balayage
+    large : la question est de savoir si le seuil se franchit par un réglage voisin, ou s'il ne
+    se franchit pas — ce qui est aussi une réponse.
+
+    Un balayage large autour d'un point favorable est exactement la façon de fabriquer un faux
+    positif par sélection multiple. La grille est donc **serrée et annoncée** : 27
+    combinaisons par marché, comptées dans la correction de Bonferroni.
+    """
+    fasts = grid_values(grid, "ema_fast", (15.0, 20.0, 25.0))
+    slows = grid_values(grid, "ema_slow", (50.0, 60.0, 70.0))
+    targets = grid_values(grid, "take_profit_rr", (1.3, 1.5, 1.7))
+    stop = grid_values(grid, "stop_atr_multiplier", (1.5,))[0]
+    zone = grid_values(grid, "entry_zone_atr", (0.1,))[0]
+    atr_period = _whole(grid_values(grid, "atr_period", (14.0,))[0])
+
+    def factory(parameters: Mapping[str, float]) -> Strategy[Any]:
+        model = WitnessParameters.model_validate(dict(parameters))
+        return BreakoutOnly(model, Witness(model))
+
+    for fast, slow, take_profit_rr in product(fasts, slows, targets):
+        if _whole(slow) <= _whole(fast):
+            continue
+        parameters = {
+            "ema_fast": _whole(fast),
+            "ema_slow": _whole(slow),
+            "atr_period": atr_period,
+            "stop_atr_multiplier": stop,
+            "take_profit_rr": take_profit_rr,
+            "entry_zone_atr": zone,
+        }
+        lookback = max(_whole(slow), atr_period) + 2
+        manifest = StrategyManifest(
+            strategy_id=BreakoutOnly.strategy_id,
+            version=scope.version,
+            max_mode=TradingMode.SIGNAL,
+            allowed_symbols=scope.symbols,
+            timeframes=(scope.timeframe,),
+            history_bars=_history_bars(lookback),
+            expiry_bars=2,
+            parameters=dict(parameters),
+        )
+        yield CandidateProposal(
+            family="breakout_neighbourhood",
+            strategy_id=BreakoutOnly.strategy_id,
+            manifest=manifest,
+            parameters=parameters,
+            factory=factory,
+        )
+
+
 FAMILIES: tuple[FamilyTemplate, ...] = (
     FamilyTemplate(
         "trend_following", "suivi de tendance (croisement EMA)", trend_following_template
@@ -1004,6 +1062,11 @@ FAMILIES: tuple[FamilyTemplate, ...] = (
         "breakout_only",
         "règle de tendance précédée de la garde : n'entrer que sur une cassure",
         breakout_only_template,
+    ),
+    FamilyTemplate(
+        "breakout_neighbourhood",
+        "voisinage serré du seul candidat qui n'échoue qu'à une porte",
+        breakout_only_neighbourhood_template,
     ),
 )
 
@@ -1030,6 +1093,11 @@ def default_grid() -> dict[str, dict[str, tuple[float, ...]]]:
             "ema_fast": (10.0, 20.0),
             "ema_slow": (30.0, 60.0),
             "take_profit_rr": (1.5, 2.5),
+        },
+        "breakout_neighbourhood": {
+            "ema_fast": (15.0, 20.0, 25.0),
+            "ema_slow": (50.0, 60.0, 70.0),
+            "take_profit_rr": (1.3, 1.5, 1.7),
         },
     }
 
