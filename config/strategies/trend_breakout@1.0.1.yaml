@@ -36,4 +36,24 @@ parameters:
   atr_period: 14
   stop_atr_multiplier: 2.0
   take_profit_rr: 2.0
-  entry_zone_atr: 0.1
+  # 0,13 ATR au lieu de 0,1, et ce n'est pas un pas rond : c'est le seuil MESURE.
+  #
+  # Le 2026-10-09, quatre signaux sur six ont ete refuses par `entry_zone`, et le motif etait
+  # toujours le meme : l'ask sortait de la bande. La cause est arithmetique — sur BTCUSD, la
+  # bande de 0,1 ATR vaut ~19,2 $ quand le spread en vaut 18,4 (mesure en base sur les
+  # decisions de risque : 18,424 et 19,443). Le spread mangeait donc 96 % du budget de bande
+  # avant que le prix n'ait bouge d'un point.
+  #
+  # Le seul discriminant reel n'est pas le spread mais la DERIVE du prix entre le signal et le
+  # remplissage : au-dela de ~13 $ (0,054 ATR) les entrees perdent avec un PF de 0,41 ;
+  # entre 5,7 et 13 $ elles gagnent. La regle coupait a 5,7 $, donc bien avant le seuil utile.
+  # 0,13 ATR ramene le budget de derive a 13 $ exactement.
+  #
+  # Mesure sur 59 999 bougies M15, spread observe : 802 operations, PF 0,8748 et +101,62 EUR
+  # contre PF 0,8487 pour la regle actuelle — les refus passent de 368 a 185.
+  # Detail : docs/research/execution-diagnostic/2026-10-09-parite-backtest-production.md
+  #
+  # L'OR N'EST PAS CONCERNE et garde 0,1 : son spread vaut 0,31 $ pour une bande de 0,78 $,
+  # soit 40 % du budget. Ses cinq decisions de risque ont toutes ete autorisees. Appliquer le
+  # chiffre du bitcoin a l'or serait transposer une mesure faite sur un autre marche.
+  entry_zone_atr: 0.13
