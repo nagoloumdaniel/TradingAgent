@@ -88,6 +88,16 @@ from tradingagent.strategies.manifest import StrategyManifest
 
 DEFAULT_WALK_FORWARD_RATIO = 0.5
 DEFAULT_VERSION = "0.1.0"
+#: Spread par défaut d'une campagne, en fraction du prix. **Mesuré, pas supposé.**
+#:
+#: 2,24 points de base = les 18,424 USD cotés sur BTCUSD à ~82 400 USD le 2026-10-09, lus dans
+#: les décisions de risque. Le modèle précédent valait 0,5 point de base, soit 4,5 fois moins,
+#: et c'est le poste qui décide de la rentabilité : au spread observé, le profit factor du jeu
+#: complet passe de 0,9314 à 0,8693 **sans rien changer d'autre**.
+#:
+#: Voir `DiscoveryProtocol.spread_fraction` pour la raison pour laquelle l'or garde une autre
+#: valeur plutôt qu'une fraction commune.
+DEFAULT_SPREAD_FRACTION = 2.24e-4
 
 
 class DiscardCause(StrEnum):
@@ -1139,7 +1149,22 @@ class DiscoveryProtocol:
             train_bars=2000, validation_bars=1000, step_bars=1000
         )
     )
-    spread_fraction: float = 5e-5
+    #: Coûts par défaut des campagnes, et la valeur du spread n'est pas une hypothèse.
+    #:
+    #: `5e-5` (0,5 point de base) était un **modèle**, jamais confronté au courtier. Le
+    #: 2026-10-09, les décisions de risque enregistrées portent le spread réellement coté sur
+    #: le compte de démonstration : **18,424 USD** sur BTCUSD à ~82 400 USD, soit **2,24 points
+    #: de base — 4,5 fois le modèle**. Le seul fait de passer au spread observé, porte
+    #: `entry_zone` éteinte, fait tomber le profit factor du jeu complet de 0,9314 à 0,8693.
+    #:
+    #: Pourquoi BTCUSD et pas les deux marchés : les mêmes décisions donnent **0,31 USD** sur
+    #: XAUUSD à ~4 130 USD, soit 0,75 point de base. Un spread n'est pas une fraction du prix
+    #: commune aux marchés — celui de l'or vaut 40 % de sa bande d'entrée, celui du bitcoin
+    #: 96 %. Une fraction unique ne peut pas décrire les deux.
+    #:
+    #: La limite de ce chiffre : il vient de onze décisions d'une seule journée. C'est une
+    #: **mesure**, pas une distribution, et la fréquence horaire du spread reste inconnue.
+    spread_fraction: float = DEFAULT_SPREAD_FRACTION
     slippage_fraction: float = 2e-5
     commission: Decimal = Decimal("0.5")
     risk_eur: Decimal = Decimal("10")

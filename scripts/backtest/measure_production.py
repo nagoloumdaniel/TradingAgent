@@ -10,10 +10,9 @@ Aucune promotion, aucun manifeste ecrit : c'est une lecture.
 """
 
 import argparse
-from decimal import Decimal
 from pathlib import Path
 
-from tradingagent.backtest.costs import CostModel
+from tradingagent.backtest.costs import CostModel, campaign_costs
 from tradingagent.backtest.datasets import CandleDataset, DatasetStore
 from tradingagent.backtest.harness import BacktestConfig, run_backtest
 from tradingagent.config.strategy_catalog import load_strategy_catalog
@@ -55,11 +54,7 @@ def dataset_for(symbol: str) -> tuple[CandleDataset, Path]:
 def cost_model(dataset: CandleDataset, multiplier: float = 1.0) -> CostModel:
     """Le modele du depot (`run_campaign.config_for`), au facteur demande."""
     price = dataset.candles[0].close
-    return CostModel(
-        spread=round(price * 0.00005, 6),
-        slippage_fixed=round(price * 0.00002, 6),
-        commission_per_trade=Decimal("0.5"),
-    ).stressed(multiplier)
+    return campaign_costs(price).stressed(multiplier)
 
 
 def report(label: str, result, *, bars: int) -> dict[str, float]:

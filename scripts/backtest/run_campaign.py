@@ -25,11 +25,10 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from tradingagent.backtest.costs import CostModel
+from tradingagent.backtest.costs import campaign_costs
 from tradingagent.backtest.datasets import (
     CandleDataset,
     DatasetStore,
@@ -169,12 +168,7 @@ def load_markets(directory: Path) -> dict[str, CandleDataset]:
 
 
 def config_for(market: str, dataset: CandleDataset) -> BacktestConfig:
-    price = dataset.candles[0].close
-    costs = CostModel(
-        spread=round(price * 0.00005, 6),
-        slippage_fixed=round(price * 0.00002, 6),
-        commission_per_trade=Decimal("0.5"),
-    )
+    costs = campaign_costs(dataset.candles[0].close)
     return BacktestConfig(
         symbol=market,
         costs=costs,

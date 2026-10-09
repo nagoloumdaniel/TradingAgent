@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Any
 
 from tradingagent.analytics.model import Performance
-from tradingagent.backtest.costs import CostModel
+from tradingagent.backtest.costs import campaign_costs
 from tradingagent.backtest.datasets import CandleDataset, DatasetStore
 from tradingagent.backtest.harness import BacktestConfig
 from tradingagent.core.mode import TradingMode
@@ -109,11 +109,7 @@ def config_for(market: str, dataset: CandleDataset) -> BacktestConfig:
     price = dataset.candles[0].close
     return BacktestConfig(
         symbol=market,
-        costs=CostModel(
-            spread=round(price * 0.00005, 6),
-            slippage_fixed=round(price * 0.00002, 6),
-            commission_per_trade=Decimal("0.5"),
-        ),
+        costs=campaign_costs(price),
         mode=TradingMode.SIGNAL,
         max_concurrent_positions=1,
     )

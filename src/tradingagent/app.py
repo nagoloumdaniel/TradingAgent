@@ -1015,10 +1015,21 @@ def _configure_output(
     secrets = settings.secret_values()
     interactive = getattr(sys.stderr, "isatty", lambda: False)()
     machine = json_logs if json_logs is not None else not interactive
+    # Avant de choisir : la sortie standard doit accepter l'UTF-8, **dans les deux modes**.
+    #
+    # Le `ConsoleNotifier` imprime les notifications sur `sys.stdout` meme en mode machine,
+    # alors que les journaux partent sur `sys.stderr`. Appeler ceci seulement dans la branche
+    # interactive laissait donc la sortie standard dans la page de codes heritee de Windows,
+    # et chaque ligne accentuee levait `UnicodeEncodeError` : le 2026-10-09, un ordre refuse
+    # par le courtier n'a laisse **aucune** trace, six lignes d'erreur d'encodage a la place.
+    # Un incident sans trace est un incident qu'on ne peut pas diagnostiquer.
+    #
+    # Le mettre ici et non dans les deux branches evite d'avoir deux endroits a garder
+    # d'accord : le journal JSON reste de l'ASCII pur, l'encodage ne le change pas.
+    use_utf8_console()
     if machine:
         configure_json_logging(logging.INFO if verbose else logging.WARNING, secrets)
         return
-    use_utf8_console()
     enable_ansi()
     configure_console_logging(logging.INFO if verbose else logging.WARNING)
 

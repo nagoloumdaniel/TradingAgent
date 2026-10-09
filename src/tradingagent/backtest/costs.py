@@ -16,6 +16,21 @@ from tradingagent.core.market import Direction
 
 DEFAULT_COMMISSION = Decimal("0")
 
+#: Spread par défaut d'un backtest, en fraction du prix. **Mesuré sur le courtier, pas supposé.**
+#:
+#: 2,24 points de base = les 18,424 USD cotés sur BTCUSD à ~82 400 USD le 2026-10-09, lus dans
+#: les décisions de risque enregistrées. Le modèle qui régnait avant valait 0,5 point de base,
+#: **4,5 fois moins**, et c'est le poste qui décide de la rentabilité : au spread observé, le
+#: profit factor du jeu complet BTCUSD passe de 0,9314 à 0,8693 sans qu'aucune autre hypothèse
+#: ne change.
+#:
+#: Ce que ce chiffre n'est pas : une distribution. Il vient de onze décisions d'une seule
+#: journée, et la fréquence horaire du spread reste inconnue. C'est une mesure datée, et le
+#: champ `source` de `campaign_costs` sert à dire d'où elle vient quand on s'en écarte.
+DEFAULT_SPREAD_FRACTION = 2.24e-4
+DEFAULT_SLIPPAGE_FRACTION = 2e-5
+DEFAULT_COMMISSION_EUR = Decimal("0.5")
+
 
 @dataclass(frozen=True)
 class CostModel:
@@ -123,3 +138,30 @@ def spread_as_fraction_of_price(samples: Sequence[float], prices: Sequence[float
     if not ratios:
         raise ValueError("no usable price to turn a spread into a fraction")
     return statistics.median(ratios)
+
+
+def campaign_costs(
+    price: float,
+    *,
+    spread_fraction: float = DEFAULT_SPREAD_FRACTION,
+    slippage_fraction: float = DEFAULT_SLIPPAGE_FRACTION,
+    commission: Decimal = DEFAULT_COMMISSION_EUR,
+) -> CostModel:
+    """Les coûts d'une campagne, à partir du prix observé du marché.
+
+    **Une seule définition, parce que douze scripts la recopiaient.** Chacun portait
+    `price * 0.00005` en dur, et corriger le modèle de coûts voulait dire corriger douze
+    endroits en espérant n'en oublier aucun : le genre de constante qui diverge en silence.
+
+    Le spread et le slippage sont des fractions du prix, la commission un montant fixe par
+    opération, parce que c'est ainsi que le courtier la facture.
+
+    Un appelant qui connaît le spread réel du moment peut passer sa propre fraction, et
+    `observed_spread` / `spread_as_fraction_of_price` servent à l'obtenir depuis des mesures
+    plutôt que depuis ce défaut.
+    """
+    return CostModel(
+        spread=round(price * spread_fraction, 8),
+        slippage_fixed=round(price * slippage_fraction, 8),
+        commission_per_trade=commission,
+    )

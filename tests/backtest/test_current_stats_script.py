@@ -10,13 +10,17 @@ the published figures exactly.
 
 import importlib
 from datetime import UTC, datetime
-from decimal import Decimal
 from pathlib import Path
 
 import pytest
 import yaml
 
 from tradingagent.analytics.performance import compute_performance
+from tradingagent.backtest.costs import (
+    DEFAULT_COMMISSION_EUR,
+    DEFAULT_SLIPPAGE_FRACTION,
+    DEFAULT_SPREAD_FRACTION,
+)
 from tradingagent.backtest.datasets import CandleDataset, SyntheticRegime, synthetic_dataset
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.timeframe import Timeframe
@@ -86,15 +90,21 @@ def test_the_candidate_carries_the_manifest_parameters(market: str) -> None:
 
 
 def test_the_charged_costs_are_the_documented_ones() -> None:
-    """Same numbers as `run_campaign.py`: a report on other costs would not be comparable."""
+    """Same numbers as `run_campaign.py`: a report on other costs would not be comparable.
+
+    Les valeurs sont lues sur les constantes du module de coûts, pas recopiées ici : c'est ce
+    qui fait échouer ce test le jour où le modèle change, au lieu de le laisser passer. Il a
+    d'ailleurs échoué quand le spread est passé du modèle (0,5 point de base) au spread mesuré
+    sur le courtier (2,24 points de base), ce qui est exactement son rôle.
+    """
     dataset = a_dataset()
     price = dataset.candles[0].close
 
     config = stats.config_for("XAUUSD", dataset)
 
-    assert config.costs.spread == round(price * 0.00005, 6)
-    assert config.costs.slippage_fixed == round(price * 0.00002, 6)
-    assert config.costs.commission_per_trade == Decimal("0.5")
+    assert config.costs.spread == round(price * DEFAULT_SPREAD_FRACTION, 8)
+    assert config.costs.slippage_fixed == round(price * DEFAULT_SLIPPAGE_FRACTION, 8)
+    assert config.costs.commission_per_trade == DEFAULT_COMMISSION_EUR
     assert config.mode is TradingMode.SIGNAL, "a statistics report never executes"
     assert config.max_concurrent_positions == 1
 
