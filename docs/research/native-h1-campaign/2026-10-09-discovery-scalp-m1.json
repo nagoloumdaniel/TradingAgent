@@ -1,0 +1,461 @@
+{
+  "generated_at": "2026-10-09T00:41:36.122345+00:00",
+  "source": "scripts/backtest/discover_m1_scalp.py",
+  "datasets": {
+    "BTCUSD": {
+      "dataset_id": "mt5-BTCUSD-H1-2026-10-09",
+      "fingerprint": "e467bc32637e55f9cacfb1e44f650ebf4b0685d597641c9a628a4014ab9906fd",
+      "bars": 87694,
+      "timeframe": "H1"
+    }
+  },
+  "report": {
+    "protocol": {
+      "train_fraction": 0.6,
+      "validation_fraction": 0.2,
+      "perturbation": 0.1,
+      "min_trades": 30,
+      "min_walk_forward_ratio": 0.5,
+      "max_parameter_dispersion": 0.5,
+      "min_stability_score": 0.5,
+      "min_profitable_regime_ratio": 0.5,
+      "min_out_of_sample_retention": 0.5,
+      "false_discovery_rate": 0.1,
+      "monte_carlo_iterations": 1000,
+      "walk_forward": {
+        "train_bars": 2000,
+        "validation_bars": 1000,
+        "step_bars": 1000,
+        "max_folds": null
+      },
+      "costs": {
+        "spread_fraction": 5e-05,
+        "slippage_fraction": 2e-05,
+        "commission": "0.5"
+      }
+    },
+    "markets": [
+      {
+        "market": "BTCUSD",
+        "dataset_id": "mt5-BTCUSD-H1-2026-10-09",
+        "fingerprint": "e467bc32637e55f9cacfb1e44f650ebf4b0685d597641c9a628a4014ab9906fd",
+        "bars": 87694,
+        "train_bars": 52616,
+        "validation_bars": 17538,
+        "holdout_bars": 17540,
+        "walk_forward_folds": 68,
+        "holdout_unlocks": 0,
+        "skipped": null
+      }
+    ],
+    "families": [
+      {
+        "family": "breakout_only",
+        "description": "r\u00e8gle de tendance pr\u00e9c\u00e9d\u00e9e de la garde : n'entrer que sur une cassure",
+        "tested": 8,
+        "retained_before_correction": 0,
+        "retained": 0,
+        "discarded": 8,
+        "expected_false_discoveries": 0.8,
+        "failures": [
+          {
+            "cause": "overfitting",
+            "count": 7,
+            "description": "walk-forward non profitable : surapprentissage"
+          },
+          {
+            "cause": "unstable",
+            "count": 1,
+            "description": "score de stabilit\u00e9 insuffisant"
+          }
+        ]
+      }
+    ],
+    "multiple_testing": {
+      "method": "benjamini_hochberg",
+      "alpha": 0.1,
+      "expected_false_discovery_rate": 0.1,
+      "expected_false_discoveries": 0.8,
+      "hypotheses": 8,
+      "bonferroni_threshold": 0.0125,
+      "discoveries_before": 0,
+      "discoveries_after": 0,
+      "rejected_by_correction": 0
+    },
+    "totals": {
+      "tested": 8,
+      "retained_before_correction": 0,
+      "retained": 0,
+      "discarded": 8,
+      "failures": [
+        {
+          "cause": "overfitting",
+          "count": 7,
+          "description": "walk-forward non profitable : surapprentissage"
+        },
+        {
+          "cause": "unstable",
+          "count": 1,
+          "description": "score de stabilit\u00e9 insuffisant"
+        }
+      ]
+    },
+    "candidates": [
+      {
+        "market": "BTCUSD",
+        "family": "breakout_only",
+        "label": "breakout_only:00",
+        "strategy_id": "breakout_only",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -3.05 below 0.50",
+        "p_value": null,
+        "parameters": {
+          "ema_fast": 10.0,
+          "ema_slow": 30.0,
+          "atr_period": 14.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 1.5,
+          "entry_zone_atr": 0.1
+        },
+        "train_net_profit": "5.416501368870",
+        "validation_net_profit": "-16.510671718100",
+        "out_of_sample_net_profit": null,
+        "train_trades": 196,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 68,
+        "walk_forward_profitable_folds": 30,
+        "walk_forward_ratio": 0.4411764705882353,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.09565217391304348,
+          "out_of_sample_retention": -3.048217030460104,
+          "parameter_dispersion": 1.691380357045707,
+          "profitable_regime_ratio": 0.4782608695652174,
+          "trades": 71,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -3.05 below 0.50",
+            "parameter dispersion 1.69 above 0.50",
+            "only 48% of periods profitable, below 50%",
+            "stability score 0.10 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "BTCUSD",
+        "family": "breakout_only",
+        "label": "breakout_only:01",
+        "strategy_id": "breakout_only",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "unstable",
+        "detail": "only 48% of periods profitable, below 50%",
+        "p_value": null,
+        "parameters": {
+          "ema_fast": 10.0,
+          "ema_slow": 30.0,
+          "atr_period": 14.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.5,
+          "entry_zone_atr": 0.1
+        },
+        "train_net_profit": "144.383725877280",
+        "validation_net_profit": "83.797612201530",
+        "out_of_sample_net_profit": null,
+        "train_trades": 190,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 68,
+        "walk_forward_profitable_folds": 36,
+        "walk_forward_ratio": 0.5294117647058824,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.4172019059676666,
+          "out_of_sample_retention": 0.580381283918067,
+          "parameter_dispersion": 0.44773484984068396,
+          "profitable_regime_ratio": 0.4782608695652174,
+          "trades": 70,
+          "fragile": true,
+          "reasons": [
+            "only 48% of periods profitable, below 50%",
+            "stability score 0.42 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "BTCUSD",
+        "family": "breakout_only",
+        "label": "breakout_only:02",
+        "strategy_id": "breakout_only",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -0.09 below 0.50",
+        "p_value": null,
+        "parameters": {
+          "ema_fast": 10.0,
+          "ema_slow": 60.0,
+          "atr_period": 14.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 1.5,
+          "entry_zone_atr": 0.1
+        },
+        "train_net_profit": "133.181700755190",
+        "validation_net_profit": "-12.100543897130",
+        "out_of_sample_net_profit": null,
+        "train_trades": 62,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 68,
+        "walk_forward_profitable_folds": 29,
+        "walk_forward_ratio": 0.4264705882352941,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.1,
+          "out_of_sample_retention": -0.09085740629917921,
+          "parameter_dispersion": 5.1362389221911595,
+          "profitable_regime_ratio": 0.5,
+          "trades": 31,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.09 below 0.50",
+            "parameter dispersion 5.14 above 0.50",
+            "stability score 0.10 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "BTCUSD",
+        "family": "breakout_only",
+        "label": "breakout_only:03",
+        "strategy_id": "breakout_only",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -0.77 below 0.50",
+        "p_value": null,
+        "parameters": {
+          "ema_fast": 10.0,
+          "ema_slow": 60.0,
+          "atr_period": 14.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.5,
+          "entry_zone_atr": 0.1
+        },
+        "train_net_profit": "164.817341929040",
+        "validation_net_profit": "-127.146127017020",
+        "out_of_sample_net_profit": null,
+        "train_trades": 62,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 68,
+        "walk_forward_profitable_folds": 23,
+        "walk_forward_ratio": 0.3382352941176471,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.11809145107442698,
+          "out_of_sample_retention": -0.7714365826368026,
+          "parameter_dispersion": 0.3957735074685476,
+          "profitable_regime_ratio": 0.2777777777777778,
+          "trades": 31,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.77 below 0.50",
+            "only 28% of periods profitable, below 50%",
+            "stability score 0.12 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "BTCUSD",
+        "family": "breakout_only",
+        "label": "breakout_only:04",
+        "strategy_id": "breakout_only",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -1.60 below 0.50",
+        "p_value": null,
+        "parameters": {
+          "ema_fast": 20.0,
+          "ema_slow": 30.0,
+          "atr_period": 14.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 1.5,
+          "entry_zone_atr": 0.1
+        },
+        "train_net_profit": "73.145339047340",
+        "validation_net_profit": "-116.937734532270",
+        "out_of_sample_net_profit": null,
+        "train_trades": 197,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 68,
+        "walk_forward_profitable_folds": 24,
+        "walk_forward_ratio": 0.35294117647058826,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.24842336846243182,
+          "out_of_sample_retention": -1.5987038416294352,
+          "parameter_dispersion": 0.23747620407776515,
+          "profitable_regime_ratio": 0.45454545454545453,
+          "trades": 68,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -1.60 below 0.50",
+            "only 45% of periods profitable, below 50%",
+            "stability score 0.25 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "BTCUSD",
+        "family": "breakout_only",
+        "label": "breakout_only:05",
+        "strategy_id": "breakout_only",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -2.01 below 0.50",
+        "p_value": null,
+        "parameters": {
+          "ema_fast": 20.0,
+          "ema_slow": 30.0,
+          "atr_period": 14.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.5,
+          "entry_zone_atr": 0.1
+        },
+        "train_net_profit": "68.078009746340",
+        "validation_net_profit": "-136.663865185560",
+        "out_of_sample_net_profit": null,
+        "train_trades": 197,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 68,
+        "walk_forward_profitable_folds": 33,
+        "walk_forward_ratio": 0.4852941176470588,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.08181818181818183,
+          "out_of_sample_retention": -2.007459761158886,
+          "parameter_dispersion": 0.5149349861353317,
+          "profitable_regime_ratio": 0.4090909090909091,
+          "trades": 67,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -2.01 below 0.50",
+            "parameter dispersion 0.51 above 0.50",
+            "only 41% of periods profitable, below 50%",
+            "stability score 0.08 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "BTCUSD",
+        "family": "breakout_only",
+        "label": "breakout_only:06",
+        "strategy_id": "breakout_only",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -0.25 below 0.50",
+        "p_value": null,
+        "parameters": {
+          "ema_fast": 20.0,
+          "ema_slow": 60.0,
+          "atr_period": 14.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 1.5,
+          "entry_zone_atr": 0.1
+        },
+        "train_net_profit": "103.864042364090",
+        "validation_net_profit": "-25.880477287650",
+        "out_of_sample_net_profit": null,
+        "train_trades": 60,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 68,
+        "walk_forward_profitable_folds": 25,
+        "walk_forward_ratio": 0.36764705882352944,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.09473684210526316,
+          "out_of_sample_retention": -0.24917648782556848,
+          "parameter_dispersion": 0.7252242245227344,
+          "profitable_regime_ratio": 0.47368421052631576,
+          "trades": 31,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.25 below 0.50",
+            "parameter dispersion 0.73 above 0.50",
+            "only 47% of periods profitable, below 50%",
+            "stability score 0.09 below 0.50"
+          ]
+        }
+      },
+      {
+        "market": "BTCUSD",
+        "family": "breakout_only",
+        "label": "breakout_only:07",
+        "strategy_id": "breakout_only",
+        "version": "0.1.0",
+        "retained": false,
+        "cause": "overfitting",
+        "detail": "out-of-sample retention -0.65 below 0.50",
+        "p_value": null,
+        "parameters": {
+          "ema_fast": 20.0,
+          "ema_slow": 60.0,
+          "atr_period": 14.0,
+          "stop_atr_multiplier": 1.5,
+          "take_profit_rr": 2.5,
+          "entry_zone_atr": 0.1
+        },
+        "train_net_profit": "124.475023429620",
+        "validation_net_profit": "-80.995802360890",
+        "out_of_sample_net_profit": null,
+        "train_trades": 60,
+        "out_of_sample_trades": null,
+        "walk_forward_folds": 68,
+        "walk_forward_profitable_folds": 21,
+        "walk_forward_ratio": 0.3088235294117647,
+        "walk_forward_skipped_folds": 0,
+        "holdout_was_read": false,
+        "invalid_perturbations": 0,
+        "strategy_errors": [],
+        "stability": {
+          "score": 0.06315789473684211,
+          "out_of_sample_retention": -0.6506992337035888,
+          "parameter_dispersion": 0.5236588953266247,
+          "profitable_regime_ratio": 0.3157894736842105,
+          "trades": 31,
+          "fragile": true,
+          "reasons": [
+            "out-of-sample retention -0.65 below 0.50",
+            "parameter dispersion 0.52 above 0.50",
+            "only 32% of periods profitable, below 50%",
+            "stability score 0.06 below 0.50"
+          ]
+        }
+      }
+    ]
+  }
+}

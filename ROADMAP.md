@@ -1136,11 +1136,11 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 - **Ce que cette correction change pour les verdicts déjà rendus :** les deux campagnes « 0 retenu » ont été jugées sur 3 % de leur série. Elles restent valides comme refus — un candidat qui échoue sur les semaines anciennes ne devient pas bon ailleurs — mais **elles ne disaient rien des deux ans et demi**, et c'est désormais écrit dans leurs rapports.
 - **Skills :** `test-driven-development`, `statistical-rigor`
 
-### TASK-105 — Premier franchissement de seuil hors échantillon (BTCUSD H1 natif)
+### TASK-105 — Premier franchissement de seuil hors échantillon, et sa réfutation par le protocole complet
 
-- [x] Statut : **DONE le 2026-10-09**, et **aucune promotion n'en découle.**
+- [x] Statut : **DONE le 2026-10-09**, et **aucune promotion n'en découle.** Cette tâche porte **deux résultats opposés**, et le second prime sur le premier.
 - **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-104 · **Couvre :** EF-027
-- **Le fait.** Le rapport de recherche demandait « du BTCUSD H1 natif depuis 2011, jamais lu ». Il a été récupéré du terminal Deriv le 2026-10-09 — **87 694 bougies, 2011-03-23 → 2026-10-09**, empreinte `e467bc32…` — et les paramètres gelés du candidat survivant (`ema_fast=25, ema_slow=50, atr=14, stop=1,5 ATR, tp=1,7`) y ont été appliqués **une seule fois**, sans aucun ajustement.
+- **1. Ce qui a été trouvé — mesure unique sur paramètres gelés.** Le rapport de recherche demandait « du BTCUSD H1 natif depuis 2011, jamais lu ». Il a été récupéré du terminal Deriv le 2026-10-09 — **87 694 bougies, 2011-03-23 → 2026-10-09**, empreinte `e467bc32…` — et les paramètres gelés du candidat survivant (`ema_fast=25, ema_slow=50, atr=14, stop=1,5 ATR, tp=1,7`) y ont été appliqués **une seule fois**, sans aucun ajustement.
 
 | Bloc | Ops | Réussite | Net | PF |
 |---|---|---|---|---|
@@ -1149,7 +1149,25 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 | dont 2025-2026 — déjà vu | 43 | 48,8 % | +113,91 € | 1,493 |
 
 - **Pourquoi c'est notable :** le seuil du dépôt est `min_profit_factor_net = 1,20`. C'est la **première fois qu'une règle de ce projet franchit un seuil hors des données qui l'ont produite** — 136 opérations, PF **1,233**.
-- **Décomposition par période :** 2011-2014 → **0 opération** ; 2015-2018 → 20 ops, PF 1,581 ; 2019-2022 → 70 ops, PF 1,241 ; 2023-2026 → 89 ops, PF 1,273.
+- **2. Et pourquoi cela ne veut PAS dire « piste validée ».** Le **protocole complet** (walk-forward à **68 plis**, robustesse des paramètres, correction de sélection multiple) a ensuite tourné sur le **même jeu**, avec un **scellé neuf de 17 540 bougies** : **8 candidats rejetés sur 8** — 7 `overfitting`, 1 `unstable`.
+
+| Candidat | Plis rentables | Dispersion | Rétention | Stabilité | Cause |
+|---|---|---|---|---|---|
+| 01 | **52,9 %** | 0,45 | 0,58 | **0,42** | `unstable` |
+| 05 | 48,5 % | 0,51 | −2,01 | 0,08 | `overfitting` |
+| 00 | 44,1 % | 1,69 | −3,05 | 0,10 | `overfitting` |
+| 02 | 42,6 % | 5,14 | −0,09 | 0,10 | `overfitting` |
+| 04 | 35,3 % | 0,24 | −1,60 | 0,25 | `overfitting` |
+| 06 | 36,8 % | 0,73 | −0,25 | 0,09 | `overfitting` |
+| 03 | 33,8 % | 0,40 | −0,77 | 0,12 | `overfitting` |
+| 07 | 30,9 % | 0,52 | −0,65 | 0,06 | `overfitting` |
+
+**Sept candidats sur huit ont une rétention hors échantillon négative** (−0,09 à −3,05).
+- **La leçon méthode, la plus importante de la phase :** un paramètre gelé appliqué en continu sur une longue série **capitalise sur des régimes favorables traversés d'affilée**. Un walk-forward exige que la règle **retrouve** son avantage à chaque fenêtre. La première mesure dit « cette règle a gagné sur cette histoire » ; la seconde dit « cette règle ne se reproduit pas ». **La seconde est la seule qui compte pour trader demain.**
+- **Conséquence directe :** le PF de 1,233 décrit correctement une mesure et **ne doit jamais être présenté comme un edge**. Aucune promotion, aucun plafond relevé, `config/strategies/` intact, `BreakoutOnly` hors du registre de production.
+- **La piste à retenir, et elle est étroite :** le candidat **01 franchit le seuil des plis (52,9 %, une première)** avec une dispersion saine (0,45) et tombe sur la stabilité de **0,42 contre 0,50 — de 0,08**. C'est le deuxième candidat du projet à échouer d'aussi peu.
+- **Le scellé neuf de 17 540 bougies H1 n'a pas été ouvert** : il reste disponible pour une prochaine tentative.
+- **Décomposition par période (mesure du point 1) :** 2011-2014 → **0 opération** ; 2015-2018 → 20 ops, PF 1,581 ; 2019-2022 → 70 ops, PF 1,241 ; 2023-2026 → 89 ops, PF 1,273.
 - **Le silence de 2011-2014 est un fait de marché, pas un bug :** le terminal ne sert que **278 à 366 bougies H1 par an** de 2011 à 2015, contre 3 692 en 2016 et ~8 700 ensuite. Le BTC des débuts traitait à peine, donc les heures sans échange n'existent pas dans les données. Une règle qui exige la cassure d'un canal de 50 heures n'a rien à faire dans un marché qui n'ouvre que quand quelqu'un échange.
 - **Les deux limites qui interdisent de crier victoire :**
   1. **Le modèle de coûts est invraisemblable avant 2019.** Il applique `0,00007 × prix` de spread : à 0,87 $ le BTC en 2011, cela suppose **0,006 centime** de spread, quand le réel se comptait en pour cent. Le backtest est donc optimiste d'un ordre de grandeur sur la première décennie, et le PF de 1,581 (2015-2018) n'est pas fiable. **La fenêtre crédible est 2019-2026 : PF 1,259 sur 159 opérations.** C'est le chiffre à retenir.
@@ -1158,10 +1176,9 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 - **Critères d'acceptation :**
   - [x] le jeu natif est gelé et versionné, avec son empreinte — `docs/research/datasets-native-h1/`
   - [x] les paramètres sont appliqués une seule fois, sans ajustement — `scripts/backtest/confirm_breakout_h1.py`
-  - [x] le résultat est décomposé entre période vue et période jamais vue
-  - [x] les limites du modèle de coûts sont documentées, pas passées sous silence
-  - [x] **aucune promotion** : `config/strategies/` intact, `BreakoutOnly` hors du registre de production
-- **Prochaine étape pour cette piste :** refaire le **protocole complet** (les 9 portes) en H1 natif avec un **scellé neuf**, et corriger le modèle de coûts pour l'ère 2011-2018 avant toute conclusion sur cette période.
+  - [x] le protocole complet tourne sur le même jeu, avec un scellé neuf resté fermé
+  - [x] les deux résultats opposés sont documentés ensemble, sans que le flatteur masque le décisif
+  - [x] **aucune promotion**
 - **Skills :** `test-driven-development`, `statistical-rigor`
 
 ### QUALITY GATE — Phase 7 — **Fin de la V1**

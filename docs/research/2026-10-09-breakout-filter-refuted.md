@@ -384,11 +384,59 @@ réglage sur M15, qui est un autre marché en pratique.
 
 ---
 
-## 10. Ce qu'il faudrait pour rouvrir la question
+## 10. Le protocole complet en H1 natif : les 9 portes rejettent aussi
+
+Le test de confirmation du point 9 est une **mesure unique sur paramètres gelés**. Le protocole
+complet — walk-forward à **68 plis**, robustesse des paramètres, correction de sélection
+multiple — a ensuite été lancé sur le **même jeu H1 natif**, avec un **scellé neuf** de
+17 540 bougies jamais lu.
+
+| Candidat | Plis rentables | Dispersion | Rétention | Stabilité | Périodes | Ops train | Net train | Cause |
+|---|---|---|---|---|---|---|---|---|
+| 01 | **52,9 %** | 0,45 | 0,58 | 0,42 | 0,48 | 190 | +144,38 € | `unstable` |
+| 05 | 48,5 % | 0,51 | −2,01 | 0,08 | 0,41 | 197 | +68,08 € | `overfitting` |
+| 00 | 44,1 % | 1,69 | −3,05 | 0,10 | 0,48 | 196 | +5,42 € | `overfitting` |
+| 02 | 42,6 % | 5,14 | −0,09 | 0,10 | 0,50 | 62 | +133,18 € | `overfitting` |
+| 04 | 35,3 % | 0,24 | −1,60 | 0,25 | 0,45 | 197 | +73,15 € | `overfitting` |
+| 06 | 36,8 % | 0,73 | −0,25 | 0,09 | 0,47 | 60 | +103,86 € | `overfitting` |
+| 03 | 33,8 % | 0,40 | −0,77 | 0,12 | 0,28 | 62 | +164,82 € | `overfitting` |
+| 07 | 30,9 % | 0,52 | −0,65 | 0,06 | 0,32 | 60 | +124,48 € | `overfitting` |
+
+**8 rejetés sur 8.** Le scellé neuf n'a **pas été ouvert** (0 ouverture sur 17 540 bougies) : il
+reste disponible pour une prochaine tentative.
+
+**Ce que ça change dans la lecture du point 9, et il faut être direct.** Ce test mesurait **un
+réglage gelé appliqué en continu sur quinze ans**, et donnait PF 1,233 hors échantillon. J'ai
+écrit que c'était « la première piste du projet qui franchit un seuil hors échantillon ». **C'est
+exact au sens strict, et trompeur en pratique.** Le walk-forward, lui, **réapprend sur chaque
+pli et juge sur le suivant** : il montre que la règle ne tient pas d'une fenêtre à l'autre.
+**Sept candidats sur huit ont une rétention hors échantillon négative** (−0,09 à −3,05) : ils
+gagnent sur l'ensemble et perdent dès qu'on découpe.
+
+**La différence entre les deux mesures est toute la leçon.** Un paramètre gelé appliqué à une
+série longue capitalise sur des **régimes favorables traversés en continu**. Un walk-forward
+exige que la règle **retrouve** son avantage à chaque fenêtre. La première mesure dit « cette
+règle a gagné sur cette histoire » ; la seconde dit « cette règle ne se reproduit pas ». **La
+seconde est la seule qui compte pour trader demain**, et c'est elle qui rejette.
+
+**Mon point 9 était donc trop enthousiaste.** « Premier franchissement de seuil hors
+échantillon » décrit correctement une mesure, et **ne doit pas se lire comme « piste validée »**.
+Les 9 portes ont tranché dans l'autre sens dès qu'on les a fait tourner.
+
+**Une nuance qui reste, et qui n'est pas rien :** le candidat **01 franchit le seuil des plis
+(52,9 %, une première)** avec une dispersion saine (0,45) et +144,38 € en apprentissage. Il
+tombe sur le **score de stabilité, 0,42 contre 0,50 requis — de 0,08.** C'est le deuxième
+candidat du projet à échouer d'aussi peu, et comme le premier, il mérite mieux qu'un rejet
+définitif : il mérite d'être compris.
+
+---
+
+## 11. Ce qu'il faudrait pour rouvrir la question
 
 | Piste | Pourquoi |
 |---|---|
-| **Refaire le protocole complet en H1 natif, sur un scellé neuf** | c'est la seule config où un seuil est franchi hors échantillon : elle mérite les 9 portes, pas un test de confirmation |
+| **Comprendre le candidat 01 du H1 natif** | il franchit le seuil des plis (52,9 %, une première) et tombe sur la stabilité de **0,08** : c'est la piste la plus proche du but |
+| **Chercher pourquoi la rétention est négative partout** | 7 candidats sur 8 en H1 natif, 8 sur 8 sur l'or : la règle gagne sur l'ensemble et perd dès qu'on découpe, ce qui est un symptôme à diagnostiquer avant tout nouveau réglage |
 | **Corriger le modèle de coûts pour l'ère 2011-2018** | il suppose 0,006 centime de spread en 2011, quand le réel se comptait en pour cent : les PF de cette période ne veulent rien dire |
 | Tester le canal de cassure comme **paramètre libre** | il vaut aujourd'hui `ema_slow`, ce qui lie deux choix qui n'ont pas de raison de l'être |
 | Mesurer le filtre sur une **autre règle parente** | ici il n'a été testé qu'autour du croisement EMA |
