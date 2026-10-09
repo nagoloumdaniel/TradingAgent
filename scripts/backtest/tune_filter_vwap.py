@@ -97,6 +97,11 @@ VARIANTS: dict[str, dict[str, Any]] = {
     "volume >= 1,2x la moyenne 20": {"volume_ratio_min": 1.2},
     "tendance : seuil du régime (0,05)": {"trend_filter": True},
     "tendance : seuil 0,001": {"trend_filter": True, "trend_slope_atr": 0.001},
+    # Le seuil du régime est le seul qui garde l'esprit du module ; on sonde autour de lui pour
+    # savoir si le résultat tient à une valeur précise — auquel cas il ne tient à rien.
+    "tendance : seuil 0,02": {"trend_filter": True, "trend_slope_atr": 0.02},
+    "tendance : seuil 0,10": {"trend_filter": True, "trend_slope_atr": 0.10},
+    "tendance : seuil 0,20": {"trend_filter": True, "trend_slope_atr": 0.20},
     "séance UT + volume >= 1,0x": {
         "allowed_sessions": (Session.OVERLAP, Session.LONDON, Session.NEW_YORK),
         "volume_ratio_min": 1.0,
@@ -166,6 +171,7 @@ def measure(
     wins = sum(1 for trade in trades if trade.pnl_eur > 0)
     net = sum((trade.pnl_eur for trade in trades), Decimal(0))
     hours = sorted(trade.opened_at.hour + trade.opened_at.minute / 60 for trade in trades)
+    pnl = [float(trade.pnl_eur) for trade in trades]
     return (
         {
             "trades": float(len(trades)),
@@ -180,9 +186,31 @@ def measure(
             "skipped_no_room": float(result.skipped_no_room),
             "first_hour": hours[0] if hours else 0.0,
             "last_hour": hours[-1] if hours else 0.0,
+            **_significance(pnl),
         },
         trades,
     )
+
+
+def _significance(pnl: Sequence[float]) -> dict[str, float]:
+    """Espérance par opération, erreur-type et t de Student — avec leur limite, écrite ici.
+
+    C'est un test **optimiste**, et il faut le dire : il suppose les opérations indépendantes.
+    Elles ne le sont pas — une seule position à la fois, et les trades se groupent par régime —
+    donc le vrai intervalle est plus large que celui-ci. Il sert à écarter une conclusion, pas à
+    la fonder : un t proche de zéro veut dire « rien de mesurable », jamais l'inverse.
+    """
+    count = len(pnl)
+    if count < 2:
+        return {"pnl_mean": pnl[0] if pnl else 0.0, "pnl_stderr": 0.0, "t_stat": 0.0}
+    mean = sum(pnl) / count
+    variance = sum((value - mean) ** 2 for value in pnl) / (count - 1)
+    stderr = (variance / count) ** 0.5
+    return {
+        "pnl_mean": mean,
+        "pnl_stderr": stderr,
+        "t_stat": (mean / stderr) if stderr > 0 else 0.0,
+    }
 
 
 def labelled_series(dataset: CandleDataset) -> tuple[list[str], list[float]]:
@@ -388,6 +416,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="ne faire que le contrôle par moitiés, tous les variants, sans le tableau complet",
     )
     parser.add_argument("--only", default=None, help="ne mesurer qu'une variante, par son nom")
+    parser.add_argument(
+        "--only-prefix",
+        default=None,
+        help="ne mesurer que les variantes dont le nom commence par ce préfixe",
+    )
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args(argv)
 
@@ -440,6 +473,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("  " + "-" * (len(header) - 2))
     for label, overrides in VARIANTS.items():
         if args.only is not None and label != args.only:
+            continue
+        if args.only_prefix is not None and not label.startswith(args.only_prefix):
             continue
         if args.split_only:
             break

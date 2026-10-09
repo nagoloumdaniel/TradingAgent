@@ -24,22 +24,25 @@ devrait aussi simuler les remplissages, ce qui n'est pas son rôle.
 **Trois filtres optionnels, et leur état par défaut.** La spec de l'opérateur en demande six ;
 trois sont ces conditions. Les trois autres sont proposés ici — horaire, tendance, volume — et
 **tous sont éteints par défaut** : `allowed_sessions=()`, `trend_filter=False`,
-`volume_ratio_min=None` reproduisent exactement la règle mesurée à PF 0,990. Un filtre ne se
-rallume qu'après avoir montré, mesure en main, qu'il ne retire pas plus qu'il n'apporte.
+`volume_ratio_min=None` reproduisent exactement la règle mesurée à PF 0,9314 sur les 59 999
+bougies du jeu complet. Un filtre ne se rallume qu'après avoir montré, mesure en main, qu'il ne
+retire pas plus qu'il n'apporte.
 
 Chacun lit une brique existante, jamais un indicateur réécrit ici : `session_at` pour l'heure,
 `trend_of` pour la direction du marché, et le volume déjà présent dans les bougies pour la
 participation. Le filtre de **coût** de la spec ne figure pas ici et ne doit pas y venir : il
 appartient au moteur de risque, qui seul connaît le spread réel du broker.
 
-**Le filtre de tendance a un défaut structurel, et la mesure l'a montré.** `trend_of` lit la
-pente de la moyenne lente sur **une** barre, normalisée par l'ATR. Or l'événement que cette
-règle attend est précisément le moment où le prix **revient** sur le VWAP : sur les 105
-géométries de repli balayées le 2026-10-09, la pente d'une barre est nulle ou négative à
-chaque fois (-0,0022 sur le pullback nominal) et `trend_of` répond donc `NEUTRAL`. Avec son
-seuil de régime (0,05), ce filtre ne refuse pas les mauvais signaux : il refuse **tous** les
-signaux. Il reste dans le code parce qu'il est désactivable et testé, et parce que c'est le
-résultat le plus utile de cet axe ; il reste **éteint** pour la même raison.
+**Le filtre de tendance est le seul qui ait tenu à la mesure, et il coupe beaucoup.** `trend_of`
+lit la pente de la moyenne lente sur **une** barre, alors que le repli au VWAP est précisément
+le moment où cette pente s'aplatit : sur les 1 973 signaux du jeu complet, 120 seulement
+arrivent avec une pente positive, et 62 d'entre eux portent une tendance nommée — le filtre ne
+laisse donc passer qu'environ 12 % des signaux. Mais ceux-là se comportent autrement : PF 1,555
+sur 117 trades, et **les deux moitiés de la série restent au-dessus de 1,5** (60 trades à 1,581,
+57 à 1,539), ce qui n'est pas le cas du seuil voisin. La statistique t de l'espérance par
+opération vaut 2,18 — un test optimiste, qui suppose les trades indépendants alors qu'ils se
+groupent par régime, et qui est mené sur 16 mesures. C'est un **candidat**, pas une preuve, et
+il reste éteint tant qu'un test hors échantillon ne l'a pas confirmé.
 
 **Ce que ces filtres ne font pas.** Ils ne peuvent que **refuser** un signal — jamais en créer
 un, jamais desserrer un stop, jamais élargir une zone d'entrée. C'est la contrainte C-002, et

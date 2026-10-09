@@ -347,7 +347,7 @@ def test_the_trend_filter_refuses_a_downtrend_for_a_buy() -> None:
     """Le momentum de la règle et la tendance du filtre peuvent diverger.
 
     La série monte puis replie jusqu'à **toucher** le VWAP : la pente sur dix barres reste
-    positive (+0,0109 mesurée) alors que celle d'une barre est déjà retournée (-0,0051). C'est
+    positive (+0,0050 mesurée) alors que celle d'une barre est déjà retournée (-0,0022). C'est
     exactement le désaccord que le filtre doit trancher, et il tranche en refusant. Le témoin
     non filtré est là pour prouver que le silence vient du filtre et non d'une géométrie cassée
     par la fixture.
@@ -361,15 +361,17 @@ def test_the_trend_filter_refuses_a_downtrend_for_a_buy() -> None:
 def test_the_trend_filter_lets_a_real_uptrend_through() -> None:
     """Le pendant positif existe, et il a fallu le chercher sur 105 géométries.
 
-    C'est le résultat le plus utile de cette paire de tests. Sur la fixture nominale — un repli
-    qui vient **toucher** le VWAP — la pente d'une barre vaut **-0,0022** : elle est négative
-    partout dans le balayage, `trend_of` répond `NEUTRAL`, et avec son seuil par défaut de 0,05
-    le filtre refuse **100 %** des signaux. Il faut une reprise après le contact et un seuil
-    quasi nul (1e-9, la plus petite valeur que le modèle accepte) pour que les deux mesures
-    s'accordent : c'est cette géométrie-ci, et le test la fige.
+    Sur la fixture nominale — un repli qui vient **toucher** le VWAP — la pente d'une barre vaut
+    **-0,0022**, et elle est nulle ou négative sur les 105 géométries balayées quand le contact
+    est réel : `trend_of` répond donc `NEUTRAL`, et avec son seuil par défaut de 0,05 le filtre
+    **refuse** ces signaux. Ce test a d'abord été écrit avec la fixture nominale et il échouait,
+    ce qui est l'information : le cas « laisser passer » est rare, pas normal. Il faut une
+    reprise après le contact **et** un seuil quasi nul (1e-9, la plus petite valeur que le
+    modèle accepte) pour que les deux mesures s'accordent — c'est cette géométrie-ci.
 
     Ce test prouve le **mécanisme** — le filtre laisse passer ce qu'il reconnaît comme une
-    tendance — pas l'utilité du filtre, qui est mesurée séparément sur le vrai marché.
+    tendance — pas l'utilité du filtre : sur le vrai marché, ce filtre laisse passer 12 % des
+    signaux, et c'est là que la mesure a lieu (`docs/research/vwap-tuning/axe-B-filtres.md`).
     """
     closes = [100.0]
     for _ in range(60):

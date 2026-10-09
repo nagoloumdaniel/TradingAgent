@@ -1,0 +1,125 @@
+{
+  "symbol": "BTCUSD",
+  "bars": 59999,
+  "window_start": "2025-01-21T16:30:00+00:00",
+  "window_end": "2026-10-09T01:30:00+00:00",
+  "parameters": {
+    "ema_fast": 20,
+    "ema_slow": 50,
+    "vwap_period": 20,
+    "atr_period": 14,
+    "stop_atr_multiplier": 1.5,
+    "first_target_rr": 1.5,
+    "final_target_rr": 3.0,
+    "pullback_atr": 0.4,
+    "entry_zone_atr": 0.1,
+    "min_slope_atr": 0.005,
+    "slope_window": 10
+  },
+  "variants": {
+    "tendance : seuil du régime (0,05)": {
+      "trades": 117.0,
+      "wins": 62.0,
+      "win_rate": 0.5299145299145299,
+      "net_eur": 331.61231098609,
+      "profit_factor": 1.554803249895432,
+      "expectancy": 2.8342932562913674,
+      "max_drawdown": 56.6675607135,
+      "signals": 243.0,
+      "entries": 117.0,
+      "skipped_no_room": 126.0,
+      "first_hour": 0.5,
+      "last_hour": 23.25,
+      "pnl_mean": 2.8342932562913674,
+      "pnl_stderr": 1.2978025726088502,
+      "t_stat": 2.1839171196847413,
+      "overrides": {
+        "trend_filter": true
+      }
+    },
+    "tendance : seuil 0,001": {
+      "trades": 603.0,
+      "wins": 252.0,
+      "win_rate": 0.417910447761194,
+      "net_eur": -104.21339238478,
+      "profit_factor": 0.9724633047581024,
+      "expectancy": -0.17282486299300165,
+      "max_drawdown": 274.85297286813,
+      "signals": 1324.0,
+      "entries": 603.0,
+      "skipped_no_room": 721.0,
+      "first_hour": 0.0,
+      "last_hour": 23.75,
+      "pnl_mean": -0.17282486299300162,
+      "pnl_stderr": 0.5465133660283623,
+      "t_stat": -0.3162317222888059,
+      "overrides": {
+        "trend_filter": true,
+        "trend_slope_atr": 0.001
+      }
+    },
+    "tendance : seuil 0,02": {
+      "trades": 377.0,
+      "wins": 163.0,
+      "win_rate": 0.4323607427055703,
+      "net_eur": 137.00901929949,
+      "profit_factor": 1.0594574536315797,
+      "expectancy": 0.3634191493355172,
+      "max_drawdown": 143.20205772361,
+      "signals": 810.0,
+      "entries": 377.0,
+      "skipped_no_room": 433.0,
+      "first_hour": 0.25,
+      "last_hour": 23.75,
+      "pnl_mean": 0.3634191493355173,
+      "pnl_stderr": 0.7035209477965241,
+      "t_stat": 0.5165718952275281,
+      "overrides": {
+        "trend_filter": true,
+        "trend_slope_atr": 0.02
+      }
+    },
+    "tendance : seuil 0,10": {
+      "trades": 17.0,
+      "wins": 10.0,
+      "win_rate": 0.5882352941176471,
+      "net_eur": 109.48366268684,
+      "profit_factor": 2.4691928325460077,
+      "expectancy": 6.440215452167059,
+      "max_drawdown": 42.57981881789,
+      "signals": 34.0,
+      "entries": 17.0,
+      "skipped_no_room": 17.0,
+      "first_hour": 4.75,
+      "last_hour": 9.0,
+      "pnl_mean": 6.440215452167059,
+      "pnl_stderr": 3.745827775467222,
+      "t_stat": 1.7193036728347082,
+      "overrides": {
+        "trend_filter": true,
+        "trend_slope_atr": 0.1
+      }
+    },
+    "tendance : seuil 0,20": {
+      "trades": 0.0,
+      "wins": 0.0,
+      "win_rate": 0.0,
+      "net_eur": 0.0,
+      "profit_factor": 0.0,
+      "expectancy": 0.0,
+      "max_drawdown": 0.0,
+      "signals": 0.0,
+      "entries": 0.0,
+      "skipped_no_room": 0.0,
+      "first_hour": 0.0,
+      "last_hour": 0.0,
+      "pnl_mean": 0.0,
+      "pnl_stderr": 0.0,
+      "t_stat": 0.0,
+      "overrides": {
+        "trend_filter": true,
+        "trend_slope_atr": 0.2
+      }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "symbol": "BTCUSD",
+  "bars": 59999,
+  "window_start": "2025-01-21T16:30:00+00:00",
+  "window_end": "2026-10-09T01:30:00+00:00",
+  "parameters": {
+    "ema_fast": 20,
+    "ema_slow": 50,
+    "vwap_period": 20,
+    "atr_period": 14,
+    "stop_atr_multiplier": 1.5,
+    "first_target_rr": 1.5,
+    "final_target_rr": 3.0,
+    "pullback_atr": 0.4,
+    "entry_zone_atr": 0.1,
+    "min_slope_atr": 0.005,
+    "slope_window": 10
+  },
+  "variants": {
+    "volume >= 1,0x la moyenne 20": {
+      "trades": 574.0,
+      "wins": 229.0,
+      "win_rate": 0.3989547038327526,
+      "net_eur": -372.11301800931,
+      "profit_factor": 0.900884985509002,
+      "expectancy": -0.6482805191799825,
+      "max_drawdown": 396.96023258291,
+      "signals": 839.0,
+      "entries": 574.0,
+      "skipped_no_room": 265.0,
+      "first_hour": 0.0,
+      "last_hour": 23.75,
+      "pnl_mean": -0.6482805191799826,
+      "pnl_stderr": 0.5605506730881263,
+      "t_stat": -1.1565065395578678,
+      "overrides": {
+        "volume_ratio_min": 1.0
+      }
+    },
+    "volume >= 1,2x la moyenne 20": {
+      "trades": 275.0,
+      "wins": 125.0,
+      "win_rate": 0.45454545454545453,
+      "net_eur": 178.89700442784,
+      "profit_factor": 1.1094666297401408,
+      "expectancy": 0.6505345615557818,
+      "max_drawdown": 140.60794404735,
+      "signals": 352.0,
+      "entries": 275.0,
+      "skipped_no_room": 77.0,
+      "first_hour": 0.0,
+      "last_hour": 23.75,
+      "pnl_mean": 0.6505345615557818,
+      "pnl_stderr": 0.8224144573208177,
+      "t_stat": 0.7910057462693815,
+      "overrides": {
+        "volume_ratio_min": 1.2
+      }
+    }
+  }
+}
