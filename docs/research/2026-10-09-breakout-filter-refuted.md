@@ -249,15 +249,78 @@ différentes, et la seconde est celle où on continue.
 
 ---
 
-## 8. Ce qu'il faudrait pour rouvrir la question
+## 8. Le test de confirmation : la piste BTC survit à un changement de découpage
+
+**La règle du test, et elle est posée avant de le lancer.** Après un survivant à p = 0,3467
+pour un seuil de 0,0019, la seule suite honnête n'est **pas** de relancer une recherche sur un
+autre jeu — cela créerait 54 nouvelles hypothèses et aggraverait le problème qu'on vient de
+mesurer. C'est de **geler** les paramètres, de les appliquer **une fois**, et de regarder.
+Aucune grille, aucun ajustement : si le résultat déçoit, on ne réessaie pas un autre jeu. Le
+script est [confirm_breakout_h1.py](../../scripts/backtest/confirm_breakout_h1.py).
+
+**Ce que le nouveau découpage teste.** Les jeux H1 sont ré-agrégés depuis les mêmes bougies
+M15 : ce ne sont **pas des données neuves**, et il ne faut pas le prétendre. Mais
+`ema_slow=50` couvre 12,5 heures en M15 et **50 heures** en H1. Un edge qui ne survit pas à ce
+changement était un artefact de la résolution choisie, pas une propriété du marché.
+
+**Paramètres gelés :** `ema_fast=25, ema_slow=50, atr_period=14, stop=1,5 ATR, tp=1,7`.
+
+| Découpage | Marché | Ops | Réussite | Net | PF | MAE moy. |
+|---|---|---|---|---|---|---|
+| M15 (référence, où il a été trouvé) | BTCUSD | 143 | 44,1 % | +143,30 € | 1,166 | 1,04 |
+| M15 (référence) | XAUUSD | 167 | 28,7 % | −511,73 € | 0,600 | 1,06 |
+| **H1 (nouveau découpage)** | **BTCUSD** | 42 | **47,6 %** | **+90,52 €** | **1,390** | 0,80 |
+| **H1 (nouveau découpage)** | XAUUSD | 28 | 28,6 % | −120,33 € | 0,524 | 1,20 |
+| H4 (découpage plus grossier) | BTCUSD | 4 | 50,0 % | +11,70 € | 1,556 | 1,00 |
+| H4 | XAUUSD | 3 | 33,3 % | −6,31 € | 0,700 | 0,91 |
+
+**Ce que ça montre :**
+
+1. **Sur le BTC, le candidat survit au changement de découpage.** PF de 1,166 en M15 puis
+   **1,390 en H1**, avec 47,6 % de réussite et **+90,52 € sur 42 opérations**. Le signe et
+   l'ordre de grandeur tiennent quand la fenêtre des moyennes passe de 12,5 à 50 heures. Ce
+   n'était pas acquis : c'était tout l'enjeu du test.
+
+2. **Sur l'or, il échoue aux trois découpages** (PF 0,600 en M15, 0,524 en H1, 0,700 en H4 sur
+   3 opérations). Ce n'est donc pas un problème de résolution : **la piste est spécifique au
+   BTC**, et l'or est un marché où cette règle ne marche pas.
+
+3. **Le H4 ne dit rien** : 4 et 3 opérations. Le présenter comme un PF de 1,556 serait une
+   faute d'interprétation ; il est là pour être vu comme vide.
+
+**Ce qui limite la portée de ce test, et qu'il faut écrire noir sur blanc :**
+
+- **42 opérations, c'est peu.** L'intervalle de confiance d'un PF de 1,39 sur 42 trades est
+  large, et il contient 1,0.
+- **Ce ne sont pas des données indépendantes.** H1 est ré-agrégé des mêmes M15. Le test
+  démontre une **robustesse au découpage**, pas une réplication hors échantillon.
+- **Un facteur confondant existe : le coût des frais.** La commission est fixe (0,50 €) et le
+  risque aussi (10 €), mais le **stop vaut quatre fois plus de points en H1** pour la même
+  fraction d'ATR. Le coût des frais rapporté au prix payé est donc environ **quatre fois plus
+  faible en H1**. Une partie de l'amélioration du PF vient de là, pas du signal, et personne ne
+  peut chiffrer exactement cette part sans une mesure dédiée.
+- **Le M15 de référence contient sa part d'échantillon d'apprentissage** : 143 opérations sur
+  l'ensemble du jeu, alors que le candidat a été **sélectionné** dessus. Le H1, lui, n'a jamais
+  servi à choisir ce réglage — c'est la seule partie du tableau qui soit honnêtement hors
+  échantillon.
+
+**Conclusion en une phrase :** la piste BTC passe d'« indiscernable du hasard sur les données
+qui l'ont produite » à **« robuste à un changement de découpage, sur 42 opérations »** — un
+progrès réel, et **toujours pas une validation**. Il faudrait du BTCUSD H1 natif depuis 2011,
+jamais lu, pour trancher.
+
+---
+
+## 9. Ce qu'il faudrait pour rouvrir la question
 
 | Piste | Pourquoi |
 |---|---|
-| **Explorer le voisinage de la variante 06** | elle ne tombe que sur les plis (39,1 % contre 50 %) : la question est de savoir si un réglage voisin franchit le seuil, ou s'il ne le franchit pas |
+| **Obtenir du BTCUSD H1 natif depuis 2011, jamais lu** | c'est la seule chose qui trancherait : 42 opérations agrégées ne remplacent pas une réplication hors échantillon |
 | Tester le canal de cassure comme **paramètre libre** | il vaut aujourd'hui `ema_slow`, ce qui lie deux choix qui n'ont pas de raison de l'être |
-| Explorer en **H1**, où l'historique remonte à 2011 | 87 573 bougies, et un rapport coût/ATR plus favorable qu'en M15 |
+| **Chiffrer la part des frais dans le gain H1** | le stop y vaut quatre fois plus de points, donc les mêmes 0,50 € pèsent quatre fois moins : une partie du PF de 1,39 vient de là |
 | Mesurer le filtre sur une **autre règle parente** | ici il n'a été testé qu'autour du croisement EMA |
 | **Ne pas retravailler la variante 04** | dispersion de 6,50 : la poursuivre serait chercher un edge dans du bruit |
+| **Ne pas retravailler l'or avec cette règle** | elle échoue aux trois découpages (PF 0,600 / 0,524 / 0,700) |
 
 **Rien n'a été promu.** `config/strategies/` n'a pas été touché, `strategies/registry.py` non
 plus, et `BreakoutOnly` n'est pas au registre de production — un test le vérifie.
