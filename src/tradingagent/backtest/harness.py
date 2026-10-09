@@ -95,13 +95,15 @@ class BacktestConfig:
     #: switching it on silently would change what those numbers mean. A refusal here is final,
     #: exactly as it is in production: the signal dies, it is not deferred to the next bar.
     entry_zone_parity: bool = False
-    #: Which price the gate judges. `paid` is production as it stands today: the fill, costs
-    #: included, against a band the strategy built on the close. `reference` is the same gate
-    #: moved into the band's own price space (the level the fill starts from, spread excluded),
-    #: which is what "compare the ask to a band shifted by the spread" is worth — a research
-    #: basis for pricing the alternative, never a production behaviour of its own.
+    #: Which price the gate judges. `paid` is the harness's own convention: the fill, half the
+    #: spread included, against a band the strategy built on the close. `production` is the
+    #: price a real account pays for that same fill — the whole spread at the ask on a buy, the
+    #: bid on a sell — which is what `risk.checks.check_entry_zone` compares. `reference` is
+    #: the gate moved into the band's own price space (spread excluded): what "compare the ask
+    #: to a band shifted by the spread" is worth. All three are research bases; none is a
+    #: production behaviour of its own beyond choosing which price the gate reads.
     #: Ignored unless `entry_zone_parity` is on.
-    entry_zone_parity_basis: Literal["paid", "reference"] = "paid"
+    entry_zone_parity_basis: Literal["paid", "production", "reference"] = "paid"
 
     def __post_init__(self) -> None:
         if self.risk_eur <= 0:
@@ -361,13 +363,24 @@ def _zone_accepts(signal: SignalCandidate, paid: float) -> bool:
 
 
 def _gated_price(position: _Position, config: BacktestConfig) -> float:
-    """What the gate judges: the paid price, or the price it started from.
+    """What the gate judges: the paid price, the price a real account pays, or the reference.
 
-    `position.adverse[0]` is the cost added at the entry, so subtracting it returns the level
-    the fill was referenced on — the band's own price space.
+    `position.adverse[0]` is the cost added at the entry, and it moves *away* from the
+    reference: a buy pays more, a sell receives less. Undoing it therefore needs the direction's
+    sign — subtracting it from both would push a sell two spreads below its reference and refuse
+    entries the rule never meant to refuse.
+
+    Adding half the spread back gives the price a real account pays: the harness charges half the
+    spread on each side, while a buy pays the whole one at the ask and a sell receives the bid,
+    spread-free — the same round-trip cost booked on one side, which is exactly what changes the
+    gate's verdict.
     """
-    if config.entry_zone_parity_basis == "reference" and position.adverse:
-        return position.entry_price - position.adverse[0]
+    if position.adverse:
+        if config.entry_zone_parity_basis == "reference":
+            sign = 1.0 if position.signal.direction is Direction.BUY else -1.0
+            return position.entry_price - sign * position.adverse[0]
+        if config.entry_zone_parity_basis == "production":
+            return position.entry_price + config.costs.half_spread
     return position.entry_price
 
 

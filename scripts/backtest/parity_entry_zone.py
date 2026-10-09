@@ -122,6 +122,13 @@ SCENARIOS: tuple[Scenario, ...] = (
         parity=True,
         production_spread=True,
     ),
+    Scenario(
+        "parity_production_prod_spread",
+        "porte au prix réel (ask entier), spread observé",
+        parity=True,
+        basis="production",
+        production_spread=True,
+    ),
     Scenario("baseline", "référence, porte éteinte"),
     Scenario("parity_paid", "porte allumée (prix payé)", parity=True),
     Scenario(
@@ -129,6 +136,21 @@ SCENARIOS: tuple[Scenario, ...] = (
         "option A (0,2 ATR) avec le spread observé",
         parity=True,
         overrides={"entry_zone_atr": 0.2},
+        production_spread=True,
+    ),
+    Scenario(
+        "parity_zone_0.15_prod_spread",
+        "option A calibrée (0,15 ATR), spread observé",
+        parity=True,
+        overrides={"entry_zone_atr": 0.15},
+        production_spread=True,
+    ),
+    Scenario(
+        "parity_zone_0.13_production",
+        "option C : bande 0,13 ATR jugée au prix réel",
+        parity=True,
+        basis="production",
+        overrides={"entry_zone_atr": 0.13},
         production_spread=True,
     ),
     Scenario(
@@ -573,6 +595,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     for reference_name, gated_name in (
         ("baseline", "parity_paid"),
         ("baseline_prod_spread", "parity_paid_prod_spread"),
+        ("baseline_prod_spread", "parity_production_prod_spread"),
         ("baseline_prod_spread", "parity_reference_prod_spread"),
         ("baseline_prod_spread", "parity_zone_0.2_prod_spread"),
         ("baseline_prod_spread", "parity_zone_0.3_prod_spread"),

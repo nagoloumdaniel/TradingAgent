@@ -434,6 +434,78 @@ def test_entry_zone_parity_on_the_reference_is_the_band_shifted_by_the_costs() -
     assert on_the_paid_price.entries == 0
 
 
+def test_the_production_basis_judges_the_price_a_real_account_pays() -> None:
+    """Half the spread is a harness convention; a real buy pays the whole one, at the ask.
+
+    With a 0.5 spread and 0.04 of slippage the harness fill is 100.49 — inside the band — while
+    the ask a real account crosses is 100.74, outside it. Same order, two verdicts: that gap is
+    the whole subject of the measurement.
+    """
+    costs = CostModel(spread=0.5, slippage_fixed=0.04)
+    as_the_harness_charges = run(
+        OneShot(NoParameters()), PNL_ROWS, costs=costs, entry_zone_parity=True
+    )
+    as_a_real_account_pays = run(
+        OneShot(NoParameters()),
+        PNL_ROWS,
+        costs=costs,
+        entry_zone_parity=True,
+        entry_zone_parity_basis="production",
+    )
+
+    assert as_the_harness_charges.entries == 1
+    assert as_a_real_account_pays.entries == 0
+    assert as_a_real_account_pays.refused_entry_zone == 1
+
+
+class OneShotSell(OneShot):
+    """The same setup, sold: the fill is *below* the reference, and so is the band."""
+
+    strategy_id = "oneshotsell"
+
+    def evaluate(self, context: StrategyContext) -> SignalCandidate | None:
+        if context.closes(M15)[-1] != 100.0:
+            return None
+        return SignalCandidate(
+            direction=Direction.SELL,
+            entry_low=99.5,
+            entry_high=100.0,
+            stop_loss=101.0,
+            take_profits=(98.0,),
+            reason="hand-checked fixture, sold",
+            indicators={"atr": 1.0},
+        )
+
+
+def test_the_reference_basis_undoes_the_cost_on_the_right_side_for_a_sell() -> None:
+    """A sell's fill is *below* its reference, so undoing the cost adds it back, never subtracts.
+
+    Bar 2 opens at 99.8, so the reference is max(99.8, 99.5) = 99.8 and the fill is
+    99.8 - 0.5 - 0.1 = 99.2 on the `paid` basis — outside the band, refused. On the `reference`
+    basis the gate must judge 99.8, inside [99.5 ; 100.0]: the direction's sign is the whole
+    point, and getting it wrong refuses an entry the rule never meant to refuse.
+    """
+    rows = [
+        (99.0, 100.0, 98.5, 100.0),
+        (100.0, 100.5, 99.5, 100.0),
+        (99.8, 100.2, 99.2, 99.6),
+    ]
+    on_the_reference = run(
+        OneShotSell(NoParameters()),
+        rows,
+        costs=ABOVE_THE_BAND,
+        entry_zone_parity=True,
+        entry_zone_parity_basis="reference",
+    )
+    on_the_paid_price = run(
+        OneShotSell(NoParameters()), rows, costs=ABOVE_THE_BAND, entry_zone_parity=True
+    )
+
+    assert on_the_reference.entries == 1
+    assert on_the_reference.refused_entry_zone == 0
+    assert on_the_paid_price.entries == 0
+
+
 def test_the_basis_is_inert_when_the_gate_is_off() -> None:
     """Only one switch changes a measurement: the second field alone must do nothing."""
     plain = run(OneShot(NoParameters()), PNL_ROWS, costs=ABOVE_THE_BAND)

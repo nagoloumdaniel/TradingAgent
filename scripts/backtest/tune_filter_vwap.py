@@ -185,9 +185,32 @@ def measure(
     )
 
 
+def labelled_series(dataset: CandleDataset) -> tuple[list[str], list[float]]:
+    """La tendance de régime et le RSI, calculés **une fois par barre** au lieu d'une par signal.
+
+    Le recensement ne publie ces deux mesures que sur les barres qui portent un signal, mais les
+    calculer dans la boucle revenait à recalculer une moyenne sur 400 barres à chaque fois. Les
+    précalculer toutes les ramène à un seul balayage, et le coût devient linéaire au lieu de
+    l'être une fois par signal. Le résultat est identique : ce sont les mêmes fonctions, sur les
+    mêmes fenêtres.
+    """
+    series = dataset.candles
+    bars = 400
+    trends: list[str] = []
+    rsis: list[float] = []
+    for index in range(len(series)):
+        first = max(0, index - bars + 1)
+        highs = [candle.high for candle in series[first : index + 1]]
+        lows = [candle.low for candle in series[first : index + 1]]
+        closes = [candle.close for candle in series[first : index + 1]]
+        trends.append(str(trend_of(highs, lows, closes, fast=20, slow=50, atr_period=14)))
+        rsis.append(_rsi_of(series, index))
+    return trends, rsis
+
+
 def count_signals(
     dataset: CandleDataset,
-) -> tuple[dict[str, Any], dict[str, int]]:
+) -> dict[str, Any]:
     """Une passe de comptage : quels signaux existent, et ce que chaque filtre en refuserait.
 
     Aucun remplissage n'est simulé : on appelle la même évaluation que le harnais, barre par
@@ -198,6 +221,7 @@ def count_signals(
     rule = VwapPullback(frozen)
     manifest = manifest_for(dataset)
     series = dataset.candles
+    trends_all, rsis_all = labelled_series(dataset)
     total = 0
     sessions: dict[str, int] = {}
     ratios: list[float] = []
@@ -213,11 +237,13 @@ def count_signals(
             continue
         total += 1
         moment = bar.open_time
-        sessions[str(session_at(moment))] = sessions.get(str(session_at(moment)), 0) + 1
+        label = str(session_at(moment))
+        sessions[label] = sessions.get(label, 0) + 1
         by_hour[moment.hour] = by_hour.get(moment.hour, 0) + 1
         ratios.append(float(candidate.indicators.get("volume_ratio", 0.0)))
-        rsis.append(_rsi_of(series, index))
-        _tally_trend(trends, series, index, manifest.history_bars)
+        rsis.append(rsis_all[index])
+        trend = trends_all[index]
+        trends[trend] = trends.get(trend, 0) + 1
 
     above = {
         str(threshold): sum(1 for ratio in ratios if ratio >= threshold)
@@ -232,19 +258,16 @@ def count_signals(
         "volume < 1,0x": total - above["1.0"],
         "volume < 1,2x": total - above["1.2"],
     }
-    return (
-        {
-            "signals": total,
-            "sessions": sessions,
-            "by_hour": dict(sorted(by_hour.items())),
-            "volume_ratio_median": _median(ratios),
-            "volume_above": above,
-            "trend": trends,
-            "refused_by": refused,
-            "rsi_median": _median(rsis),
-        },
-        {},
-    )
+    return {
+        "signals": total,
+        "sessions": sessions,
+        "by_hour": dict(sorted(by_hour.items())),
+        "volume_ratio_median": _median(ratios),
+        "volume_above": above,
+        "trend": trends,
+        "refused_by": refused,
+        "rsi_median": _median(rsis),
+    }
 
 
 def _signal_at(
@@ -279,14 +302,17 @@ def _rsi_of(series: Sequence[Candle], index: int) -> float:
 
 
 def _tally_trend(trends: dict[str, int], series: Sequence[Candle], index: int, bars: int) -> None:
-    """La tendance du module de régime, lue **sur la même fenêtre que le harnais**.
+    """Le libellé de tendance d'une barre, gardé comme utilitaire de vérification ponctuelle.
 
-    Le harnais ne donne à la règle que `history_bars` bougies closes ; compter la tendance sur
-    tout l'historique disponible répondrait donc à une autre question, et le recensement
+    Le harnais ne donne à la règle que `history_bars` bougies closes ; lire la tendance sur tout
+    l'historique disponible répondrait donc à une autre question, et le recensement
     n'expliquerait plus les trades mesurés. Le décalage a été constaté : 72 signaux annoncés par
     une fenêtre glissante de 200 barres, 37 trades par le harnais.
+
+    Le recensement complet précalcule la série (`labelled_series`) ; cette fonction reste pour
+    répondre à une question sur une barre précise sans payer le balayage entier.
     """
-    first = index - bars + 1
+    first = max(0, index - bars + 1)
     highs = [candle.high for candle in series[first : index + 1]]
     lows = [candle.low for candle in series[first : index + 1]]
     closes = [candle.close for candle in series[first : index + 1]]
@@ -319,6 +345,20 @@ def truncate(dataset: CandleDataset, bars: int) -> CandleDataset:
     )
 
 
+def halve(dataset: CandleDataset, part: str) -> CandleDataset:
+    """La moitié `part` de la série, première ou seconde, dans l'ordre chronologique.
+
+    C'est le seul contrôle de robustesse qui reste quand on n'a qu'un marché : un filtre qui
+    améliore le PF sur la série entière mais le dégrade sur une des deux moitiés n'améliore
+    rien — il a trouvé la moitié qui lui convenait. Le seuil de sélection est plus bas ici
+    (deux moitiés au lieu d'une), mais le piège est exactement le même que celui du découpage
+    en fenêtres.
+    """
+    middle = len(dataset.candles) // 2
+    candles = dataset.candles[:middle] if part == "première" else dataset.candles[middle:]
+    return replace(dataset, dataset_id=f"{dataset.dataset_id}-{part}", candles=candles)
+
+
 def _use_utf8_when_redirected() -> None:
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
@@ -337,6 +377,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="ne garder que les N dernières bougies ; 0 = le jeu complet (défaut)",
     )
     parser.add_argument("--skip-count", action="store_true")
+    parser.add_argument(
+        "--split",
+        action="store_true",
+        help="mesurer aussi chaque variante sur chacune des deux moitiés de la série",
+    )
+    parser.add_argument(
+        "--split-only",
+        action="store_true",
+        help="ne faire que le contrôle par moitiés, tous les variants, sans le tableau complet",
+    )
     parser.add_argument("--only", default=None, help="ne mesurer qu'une variante, par son nom")
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args(argv)
@@ -364,9 +414,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "variants": {},
     }
 
-    if not args.skip_count:
+    if not args.skip_count and not args.split_only:
         print("-- passe de comptage (aucun remplissage simulé) --")
-        counts, _ = count_signals(dataset)
+        counts = count_signals(dataset)
         payload["signal_census"] = counts
         print(f"   signaux bruts : {counts['signals']}")
         for name, value in counts["volume_above"].items():
@@ -385,11 +435,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     header = (
         f"  {'variante':38} {'signaux':>7} {'trades':>6} {'réussite':>8} {'net EUR':>9} {'PF':>6}"
     )
-    print(header)
-    print("  " + "-" * (len(header) - 2))
+    if not args.split_only:
+        print(header)
+        print("  " + "-" * (len(header) - 2))
     for label, overrides in VARIANTS.items():
         if args.only is not None and label != args.only:
             continue
+        if args.split_only:
+            break
         stats, _ = measure(dataset, overrides)
         payload["variants"][label] = {**stats, "overrides": _plain(overrides)}
         print(
@@ -400,12 +453,37 @@ def main(argv: Sequence[str] | None = None) -> int:
             payload["reference_check"] = _reference_check(stats)
             print(f"   -> {payload['reference_check']}")
 
-    if args.output is not None:
+    if not args.split_only and args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(
             json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
         print(f"\nécrit : {args.output}")
+
+    if args.split or args.split_only:
+        print()
+        print("-- contrôle de robustesse : chaque moitié de la série --")
+        split_header = (
+            f"  {'variante':30} {'moitié':10} {'trades':>6} "
+            f"{'réussite':>8} {'net EUR':>9} {'PF':>6}"
+        )
+        print(split_header)
+        print("  " + "-" * (len(split_header) - 2))
+        for label, overrides in VARIANTS.items():
+            halves: dict[str, Any] = {}
+            for part in ("première", "seconde"):
+                stats, _ = measure(halve(dataset, part), overrides)
+                halves[part] = stats
+                print(
+                    f"  {label:30} {part:10} {stats['trades']:>6.0f} {stats['win_rate']:>7.1%} "
+                    f"{stats['net_eur']:>9.2f} {stats['profit_factor']:>6.3f}"
+                )
+            payload.setdefault("halves", {})[label] = halves
+        if args.output is not None:
+            args.output.write_text(
+                json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
+            print(f"\nécrit : {args.output}")
     return 0
 
 

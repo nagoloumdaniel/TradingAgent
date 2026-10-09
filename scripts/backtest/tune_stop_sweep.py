@@ -65,12 +65,28 @@ PINNED_REVISION = "bfa0e65"
 
 #: La source vivante, dont l'empreinte est enregistree dans chaque ligne de mesure.
 LIVE_SOURCE = ROOT / "src" / "tradingagent" / "strategies" / "library" / "vwap_pullback.py"
+#: Le harnais, dont l'empreinte est enregistree **aussi**.
+#:
+#: La regle n'est pas le seul fichier qui decide d'un resultat : le 2026-10-09 a 16:21, un autre
+#: axe a modifie `harness.py` (parite de la porte `entry_zone`, modele de spread) pendant que cet
+#: axe mesurait. Le drapeau ajoute est desactive par defaut, donc l'ecart attendu est nul — mais
+#: « attendu nul » n'est pas « verifie nul », et une ligne de mesure qui ne nomme pas son harnais
+#: ne permet pas de le verifier.
+HARNESS_SOURCE = ROOT / "src" / "tradingagent" / "backtest" / "harness.py"
+
+
+def digest_of(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def source_identity(live: bool) -> str:
     """L'empreinte de ce qui a ete mesure : un chiffre sans sa source n'est pas auditable."""
     path = LIVE_SOURCE if live else PINNED
-    return f"{path.name} sha256 {hashlib.sha256(path.read_bytes()).hexdigest()}"
+    return f"{path.name} sha256 {digest_of(path)}"
+
+
+def harness_identity() -> str:
+    return f"{HARNESS_SOURCE.name} sha256 {digest_of(HARNESS_SOURCE)}"
 
 
 def load_strategy_module(live: bool = False) -> Any:
@@ -805,12 +821,46 @@ def decision_core60() -> list[Arm]:
     return [catalogue[label] for label in labels]
 
 
+def decision_finish() -> list[Arm]:
+    """La fin du balayage, ordonnee par ce qui reste a decider apres les premiers resultats.
+
+    Le gradient du stop a TP 1,5/3,0 (partiel) est deja mesure pour 0,5 / 0,8 / 1,0 / 1,5 ATR, et
+    il **monte** avec le stop : 0,7422 ; 0,8926 ; 0,8861 ; 0,9314. Il manque 1,2 et 2,0 pour le
+    fermer, et c'est la premiere chose a mesurer.
+
+    Vient ensuite la famille des **objectifs lointains**, seule ou le PF approche 1,0
+    (`stop1.0_tp2.0-4.0_partiel`, PF 0,9363 sur le jeu complet) et seule que l'exploration sur
+    4 999 barres plaçait au-dessus de 1,0. C'est la derniere chance de franchir le seuil, donc
+    elle passe avant les variantes de mode de sortie, dont la comparaison est deja tranchee a
+    stop 1,5 (partiel 0,9314 contre sortie unique 0,8680).
+    """
+    catalogue = {candidate.label: candidate for candidate in decision_grid()}
+    labels = [
+        "stop1.2_tp1.5-3.0_partiel",
+        "stop2.0_tp1.5-3.0_partiel",
+        "stop1.5_tp2.0-4.0_partiel",
+        "stop2.0_tp2.0-4.0_partiel",
+        "stop1.5_tp3.0-6.0_partiel",
+        "stop1.2_tp2.0-4.0_partiel",
+        "stop0.8_tp1.5-3.0_sortie-unique",
+        "stop1.0_tp1.5-3.0_sortie-unique",
+        "stop1.2_tp1.5-3.0_sortie-unique",
+        "stop2.0_tp1.5-3.0_sortie-unique",
+        "stop0.5_tp1.5-3.0_sortie-unique",
+    ]
+    missing = [label for label in labels if label not in catalogue]
+    if missing:
+        raise SystemExit(f"libelles absents de decision_grid : {missing}")
+    return [catalogue[label] for label in labels]
+
+
 GROUPS = {
     "stage1": stage1,
     "decision_core": decision_core,
     "decision_all": decision_all,
     "decision_grid": decision_grid,
     "decision_core60": decision_core60,
+    "decision_finish": decision_finish,
     "decision_priority": decision_priority,
     "decision_second": decision_second,
     "stage2_stops": stage2_stops,
@@ -914,6 +964,32 @@ def main() -> int:
         help="filtre de sous-chaine sur le libelle, pour reprendre une serie interrompue",
     )
     parser.add_argument(
+        "--label",
+        action="append",
+        default=None,
+        help=(
+            "libelle exact a mesurer, repetable. Sert a la validation par fenetres et au "
+            "controle de harnais : contrairement a --only, qui est un filtre de sous-chaine, "
+            "il ne confond pas `..._partiel` avec `..._partiel30-70`"
+        ),
+    )
+    parser.add_argument(
+        "--spread",
+        type=float,
+        default=None,
+        help=(
+            "spread absolu impose, en points de prix. Par defaut le modele du depot "
+            "(close x 5e-5). Sert a re-mesurer les finalistes sous le spread reellement observe "
+            "sur BTCUSD (18,424 $), que le modele du depot sous-estime d'un facteur 4,5"
+        ),
+    )
+    parser.add_argument(
+        "--slippage",
+        type=float,
+        default=None,
+        help="slippage absolu impose, en points de prix ; par defaut close x 2e-5",
+    )
+    parser.add_argument(
         "--range",
         dest="span",
         default=None,
@@ -931,6 +1007,8 @@ def main() -> int:
 
     module = load_strategy_module(live=args.live)
     origin = source_identity(live=args.live)
+    harness = harness_identity()
+    print(f"== harnais : {harness} ==", flush=True)
 
     datasets = DatasetStore(args.datasets).load_all()
     if SYMBOL not in datasets:
@@ -952,13 +1030,25 @@ def main() -> int:
 
     first, last = candles[0].open_time, candles[-1].open_time
     price = candles[0].close
+    spread = round(price * 5e-5, 6) if args.spread is None else args.spread
+    slippage = round(price * 2e-5, 6) if args.slippage is None else args.slippage
     costs = CostModel(
-        spread=round(price * 5e-5, 6),
-        slippage_fixed=round(price * 2e-5, 6),
+        spread=spread,
+        slippage_fixed=slippage,
         commission_per_trade=Decimal("0.5"),
     )
+    cost_label = f"spread {costs.spread} ; slippage {costs.slippage_fixed}"
+    if args.spread is not None or args.slippage is not None:
+        cost_label += " (impose, hors modele du depot)"
+    print(f"   couts : {cost_label}", flush=True)
 
     arms = [a for a in GROUPS[args.group]() if args.only is None or args.only in a.label]
+    if args.label:
+        wanted = list(args.label)
+        arms = [a for a in arms if a.label in wanted]
+        missing = [label for label in wanted if all(a.label != label for a in arms)]
+        if missing:
+            raise SystemExit(f"libelles absents du groupe {args.group} : {missing}")
     if args.span:
         # Deux lots disjoints mesures en parallele : la machine a seize cœurs et un backtest
         # n'en occupe qu'un. La tranche est appliquee apres le filtre de libelle, et elle est
@@ -1010,6 +1100,12 @@ def main() -> int:
             row["window_first"] = first.isoformat()
             row["window_last"] = last.isoformat()
             row["source"] = origin
+            row["harness_source"] = harness
+            row["costs"] = {
+                "spread": float(costs.spread),
+                "slippage_fixed": float(costs.slippage_fixed),
+                "commission_per_trade": float(costs.commission_per_trade),
+            }
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
             handle.flush()
             print(

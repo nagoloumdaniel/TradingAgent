@@ -28,12 +28,12 @@ SOURCES: tuple[tuple[str, str, str], ...] = (
     (
         "Decision, 59 999 bougies (jeu complet) — lot 1",
         "axe-A-decision-60k.jsonl",
-        "source vivante `src/`",
+        "source vivante `fa76d2a`, harnais `338da61`, couts du depot",
     ),
     (
         "Decision, 59 999 bougies (jeu complet) — lot 2",
         "axe-A-decision-60k-b.jsonl",
-        "source vivante `src/`",
+        "source vivante `fa76d2a`, harnais `338da61`, couts du depot",
     ),
     (
         "Controle d'equivalence des sources (59 999 bougies)",
@@ -41,9 +41,19 @@ SOURCES: tuple[tuple[str, str, str], ...] = (
         "copie gelee `bfa0e65`, a rapprocher du lot 1",
     ),
     (
+        "Controle du harnais : la reference, apres la modification de `harness.py`",
+        "axe-A-harness-check.jsonl",
+        "source vivante, harnais de l'arbre de travail",
+    ),
+    (
+        "Finalistes sous le spread reellement observe (18,424 $)",
+        "axe-A-spread-observe.jsonl",
+        "source vivante, harnais de l'arbre de travail, spread impose",
+    ),
+    (
         "Validation par moities de jeu (59 999 bougies)",
         "axe-A-windows-60k.jsonl",
-        "source vivante `src/`",
+        "source vivante, harnais de l'arbre de travail",
     ),
 )
 

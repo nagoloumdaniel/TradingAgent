@@ -1,0 +1,55 @@
+== BTCUSD M15 — 59999 bougies ==
+   jeu : mt5-BTCUSD-M15-2026-10-09
+   règle gelée : vwap_pullback_pinned_bfa0e65.py
+   paramètres : {'ema_fast': 20, 'ema_slow': 50, 'vwap_period': 20, 'atr_period': 14, 'stop_atr_multiplier': 1.5, 'first_target_rr': 1.5, 'final_target_rr': 3.0, 'pullback_atr': 0.4, 'entry_zone_atr': 0.1, 'min_slope_atr': 0.005, 'slope_window': 10}
+
+  scénario                                   trades réussite   net EUR      PF  refusés
+  -------------------------------------------------------------------------------------
+  référence avec le spread observé (18,424 $)    886   40.3%   -763.60  0.8693        0
+
+  -- référence avec le spread observé (18,424 $) : verdict de la porte, entrée par entrée --
+     entrées examinées      : 886 (non appariées 0, reconstructions incohérentes 0)
+     refusées               : 82 (9.3%) — net -391.17 EUR, réussite 30.5%, PF 0.4114, moyenne -4.77 EUR
+     acceptées              : 804 — net -372.43 EUR, réussite 41.3%, PF 0.9281, moyenne -0.46 EUR
+     dépassement médian     : +2.18 USD (max +11.31)
+     bande / spread (médian): 2.62x pour un spread de 18.4240 USD
+     règle à l'instant du signal : 147 refus (16.6%)
+     ask entier (fidèle)         : 189 refus (21.3%), net -26.73 EUR, PF 0.9772
+     option B (bande décalée)    : 0 refus (0.0%), net +0.00 EUR
+     courbe de largeur (entrées inchangées) :
+       0.05 ATR ->  482 gardées, net   -423.66 EUR, PF 0.8669
+       0.10 ATR ->  804 gardées, net   -372.43 EUR, PF 0.9281
+       0.15 ATR ->  871 gardées, net   -725.16 EUR, PF 0.8738
+       0.20 ATR ->  880 gardées, net   -705.26 EUR, PF 0.8780
+       0.25 ATR ->  883 gardées, net   -740.71 EUR, PF 0.8727
+       0.30 ATR ->  884 gardées, net   -737.46 EUR, PF 0.8732
+       0.40 ATR ->  884 gardées, net   -737.46 EUR, PF 0.8732
+  porte allumée avec le spread observé          807   41.0%   -422.48  0.9191      169
+  référence, porte éteinte                      883   40.2%   -392.74  0.9314        0
+   -> référence : CONFORME
+
+  -- référence, porte éteinte : verdict de la porte, entrée par entrée --
+     entrées examinées      : 883 (non appariées 0, reconstructions incohérentes 0)
+     refusées               : 5 (0.6%) — net -40.07 EUR, réussite 20.0%, PF 0.1162, moyenne -8.01 EUR
+     acceptées              : 878 — net -352.68 EUR, réussite 40.3%, PF 0.9379, moyenne -0.40 EUR
+     dépassement médian     : +2.21 USD (max +4.73)
+     bande / spread (médian): 9.19x pour un spread de 5.2541 USD
+     règle à l'instant du signal : 4 refus (0.5%)
+     ask entier (fidèle)         : 11 refus (1.2%), net -10.22 EUR, PF 0.8485
+     option B (bande décalée)    : 0 refus (0.0%), net +0.00 EUR
+     courbe de largeur (entrées inchangées) :
+       0.05 ATR ->  829 gardées, net   -231.69 EUR, PF 0.9566
+       0.10 ATR ->  878 gardées, net   -352.68 EUR, PF 0.9379
+       0.15 ATR ->  881 gardées, net   -369.21 EUR, PF 0.9353
+       0.20 ATR ->  882 gardées, net   -380.82 EUR, PF 0.9334
+       0.25 ATR ->  883 gardées, net   -392.74 EUR, PF 0.9314
+       0.30 ATR ->  883 gardées, net   -392.74 EUR, PF 0.9314
+       0.40 ATR ->  883 gardées, net   -392.74 EUR, PF 0.9314
+  porte allumée (prix payé)                     878   40.2%   -369.96  0.9350        6
+  option A (0,2 ATR) avec le spread observé     880   40.5%   -705.25  0.8780       11
+  option A (0,3 ATR) avec le spread observé     884   40.4%   -737.45  0.8732        3
+  option B avec le spread observé               711   41.2%   -341.17  0.9252      358
+  option B : bande décalée du spread            865   40.7%   -251.57  0.9547       36
+
+écrit : docs\research\execution-diagnostic\tools\parity-entry-zone-all.json
+référence : CONFORME

@@ -1,0 +1,29 @@
+== BTCUSD M15 — 59999 bougies ==
+   jeu : mt5-BTCUSD-M15-2026-10-09
+   règle gelée : vwap_pullback_pinned_bfa0e65.py
+   paramètres : {'ema_fast': 20, 'ema_slow': 50, 'vwap_period': 20, 'atr_period': 14, 'stop_atr_multiplier': 1.5, 'first_target_rr': 1.5, 'final_target_rr': 3.0, 'pullback_atr': 0.4, 'entry_zone_atr': 0.1, 'min_slope_atr': 0.005, 'slope_window': 10}
+
+  scénario                                   trades réussite   net EUR      PF  refusés
+  -------------------------------------------------------------------------------------
+  référence avec le spread observé (18,424 $)    886   40.3%   -763.60  0.8693        0
+
+  -- référence avec le spread observé (18,424 $) : verdict de la porte, entrée par entrée --
+     entrées examinées      : 886 (non appariées 0, reconstructions incohérentes 0)
+     refusées               : 82 (9.3%) — net -391.17 EUR, réussite 30.5%, PF 0.4114, moyenne -4.77 EUR
+     acceptées              : 804 — net -372.43 EUR, réussite 41.3%, PF 0.9281, moyenne -0.46 EUR
+     dépassement médian     : +2.18 USD (max +11.31)
+     bande / spread (médian): 2.62x pour un spread de 18.4240 USD
+     règle à l'instant du signal : 147 refus (16.6%)
+     ask entier (fidèle)         : 189 refus (21.3%), net -26.73 EUR, PF 0.9772
+     option B (bande décalée)    : 0 refus (0.0%), net +0.00 EUR
+     courbe de largeur (entrées inchangées) :
+       0.05 ATR ->  482 gardées, net   -423.66 EUR, PF 0.8669
+       0.10 ATR ->  804 gardées, net   -372.43 EUR, PF 0.9281
+       0.15 ATR ->  871 gardées, net   -725.16 EUR, PF 0.8738
+       0.20 ATR ->  880 gardées, net   -705.26 EUR, PF 0.8780
+       0.25 ATR ->  883 gardées, net   -740.71 EUR, PF 0.8727
+       0.30 ATR ->  884 gardées, net   -737.46 EUR, PF 0.8732
+       0.40 ATR ->  884 gardées, net   -737.46 EUR, PF 0.8732
+  porte au prix réel (ask entier), spread observé    716   39.7%   -720.40  0.8487      368
+
+écrit : docs\research\execution-diagnostic\tools\parity-entry-zone-production.json
