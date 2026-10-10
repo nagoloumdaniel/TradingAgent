@@ -9,6 +9,7 @@ from typing import Any
 from tradingagent.core.market import Candle
 from tradingagent.core.signal import InvalidSignalError, SignalCandidate
 from tradingagent.core.timeframe import Timeframe
+from tradingagent.indicators.entry_filter import EntryVerdict
 from tradingagent.strategies.base import Strategy, StrategyContext
 from tradingagent.strategies.manifest import StrategyManifest
 
@@ -19,6 +20,13 @@ class OutcomeKind(StrEnum):
     INSUFFICIENT_HISTORY = "INSUFFICIENT_HISTORY"
     INVALID_SIGNAL = "INVALID_SIGNAL"
     STRATEGY_EXCEPTION = "STRATEGY_EXCEPTION"
+    #: La stratégie a produit un candidat, et le filtre d'entrée du manifeste l'a refusé.
+    #:
+    #: Distinct de `NO_SIGNAL`, et ce n'est pas une nuance : « la règle n'a rien vu » et
+    #: « le filtre a dit non » sont deux faits différents, et l'opérateur qui lit
+    #: « pas de signal » là où le filtre a parlé n'a aucun moyen de savoir que la porte est
+    #: fermée. Le motif voyage dans `detail`, comme pour les autres refus.
+    FILTERED = "FILTERED"
 
     @property
     def is_strategy_error(self) -> bool:
@@ -30,6 +38,10 @@ class Outcome:
     kind: OutcomeKind
     candidate: SignalCandidate | None = None
     detail: str = ""
+    #: Le verdict du filtre d'entrée quand il a été consulté, `None` quand le manifeste n'en
+    #: déclare aucun. C'est un **avis**, jamais un signal : un `PASS` signifie « le filtre n'a
+    #: pas refusé », pas « il y a une entrée ».
+    filter_verdict: EntryVerdict | None = None
 
 
 def evaluate(
@@ -42,6 +54,12 @@ def evaluate(
     """The only way to run a strategy, in production and in backtest alike.
 
     Each series must be sorted by open time; only the retained window is checked.
+
+    Le filtre d'entrée du manifeste est appliqué **ici**, et nulle part ailleurs : le harnais
+    de backtest et le générateur de production appellent tous deux cette fonction, donc les
+    deux voient la même porte par construction. Un filtre appliqué séparément d'un côté et de
+    l'autre finirait par diverger, et un backtest qui accepte ce que la production refuse ne
+    mesure plus la stratégie exécutée.
     """
     if manifest.strategy_id != strategy.strategy_id:
         raise ValueError(
@@ -92,6 +110,21 @@ def evaluate(
             OutcomeKind.INVALID_SIGNAL,
             detail=f"expected SignalCandidate or None, got {type(result).__name__}",
         )
+
+    policy = manifest.entry_policy()
+    if policy.active:
+        # La mesure porte sur la fenêtre que la stratégie vient de lire, et sur l'instant de
+        # la décision. Aucune barre postérieure n'entre dans le verdict : le filtre ne peut pas
+        # en savoir plus que la stratégie au moment où elle a parlé.
+        decision = policy.decide(time=evaluated_at, candles=windows[manifest.primary_timeframe])
+        if not decision.passed:
+            return Outcome(
+                OutcomeKind.FILTERED,
+                detail=decision.detail,
+                filter_verdict=decision.verdict,
+            )
+        return Outcome(OutcomeKind.SIGNAL, candidate=result, filter_verdict=decision.verdict)
+
     return Outcome(OutcomeKind.SIGNAL, candidate=result)
 
 

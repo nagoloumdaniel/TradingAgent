@@ -703,7 +703,7 @@ def test_a_keyboard_becomes_an_inline_keyboard() -> None:
     assert not hasattr(markup, "resize_keyboard"), "a reply keyboard would stick to the screen"
 
 
-def test_the_bot_listens_for_button_clicks() -> None:
+def test_the_bot_listens_for_button_clicks(engine: Engine) -> None:
     from telegram import Update
 
     from tradingagent.notify.telegram_app import ALLOWED_UPDATES, build_application
@@ -711,7 +711,9 @@ def test_the_bot_listens_for_button_clicks() -> None:
     assert Update.MESSAGE in ALLOWED_UPDATES
     assert Update.CALLBACK_QUERY in ALLOWED_UPDATES
 
-    application = build_application("123456:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawE", cast(Any, None))
+    # A real service, because the application now also carries the menu hook (`post_init`):
+    # the menu is derived from the service's router, so `build_application` needs one.
+    application = build_application("123456:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawE", service(engine))
     kinds = {type(handler).__name__ for handler in application.handlers[0]}
     assert "CallbackQueryHandler" in kinds
     assert "MessageHandler" in kinds

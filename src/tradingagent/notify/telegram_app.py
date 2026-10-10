@@ -33,6 +33,7 @@ from tradingagent.config.errors import ConfigError
 from tradingagent.config.redaction import install_secret_redaction
 from tradingagent.config.settings import load_bot_settings
 from tradingagent.notify.access import AccessGate
+from tradingagent.notify.bot_menu import menu_post_init
 from tradingagent.notify.commands import CommandRouter, status_handler
 from tradingagent.notify.read_commands import (
     gates_handler,
@@ -127,7 +128,12 @@ def callback_handler(service: CommandService) -> Handler:
 
 
 def build_application(token: str, service: CommandService) -> Application:
-    application = ApplicationBuilder().token(token).build()
+    # `post_init` is where the menu is published: after the bot is initialized, before the
+    # first update is fetched. Never here and now — building an `Application` must not touch
+    # the network, or every offline test of this repository would start calling Telegram.
+    application = (
+        ApplicationBuilder().token(token).post_init(menu_post_init(service.router)).build()
+    )
     # Every text message, commands or not: strangers must be seen to be recorded.
     application.add_handler(MessageHandler(filters.TEXT, message_handler(service)))
     application.add_handler(CallbackQueryHandler(callback_handler(service)))

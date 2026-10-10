@@ -8,11 +8,23 @@
 # reel n'est en jeu. `max_mode: DEMO` est un plafond borne : il ne peut pas atteindre le compte
 # reel, qui exigerait `max_mode: LIVE` ET les neuf portes franchies (RM-016, RM-017).
 #
-# Chiffres de validation qui manquent, a la date de la derogation (11 999 bougies M15) :
-#   * profit factor net (1x couts) mesure 0,92 (BTC) et 1,04 (or), exige 1,20 ; a 2x couts
-#     (porte stress) il retombe a 0,81 (BTC) et 0,90 (or) ;
+# Chiffres de validation qui manquent. RELEVE LE 2026-10-10 : les valeurs publiees ici le
+# 2026-10-08 (0,92 BTC et 1,04 or) etaient FAUSSES dans le sens favorable, et c'est la grandeur
+# meme qui justifie la derogation. Deux causes, toutes deux verifiees :
+#   1. elles venaient d'une campagne anterieure au correctif du modele de spread (commit
+#      ec29b38, « le modele de spread etait faux de quatre et demi, et il etait copie douze
+#      fois ») : le spread de l'or est passe de 0,233 a 1,044 $ par lecon, ce qui suffit a faire
+#      basculer le resultat ;
+#   2. elles ne correspondaient pas a la porte `costs` des rapports qu'elles invoquaient.
+# Chiffres MESURES, lus dans docs/research/stats/ (script scripts/backtest/current_stats.py,
+# jeu gelé de 11 999 bougies M15, spread observe, couts du depot) :
+#   * profit factor net, fenetre de validation : 0,8391 (BTC, 47 operations, -53,82 EUR) et
+#     0,8841 (or, 38 operations, -32,15 EUR), exige 1,20 ;
+#     en entraînement : 0,8124 (BTC, 209 operations) et 0,6255 (or, 106 operations) ;
 #   * p-value minimale 0,3497, contre la ligne de Bonferroni 0,016667, soit 21 fois au-dessus ;
 #   * 0 survivant sur 6 apres correction du taux de fausses decouvertes.
+# La derogation reste en place et n'a jamais repose sur le franchissement des seuils : elle
+# repose sur le fait que le COMPTE DE DEMONSTRATION n'engage aucun argent reel.
 #
 # Le catalogue refuse tout manifeste au-dessus de SIGNAL qui ne porte pas ce bandeau :
 # l'escalade silencieuse est impossible (voir docs/decisions/2026-10-08-mode-ceiling-derogation.md).

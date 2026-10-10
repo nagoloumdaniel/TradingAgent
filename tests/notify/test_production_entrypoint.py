@@ -111,6 +111,11 @@ class _FakeUpdater:
 
 
 class _FakeApplication:
+    #: `Application.post_init` carries the menu hook (see `tests/notify/test_bot_menu.py`):
+    #: `app.run` runs it between `initialize` and `start`, because PTB only runs it from
+    #: `run_polling`. This double has no menu to publish, so it mirrors an empty hook.
+    post_init: Any = None
+
     def __init__(self) -> None:
         self.updater = _FakeUpdater()
 

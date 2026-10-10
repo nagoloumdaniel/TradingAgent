@@ -67,6 +67,11 @@
 
 {{ pager(listing_page, "Pagination des stratégies") }}
 
+<p class="muted">Net : les montants viennent de <code>trades.pnl_eur</code>, commission et swap
+   du courtier déjà déduits pour un trade passé chez lui (MT5 cumule
+   <code>profit + swap + commission</code>) ; un trade papier n'en porte aucun. Le tableau de
+   bord ne recalcule ni les uns ni les autres.</p>
+
 <h2>Validation et backtests</h2>
 <p class="muted">Les mêmes dix références que ci-dessus : le détail suit la page, il ne
    parcourt pas tout le registre.</p>

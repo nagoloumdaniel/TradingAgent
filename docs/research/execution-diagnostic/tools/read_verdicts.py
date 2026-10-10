@@ -1,6 +1,6 @@
 """Résumé lisible d'un JSON de parité : les compteurs de la porte, par base de verdict.
 
-    uv run python docs/research/execution-diagnostic/tools/read_verdicts.py [chemin.json]
+uv run python docs/research/execution-diagnostic/tools/read_verdicts.py [chemin.json]
 """
 
 from __future__ import annotations
@@ -42,18 +42,22 @@ def main() -> int:
         if not key.startswith("verdicts_"):
             continue
         print(f"\n=== {key} ===")
-        print(f"  entrées examinées {block['trades_examined']} "
-              f"(non appariées {block['unmatched_signals']}, "
-              f"incohérentes {block['reconstruction_mismatches']}); "
-              f"bande/spread médian {block['band_over_spread_median']:.2f}x, "
-              f"spread {block['spread_usd']:.4f} USD")
+        print(
+            f"  entrées examinées {block['trades_examined']} "
+            f"(non appariées {block['unmatched_signals']}, "
+            f"incohérentes {block['reconstruction_mismatches']}); "
+            f"bande/spread médian {block['band_over_spread_median']:.2f}x, "
+            f"spread {block['spread_usd']:.4f} USD"
+        )
         print(line("refusées (paid)", block["refused"]))
         print(line("acceptées (paid)", block["taken"]))
         print(line("ask entier (production)", block["production_basis"]["refused"]))
         print(line("instant du signal", block["structural_rule"]["refused"]))
         print(line("option B (reference)", block["reference_basis"]["refused"]))
-        print(f"  dépassement médian des refus : {block['refused_overshoot_usd_median']:+.2f} USD "
-              f"(max {block['refused_overshoot_usd_max']:+.2f})")
+        print(
+            f"  dépassement médian des refus : {block['refused_overshoot_usd_median']:+.2f} USD "
+            f"(max {block['refused_overshoot_usd_max']:+.2f})"
+        )
         print("  courbe de largeur (entrées inchangées) :")
         for width, summary in block["width_curve"].items():
             print(line(f"    {width} ATR", summary))

@@ -1,0 +1,35 @@
+Sorties brutes des commandes de qualité, arbre final, 2026-10-10 (mesure Stream B, task-2).
+Rejouer : les quatre commandes ci-dessous, depuis la racine du dépôt.
+
+================================================================================
+$ uv run ruff check .
+All checks passed!
+
+================================================================================
+$ uv run ruff format --check .
+2 files would be reformatted, 456 files already formatted
+  --> scripts\backtest\tune_stop_modes.py:28:25
+  --> scripts\backtest\tune_stop_report.py:220:29
+
+Les deux fichiers signalés appartiennent à un autre flux. Une première exécution de
+`ruff format .` les avait reformatés ; cette modification a été annulée
+(`git checkout -- scripts/backtest/tune_stop_modes.py scripts/backtest/tune_stop_report.py`)
+pour ne pas écrire dans le travail d'un autre. Tous les fichiers de ce lot sont conformes.
+
+================================================================================
+$ uv run mypy
+Success: no issues found in 361 source files
+
+================================================================================
+$ uv run pytest -q
+SKIPPED [1] tests\data\test_mt5_live.py:38: set RUN_MT5_LIVE=1
+SKIPPED [1] tests\data\test_mt5_live.py:76: set RUN_MT5_LIVE=1
+SKIPPED [1] tests\signals\test_lifecycle.py:165: the row lock that serializes racers is a PostgreSQL guarantee
+SKIPPED [5] tests\storage\test_constraints.py:276: SQLite has no TRUNCATE
+SKIPPED [1] tests\storage\test_migrations.py:81: PostgreSQL only
+2789 passed, 9 skipped in 350.85s (0:05:50)
+
+Aucun échec. La référence de départ annoncée était de 2 649 passed, 9 skipped : le total a
+augmenté parce que d'autres flux ont ajouté des tests en parallèle, et ce lot en ajoute 56
+(tests/indicators/test_entry_filter.py, tests/strategies/test_entry_filter_evaluation.py,
+tests/backtest/test_entry_filter_parity.py).

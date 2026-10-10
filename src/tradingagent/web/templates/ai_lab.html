@@ -35,6 +35,72 @@
     <div class="note">exécutions enregistrées</div></div>
 </div>
 
+{# Ce que l'IA a produit ne dit pas si elle a répondu. Le 2026-10-10, les quatre compteurs
+   ci-dessus étaient à zéro pendant que `ai_calls` portait 22 appels, tous refusés par le
+   fournisseur (« 402 Insufficient Balance ») : une table vide se lisait comme une semaine
+   calme. Cette section lit le journal des appels, et rien d'autre. #}
+<h2>Appels au modèle</h2>
+<p class="muted">Tous marchés confondus : une clé refusée ou un solde épuisé ne dépend pas d'un
+   instrument. Lu dans <code>ai_calls</code>, la table que la couche IA écrit à chaque appel —
+   aucun appel n'est simulé pour remplir ce tableau.</p>
+
+{% if ai_calls.never_called %}
+  <div class="banner warn">Aucun appel au modèle n'a été enregistré : la couche IA n'a rien
+    évalué. Les quatre compteurs ci-dessus disent ce qu'elle a produit, pas si elle a répondu.</div>
+{% elif ai_calls.failed %}
+  <div class="banner bad">
+    {{ ai_calls.failed }} appel(s) sur {{ ai_calls.calls }} n'ont pas abouti : l'IA n'a pas pu
+    évaluer ces signaux, et la décision est restée aux règles déterministes.
+    {% if 'shadow' in ai_calls.filters %}En mode <code>shadow</code>, un verdict ne bloque de
+    toute façon jamais le signal.{% endif %}
+    Dernier message du fournisseur : <code>{{ ai_calls.failures[0].error }}</code>
+  </div>
+{% else %}
+  <div class="banner ok">{{ ai_calls.calls }} appel(s) au modèle, toutes les réponses
+    exploitables.</div>
+{% endif %}
+
+<div class="cards">
+  <div class="card"><div class="label">Appels</div><div class="value">{{ ai_calls.calls }}</div>
+    <div class="note">lignes de <code>ai_calls</code></div></div>
+  <div class="card"><div class="label">Réponses exploitables</div><div class="value">{{ ai_calls.answered }}</div>
+    <div class="note">{% if ai_calls.calls and not ai_calls.answered %}Aucune réponse exploitable{% else %}verdict enregistré{% endif %}</div></div>
+  <div class="card"><div class="label">Sans réponse</div><div class="value">{{ ai_calls.failed }}</div>
+    <div class="note">appel(s) sans verdict</div></div>
+  <div class="card"><div class="label">Verdicts</div><div class="value sm">{{ ai_calls.approved }} approuvé(s) · {{ ai_calls.rejected }} refusé(s)</div>
+    <div class="note">ce que le modèle a répondu</div></div>
+  <div class="card"><div class="label">Coût cumulé</div><div class="value sm">{{ display.money(ai_calls.cost_eur) }}</div>
+    <div class="note">somme de <code>cost_eur</code>, appels facturés seulement</div></div>
+  <div class="card"><div class="label">Dernier appel</div><div class="value sm">{{ display.precise(ai_calls.last_called_at) if ai_calls.last_called_at else "jamais" }}</div>
+    <div class="note">heure UTC</div></div>
+  <div class="card"><div class="label">Mode effectif</div><div class="value sm">{{ ai_calls.filters | join(', ') or "—" }}</div>
+    <div class="note">lu dans <code>ai_calls</code>, pas dans la configuration</div></div>
+  <div class="card"><div class="label">Modèles</div><div class="value sm">{{ ai_calls.models | join(', ') or "—" }}</div>
+    <div class="note">tels qu'enregistrés</div></div>
+</div>
+
+{% if ai_calls.failed %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Le (UTC)</th><th>Modèle</th><th>Mode</th><th class="num">Latence</th>
+             <th>Message du fournisseur</th></tr></thead>
+  <tbody id="ai-failures-body">
+    {% for failure in ai_calls.failures %}
+      <tr>
+        <td>{{ display.precise(failure.called_at) }}</td>
+        <td>{{ failure.model }}</td>
+        <td>{{ failure.ai_filter }}</td>
+        <td class="num">{{ display.milliseconds(failure.latency_ms) }}</td>
+        <td><code>{{ failure.error }}</code></td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted">Les {{ ai_calls.failures | length }} échec(s) le(s) plus récent(s) sur
+   {{ ai_calls.failed }}. Le message est celui du fournisseur, recopié tel quel.</p>
+{% endif %}
+
 <h2>Analyses</h2>
 <p class="muted">Marché <strong>{{ lab.analyses.market }}</strong> ·
    {{ lab.analyses.showing }}.</p>

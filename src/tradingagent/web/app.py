@@ -52,7 +52,13 @@ from tradingagent.reporting.exports import (
 from tradingagent.storage.engine import create_database_engine
 from tradingagent.web import format as display
 from tradingagent.web import paging, queries
-from tradingagent.web.auth import ACCESS_ENV_VAR, SESSION_COOKIE, AccessControl, configured_token
+from tradingagent.web.auth import (
+    ACCESS_ENV_VAR,
+    SESSION_COOKIE,
+    AccessControl,
+    configured_token,
+    exposure_problem,
+)
 from tradingagent.web.sse import SSE_HEADERS, EventStream
 from tradingagent.web.views import (
     ALERT_COLUMNS,
@@ -517,6 +523,10 @@ def create_app(
                 validations_page=paging.page_number(validations),
                 backtests_page=paging.page_number(backtests),
             ),
+            # The journal of the model calls, read from `ai_calls`: without it an empty
+            # laboratory and a filter that never answered look exactly the same. Deliberately
+            # not scoped by market — a refused key or an empty balance is not an instrument.
+            ai_calls=queries.ai_call_health(engine),
         )
 
     @app.get("/risk", response_class=HTMLResponse)
@@ -800,7 +810,14 @@ def _parse(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="tradingagent-web", description="Tableau de bord de monitoring (lecture seule)"
     )
-    parser.add_argument("--host", default=DEFAULT_HOST, help="adresse d'écoute (locale par défaut)")
+    parser.add_argument(
+        "--host",
+        default=DEFAULT_HOST,
+        help=(
+            "adresse d'écoute (locale par défaut ; toute autre exige "
+            f"{ACCESS_ENV_VAR}, sinon le démarrage est refusé)"
+        ),
+    )
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="port d'écoute")
     parser.add_argument(
         "--interval",
@@ -825,15 +842,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ConfigError as error:
         print(error, file=sys.stderr)
         return 2
-    engine = create_database_engine(settings.database_url.get_secret_value())
-    reports_dir = resolve_ea_reports_dir(
-        Path(args.ea_reports_dir) if args.ea_reports_dir else None, env_file=ENV_FILE
-    )
     # The token comes from the same `.env` as everything else. Reading it from `os.environ`
     # alone would have left the dashboard unprotected while the operator believed otherwise:
     # pydantic-settings parses `.env` into a model, it does not export it to the process.
     declared = settings.tradingagent_web_token
     access_token = declared.get_secret_value() if declared is not None else None
+    # Checked before the database is opened: a dashboard that must not be published should
+    # not read a row either. Without a token the bind address IS the access control, so a
+    # routable one is refused outright rather than warned about.
+    exposure = exposure_problem(args.host, access_token)
+    if exposure is not None:
+        print(exposure, file=sys.stderr)
+        return 2
+    engine = create_database_engine(settings.database_url.get_secret_value())
+    reports_dir = resolve_ea_reports_dir(
+        Path(args.ea_reports_dir) if args.ea_reports_dir else None, env_file=ENV_FILE
+    )
     try:
         uvicorn.run(
             create_app(

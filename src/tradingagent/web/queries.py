@@ -73,6 +73,7 @@ from tradingagent.storage.halts import HaltStore
 from tradingagent.storage.models import (
     AccountSnapshotRow,
     AiAnalysisRow,
+    AiCallRow,
     AiProposalRow,
     BacktestRunRow,
     CandleRow,
@@ -1845,6 +1846,110 @@ def ai_lab(engine: Engine) -> AiLab:
         proposals=ai_proposals(engine),
         validations=validation_runs(engine),
         backtests=backtest_runs(engine),
+    )
+
+
+# How many failures the laboratory displays. The count is never bounded — only the list is.
+AI_FAILURES_SHOWN = 5
+
+
+@dataclass(frozen=True)
+class AiCallFailureView:
+    """One call the model never answered, with the provider's own message."""
+
+    called_at: datetime
+    model: str
+    ai_filter: str
+    latency_ms: int | None
+    error: str
+
+
+@dataclass(frozen=True)
+class AiCallHealth:
+    """What the AI layer really did, read from ``ai_calls`` — never from a configuration.
+
+    The laboratory's four lists are about what the AI *produced*: analyses, proposals,
+    validations, backtests. On 2026-10-10 all four were empty while the table held 22 calls
+    that had every one of them failed with ``402 Insufficient Balance``. Counts of output
+    cannot show that; the call journal can. ``answered + failed == calls`` by construction, so
+    the page can never present a silent hole as a healthy zero.
+    """
+
+    calls: int
+    answered: int
+    approved: int
+    rejected: int
+    failed: int
+    cost_eur: Decimal
+    last_called_at: datetime | None
+    filters: tuple[str, ...]
+    models: tuple[str, ...]
+    failures: tuple[AiCallFailureView, ...]
+
+    @property
+    def never_called(self) -> bool:
+        """No call at all: nothing was verified, so nothing is declared."""
+        return self.calls == 0
+
+    @property
+    def healthy(self) -> bool:
+        """At least one call, and not one failure. Silence is not health."""
+        return self.calls > 0 and self.failed == 0
+
+
+def ai_call_health(engine: Engine, *, failures_shown: int = AI_FAILURES_SHOWN) -> AiCallHealth:
+    """The AI layer's own journal: how many calls, how many answers, how many refusals.
+
+    ``filters`` and ``models`` are the values actually recorded, not the configured ones: the
+    page must show the mode that ran, not the mode someone meant to run. The euro cost is
+    summed in Python — ``cost_eur`` is an exact decimal stored as text on SQLite, where a SQL
+    ``sum`` would concatenate strings rather than add amounts.
+    """
+    with Session(engine) as session:
+        counts: dict[str | None, int] = {
+            verdict: int(total)
+            for verdict, total in session.execute(
+                select(AiCallRow.verdict, func.count()).group_by(AiCallRow.verdict)
+            ).all()
+        }
+        amounts = session.scalars(select(AiCallRow.cost_eur)).all()
+        last_called_at = session.scalar(select(func.max(AiCallRow.called_at)))
+        models = tuple(sorted(session.scalars(select(AiCallRow.model).distinct()).all()))
+        filters = tuple(
+            sorted(
+                str(value)
+                for value in session.scalars(select(AiCallRow.ai_filter).distinct()).all()
+                if value is not None
+            )
+        )
+        unanswered = session.scalars(
+            select(AiCallRow)
+            .where(AiCallRow.verdict.is_(None))
+            .order_by(desc(AiCallRow.called_at), desc(AiCallRow.id))
+            .limit(max(0, failures_shown))
+        ).all()
+        failures = tuple(
+            AiCallFailureView(
+                called_at=row.called_at,
+                model=row.model,
+                ai_filter=str(row.ai_filter),
+                latency_ms=row.latency_ms,
+                error=row.error or "aucun message enregistré",
+            )
+            for row in unanswered
+        )
+    answered = sum(total for verdict, total in counts.items() if verdict is not None)
+    return AiCallHealth(
+        calls=sum(counts.values()),
+        answered=answered,
+        approved=counts.get("approved", 0),
+        rejected=counts.get("rejected", 0),
+        failed=counts.get(None, 0),
+        cost_eur=sum((amount for amount in amounts if amount is not None), Decimal(0)),
+        last_called_at=last_called_at,
+        filters=filters,
+        models=models,
+        failures=failures,
     )
 
 

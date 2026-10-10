@@ -142,6 +142,13 @@ class BacktestResult:
     #: Entries `entry_zone_parity` refused because the price paid fell outside the band.
     #: Zero unless the gate is on: it counts a refusal the harness previously did not model.
     refused_entry_zone: int = 0
+    #: Signals the manifest's entry filter refused (session or volatility). Zero unless the
+    #: manifest declares `entry_filter`: without one, `evaluate` returns what it always did.
+    #:
+    #: Counted separately from `signals` on purpose: a filtered signal is a decision the rule
+    #: actually made, and folding it into "no signal" would make a closed door indistinguishable
+    #: from an empty market.
+    filtered_signals: int = 0
 
 
 @dataclass
@@ -206,7 +213,7 @@ def run_backtest(
 
     decisions = signals = entries = expired_signals = 0
     skipped_no_room = invalid_signals = insufficient_history = forced_closures = 0
-    refused_entry_zone = 0
+    refused_entry_zone = filtered_signals = 0
     strategy_errors: list[str] = []
     pending: list[_PendingEntry] = []
     open_positions: list[_Position] = []
@@ -279,6 +286,11 @@ def run_backtest(
         if outcome.kind is OutcomeKind.STRATEGY_EXCEPTION:
             strategy_errors.append(outcome.detail)
             continue
+        if outcome.kind is OutcomeKind.FILTERED:
+            # The manifest's entry filter said no. The signal is counted where it belongs --
+            # with the decisions, not with the empty bars -- and it never reaches `pending`.
+            filtered_signals += 1
+            continue
         if outcome.kind is not OutcomeKind.SIGNAL or outcome.candidate is None:
             continue
 
@@ -320,6 +332,7 @@ def run_backtest(
         strategy_errors=tuple(strategy_errors),
         forced_closures=forced_closures,
         refused_entry_zone=refused_entry_zone,
+        filtered_signals=filtered_signals,
     )
 
 

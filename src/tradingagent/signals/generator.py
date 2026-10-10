@@ -32,6 +32,9 @@ class GenerationStatus(StrEnum):
     RECORDED = "recorded"
     DUPLICATE = "duplicate"
     NO_SIGNAL = "no_signal"
+    #: La règle a produit un candidat et le filtre d'entrée du manifeste l'a refusé. Distinct
+    #: de `NO_SIGNAL` : c'est la seule façon de savoir, après coup, que la porte était fermée.
+    FILTERED = "filtered"
     SKIPPED = "skipped"
     INSUFFICIENT_HISTORY = "insufficient_history"
     STRATEGY_ERROR = "strategy_error"
@@ -184,6 +187,21 @@ class SignalGenerator:
             )
         if outcome.kind.is_strategy_error:
             return self._strategy_failed(ref, symbol, trigger, now, outcome.detail)
+
+        if outcome.kind is OutcomeKind.FILTERED:
+            # Le filtre d'entrée du manifeste a refusé un candidat que la stratégie avait
+            # produit. Sans cet événement, la trace serait indiscernable d'un marché sans
+            # signal : l'opérateur lirait « pas de signal » là où une porte est fermée.
+            self._event(
+                "entry_filtered",
+                Severity.INFO,
+                ref,
+                symbol,
+                trigger,
+                now,
+                outcome.detail,
+            )
+            return Generation(ref, symbol, GenerationStatus.FILTERED, detail=outcome.detail)
 
         self._failures.pop((ref, symbol), None)
         if outcome.candidate is None:

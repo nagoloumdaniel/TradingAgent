@@ -8,6 +8,7 @@ One signal produces at most one order, one position and one trade: the chains be
 that, so ``trade_detail`` keyed on a signal id is unambiguous.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -16,7 +17,7 @@ from typing import Any
 from sqlalchemy import Connection, Engine, insert, select
 
 from tradingagent.core.market import Direction
-from tradingagent.core.mode import TradingMode
+from tradingagent.core.mode import AiFilter, TradingMode
 from tradingagent.core.states import (
     AnalysisKind,
     ExecutionEventKind,
@@ -36,6 +37,7 @@ from tradingagent.storage.daily import DailyPerformanceStore
 from tradingagent.storage.models import (
     AccountSnapshotRow,
     AiAnalysisRow,
+    AiCallRow,
     AiProposalRow,
     BacktestRunRow,
     CandleRow,
@@ -677,3 +679,58 @@ def _one(connection: Connection, table: Any, **values: Any) -> int:
     """Insert one row and return its primary key. ``table`` is free of naming collisions."""
     statement = insert(table).values(**values).returning(table.id)
     return int(connection.execute(statement).scalar_one())
+
+
+@dataclass(frozen=True)
+class AiCallSpec:
+    """One recorded model call, exactly as the runtime would have written it.
+
+    `verdict` is ``None`` when the provider never answered — the shape of a failure. The
+    default error is the one production really recorded on 2026-10-09, verbatim.
+    """
+
+    called_at: datetime
+    verdict: str | None = "approved"
+    error: str | None = None
+    model: str = "deepseek-flash"
+    ai_filter: AiFilter = AiFilter.SHADOW
+    cost_eur: Decimal | None = Decimal("0.000123")
+    latency_ms: int | None = 640
+    signal_id: int | None = None
+    purpose: str = "signal_filter"
+
+
+#: The refusal the provider really returned, kept verbatim: a dashboard that shows the
+#: cause is worth more than one that shows "erreur".
+INSUFFICIENT_BALANCE = (
+    "Error code: 402 - {'error': {'message': 'Insufficient Balance "
+    "(request_id: 26302aec-c4ec-487d-8f42-6480d8c95e6c)'}}"
+)
+
+
+def add_ai_calls(engine: Engine, specs: Sequence[AiCallSpec]) -> None:
+    """Append rows to ``ai_calls``. Separate from :func:`seed` so a page test that does not
+    ask for model activity still gets an empty, honest table."""
+    with engine.begin() as connection:
+        for spec in specs:
+            answered = spec.verdict is not None
+            connection.execute(
+                insert(AiCallRow).values(
+                    signal_id=spec.signal_id,
+                    purpose=spec.purpose,
+                    model=spec.model,
+                    ai_filter=spec.ai_filter,
+                    request={"prompt": "contexte borné"} if answered else {"error": spec.error},
+                    response='{"decision": "approve"}' if answered else None,
+                    verdict=spec.verdict,
+                    error=spec.error,
+                    latency_ms=spec.latency_ms,
+                    cost_eur=spec.cost_eur if answered else None,
+                    called_at=spec.called_at,
+                )
+            )
+
+
+def a_failed_call(called_at: datetime, error: str = INSUFFICIENT_BALANCE) -> AiCallSpec:
+    """A call the provider refused: no verdict, no cost, the message kept as it came."""
+    return AiCallSpec(called_at=called_at, verdict=None, error=error, cost_eur=None, latency_ms=612)

@@ -78,6 +78,7 @@ from tradingagent.data.mt5_terminal import Mt5Terminal
 from tradingagent.data.terminal import MAGIC as BROKER_MAGIC
 from tradingagent.execution import MT5Broker, PaperBroker, PositionTracker, TradeLog
 from tradingagent.notify.access import AccessGate
+from tradingagent.notify.bot_menu import menu_post_init
 from tradingagent.notify.commands import CommandRouter, status_handler
 from tradingagent.notify.health_alerts import HealthAlerter
 from tradingagent.notify.read_commands import (
@@ -393,7 +394,14 @@ def _build_command_service(
 
 
 def _build_telegram(settings: Settings, service: CommandService) -> Application:
-    application = ApplicationBuilder().token(settings.telegram_bot_token.get_secret_value()).build()
+    # `post_init` publishes the menu (the « / » list and the persistent button) once the bot
+    # is initialized. Not a line more here: building this application happens in every test.
+    application = (
+        ApplicationBuilder()
+        .token(settings.telegram_bot_token.get_secret_value())
+        .post_init(menu_post_init(service.router))
+        .build()
+    )
     # The handler pair lives in the adapter, so the buttons exist here exactly as they do
     # in `tradingagent-bot`: a second copy would drift and silently drop the markup.
     application.add_handler(MessageHandler(filters.TEXT, message_handler(service)))
@@ -1053,6 +1061,14 @@ async def run(
         )
         if application is not None:
             await application.initialize()
+            # The menu Telegram shows is published here, between the two: python-telegram-bot
+            # only runs `post_init` from `run_polling`/`run_webhook`, and this loop starts the
+            # application by hand (`Application.initialize` and `.start` never call it — 22.8).
+            # Without this, the operator would get no autocompletion and no menu button, and
+            # nothing would say so. `publish_menu` logs a failure rather than raising: an
+            # agent that trades must not stop for a missing list of commands.
+            if application.post_init is not None:
+                await application.post_init(application)
             await application.start()
             if application.updater is not None:
                 await application.updater.start_polling(allowed_updates=list(ALLOWED_UPDATES))

@@ -24,6 +24,7 @@ the warning emitted for a short value.
 """
 
 import hmac
+import ipaddress
 import logging
 import os
 from dataclasses import dataclass, field
@@ -42,6 +43,10 @@ SESSION_COOKIE = "tradingagent_session"
 SESSION_MESSAGE = b"tradingagent-web-session-v1"
 # Below this, the warning is worth printing; the value is never printed.
 MINIMUM_RECOMMENDED_LENGTH = 16
+
+# The one name that always resolves to the loopback interface, and the spelling Windows also
+# answers. Anything else must be an address literal to be trusted as local.
+LOOPBACK_NAMES = frozenset({"localhost", "localhost."})
 
 # The 401 body: a standalone document with no navigation, no figure and no echo of the
 # request. A denied request must learn nothing about what it failed to reach.
@@ -99,6 +104,42 @@ def configured_token(value: str | None = None) -> str | None:
             MINIMUM_RECOMMENDED_LENGTH,
         )
     return candidate
+
+
+def exposure_problem(host: str, token: str | None) -> str | None:
+    """Why this bind address would publish the dashboard, or ``None`` when it would not.
+
+    With ``TRADINGAGENT_WEB_TOKEN`` blank the dashboard has no notion of identity: the only
+    thing between the account's figures and the network is the address it listens on. That is
+    a defensible default on the loopback interface — anything that can reach ``127.0.0.1`` is
+    already running on this machine — and it stops being defensible the moment the bind
+    address is a public or routable one.
+
+    The answer is a refusal, never a silent downgrade: an operator who asks for a public bind
+    and gets a private one believes the dashboard is reachable when it is not. Callers print
+    the message and stop. The token is never part of it, and there is nothing to leak here:
+    with a token declared this function has no message to build.
+    """
+    if token is not None and token.strip():
+        return None
+    candidate = host.strip()
+    if candidate.lower() in LOOPBACK_NAMES:
+        return None
+    try:
+        if ipaddress.ip_address(candidate).is_loopback:
+            return None
+    except ValueError:
+        # Not an address literal: a hostname, a blank, or something hostile. None of them is
+        # proof that the surface stays local, so none of them is accepted as local.
+        pass
+    shown = candidate or "<vide>"
+    return (
+        f"Refus de démarrer : --host « {shown} » écoute au-delà de la boucle locale alors que "
+        f"{ACCESS_ENV_VAR} est vide. Sans jeton, le tableau de bord n'a aucun contrôle "
+        "d'accès : toute machine qui atteint ce port lirait les positions, les trades et "
+        f"l'état du compte. Définissez {ACCESS_ENV_VAR} (16 caractères aléatoires ou plus) "
+        "dans .env, ou écoutez sur 127.0.0.1."
+    )
 
 
 @dataclass(frozen=True)
@@ -159,9 +200,11 @@ class AccessControl:
 
 __all__ = [
     "ACCESS_ENV_VAR",
+    "LOOPBACK_NAMES",
     "MINIMUM_RECOMMENDED_LENGTH",
     "SESSION_COOKIE",
     "SESSION_MESSAGE",
     "AccessControl",
     "configured_token",
+    "exposure_problem",
 ]

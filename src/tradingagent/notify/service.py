@@ -52,6 +52,11 @@ class CommandService:
         self._audit = audit
         self._now = now
 
+    @property
+    def router(self) -> CommandRouter:
+        """The single palette: the menu Telegram shows is derived from it, never copied."""
+        return self._router
+
     async def handle(self, user_id: int, private_chat: bool, text: str) -> Reply | None:
         at = self._now()
         parsed = parse_command(text)

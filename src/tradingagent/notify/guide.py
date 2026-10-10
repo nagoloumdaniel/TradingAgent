@@ -182,7 +182,11 @@ def menu(groups: Sequence[Group], at: datetime) -> Reply:
     for group in groups:
         if group.names:
             text.append(f"▸ <b>{group.label}</b> — {group.tagline}")
-    text += ["", "Choisis une commande : elle s'ouvre avec son exemple et son bouton."]
+    text += [
+        "",
+        "Choisis une commande : elle s'ouvre avec son exemple et son bouton.",
+        "Le menu s'ouvre aussi par le bouton en bas à gauche ; « / » propose la liste.",
+    ]
     # Each button opens that command's *page*, not the command: the operator reads what it
     # does, sees the example, and only then taps the confirmation underneath.
     buttons = [Button(f"/{name}", encode_callback("aide", (name,), at)) for name in entries]

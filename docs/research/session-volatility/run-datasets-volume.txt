@@ -1,0 +1,258 @@
+﻿
+== BTCUSD — trend_breakout@1.0.1 (M15) ==
+   jeu : mt5-BTCUSD-M15-2026-10-09 (59999 bougies, empreinte 2f04c3b23c31…)
+   période : 2025-01-21T16:30:00+00:00 → 2026-10-09T01:45:00+00:00
+   train       35999 bougies  2025-01-21T16:30:00+00:00 → 2026-01-31T20:30:00+00:00
+   validation  11999 bougies  2026-01-31T20:30:00+00:00 → 2026-06-05T23:15:00+00:00
+   holdout     12001 bougies  2026-06-05T23:15:00+00:00 → 2026-10-09T01:45:00+00:00  (SCELLÉ, jamais lu)
+   terciles du rapport ATR/moyenne (coupures d'entraînement) : 0.9626 / 1.0624
+   régimes nommés du dépôt : calme < 0.7, agité > 1.5, sinon médian
+
+  -- full (1809 opérations) ----------------------------------
+     opérations 1809   gagnantes  604   perdantes 1205   taux 33.4 %
+     PF net   0.84   PnL    -2 162.39 EUR   drawdown  +2 293.92 EUR
+     espérance/op      -1.20 EUR   (± +0.64)   IC95 [-1.83 ; -0.56]
+
+  -- train (1068 opérations) ---------------------------------
+     opérations 1068   gagnantes  362   perdantes  706   taux 33.9 %
+     PF net   0.86   PnL    -1 064.83 EUR   drawdown  +1 239.94 EUR
+     espérance/op      -1.00 EUR   (± +0.84)   IC95 [-1.83 ; -0.16]
+
+  -- validation (362 opérations) -----------------------------
+     opérations  362   gagnantes  113   perdantes  249   taux 31.2 %
+     PF net   0.78   PnL      -592.49 EUR   drawdown    +719.30 EUR
+     espérance/op      -1.64 EUR   (± +1.40)   IC95 [-3.04 ; -0.23]
+
+  == full — par séance UTC ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tokyo                    459  156/303     34.0 %    0.86      -446.24      -0.97    -0.10        [-2.23 ; +0.29]  concluant
+     london                   396  126/270     31.8 %    0.77      -688.46      -1.74    -0.17        [-3.07 ; -0.40]  concluant
+     overlap                  411  140/271     34.1 %    0.85      -450.29      -1.10    -0.11        [-2.45 ; +0.26]  concluant
+     new_york                 403  134/269     33.3 %    0.85      -445.03      -1.10    -0.11        [-2.45 ; +0.24]  concluant
+     off                      140   48/92      34.3 %    0.87      -132.38      -0.95    -0.09        [-3.26 ; +1.37]  concluant
+
+  == full — par tercile de volatilité ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tercile_1_calme          581  189/392     32.5 %    0.77      -996.27      -1.71    -0.17        [-2.81 ; -0.62]  concluant
+     tercile_2_median         669  216/453     32.3 %    0.80      -970.55      -1.45    -0.15        [-2.49 ; -0.41]  concluant
+     tercile_3_agite          559  199/360     35.6 %    0.95      -195.58      -0.35    -0.03        [-1.52 ; +0.82]  concluant
+
+  == full — par régime nommé du dépôt ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     calm                       0    0/0          n/a non mesuré        +0.00 non mesuré non mesuré             non mesuré  NON CONCLUANT
+     normal                  1804  602/1202    33.4 %    0.83    -2 167.83      -1.20    -0.12        [-1.84 ; -0.57]  concluant
+     volatile                   5    2/3       40.0 %    1.17        +5.44      +1.09    +0.11      [-12.89 ; +15.07]  NON CONCLUANT
+     (rapport ATR non mesuré : 0 opération(s) — laissées passer par un filtre fail-open, hors terciles ici)
+     contrôle inverse :
+       cases à espérance négative 13 / 15   dont concluantes 13
+       cases à espérance positive 2 / 15   dont concluantes 2
+       pire case : off|tercile_1_calme — 36 opération(s), PF 0.52, espérance -4.11 EUR
+       VERDICT : au moins une case est positive — vérifier si elle survit
+
+  == train — par séance UTC ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tokyo                    268   91/177     34.0 %    0.87      -245.46      -0.92    -0.09        [-2.57 ; +0.74]  concluant
+     london                   220   68/152     30.9 %    0.74      -435.97      -1.98    -0.20        [-3.76 ; -0.20]  concluant
+     overlap                  240   79/161     32.9 %    0.81      -334.59      -1.39    -0.14        [-3.18 ; +0.39]  concluant
+     new_york                 260   93/167     35.8 %    0.95       -81.42      -0.31    -0.03        [-2.03 ; +1.40]  concluant
+     off                       80   31/49      38.8 %    1.06       +32.60      +0.41    +0.04        [-2.74 ; +3.55]  concluant
+
+  == train — par tercile de volatilité ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tercile_1_calme          356  110/246     30.9 %    0.72      -748.56      -2.10    -0.21        [-3.50 ; -0.71]  concluant
+     tercile_2_median         356  119/237     33.4 %    0.85      -380.46      -1.07    -0.11        [-2.52 ; +0.38]  concluant
+     tercile_3_agite          356  133/223     37.4 %    1.03       +64.19      +0.18    +0.02        [-1.30 ; +1.66]  concluant
+
+  == train — par régime nommé du dépôt ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     calm                       0    0/0          n/a non mesuré        +0.00 non mesuré non mesuré             non mesuré  NON CONCLUANT
+     normal                  1065  362/703     34.0 %    0.87    -1 033.15      -0.97    -0.10        [-1.81 ; -0.13]  concluant
+     volatile                   3    0/3        0.0 %    0.00       -31.68     -10.56    -1.06      [-10.58 ; -10.54]  NON CONCLUANT
+     (rapport ATR non mesuré : 0 opération(s) — laissées passer par un filtre fail-open, hors terciles ici)
+     contrôle inverse :
+       cases à espérance négative 10 / 15   dont concluantes 9
+       cases à espérance positive 5 / 15   dont concluantes 5
+       pire case : new_york|tercile_1_calme — 52 opération(s), PF 0.39, espérance -5.35 EUR
+       VERDICT : au moins une case est positive — vérifier si elle survit
+
+  == validation — par séance UTC ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tokyo                     93   29/64      31.2 %    0.78      -152.64      -1.64    -0.16        [-4.42 ; +1.13]  concluant
+     london                    83   29/54      34.9 %    0.92       -46.00      -0.55    -0.06        [-3.58 ; +2.47]  concluant
+     overlap                   82   27/55      32.9 %    0.83      -100.35      -1.22    -0.12        [-4.25 ; +1.80]  concluant
+     new_york                  72   17/55      23.6 %    0.54      -272.35      -3.78    -0.38        [-6.68 ; -0.89]  concluant
+     off                       32   11/21      34.4 %    0.91       -21.15      -0.66    -0.07        [-5.57 ; +4.25]  concluant
+
+  == validation — par tercile de volatilité ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tercile_1_calme          117   42/75      35.9 %    0.95       -43.52      -0.37    -0.04        [-2.91 ; +2.17]  concluant
+     tercile_2_median         153   44/109     28.8 %    0.70      -349.98      -2.29    -0.23        [-4.40 ; -0.17]  concluant
+     tercile_3_agite           92   27/65      29.3 %    0.72      -198.99      -2.16    -0.22        [-4.94 ; +0.62]  concluant
+
+  == validation — par régime nommé du dépôt ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     calm                       0    0/0          n/a non mesuré        +0.00 non mesuré non mesuré             non mesuré  NON CONCLUANT
+     normal                   362  113/249     31.2 %    0.78      -592.49      -1.64    -0.16        [-3.04 ; -0.23]  concluant
+     volatile                   0    0/0          n/a non mesuré        +0.00 non mesuré non mesuré             non mesuré  NON CONCLUANT
+     (rapport ATR non mesuré : 0 opération(s) — laissées passer par un filtre fail-open, hors terciles ici)
+     contrôle inverse :
+       cases à espérance négative 10 / 15   dont concluantes 4
+       cases à espérance positive 5 / 15   dont concluantes 2
+       pire case : off|tercile_1_calme — 7 opération(s), PF 0.28, espérance -6.76 EUR
+       VERDICT : au moins une case est positive — vérifier si elle survit
+
+  == décision — BTCUSD ==
+     critère figé : PF net >= 1.2 et >= 30 opérations, en entraînement ET en validation,
+       puis p-value <= seuil de la correction de Benjamini-Hochberg (FDR 0.1)
+     hypothèses essayées : 32767   éligibles en entraînement : 2
+       #1 new_york|tercile_3_agite
+          entraînement : 120 op., PF 1.22, espérance +1.40 EUR
+          validation   : 26 op., PF 0.53, espérance -3.84 EUR
+          p-value 0.1279   seuil BH 0.05   significatif False
+       #2 new_york|tercile_3_agite, off|tercile_2_median
+          entraînement : 150 op., PF 1.20, espérance +1.28 EUR
+          validation   : 38 op., PF 0.81, espérance -1.38 EUR
+          p-value 0.1379   seuil BH 0.1   significatif False
+     correction : 2 survivant(s) avant, 0 après   (Bonferroni 0.05)
+     VERDICT : REFUSÉ (filtre laissé désactivé) — la meilleure règle d'entraînement échoue en validation ou à la correction de tests multiples sur : validation_trades, validation_profit_factor, significant
+
+== XAUUSD — witness@1.1.1 (M15) ==
+   jeu : mt5-XAUUSD-M15-2026-10-09 (59999 bougies, empreinte d847b980c680…)
+   période : 2024-03-25T13:00:00+00:00 → 2026-10-09T03:30:00+00:00
+   train       35999 bougies  2024-03-25T13:00:00+00:00 → 2025-10-02T11:45:00+00:00
+   validation  11999 bougies  2025-10-02T11:45:00+00:00 → 2026-04-08T18:15:00+00:00
+   holdout     12001 bougies  2026-04-08T18:15:00+00:00 → 2026-10-09T03:30:00+00:00  (SCELLÉ, jamais lu)
+   terciles du rapport ATR/moyenne (coupures d'entraînement) : 0.9523 / 1.0117
+   régimes nommés du dépôt : calme < 0.7, agité > 1.5, sinon médian
+
+  -- full (978 opérations) -----------------------------------
+     opérations  978   gagnantes  317   perdantes  661   taux 32.4 %
+     PF net   0.77   PnL    -1 657.78 EUR   drawdown  +1 751.60 EUR
+     espérance/op      -1.70 EUR   (± +0.86)   IC95 [-2.55 ; -0.84]
+
+  -- train (575 opérations) ----------------------------------
+     opérations  575   gagnantes  190   perdantes  385   taux 33.0 %
+     PF net   0.77   PnL    -1 007.40 EUR   drawdown  +1 036.17 EUR
+     espérance/op      -1.75 EUR   (± +1.11)   IC95 [-2.86 ; -0.65]
+
+  -- validation (193 opérations) -----------------------------
+     opérations  193   gagnantes   58   perdantes  135   taux 30.1 %
+     PF net   0.69   PnL      -456.05 EUR   drawdown    +467.68 EUR
+     espérance/op      -2.36 EUR   (± +1.90)   IC95 [-4.26 ; -0.46]
+
+  == full — par séance UTC ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tokyo                    319  116/203     36.4 %    0.92      -182.45      -0.57    -0.06        [-2.09 ; +0.95]  concluant
+     london                   249   79/170     31.7 %    0.73      -508.46      -2.04    -0.20        [-3.73 ; -0.36]  concluant
+     overlap                  190   59/131     31.1 %    0.73      -403.16      -2.12    -0.21        [-4.08 ; -0.16]  concluant
+     new_york                 166   45/121     27.1 %    0.62      -508.78      -3.06    -0.31        [-5.05 ; -1.08]  concluant
+     off                       54   18/36      33.3 %    0.86       -54.93      -1.02    -0.10        [-4.82 ; +2.79]  concluant
+
+  == full — par tercile de volatilité ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tercile_1_calme          311  109/202     35.0 %    0.85      -336.86      -1.08    -0.11        [-2.60 ; +0.44]  concluant
+     tercile_2_median         340  105/235     30.9 %    0.72      -721.36      -2.12    -0.21        [-3.55 ; -0.69]  concluant
+     tercile_3_agite          327  103/224     31.5 %    0.76      -599.56      -1.83    -0.18        [-3.34 ; -0.33]  concluant
+
+  == full — par régime nommé du dépôt ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     calm                       0    0/0          n/a non mesuré        +0.00 non mesuré non mesuré             non mesuré  NON CONCLUANT
+     normal                   978  317/661     32.4 %    0.77    -1 657.78      -1.70    -0.17        [-2.55 ; -0.84]  concluant
+     volatile                   0    0/0          n/a non mesuré        +0.00 non mesuré non mesuré             non mesuré  NON CONCLUANT
+     (rapport ATR non mesuré : 0 opération(s) — laissées passer par un filtre fail-open, hors terciles ici)
+     contrôle inverse :
+       cases à espérance négative 13 / 15   dont concluantes 9
+       cases à espérance positive 2 / 15   dont concluantes 1
+       pire case : off|tercile_2_median — 17 opération(s), PF 0.36, espérance -5.76 EUR
+       VERDICT : au moins une case est positive — vérifier si elle survit
+
+  == train — par séance UTC ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tokyo                    186   68/118     36.6 %    0.88      -161.72      -0.87    -0.09        [-2.83 ; +1.09]  concluant
+     london                   154   48/106     31.2 %    0.68      -387.57      -2.52    -0.25        [-4.63 ; -0.40]  concluant
+     overlap                  114   38/76      33.3 %    0.80      -165.17      -1.45    -0.14        [-3.95 ; +1.05]  concluant
+     new_york                  92   24/68      26.1 %    0.56      -330.23      -3.59    -0.36        [-6.20 ; -0.98]  concluant
+     off                       29   12/17      41.4 %    1.20       +37.29      +1.29    +0.13        [-4.27 ; +6.84]  NON CONCLUANT
+
+  == train — par tercile de volatilité ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tercile_1_calme          192   65/127     33.9 %    0.76      -339.23      -1.77    -0.18        [-3.65 ; +0.12]  concluant
+     tercile_2_median         191   63/128     33.0 %    0.76      -347.78      -1.82    -0.18        [-3.75 ; +0.10]  concluant
+     tercile_3_agite          192   62/130     32.3 %    0.78      -320.40      -1.67    -0.17        [-3.62 ; +0.28]  concluant
+
+  == train — par régime nommé du dépôt ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     calm                       0    0/0          n/a non mesuré        +0.00 non mesuré non mesuré             non mesuré  NON CONCLUANT
+     normal                   575  190/385     33.0 %    0.77    -1 007.40      -1.75    -0.18        [-2.86 ; -0.65]  concluant
+     volatile                   0    0/0          n/a non mesuré        +0.00 non mesuré non mesuré             non mesuré  NON CONCLUANT
+     (rapport ATR non mesuré : 0 opération(s) — laissées passer par un filtre fail-open, hors terciles ici)
+     contrôle inverse :
+       cases à espérance négative 12 / 15   dont concluantes 9
+       cases à espérance positive 3 / 15   dont concluantes 1
+       pire case : overlap|tercile_1_calme — 15 opération(s), PF 0.23, espérance -7.58 EUR
+       VERDICT : au moins une case est positive — vérifier si elle survit
+
+  == validation — par séance UTC ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tokyo                     60   21/39      35.0 %    0.90       -40.20      -0.67    -0.07        [-4.20 ; +2.86]  concluant
+     london                    43   11/32      25.6 %    0.56      -153.40      -3.57    -0.36        [-7.35 ; +0.21]  concluant
+     overlap                   39   12/27      30.8 %    0.64      -116.05      -2.98    -0.30        [-7.49 ; +1.54]  concluant
+     new_york                  42   13/29      31.0 %    0.75       -77.97      -1.86    -0.19        [-5.94 ; +2.23]  concluant
+     off                        9    1/8       11.1 %    0.21       -68.43      -7.60    -0.76       [-13.99 ; -1.22]  NON CONCLUANT
+
+  == validation — par tercile de volatilité ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     tercile_1_calme           60   20/40      33.3 %    0.81       -81.57      -1.36    -0.14        [-4.83 ; +2.11]  concluant
+     tercile_2_median          62   16/46      25.8 %    0.58      -207.03      -3.34    -0.33        [-6.53 ; -0.15]  concluant
+     tercile_3_agite           71   22/49      31.0 %    0.70      -167.46      -2.36    -0.24        [-5.60 ; +0.89]  concluant
+
+  == validation — par régime nommé du dépôt ==
+     case                       n       g/p  réussite  PF net      PnL EUR     esp/op    esp/R                   IC95  verdict
+     -------------------------------------------------------------------------------------------------------------------------
+     calm                       0    0/0          n/a non mesuré        +0.00 non mesuré non mesuré             non mesuré  NON CONCLUANT
+     normal                   193   58/135     30.1 %    0.69      -456.05      -2.36    -0.24        [-4.26 ; -0.46]  concluant
+     volatile                   0    0/0          n/a non mesuré        +0.00 non mesuré non mesuré             non mesuré  NON CONCLUANT
+     (rapport ATR non mesuré : 0 opération(s) — laissées passer par un filtre fail-open, hors terciles ici)
+     contrôle inverse :
+       cases à espérance négative 13 / 15   dont concluantes 0
+       cases à espérance positive 2 / 15   dont concluantes 0
+       pire case : off|tercile_1_calme — 1 opération(s), PF 0.00, espérance -10.86 EUR
+       VERDICT : au moins une case est positive — vérifier si elle survit
+
+  == décision — XAUUSD ==
+     critère figé : PF net >= 1.2 et >= 30 opérations, en entraînement ET en validation,
+       puis p-value <= seuil de la correction de Benjamini-Hochberg (FDR 0.1)
+     hypothèses essayées : 32767   éligibles en entraînement : 4
+       #1 new_york|tercile_1_calme, off|tercile_1_calme, off|tercile_3_agite
+          entraînement : 32 op., PF 1.30, espérance +1.88 EUR
+          validation   : 12 op., PF 0.13, espérance -8.58 EUR
+          p-value 0.2318   seuil BH 0.075   significatif False
+       #2 off|tercile_3_agite, tokyo|tercile_2_median
+          entraînement : 68 op., PF 1.28, espérance +1.71 EUR
+          validation   : 24 op., PF 0.56, espérance -3.56 EUR
+          p-value 0.1608   seuil BH 0.025   significatif False
+       #3 off|tercile_1_calme, off|tercile_3_agite, tokyo|tercile_2_median
+          entraînement : 75 op., PF 1.26, espérance +1.62 EUR
+          validation   : 25 op., PF 0.53, espérance -3.85 EUR
+          p-value 0.1698   seuil BH 0.05   significatif False
+     correction : 4 survivant(s) avant, 0 après   (Bonferroni 0.025)
+     VERDICT : REFUSÉ (filtre laissé désactivé) — la meilleure règle d'entraînement échoue en validation ou à la correction de tests multiples sur : validation_trades, validation_profit_factor, significant
+
+écrit : D:\Projets\TradingAgent\docs\research\session-volatility\session-volatility.json

@@ -97,7 +97,8 @@ COMMAND_HELP: dict[str, tuple[Usage, str, str]] = {
 HELP_HEADER = "🧭 Commandes du bot, par usage"
 HELP_FOOTER = (
     "Les commandes qui changent l'état demandent « confirmer ».\n"
-    "Tape /mode ou /pause : les choix s'affichent en boutons."
+    "Tape /mode ou /pause : les choix s'affichent en boutons.\n"
+    "Le menu s'ouvre aussi par le bouton en bas à gauche ; « / » propose la liste."
 )
 HELP_OTHER_GROUP = "AUTRES"
 HELP_OTHER_TAGLINE = "sans fiche détaillée"
