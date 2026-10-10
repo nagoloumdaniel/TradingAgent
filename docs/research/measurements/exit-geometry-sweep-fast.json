@@ -1,0 +1,416 @@
+{
+  "method": "fast: train and validation only, same split and same harness as the campaign",
+  "refs": {
+    "XAUUSD": "vwap_pullback@1.1.0",
+    "BTCUSD": "vwap_pullback@1.2.0"
+  },
+  "bars": null,
+  "adoption_floor": 1.0,
+  "selection": "meilleur PF net en entrainement, moyenne sur les deux marches",
+  "rows": [
+    {
+      "geometry": "tp0.8/tp1.5/stop1.5",
+      "first_target_rr": 0.8,
+      "final_target_rr": 1.5,
+      "stop_atr_multiplier": 1.5,
+      "market": "BTCUSD",
+      "ref": "vwap_pullback@1.2.0",
+      "train": {
+        "trades": 709,
+        "wins": 392,
+        "losses": 317,
+        "win_rate": 0.5528913963328632,
+        "net_profit": -999.06396478052,
+        "profit_factor": 0.714838,
+        "expectancy": -1.409117,
+        "max_drawdown": 1054.10046060176
+      },
+      "validation": {
+        "trades": 205,
+        "wins": 113,
+        "losses": 92,
+        "win_rate": 0.551219512195122,
+        "net_profit": -327.7082293223,
+        "profit_factor": 0.681801,
+        "expectancy": -1.598577,
+        "max_drawdown": 357.5176663547
+      }
+    },
+    {
+      "geometry": "tp0.8/tp1.5/stop1.5",
+      "first_target_rr": 0.8,
+      "final_target_rr": 1.5,
+      "stop_atr_multiplier": 1.5,
+      "market": "XAUUSD",
+      "ref": "vwap_pullback@1.1.0",
+      "train": {
+        "trades": 656,
+        "wins": 378,
+        "losses": 278,
+        "win_rate": 0.5762195121951219,
+        "net_profit": -863.79608960392,
+        "profit_factor": 0.722939,
+        "expectancy": -1.316762,
+        "max_drawdown": 923.05907044431
+      },
+      "validation": {
+        "trades": 231,
+        "wins": 108,
+        "losses": 123,
+        "win_rate": 0.4675324675324675,
+        "net_profit": -621.91036145895,
+        "profit_factor": 0.545443,
+        "expectancy": -2.692253,
+        "max_drawdown": 625.15542102044
+      }
+    },
+    {
+      "geometry": "tp1.0/tp2.0/stop1.5",
+      "first_target_rr": 1.0,
+      "final_target_rr": 2.0,
+      "stop_atr_multiplier": 1.5,
+      "market": "BTCUSD",
+      "ref": "vwap_pullback@1.2.0",
+      "train": {
+        "trades": 669,
+        "wins": 339,
+        "losses": 330,
+        "win_rate": 0.5067264573991032,
+        "net_profit": -823.70069550384,
+        "profit_factor": 0.774007,
+        "expectancy": -1.231242,
+        "max_drawdown": 891.12753653017
+      },
+      "validation": {
+        "trades": 196,
+        "wins": 97,
+        "losses": 99,
+        "win_rate": 0.49489795918367346,
+        "net_profit": -319.28892621111,
+        "profit_factor": 0.711263,
+        "expectancy": -1.629025,
+        "max_drawdown": 360.77009156618
+      }
+    },
+    {
+      "geometry": "tp1.0/tp2.0/stop1.5",
+      "first_target_rr": 1.0,
+      "final_target_rr": 2.0,
+      "stop_atr_multiplier": 1.5,
+      "market": "XAUUSD",
+      "ref": "vwap_pullback@1.1.0",
+      "train": {
+        "trades": 630,
+        "wins": 337,
+        "losses": 293,
+        "win_rate": 0.5349206349206349,
+        "net_profit": -634.3422077996,
+        "profit_factor": 0.806831,
+        "expectancy": -1.006892,
+        "max_drawdown": 760.28924006644
+      },
+      "validation": {
+        "trades": 221,
+        "wins": 95,
+        "losses": 126,
+        "win_rate": 0.4298642533936652,
+        "net_profit": -552.45572181706,
+        "profit_factor": 0.603976,
+        "expectancy": -2.4998,
+        "max_drawdown": 564.98019894266
+      }
+    },
+    {
+      "geometry": "tp1.5/tp3.0/stop1.5",
+      "first_target_rr": 1.5,
+      "final_target_rr": 3.0,
+      "stop_atr_multiplier": 1.5,
+      "market": "BTCUSD",
+      "ref": "vwap_pullback@1.2.0",
+      "train": {
+        "trades": 594,
+        "wins": 237,
+        "losses": 357,
+        "win_rate": 0.398989898989899,
+        "net_profit": -816.88135131328,
+        "profit_factor": 0.792353,
+        "expectancy": -1.375221,
+        "max_drawdown": 919.61570932974
+      },
+      "validation": {
+        "trades": 179,
+        "wins": 79,
+        "losses": 100,
+        "win_rate": 0.441340782122905,
+        "net_profit": -98.76312906982,
+        "profit_factor": 0.911426,
+        "expectancy": -0.551749,
+        "max_drawdown": 194.24991728771
+      }
+    },
+    {
+      "geometry": "tp1.5/tp3.0/stop1.5",
+      "first_target_rr": 1.5,
+      "final_target_rr": 3.0,
+      "stop_atr_multiplier": 1.5,
+      "market": "XAUUSD",
+      "ref": "vwap_pullback@1.1.0",
+      "train": {
+        "trades": 562,
+        "wins": 247,
+        "losses": 315,
+        "win_rate": 0.4395017793594306,
+        "net_profit": -395.54159062002,
+        "profit_factor": 0.887378,
+        "expectancy": -0.703811,
+        "max_drawdown": 532.5050134468
+      },
+      "validation": {
+        "trades": 200,
+        "wins": 71,
+        "losses": 129,
+        "win_rate": 0.355,
+        "net_profit": -449.68290612775,
+        "profit_factor": 0.684808,
+        "expectancy": -2.248415,
+        "max_drawdown": 476.21782468721
+      }
+    },
+    {
+      "geometry": "tp2.0/tp4.0/stop1.5",
+      "first_target_rr": 2.0,
+      "final_target_rr": 4.0,
+      "stop_atr_multiplier": 1.5,
+      "market": "BTCUSD",
+      "ref": "vwap_pullback@1.2.0",
+      "train": {
+        "trades": 549,
+        "wins": 180,
+        "losses": 369,
+        "win_rate": 0.32786885245901637,
+        "net_profit": -818.23969326649,
+        "profit_factor": 0.798503,
+        "expectancy": -1.490418,
+        "max_drawdown": 922.25456543754
+      },
+      "validation": {
+        "trades": 170,
+        "wins": 67,
+        "losses": 103,
+        "win_rate": 0.3941176470588235,
+        "net_profit": 31.56010389055,
+        "profit_factor": 1.027498,
+        "expectancy": 0.185648,
+        "max_drawdown": 202.18580585452
+      }
+    },
+    {
+      "geometry": "tp2.0/tp4.0/stop1.5",
+      "first_target_rr": 2.0,
+      "final_target_rr": 4.0,
+      "stop_atr_multiplier": 1.5,
+      "market": "XAUUSD",
+      "ref": "vwap_pullback@1.1.0",
+      "train": {
+        "trades": 535,
+        "wins": 209,
+        "losses": 326,
+        "win_rate": 0.39065420560747666,
+        "net_profit": 5.76217279455,
+        "profit_factor": 1.001585,
+        "expectancy": 0.01077,
+        "max_drawdown": 233.3538579992
+      },
+      "validation": {
+        "trades": 185,
+        "wins": 55,
+        "losses": 130,
+        "win_rate": 0.2972972972972973,
+        "net_profit": -410.87833289,
+        "profit_factor": 0.714122,
+        "expectancy": -2.220964,
+        "max_drawdown": 453.56026508402
+      }
+    },
+    {
+      "geometry": "tp1.0/tp2.0/stop1.0",
+      "first_target_rr": 1.0,
+      "final_target_rr": 2.0,
+      "stop_atr_multiplier": 1.0,
+      "market": "BTCUSD",
+      "ref": "vwap_pullback@1.2.0",
+      "train": {
+        "trades": 795,
+        "wins": 407,
+        "losses": 388,
+        "win_rate": 0.5119496855345912,
+        "net_profit": -1347.04829569418,
+        "profit_factor": 0.700575,
+        "expectancy": -1.6944,
+        "max_drawdown": 1380.64276651086
+      },
+      "validation": {
+        "trades": 234,
+        "wins": 112,
+        "losses": 122,
+        "win_rate": 0.47863247863247865,
+        "net_profit": -592.7713207971,
+        "profit_factor": 0.585959,
+        "expectancy": -2.533211,
+        "max_drawdown": 641.08275247494
+      }
+    },
+    {
+      "geometry": "tp1.0/tp2.0/stop1.0",
+      "first_target_rr": 1.0,
+      "final_target_rr": 2.0,
+      "stop_atr_multiplier": 1.0,
+      "market": "XAUUSD",
+      "ref": "vwap_pullback@1.1.0",
+      "train": {
+        "trades": 739,
+        "wins": 380,
+        "losses": 359,
+        "win_rate": 0.5142083897158322,
+        "net_profit": -1534.47964908709,
+        "profit_factor": 0.638629,
+        "expectancy": -2.076427,
+        "max_drawdown": 1599.773506465
+      },
+      "validation": {
+        "trades": 260,
+        "wins": 115,
+        "losses": 145,
+        "win_rate": 0.4423076923076923,
+        "net_profit": -743.9698952481,
+        "profit_factor": 0.569097,
+        "expectancy": -2.861423,
+        "max_drawdown": 750.49316019817
+      }
+    },
+    {
+      "geometry": "tp1.5/tp3.0/stop1.0",
+      "first_target_rr": 1.5,
+      "final_target_rr": 3.0,
+      "stop_atr_multiplier": 1.0,
+      "market": "BTCUSD",
+      "ref": "vwap_pullback@1.2.0",
+      "train": {
+        "trades": 733,
+        "wins": 312,
+        "losses": 421,
+        "win_rate": 0.4256480218281037,
+        "net_profit": -976.71631468917,
+        "profit_factor": 0.799061,
+        "expectancy": -1.332492,
+        "max_drawdown": 1066.51370097744
+      },
+      "validation": {
+        "trades": 218,
+        "wins": 86,
+        "losses": 132,
+        "win_rate": 0.3944954128440367,
+        "net_profit": -500.03419874667,
+        "profit_factor": 0.675836,
+        "expectancy": -2.293735,
+        "max_drawdown": 543.74759247619
+      }
+    },
+    {
+      "geometry": "tp1.5/tp3.0/stop1.0",
+      "first_target_rr": 1.5,
+      "final_target_rr": 3.0,
+      "stop_atr_multiplier": 1.0,
+      "market": "XAUUSD",
+      "ref": "vwap_pullback@1.1.0",
+      "train": {
+        "trades": 693,
+        "wins": 303,
+        "losses": 390,
+        "win_rate": 0.43722943722943725,
+        "net_profit": -1039.48632971555,
+        "profit_factor": 0.773486,
+        "expectancy": -1.49998,
+        "max_drawdown": 1217.94061619024
+      },
+      "validation": {
+        "trades": 249,
+        "wins": 90,
+        "losses": 159,
+        "win_rate": 0.3614457831325301,
+        "net_profit": -669.73476530317,
+        "profit_factor": 0.642748,
+        "expectancy": -2.689698,
+        "max_drawdown": 697.26268136029
+      }
+    },
+    {
+      "geometry": "tp1.0/tp2.0/stop2.0",
+      "first_target_rr": 1.0,
+      "final_target_rr": 2.0,
+      "stop_atr_multiplier": 2.0,
+      "market": "BTCUSD",
+      "ref": "vwap_pullback@1.2.0",
+      "train": {
+        "trades": 563,
+        "wins": 277,
+        "losses": 286,
+        "win_rate": 0.4920071047957371,
+        "net_profit": -704.90466329662,
+        "profit_factor": 0.772799,
+        "expectancy": -1.252051,
+        "max_drawdown": 763.52240012275
+      },
+      "validation": {
+        "trades": 163,
+        "wins": 88,
+        "losses": 75,
+        "win_rate": 0.5398773006134969,
+        "net_profit": -74.4858771177,
+        "profit_factor": 0.909146,
+        "expectancy": -0.456969,
+        "max_drawdown": 135.76398866197
+      }
+    },
+    {
+      "geometry": "tp1.0/tp2.0/stop2.0",
+      "first_target_rr": 1.0,
+      "final_target_rr": 2.0,
+      "stop_atr_multiplier": 2.0,
+      "market": "XAUUSD",
+      "ref": "vwap_pullback@1.1.0",
+      "train": {
+        "trades": 544,
+        "wins": 280,
+        "losses": 264,
+        "win_rate": 0.5147058823529411,
+        "net_profit": -575.78831940645,
+        "profit_factor": 0.801057,
+        "expectancy": -1.058434,
+        "max_drawdown": 637.43964969377
+      },
+      "validation": {
+        "trades": 187,
+        "wins": 85,
+        "losses": 102,
+        "win_rate": 0.45454545454545453,
+        "net_profit": -351.77695592518,
+        "profit_factor": 0.685925,
+        "expectancy": -1.88116,
+        "max_drawdown": 365.15715304234
+      }
+    }
+  ],
+  "ranking_train_pf": {
+    "tp2.0/tp4.0/stop1.5": 0.900044,
+    "tp1.5/tp3.0/stop1.5": 0.8398654999999999,
+    "tp1.0/tp2.0/stop1.5": 0.790419,
+    "tp1.0/tp2.0/stop2.0": 0.7869280000000001,
+    "tp1.5/tp3.0/stop1.0": 0.7862735000000001,
+    "tp0.8/tp1.5/stop1.5": 0.7188885,
+    "tp1.0/tp2.0/stop1.0": 0.669602
+  },
+  "chosen_on_training": "tp2.0/tp4.0/stop1.5",
+  "worst_validation_pf": 0.714122,
+  "adopted": false
+}
