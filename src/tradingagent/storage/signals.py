@@ -34,7 +34,47 @@ from tradingagent.strategies.manifest import StrategyManifest
 
 
 class ManifestChangedError(Exception):
-    """A manifest changed under an already used reference: old signals would lie."""
+    """A reference was already used with a different manifest: the version must be bumped."""
+
+
+def manifest_digest(manifest: StrategyManifest) -> str:
+    """The fingerprint of what a manifest **declares**, never of what the model carries.
+
+    `exclude_unset=True` is the whole point. A manifest declares a handful of keys; the model
+    holds eleven, the rest at their defaults. Hashing the full dump made every model field
+    addition — `entry_filter`, `session_filter`, `volatility_filter`, all with defaults — move
+    the fingerprint of manifests whose configuration had not changed by a single line. On
+    2026-10-10 that stopped the agent from restarting and made two strategies fail on every
+    candle with `ManifestChangedError`, from a commit that touched only comments.
+
+    Verified against the fingerprints already in the database: `exclude_unset` reproduces
+    `witness@1.1.0`, `witness@1.1.1` and `trend_breakout@1.0.0` bit for bit, the full dump does
+    not. The guard keeps its teeth — a value the operator wrote is still covered, so a strategy
+    cannot change under a reference unnoticed.
+    """
+    snapshot = manifest.model_dump(mode="json", exclude_unset=True)
+    return hashlib.sha256(
+        json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def _legacy_manifest_digest(manifest: StrategyManifest) -> str:
+    """The fingerprint as it was computed before 2026-10-10: over the **full** model dump.
+
+    Rows written before that date carry this value, and it is a legitimate fingerprint of the
+    manifest they were written from — it just also covered fields the model has since gained.
+    Accepting it keeps those rows usable instead of demanding a version bump for a configuration
+    nobody changed.
+
+    **The tolerance is narrow on purpose.** It only fires when the stored value equals the legacy
+    digest of the very manifest being recorded, so a genuine configuration change still fails:
+    both digests move together. The first new signal under a reference rewrites nothing — the
+    row keeps the hash it was created with — so this is a compatibility path, not a weakening.
+    """
+    snapshot = manifest.model_dump(mode="json")
+    return hashlib.sha256(
+        json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def idempotency_key(ref: str, symbol: str, timeframe: Timeframe, candle_close: datetime) -> str:
@@ -101,9 +141,7 @@ class SignalRepository:
         self, connection: Connection, manifest: StrategyManifest, seen_at: datetime
     ) -> int:
         snapshot = manifest.model_dump(mode="json")
-        content_hash = hashlib.sha256(
-            json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
+        content_hash = manifest_digest(manifest)
         connection.execute(
             insert_ignoring_duplicates(self._engine, StrategyVersionRow, ("ref",)).values(
                 ref=manifest.ref,
@@ -119,7 +157,7 @@ class SignalRepository:
                 StrategyVersionRow.ref == manifest.ref
             )
         ).one()
-        if stored_hash != content_hash:
+        if stored_hash != content_hash and stored_hash != _legacy_manifest_digest(manifest):
             raise ManifestChangedError(
                 f"{manifest.ref} differs from the manifest first used under that reference: "
                 "bump its version"

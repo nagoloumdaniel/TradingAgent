@@ -72,11 +72,39 @@ def _variant(ref: str, first: float, final: float, stop: float) -> Any:
     from tradingagent.research.campaign import CandidateSpec
 
     return CandidateSpec(
-        label=f"tp{first}/tp{final}/stop{stop}",
+        label=_label(first, final, stop),
         manifest=manifest,
         factory=lambda overrides: builder(builder.parameters_model(**overrides)),
         parameters={key: value for key, value in values.items() if isinstance(value, int | float)},
     )
+
+
+def _label(first: float, final: float, stop: float) -> str:
+    return f"tp{first}/tp{final}/stop{stop}"
+
+
+def _refs_from_agent_config(path: Path) -> dict[str, str]:
+    """Which manifest each market runs, read from `config/agent.yaml` and not assumed.
+
+    Since the 2026-10-10 split every market has its **own** version (EF-003), and a manifest
+    only declares the symbols it serves. Hard-coding one ref for both markets is what made this
+    script fail on its second geometry with `symbol 'BTCUSD' is not allowed by
+    vwap_pullback@1.1.0` — the harness refusing, rightly, to measure gold's manifest on bitcoin.
+    """
+    import yaml
+
+    from tradingagent.config.agent import load_agent_config
+    from tradingagent.config.strategy_catalog import load_strategy_catalog
+    from tradingagent.core.mode import TradingMode
+    from tradingagent.strategies.registry import REGISTRY
+
+    catalog = load_strategy_catalog(ROOT / "config" / "strategies", REGISTRY)
+    strategies = {ref: loaded.manifest for ref, loaded in catalog.items()}
+    symbols = {str(item["symbol"]) for item in yaml.safe_load(path.read_text("utf-8"))["markets"]}
+    config = load_agent_config(
+        path, known_symbols=symbols, strategies=strategies, mode=TradingMode.DEMO
+    )
+    return {market.symbol: market.strategy for market in config.markets if market.enabled}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -85,11 +113,21 @@ def main(argv: list[str] | None = None) -> int:
     from dataclasses import replace
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--ref", default="vwap_pullback@1.1.0")
+    parser.add_argument(
+        "--agent-config",
+        type=Path,
+        default=ROOT / "config" / "agent.yaml",
+        help="ou lire la version que chaque marche execute (une version par marche, EF-003)",
+    )
     parser.add_argument("--datasets", type=Path, default=DATASET_DIR)
     parser.add_argument("--output", type=Path, default=OUTPUT_DIR)
     parser.add_argument("--bars", type=int, default=0, help="tronquer (verification rapide)")
     args = parser.parse_args(argv)
+
+    # Which version each market runs, READ and not assumed: since the 2026-10-10 split every
+    # market has its own manifest, and a manifest only declares the symbols it serves.
+    refs = _refs_from_agent_config(args.agent_config)
+    print(f"versions declarees : {refs}")
 
     datasets = stats.DatasetStore(args.datasets).load_all()
     if not datasets:
@@ -104,6 +142,9 @@ def main(argv: list[str] | None = None) -> int:
             )
             for market, dataset in datasets.items()
         }
+    missing = [market for market in markets if market not in refs]
+    if missing:
+        raise SystemExit(f"aucune version declaree pour : {', '.join(missing)}")
 
     def config_for(market: str, dataset: Any) -> Any:
         return replace(stats.config_for(market, dataset), targets_at_first_only=True)
@@ -113,9 +154,10 @@ def main(argv: list[str] | None = None) -> int:
         label = f"tp{first}/tp{final}/stop{stop}"
         print(f"\n########## {label} ##########")
         for market in markets:
+            # Each market measured on ITS OWN manifest: that is where its parameters live.
             report = stats.run_campaign(
                 {market: datasets[market]},
-                [_variant(args.ref, first, final, stop)],
+                [_variant(refs[market], first, final, stop)],
                 config_for=config_for,
             )
             measured = report.markets[0]
@@ -131,6 +173,7 @@ def main(argv: list[str] | None = None) -> int:
                     "final_target_rr": final,
                     "stop_atr_multiplier": stop,
                     "market": market,
+                    "ref": refs[market],
                     "train_trades": candidate.train.trades,
                     "train_pf": stats.number(candidate.train.profit_factor),
                     "train_net": stats.number(candidate.train.net_profit),
@@ -175,7 +218,7 @@ def main(argv: list[str] | None = None) -> int:
         print("  la geometrie d'origine reste, et la cause est ailleurs.")
 
     payload = {
-        "ref": args.ref,
+        "refs": refs,
         "bars": args.bars or None,
         "adoption_floor": ADOPTION_FLOOR,
         "selection": "meilleur PF net en entrainement, moyenne sur les deux marches",
@@ -187,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
     }
     if args.output:
         args.output.mkdir(parents=True, exist_ok=True)
-        path = args.output / f"exit-geometry-{args.ref}.json"
+        path = args.output / "exit-geometry-sweep.json"
         path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"ecrit : {path}")
     return 0
