@@ -1,3 +1,17 @@
+# RETIREE DE LA PRODUCTION LE 2026-10-10, par decision de l'operateur.
+#
+# Cette regle n'est plus referencee par `config/agent.yaml` : l'agent ne l'execute plus. Le
+# fichier est conserve, et le bandeau ci-dessous n'est pas reecrit — un manifeste publie ne se
+# reecrit jamais, et ses mesures restent la trace de pourquoi cette regle n'a pas ete retenue.
+# Ce qui l'a remplacee sur le bitcoin, apres mesure : `vwap_pullback@1.2.0`.
+#
+# Chiffres mesures au 2026-10-10, avant retrait (script scripts/backtest/current_stats.py, jeu
+# gele de 11 999 bougies M15, couts du depot) : facteur de profit net 0,8391 en validation
+# (47 operations, -53,82 EUR) et 0,8124 en entrainement (209 operations), contre 1,20 exige.
+# Aucune des neuf portes n'etait franchie.
+#
+# ---------------------------------------------------------------------------------------------
+#
 # DEROGATION OPERATEUR du 2026-10-08 : plafond releve de SIGNAL a DEMO, sans validation.
 #
 # RM-016 veut qu'un manifeste declare le lieu le plus eleve ou il peut servir, et la regle du

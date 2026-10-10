@@ -1,0 +1,57 @@
+# DEROGATION OPERATEUR du 2026-10-10 : plafond releve de SIGNAL a DEMO, sans validation.
+#
+# RM-016 veut qu'un manifeste declare le lieu le plus eleve ou il peut servir, et la regle du
+# projet est de ne relever ce plafond qu'apres une validation hors echantillon. Ce n'est PAS le
+# cas ici : cette regle n'a franchi aucune des neuf portes.
+#
+# Ce fichier existe donc pour repeter le systeme sur le COMPTE DE DEMONSTRATION, ou aucun argent
+# reel n'est en jeu. `max_mode: DEMO` est un plafond borne : il ne peut pas atteindre le compte
+# reel, qui exigerait `max_mode: LIVE` ET les neuf portes franchies (RM-016, RM-017).
+#
+# Chiffres de validation qui manquent, MESURES LE 2026-10-10 (jeu gele de 59 999 bougies M15
+# avec volume, couts du depot, protocole de campagne, sortie au PREMIER objectif comme la
+# production l'execute) :
+#   * profit factor net en validation : 0.6818 (BTCUSD, 205 operations, -327.71 EUR) ; en
+#     entrainement 0.7148 sur 709 operations, contre 1.2 exige ;
+#   * p-value minimale 0,998, contre la ligne de Bonferroni 0,016667 ;
+#   * 0 survivant sur 7 apres correction du taux de fausses decouvertes.
+# Detail complet : docs/research/measurements/BTCUSD-vwap_pullback@1.1.0.json
+#
+# DECISION DE L'OPERATEUR DU 2026-10-10 : cette regle remplace `witness` et `trend_breakout` sur
+# les DEUX marches, en pleine connaissance des chiffres ci-dessus. Le marche voisin, XAUUSD,
+# tourne la meme regle sous sa propre version `vwap_pullback@1.1.0` : EF-003 (P0) exige deux
+# versions distinctes, et une version par marche rend chaque symbole reglable independamment.
+# Les deux anciennes strategies sont retirees de `config/agent.yaml` mais leurs fichiers
+# restent : un manifeste publie ne se reecrit jamais, et leurs mesures sont la trace de pourquoi
+# ces regles n'ont pas ete retenues.
+#
+# CE QUI EST MESURE, ET OU EST LA CAUSE — a lire avant de s'etonner d'un plafond si bas :
+# la regle produit bien des signaux utilisables (709 operations mesurees), mais le gain moyen
+# vaut environ 6 EUR quand la perte moyenne en vaut 11 : a ce rapport, meme 55 % de reussite ne
+# suffit pas. C'est arithmetique, pas une opinion. La geometrie des sorties a ete balayee le
+# 2026-10-10 (`scripts/backtest/sweep_exit_geometry.py`) avec une regle de decision fixee
+# d'avance et un plancher d'adoption de PF >= 1,00 en validation sur les deux marches ; le
+# resultat est consigne dans `docs/research/measurements/`.
+strategy_id: vwap_pullback
+version: 1.2.0
+max_mode: DEMO
+allowed_symbols: [BTCUSD]
+timeframes: [M15]
+# 8 x ema_slow : l'EMA(50) et le VWAP lisse sont recursifs et doivent etre chauffes a
+# l'identique entre le backtest et la production. 400 barres couvrent la fenetre de pente (10),
+# le VWAP lisse (20) et l'EMA lente (50) avec une marge confortable.
+history_bars: 400
+expiry_bars: 2
+ai_filter: shadow
+parameters:
+  ema_fast: 20
+  ema_slow: 50
+  vwap_period: 20
+  atr_period: 14
+  stop_atr_multiplier: 1.5
+  first_target_rr: 0.8
+  final_target_rr: 1.5
+  pullback_atr: 0.4
+  entry_zone_atr: 0.1
+  min_slope_atr: 0.005
+  slope_window: 10

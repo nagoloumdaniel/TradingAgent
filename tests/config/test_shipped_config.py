@@ -32,7 +32,15 @@ def test_shipped_agent_config_loads_in_signal_mode() -> None:
     )
     assert [market.symbol for market in config.markets] == ["XAUUSD", "BTCUSD"]
     refs = [market.strategy for market in config.markets]
-    assert len(set(refs)) == 2, "each market runs a different strategy (EF-003)"
+    # EF-003: "two markets run two different strategies". Since 2026-10-10 both markets run the
+    # same *rule* (`vwap_pullback`), which the operator chose over `witness` + `trend_breakout`;
+    # each market therefore carries its own **version**. The requirement is about a distinct
+    # strategy per market, and a distinct version is what makes each symbol tunable on its own
+    # -- gold and bitcoin share neither spread nor volatility. Comparing the full refs, and not
+    # just the strategy ids, is what pins that: two markets on the very same manifest would
+    # fail here.
+    assert len(set(refs)) == 2, "each market runs a different strategy version (EF-003)"
+    assert {ref.split("@")[0] for ref in refs} == {"vwap_pullback"}
     # RM-019: with 100 EUR neither market is eligible in live mode; the profile is still
     # declared so the refusal is a decision, not a crash.
     assert config.risk.live.reference_capital == 100

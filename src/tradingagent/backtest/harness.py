@@ -104,6 +104,19 @@ class BacktestConfig:
     #: production behaviour of its own beyond choosing which price the gate reads.
     #: Ignored unless `entry_zone_parity` is on.
     entry_zone_parity_basis: Literal["paid", "production", "reference"] = "paid"
+    #: Measure the exit production actually takes, not the one the strategy would prefer.
+    #:
+    #: A strategy may publish several objectives; `runtime/pipeline.py` sends only
+    #: `take_profits[0]` to the broker, and nothing under `execution/` knows how to close a
+    #: fraction of a position. Without this flag the harness keeps every level and — with no
+    #: partials configured — closes at the **last** one, so a TP1/TP2 rule is measured on an
+    #: exit it can never take. Measured on 2026-10-10: the same series returned +0,80 R for an
+    #: exit the code described as the final target.
+    #:
+    #: **Off by default, and it must stay off to keep published numbers meaning what they
+    #: meant.** Turning it on is a deliberate act, and it is the honest setting for any
+    #: measurement of a rule that declares more than one objective: it is what the account does.
+    targets_at_first_only: bool = False
 
     def __post_init__(self) -> None:
         if self.risk_eur <= 0:
@@ -422,6 +435,12 @@ def _try_enter(
     if risk_price <= 0 or sign * (signal.take_profits[0] - fill) <= 0:
         # Costs moved the entry past the first objective: the trade no longer exists.
         return None
+    # What production can actually exit at. `pipeline._execute` sends the first objective and
+    # only that one, so a measurement of a multi-objective rule has to see the same single
+    # level, or it prices an exit no account would ever take.
+    targets = (
+        (signal.take_profits[0],) if config.targets_at_first_only else tuple(signal.take_profits)
+    )
     return _Position(
         strategy_ref=manifest.ref,
         timeframe=manifest.primary_timeframe,
@@ -431,9 +450,9 @@ def _try_enter(
         entry_price=fill,
         initial_stop=signal.stop_loss,
         stop=signal.stop_loss,
-        targets=tuple(signal.take_profits),
-        weights=_weights(config.partial_exit_fractions, len(signal.take_profits)),
-        taken=[False] * len(signal.take_profits),
+        targets=targets,
+        weights=_weights(config.partial_exit_fractions, len(targets)),
+        taken=[False] * len(targets),
         remaining=1.0,
         risk_price=risk_price,
         atr=entry.atr,

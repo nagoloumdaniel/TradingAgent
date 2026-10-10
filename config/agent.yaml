@@ -5,13 +5,31 @@
 #
 # Risk thresholds are the defaults decided by the operator on 2026-10-04 (RM-005 to RM-007):
 # simulated mode risks 0.5 % per trade, live mode 2 % (capped at 5 % by RM-005).
+#
+# STRATEGIES REPLACED ON 2026-10-10, by operator decision. One rule now runs both markets:
+# `vwap_pullback` (VWAP anchored at 00:00 UTC, momentum, entry on pullback). It replaces
+# `witness@1.1.1` on gold and `trend_breakout@1.0.1` on bitcoin, which are removed from this
+# file and no longer executed. Their manifests and code stay in the repository: a published
+# manifest is never rewritten, and their measurements remain the record of why those rules were
+# not kept.
+#
+# Each market gets its OWN version, and that is EF-003 (P0: "two markets run two different
+# strategies"). Same rule, two manifests, so `version` differs per market and each symbol stays
+# tunable on its own -- gold and bitcoin share neither spread nor volatility.
+#
+# The replacement is a DEMO ceiling carried by an explicit operator derogation, not a
+# validation. Measured on 59 999 frozen M15 bars with the repository's costs and the exit
+# production actually takes: net profit factor 0,6818 (BTC, 205 validation trades) and 0,5454
+# (gold, 231 validation trades) against the 1,20 the project requires. The operator chose to run
+# it on the DEMONSTRATION account anyway, knowing those figures: no real money is at stake, and
+# the dashboard then shows what the rule really does.
 markets:
   - symbol: XAUUSD
     enabled: true
-    strategy: witness@1.1.1
+    strategy: vwap_pullback@1.1.0
   - symbol: BTCUSD
     enabled: true
-    strategy: trend_breakout@1.0.1
+    strategy: vwap_pullback@1.2.0
 risk:
   simulated:
     risk_per_trade_pct: 0.5
