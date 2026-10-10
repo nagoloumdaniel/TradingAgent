@@ -16,13 +16,15 @@
 #      fois ») : le spread de l'or est passe de 0,233 a 1,044 $ par lecon, ce qui suffit a faire
 #      basculer le resultat ;
 #   2. elles ne correspondaient pas a la porte `costs` des rapports qu'elles invoquaient.
-# Chiffres MESURES, lus dans docs/research/stats/ (script scripts/backtest/current_stats.py,
-# jeu gelé de 11 999 bougies M15, spread observe, couts du depot) :
-#   * profit factor net, fenetre de validation : 0,8841 (or, 38 operations, -32,15 EUR) et
-#     0,8391 (BTC, 47 operations, -53,82 EUR), exige 1,20 ;
-#     en entraînement : 0,6255 (or, 106 operations) et 0,8124 (BTC, 209 operations) ;
-#   * p-value minimale 0,3497, contre la ligne de Bonferroni 0,016667, soit 21 fois au-dessus ;
-#   * 0 survivant sur 6 apres correction du taux de fausses decouvertes.
+# Chiffres MESURES (script scripts/backtest/current_stats.py, jeu gelé de 11 999 bougies M15,
+# spread observe, couts du depot). Deux sources distinctes, et la distinction compte :
+#   * lus dans docs/research/stats/XAUUSD-witness@1.1.1.json — profit factor net, fenetre de
+#     validation : 0,8841 (or, 38 operations, -32,15 EUR), en entraînement 0,6255 (106
+#     operations) ; pour le BTC, 0,8391 (47 operations, -53,82 EUR) et 0,8124 (209 operations) ;
+#   * issus de la campagne du 2026-10-08 sur le meme jeu, PAS des fichiers ci-dessus :
+#     p-value minimale 0,3497 contre la ligne de Bonferroni 0,016667, soit 21 fois au-dessus, et
+#     0 survivant sur 6 apres correction du taux de fausses decouvertes. Source :
+#     docs/research/campaign-M15/stdout.txt et docs/research/2026-10-08-anchored-split-and-folds-to-the-end.md.
 # La derogation reste en place et n'a jamais repose sur le franchissement des seuils : elle
 # repose sur le fait que le COMPTE DE DEMONSTRATION n'engage aucun argent reel.
 #
