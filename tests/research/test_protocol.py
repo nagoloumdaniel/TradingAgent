@@ -414,6 +414,9 @@ def test_a_deliberately_overfitted_strategy_is_flagged_fragile() -> None:
     )
     assert report.fragile is True
     assert report.score < 0.5
+    # The in-sample window is profitable here, so a real ratio exists — and it is negative,
+    # which is a measurement. `None` would mean the ratio could not be computed at all.
+    assert report.out_of_sample_retention is not None
     assert report.out_of_sample_retention < 0
     assert report.parameter_dispersion > PARAMETER_CV_MAX
     assert report.profitable_regime_ratio == pytest.approx(1 / 3)
@@ -441,6 +444,9 @@ def test_a_robust_strategy_is_not_flagged() -> None:
     )
     assert report.fragile is False
     assert report.reasons == ()
+    # `None` would mean the ratio could not be computed: the in-sample window must be profitable
+    # for this test to be about retention at all.
+    assert report.out_of_sample_retention is not None
     assert report.out_of_sample_retention > 0.8
     assert report.parameter_dispersion < PARAMETER_CV_MAX
 
@@ -508,8 +514,13 @@ def test_period_report_buckets_trades_by_month() -> None:
 
 def test_retention_and_dispersion_helpers() -> None:
     assert out_of_sample_retention(performance_of([10.0]), performance_of([5.0])) == 0.5
-    assert out_of_sample_retention(performance_of([-10.0]), performance_of([5.0])) == 1.0
-    assert out_of_sample_retention(performance_of([-10.0]), performance_of([-5.0])) == 0.0
+    # No ratio exists when the in-sample window is not profitable: `None`, not a flag dressed as
+    # a number. `1.0` here once read as "the edge survived" for a candidate whose sealed set lost
+    # 370 EUR — the defect of 2026-10-10, pinned by tests/research/test_out_of_sample_retention.py.
+    assert out_of_sample_retention(performance_of([-10.0]), performance_of([5.0])) is None
+    assert out_of_sample_retention(performance_of([-10.0]), performance_of([-5.0])) is None
+    # A ratio that exists is published even when negative: that is a measurement, not a flag.
+    assert out_of_sample_retention(performance_of([10.0]), performance_of([-5.0])) == -0.5
     assert parameter_dispersion([]) == 0.0
     assert parameter_dispersion([performance_of([10.0])]) == 0.0
     assert parameter_dispersion([performance_of([9.0]), performance_of([11.0])]) < 0.11

@@ -181,7 +181,15 @@ def evaluate_promotion(
     stability = evidence.stability
     if stability.trades < thresholds.min_trades:
         reasons.append(f"{stability.trades} out-of-sample trade(s), need {thresholds.min_trades}")
-    if stability.out_of_sample_retention < thresholds.min_out_of_sample_retention:
+    if stability.out_of_sample_retention is None:
+        # No ratio exists: the in-sample window was not profitable. That is not a persistence to
+        # bank, and it is not a number either — the report says so in words rather than printing
+        # a figure that would read as a measurement.
+        reasons.append(
+            "no out-of-sample retention: the in-sample window was not profitable, so no ratio "
+            "exists"
+        )
+    elif stability.out_of_sample_retention < thresholds.min_out_of_sample_retention:
         reasons.append(
             f"out-of-sample retention {stability.out_of_sample_retention:.2f} below "
             f"{thresholds.min_out_of_sample_retention:.2f}"

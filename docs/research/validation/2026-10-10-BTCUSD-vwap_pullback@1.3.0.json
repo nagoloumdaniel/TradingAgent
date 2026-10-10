@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-10T22:42:41.291014+00:00",
+  "generated_at": "2026-10-10T23:46:17.512529+00:00",
   "datasets": {
     "BTCUSD": {
       "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
@@ -128,31 +128,13 @@
     },
     {
       "stage": "out_of_sample",
-      "status": "failed",
-      "evaluated": true,
+      "status": "not_evaluable",
+      "evaluated": false,
       "passed": false,
-      "evaluator": "campaign._confirm_holdout -> protocol.confirm (one audited unlock)",
-      "reason": "out_of_sample failed on: BTCUSD",
-      "threshold": 0.5,
-      "evidence": {
-        "markets": {
-          "BTCUSD": {
-            "net_profit": "-370.134070206920",
-            "profit_factor": 0.6908976290384059,
-            "trades": 154,
-            "retention": 1.0,
-            "holdout_read": true,
-            "measurement": "sealed out-of-sample window, after selection",
-            "market": "BTCUSD",
-            "candidate": "vwap_pullback@1.3.0",
-            "candidates_tried": 1,
-            "other_candidates_that_failed_this_hard_gate": []
-          }
-        },
-        "failed_markets": [
-          "BTCUSD"
-        ]
-      }
+      "evaluator": "none: this evidence cannot be produced by a backtest campaign",
+      "reason": "not evaluable for BTCUSD: the sealed set was never unlocked: the campaign was asked to keep the sealed set sealed",
+      "threshold": null,
+      "evidence": {}
     },
     {
       "stage": "monte_carlo",
@@ -307,9 +289,9 @@
       "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
       "selected": "vwap_pullback@1.3.0",
       "selection_basis": "stability score, then out-of-sample profit factor",
-      "holdout_still_sealed": false,
-      "holdout_unlocks": 1,
-      "out_of_sample_net_profit": "-370.134070206920",
+      "holdout_still_sealed": true,
+      "holdout_unlocks": 0,
+      "out_of_sample_net_profit": null,
       "anchored": true,
       "dataset_window": {
         "name": "dataset",
@@ -409,19 +391,15 @@
         },
         {
           "stage": "out_of_sample",
-          "status": "failed",
-          "evaluated": true,
+          "status": "not_evaluable",
+          "evaluated": false,
           "passed": false,
-          "evaluator": "campaign._confirm_holdout -> protocol.confirm (one audited unlock)",
-          "reason": "out-of-sample net profit -370.134070206920 is not positive",
-          "threshold": 0.5,
+          "evaluator": "campaign._confirm_holdout -> protocol.confirm, called once per market for the selected candidate",
+          "reason": "the sealed set was never unlocked: the campaign was asked to keep the sealed set sealed",
+          "threshold": null,
           "evidence": {
-            "net_profit": "-370.134070206920",
-            "profit_factor": 0.6908976290384059,
-            "trades": 154,
-            "retention": 1.0,
-            "holdout_read": true,
-            "measurement": "sealed out-of-sample window, after selection",
+            "selected": true,
+            "holdout_read": false,
             "market": "BTCUSD",
             "candidate": "vwap_pullback@1.3.0",
             "candidates_tried": 1,
@@ -550,10 +528,12 @@
         {
           "label": "vwap_pullback@1.3.0",
           "selected": true,
-          "stability_score": 0.62,
+          "stability_score": 0.12,
           "fragile": true,
           "reasons": [
-            "parameter dispersion 2.15 above 0.50"
+            "no out-of-sample retention: the in-sample window was not profitable, so no ratio exists",
+            "parameter dispersion 2.15 above 0.50",
+            "stability score 0.12 below 0.50"
           ],
           "train_net_profit": "-818.239693266490",
           "validation_net_profit": "31.560103890550",
@@ -596,11 +576,7 @@
             "profit_factor": 0.8344544788380132,
             "trades": 170
           },
-          "out_of_sample": {
-            "net_profit": "-370.134070206920",
-            "profit_factor": 0.6908976290384059,
-            "trades": 154
-          },
+          "out_of_sample": null,
           "false_discovery_significant": false,
           "passing_gates": [
             "backtest",
@@ -658,19 +634,15 @@
             },
             {
               "stage": "out_of_sample",
-              "status": "failed",
-              "evaluated": true,
+              "status": "not_evaluable",
+              "evaluated": false,
               "passed": false,
-              "evaluator": "campaign._confirm_holdout -> protocol.confirm (one audited unlock)",
-              "reason": "out-of-sample net profit -370.134070206920 is not positive",
-              "threshold": 0.5,
+              "evaluator": "campaign._confirm_holdout -> protocol.confirm, called once per market for the selected candidate",
+              "reason": "the sealed set was never unlocked: the campaign was asked to keep the sealed set sealed",
+              "threshold": null,
               "evidence": {
-                "net_profit": "-370.134070206920",
-                "profit_factor": 0.6908976290384059,
-                "trades": 154,
-                "retention": 1.0,
-                "holdout_read": true,
-                "measurement": "sealed out-of-sample window, after selection"
+                "selected": true,
+                "holdout_read": false
               }
             },
             {

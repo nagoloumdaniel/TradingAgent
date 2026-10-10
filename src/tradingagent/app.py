@@ -700,7 +700,13 @@ def _measurement_of(report: CandidateReport) -> CycleMeasurement:
     if stability is not None:
         metrics["stability_score"] = float(stability.score)
         metrics["parameter_dispersion"] = float(stability.parameter_dispersion)
-        metrics["out_of_sample_retention"] = float(stability.out_of_sample_retention)
+        # A retention of `None` means no ratio exists — the in-sample window was not profitable.
+        # Stored as 0.0 rather than omitted, because `backtest_runs.metrics` is a comparison
+        # record and a missing key would read as "not measured"; 0.0 says "nothing persisted".
+        measured_retention = stability.out_of_sample_retention
+        metrics["out_of_sample_retention"] = (
+            0.0 if measured_retention is None else float(measured_retention)
+        )
         metrics["profitable_regime_ratio"] = float(stability.profitable_regime_ratio)
     return CycleMeasurement(objective=float(performance.net_profit), metrics=metrics)
 

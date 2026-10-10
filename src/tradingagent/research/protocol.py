@@ -85,16 +85,38 @@ class SealedSet:
     `size` is public so a report can describe the set; the candles themselves require the
     token given at seal time. Every successful unlock is counted, which is the audit trail
     for "the holdout stayed sealed until the final confirmation".
+
+    **The count is in memory, and that is not enough on its own.** A fresh `split_dataset`
+    hands out a fresh `SealedSet` with `unlock_count` back at zero, so nothing persistent stops
+    the same holdout from being opened again and again — which defeats the point of a resource
+    that is supposed to be spent once. A `ledger` may therefore be attached, and `unlock` tells
+    it before returning the candles; an implementation that has already seen this dataset
+    raises from there. The dependency points **inward**: this module names no store and imports
+    nothing that has one, so `research` stays offline-only.
     """
 
-    __slots__ = ("_candles", "_token", "unlock_count")
+    __slots__ = ("_candles", "_identity", "_ledger", "_token", "unlock_count")
 
-    def __init__(self, candles: Sequence[Candle], token: str) -> None:
+    def __init__(
+        self,
+        candles: Sequence[Candle],
+        token: str,
+        *,
+        ledger: Any | None = None,
+        identity: str = "",
+    ) -> None:
         if not token:
             raise ValueError("a seal token is required; an unlocked holdout is not a holdout")
         self._candles = tuple(candles)
         self._token = token
+        self._ledger = ledger
+        self._identity = identity
         self.unlock_count = 0
+
+    @property
+    def identity(self) -> str:
+        """What the ledger files this holdout under: the dataset it was cut from."""
+        return self._identity
 
     @property
     def size(self) -> int:
@@ -131,8 +153,18 @@ class SealedSet:
         )
 
     def unlock(self, token: str) -> tuple[Candle, ...]:
+        """The one deliberate read. The ledger, when there is one, decides first.
+
+        Its refusal propagates and **no counter is incremented**: a holdout already spent has
+        not been opened again, and recording it as an unlock would make the trail lie in the
+        other direction.
+        """
         if token != self._token:
             raise SealedAccessError("wrong unlock token: the out-of-sample set stays sealed")
+        if self._ledger is not None:
+            self._ledger.record(
+                identity=self._identity, start=self.start, end=self.end, size=self.size
+            )
         self.unlock_count += 1
         return self._candles
 
@@ -185,6 +217,8 @@ def split_dataset(
     train_fraction: float = 0.6,
     validation_fraction: float = 0.2,
     anchor: bool = False,
+    ledger: Any | None = None,
+    holdout_identity: str = "",
 ) -> DataSplit:
     """Split by time, never by shuffling: a shuffled backtest leaks the future into the past.
 
@@ -224,7 +258,12 @@ def split_dataset(
     return DataSplit(
         train=dataset.candles[:train_end],
         validation=dataset.candles[train_end:validation_end],
-        holdout=SealedSet(dataset.candles[validation_end:], token),
+        holdout=SealedSet(
+            dataset.candles[validation_end:],
+            token,
+            ledger=ledger,
+            identity=holdout_identity or dataset.dataset_id,
+        ),
         anchored=anchor,
     )
 
@@ -748,7 +787,10 @@ class StabilityReport:
     """A robustness indicator, deliberately not a profit figure (TASK-063)."""
 
     score: float
-    out_of_sample_retention: float
+    #: `None` when no ratio exists — the in-sample window was not profitable. Never a number
+    #: dressed up as one: `1.0` here once read as "the edge survived" for a candidate whose
+    #: sealed set lost 370 EUR.
+    out_of_sample_retention: float | None
     parameter_dispersion: float
     profitable_regime_ratio: float
     trades: int
@@ -771,7 +813,15 @@ def stability_report(
     reasons: list[str] = []
     if in_sample.trades < min_trades:
         reasons.append(f"only {in_sample.trades} in-sample trade(s), below {min_trades}")
-    if retention < OOS_RETENTION_MIN:
+    if retention is None:
+        # Not a failure by itself — the in-sample window simply did not make money, so the ratio
+        # does not exist. `robustness_score` already treats a non-positive in-sample window as
+        # no evidence of persistence, and `stability_score` clamps `None` to zero the same way.
+        reasons.append(
+            "no out-of-sample retention: the in-sample window was not profitable, so no ratio "
+            "exists"
+        )
+    elif retention < OOS_RETENTION_MIN:
         reasons.append(f"out-of-sample retention {retention:.2f} below {OOS_RETENTION_MIN:.2f}")
     if dispersion > PARAMETER_CV_MAX:
         reasons.append(f"parameter dispersion {dispersion:.2f} above {PARAMETER_CV_MAX:.2f}")
@@ -792,11 +842,28 @@ def stability_report(
     )
 
 
-def out_of_sample_retention(in_sample: Performance, out_of_sample: Performance) -> float:
+def out_of_sample_retention(in_sample: Performance, out_of_sample: Performance) -> float | None:
+    """How much of the in-sample profit the holdout kept, or `None` when that cannot be said.
+
+    **`None` is the point, and it replaces two lies.** The function used to return `1.0` when the
+    in-sample window was not profitable and the holdout was, and `0.0` when neither was. Those
+    were *flags* — "no ratio was computed" — wearing the clothes of measurements. On 2026-10-10 a
+    report printed `retention 1.00` for a candidate whose sealed set lost 370 EUR, and a reader
+    (this author) concluded the edge had survived. A reader is entitled to read a number as a
+    number, so a number that means "undetermined" must not be one.
+
+    The gate itself was never fooled: `campaign._confirm_holdout` refuses on the out-of-sample
+    **net profit**, checked before retention. But the gate is not what a human reads.
+
+    The ratio exists only when the in-sample window is profitable: percentage-of-something is
+    meaningless when the something is not positive. When it does exist, it is published even if
+    negative — a holdout that loses behind a profitable window is a measurement, and hiding it
+    would be the same defect mirrored.
+    """
     gross = float(in_sample.net_profit)
-    if gross > 0:
-        return float(out_of_sample.net_profit) / gross
-    return 1.0 if out_of_sample.net_profit > 0 else 0.0
+    if gross <= 0:
+        return None
+    return float(out_of_sample.net_profit) / gross
 
 
 def parameter_dispersion(perturbations: Sequence[Performance]) -> float:
@@ -818,15 +885,22 @@ def profitable_regime_ratio(regimes: Sequence[Performance]) -> float:
 
 
 def robustness_score(train: Performance, validation: Performance) -> float:
-    """Selection score used by `optimize`: retention first, profit factor second."""
-    retention = _clamp01(out_of_sample_retention(train, validation))
+    """Selection score used by `optimize`: retention first, profit factor second.
+
+    A retention of `None` — the in-sample window was not profitable, so no ratio exists — scores
+    as zero. That is not a convention: nothing was shown to persist, and a score is not the place
+    to invent one.
+    """
+    measured = out_of_sample_retention(train, validation)
+    retention = _clamp01(measured if measured is not None else 0.0)
     factor = validation.profit_factor or 0.0
     factor_component = _clamp01((factor - 1.0) / 2.0)
     return 0.6 * retention + 0.4 * factor_component
 
 
-def stability_score(retention: float, dispersion: float, regime_ratio: float) -> float:
-    retention_component = _clamp01(retention)
+def stability_score(retention: float | None, dispersion: float, regime_ratio: float) -> float:
+    """The composite score. `None` retention is treated as no persistence at all."""
+    retention_component = _clamp01(retention if retention is not None else 0.0)
     dispersion_component = 1.0 - _clamp01(dispersion / PARAMETER_CV_MAX)
     regime_component = _clamp01(regime_ratio)
     return _clamp01(0.5 * retention_component + 0.3 * dispersion_component + 0.2 * regime_component)

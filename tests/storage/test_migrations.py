@@ -31,6 +31,9 @@ TABLES = {
     "ai_proposals",
     "execution_events",
     "daily_performance",
+    # 0009: the sealed-set openings. A holdout is spent by being read, and until this table
+    # existed that spending left no trace anywhere persistent.
+    "holdout_unlocks",
 }
 
 

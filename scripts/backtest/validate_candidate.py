@@ -66,6 +66,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, default=OUTPUT_DIR)
     parser.add_argument("--thresholds", type=Path, default=THRESHOLDS)
     parser.add_argument(
+        "--actor",
+        default="campaign/validate_candidate",
+        help="qui ouvre le jeu scelle : c'est ce que la trace enregistre",
+    )
+    parser.add_argument(
         "--head",
         type=int,
         default=0,
@@ -123,25 +128,70 @@ def main(argv: list[str] | None = None) -> int:
     print("sortie mesuree : premier objectif seulement (fidelite production)")
     print(f"jeu scelle : {'OUVERT' if args.confirm_holdout else 'ferme'}")
 
-    report = campaign.run_campaign(
-        {args.market: dataset},
-        [stats.spec_for(args.market, args.ref)],
-        config_for=config_for,
-        thresholds=thresholds,
-        false_discovery_rate=campaign.DEFAULT_FALSE_DISCOVERY_RATE,
-        monte_carlo_iterations=campaign.MONTE_CARLO_ITERATIONS,
-        confirm_holdout=args.confirm_holdout,
-        anchor=campaign.ANCHOR_SPLIT,
-        train_fraction=campaign.TRAIN_FRACTION,
-        validation_fraction=campaign.VALIDATION_FRACTION,
-    )
+    # Le registre des ouvertures : c'est lui qui rend « un holdout se depense » verifiable.
+    # Sans base joignable, on refuse d'ouvrir le jeu scelle plutot que de l'ouvrir sans trace.
+    ledger = None
+    if args.confirm_holdout:
+        import os
+
+        from dotenv import load_dotenv
+
+        from tradingagent.storage.engine import create_database_engine
+        from tradingagent.storage.holdout import HoldoutLedger, holdout_identity
+
+        load_dotenv(ROOT / ".env")
+        url = os.environ.get("DATABASE_URL")
+        if not url:
+            raise SystemExit(
+                "DATABASE_URL est absent : sans registre, une ouverture du jeu scelle ne "
+                "laisserait aucune trace, et c'est precisement ce qui a ete corrige. Refus."
+            )
+        engine = create_database_engine(url)
+        ledger = HoldoutLedger(engine, actor=args.actor)
+        identity = holdout_identity(
+            dataset_id=dataset.dataset_id, market=args.market, fingerprint=dataset.fingerprint
+        )
+        spent = ledger.previous(identity)
+        if spent is not None:
+            raise SystemExit(
+                f"{identity}\n  ce jeu scelle a deja ete ouvert le "
+                f"{spent.unlocked_at.isoformat()} par {spent.actor}.\n"
+                "  Un holdout se depense en etant lu : une seconde lecture mesurerait un jeu qui "
+                "n'est plus hors echantillon. Scelle un autre jeu si un autre est necessaire."
+            )
+        print(f"registre : {identity} (jamais ouvert)")
+
+    report = None
+    try:
+        report = campaign.run_campaign(
+            {args.market: dataset},
+            [stats.spec_for(args.market, args.ref)],
+            config_for=config_for,
+            thresholds=thresholds,
+            false_discovery_rate=campaign.DEFAULT_FALSE_DISCOVERY_RATE,
+            monte_carlo_iterations=campaign.MONTE_CARLO_ITERATIONS,
+            confirm_holdout=args.confirm_holdout,
+            anchor=campaign.ANCHOR_SPLIT,
+            train_fraction=campaign.TRAIN_FRACTION,
+            validation_fraction=campaign.VALIDATION_FRACTION,
+            holdout_ledger=ledger,
+        )
+    finally:
+        if ledger is not None:
+            print(f"registre : {len(ledger.history())} ouverture(s) enregistree(s) au total")
+            engine.dispose()
+    assert report is not None, "run_campaign raises rather than returning None"  # noqa: S101
     campaign.print_report(report, {args.market: dataset})
     campaign.print_windows(report)
     campaign.print_gates(report)
 
     args.output.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y-%m-%d")
-    path = args.output / f"{stamp}-{args.market}-{args.ref}.json"
+    # The truncation is in the NAME, not only in the printout. Without it, a plumbing run on a
+    # truncated head silently overwrote the report of the real measurement — which happened on
+    # 2026-10-11 and had to be re-run to be restored.
+    suffix = f"-tete-{args.head}" if args.head > 0 else ""
+    path = args.output / f"{stamp}-{args.market}-{args.ref}{suffix}.json"
     path.write_text(
         json.dumps(
             campaign.campaign_to_dict(report, {args.market: dataset}, thresholds),

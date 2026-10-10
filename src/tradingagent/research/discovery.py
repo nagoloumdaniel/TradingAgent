@@ -1535,7 +1535,7 @@ def discard_cause(
     stability: StabilityReport,
     walk_forward_outcome: WalkForwardOutcome,
     out_of_sample: Performance,
-    retention: float,
+    retention: float | None,
     *,
     in_sample_trades: int,
     protocol: DiscoveryProtocol,
@@ -1552,6 +1552,12 @@ def discard_cause(
     if early is not None:
         return early
     if out_of_sample.net_profit <= 0:
+        return DiscardCause.OUT_OF_SAMPLE_NEGATIVE
+    if retention is None:
+        # No ratio exists: the in-sample window was not profitable. The check above already
+        # refused on the out-of-sample net profit, so reaching here means the sealed set made
+        # money while the training window did not — not a persistence to bank, and not a number
+        # to invent. It is discarded on the same grounds as a retention below the floor.
         return DiscardCause.OUT_OF_SAMPLE_NEGATIVE
     if retention < protocol.min_out_of_sample_retention:
         return DiscardCause.OUT_OF_SAMPLE_NEGATIVE

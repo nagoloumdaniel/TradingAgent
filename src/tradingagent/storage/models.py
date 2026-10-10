@@ -382,6 +382,32 @@ class BacktestRunRow(Base):
     created_at: Mapped[datetime]
 
 
+class HoldoutUnlockRow(Base):
+    """One opening of a sealed out-of-sample set (RM-016 evidence, TASK-065 protocol).
+
+    A holdout is the only genuinely out-of-sample evidence this project has, and it is spent by
+    reading it. Until this table existed, that spending left no trace at all: `SealedSet` counted
+    its unlocks in memory, so a fresh `split_dataset` handed out a fresh sealed set and the same
+    holdout could be opened indefinitely without anyone being able to say so afterwards. The
+    code's intent -- "reading a holdout is a deliberate act" -- was held by nothing persistent.
+
+    `identity` is unique on purpose: one dataset, one unlock. The rule that a holdout is spent
+    once belongs to the database, not to a caller's discipline -- the same choice the project
+    already made for idempotency keys and for the append-only history tables.
+    """
+
+    __tablename__ = "holdout_unlocks"
+    __table_args__ = (UniqueConstraint("identity", name="uq_holdout_unlocks_identity"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    identity: Mapped[str] = mapped_column(String(160))
+    window_start: Mapped[datetime]
+    window_end: Mapped[datetime]
+    bars: Mapped[int]
+    actor: Mapped[str] = mapped_column(String(80))
+    unlocked_at: Mapped[datetime]
+
+
 class ValidationRunRow(Base):
     """One gate of the validation protocol, with its verdict and its evidence."""
 

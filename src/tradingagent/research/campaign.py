@@ -314,6 +314,7 @@ def run_campaign(
     walk_forward_plan: WalkForwardPlan | None = None,
     confirm_holdout: bool = False,
     anchor: bool = True,
+    holdout_ledger: Any | None = None,
 ) -> CampaignReport:
     """Evaluate every candidate on every market, then select, validate and price the selection.
 
@@ -348,6 +349,7 @@ def run_campaign(
                 monte_carlo_iterations,
                 confirm_holdout,
                 anchor,
+                holdout_ledger,
             )
         )
 
@@ -378,6 +380,18 @@ def run_campaign(
     )
 
 
+def holdout_identity_for(dataset: CandleDataset, market: str) -> str:
+    """What a sealed set is filed under: the dataset it was cut from, not the run that read it.
+
+    `research` cannot import `storage.holdout.holdout_identity` — `backtest` and `research` are
+    `OFFLINE_ONLY`, and `storage` is a production package — so the formula is written here and
+    the two are pinned together by `tests/research/test_campaign_holdout_ledger.py`. Two
+    campaigns validating the same market therefore share one identity, which is the point: the
+    second is refused because the holdout is already spent, whatever it intends to measure.
+    """
+    return f"{dataset.dataset_id}:{market}:{dataset.fingerprint}"
+
+
 def _run_market(
     market: str,
     dataset: CandleDataset,
@@ -390,6 +404,7 @@ def _run_market(
     monte_carlo_iterations: int,
     confirm_holdout: bool,
     anchor: bool,
+    holdout_ledger: Any | None,
 ) -> MarketReport:
     token = f"campaign:{market}:holdout"
     split = split_dataset(
@@ -398,6 +413,8 @@ def _run_market(
         train_fraction=train_fraction,
         validation_fraction=validation_fraction,
         anchor=anchor,
+        ledger=holdout_ledger,
+        holdout_identity=holdout_identity_for(dataset, market),
     )
     reports: list[CandidateReport] = []
     for candidate in candidates:
@@ -484,7 +501,13 @@ def _confirm_holdout(
     base_config: BacktestConfig,
     split: Any,
 ) -> Performance:
-    """The single, audited read of the holdout: the winner of one market, once."""
+    """The single, audited read of the holdout: the winner of one market, once.
+
+    "Audited" is now literal. When a ledger was attached to the split, `SealedSet.unlock`
+    records the opening before handing back the candles, and refuses a dataset whose holdout has
+    already been spent. Until 2026-10-10 that check did not exist anywhere persistent: the same
+    holdout could be reopened indefinitely, leaving no trace at all.
+    """
     spec = next(item for item in candidates if item.label == winner.label)
     timeframe = dataset.timeframe
 
@@ -868,7 +891,16 @@ def _out_of_sample_gate(
         reasons.append(f"{trades} out-of-sample trade(s), need {thresholds.min_trades}")
     if sample.net_profit <= 0:
         reasons.append(f"out-of-sample net profit {sample.net_profit} is not positive")
-    if retention < thresholds.min_out_of_sample_retention:
+    if retention is None:
+        # No ratio exists: the in-sample window was not profitable, so "share of the profit the
+        # holdout kept" has no numerator and no denominator. Reported as `None` and never as a
+        # number, because 1.00 here once read as "the edge survived" for a candidate whose
+        # sealed set lost 370 EUR. The refusal above, on the net profit, is what decides.
+        reasons.append(
+            "no out-of-sample retention: the in-sample window was not profitable, so no ratio "
+            "exists (the net profit check above is the decisive one)"
+        )
+    elif retention < thresholds.min_out_of_sample_retention:
         reasons.append(
             f"retention {retention:.2f} below {thresholds.min_out_of_sample_retention:.2f}"
         )
@@ -881,6 +913,7 @@ def _out_of_sample_gate(
             "net_profit": str(sample.net_profit),
             "profit_factor": sample.profit_factor,
             "trades": trades,
+            # None means "not computed". A JSON consumer must not read it as 1.0 or 0.0.
             "retention": retention,
             "holdout_read": True,
             "measurement": "sealed out-of-sample window, after selection",
