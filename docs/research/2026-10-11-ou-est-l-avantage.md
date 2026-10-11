@@ -5,6 +5,41 @@
 
 **Réponse courte.** L'avantage existe, il est **localisé, nommable et mesuré**, et ce n'est pas un paramètre de sortie : c'est **le sens de l'entrée par rapport à la tendance nommée du marché**. Une opération qui va dans le sens de la tendance au moment de l'entrée rend +0.2975 R sur 157 opérations sur le bitcoin et +0.2198 R sur 133 sur l'or, positives dans les deux fenêtres ; celles qui vont contre la tendance rendent -0.5045 R et -0.6707 R. La détection n'est pas le problème : l'**acceptation** l'est, et le remède est un **refus**, pas un réglage. Le jeu scellé n'a pas été ouvert.
 
+> **ERRATUM DU 2026-10-11 — un défaut trouvé dans l'outil de ce rapport, et il change un chiffre.**
+> Un équipier travaillant sur le filtre de tendance a trouvé que
+> `edge_location._significance` publiait `student_two_sided_p(t) / 2`, qui n'est une p-value
+> unilatérale **que pour `t > 0`** : la fonction est symétrique en signe, une p-value unilatérale
+> ne l'est pas. Pour une case qui **perd**, elle rendait une p-value minuscule. Corrigé dans
+> `tradingagent.research.statistics.student_one_sided_p`, verrouillé par
+> `tests/backtest/test_one_sided_p_value.py`.
+>
+> **Le chiffre qui change, mesuré en rejouant l'analyse** (aucun backtest relancé : le jeu complet
+> n'a tourné qu'une fois, et l'outil se contente de relire son cache) :
+>
+> | | avant | après correction |
+> |---|---|---|
+> | slices à espérance strictement positive | 12 | **12** |
+> | … et dont l'IC 95 % exclut zéro | 10 | **10** |
+> | … et qui survivent à Benjamini-Hochberg | 10 | **8** |
+>
+> **Deux slices ne survivent plus.** Les p-values des cases perdantes étaient fausses, donc elles
+> entraient dans le classement de Benjamini-Hochberg et **déplaçaient son seuil** ; corrigées, le
+> classement change et deux découvertes tombent. Le seuil de Bonferroni ne bouge pas (6,098e-04),
+> et les 12 slices positifs comme les 10 à IC concluant restent identiques.
+>
+> **Ce qui reste vrai, et c'est le résultat de fond :** des slices à espérance positive survivent
+> toujours, sous leurs quatre noms, et le sens de l'effet — entrer **avec** la tendance nommée —
+> est inchangé. La conclusion du rapport tient ; **c'est son décompte qui était optimiste**, de
+> deux unités.
+>
+> **Et une correction de mon propre raisonnement, parce qu'elle vaut d'être notée.** J'avais
+> d'abord écrit ici que la correction ne changeait « rien », en raisonnant que les dix slices
+> survivants ayant une espérance positive, leurs p-values étaient déjà justes et donc leur
+> classement aussi. Le raisonnement était bon sur les p-values et **faux sur le classement** :
+> Benjamini-Hochberg lit **toutes** les hypothèses, pas seulement celles qui survivent au bout.
+> Une correction de tests multiples dépend de l'ensemble des valeurs qu'on lui donne, y compris
+> celles qui ne concluent pas.
+
 ---
 
 ## 1. Ce qui a été mesuré, et sur quoi
@@ -503,7 +538,7 @@ La correction appliquée est celle du dépôt, Benjamini-Hochberg (`research.pro
 - `vwap_side_x_trend` ≡ `trend_x_direction` — la strategie n'ouvre un achat que sous le VWAP et une vente au-dessus : les deux croisements avec la tendance donnent donc des cases identiques au nom pres, parce que le cote du VWAP et le sens portent la meme information.
 - `trend_agreement` ≡ `trend_x_direction` — memes operations, regroupees autrement : l'agregation est publiee parce que c'est la forme testable de l'hypothese, pas parce qu'elle ajoute un test.
 
-**Conséquence de lecture :** les survivants ci-dessous ne sont donc pas dix découvertes indépendantes, mais **deux effets** (l'accord avec la tendance, à l'achat et à la vente) vus sous quatre noms. Le compte honnête est **deux**, et le classement par p-value ne le dit pas de lui-même.
+**Conséquence de lecture :** les survivants ci-dessous ne sont donc pas huit découvertes indépendantes, mais **deux effets** (l'accord avec la tendance, à l'achat et à la vente) vus sous quatre noms. Le compte honnête est **deux**, et le classement par p-value ne le dit pas de lui-même.
 
 ### Le résultat
 
@@ -513,7 +548,7 @@ La correction appliquée est celle du dépôt, Benjamini-Hochberg (`research.pro
 | hypothèses concluantes (≥ 30 op.) | 147 |
 | slices à espérance strictement positive | 12 |
 | … et dont l'IC 95 % exclut zéro par le haut | **10** |
-| … et qui survivent à Benjamini-Hochberg | **10** |
+| … et qui survivent à Benjamini-Hochberg | **8** *(10 avant la correction de l'erratum ci-dessus)* |
 
 **Les slices qui survivent à la correction, sous leur nom complet :**
 
@@ -527,8 +562,19 @@ La correction appliquée est celle du dépôt, Benjamini-Hochberg (`research.pro
 | `BTCUSD` · `vwap_side_x_trend` · `au_dessus|up` | 80 | 78.8 % | 2.10 | +0.2563 | [+0.098 ; +0.414] | 0.0009 | +0.206 (58) | +0.388 (22) | **oui** |
 | `XAUUSD` · `trend_x_direction` · `up|BUY` | 87 | 75.9 % | 1.80 | +0.2091 | [+0.052 ; +0.366] | 0.00487 | +0.197 (60) | +0.236 (27) | **oui** |
 | `XAUUSD` · `vwap_side_x_trend` · `au_dessus|up` | 87 | 75.9 % | 1.80 | +0.2091 | [+0.052 ; +0.366] | 0.00487 | +0.197 (60) | +0.236 (27) | **oui** |
-| `XAUUSD` · `trend_x_direction` · `down|SELL` | 46 | 78.3 % | 2.01 | +0.2399 | [+0.029 ; +0.451] | 0.0135 | +0.299 (35) | +0.051 (11) | **oui** |
-| `XAUUSD` · `vwap_side_x_trend` · `en_dessous|down` | 46 | 78.3 % | 2.01 | +0.2399 | [+0.029 ; +0.451] | 0.0135 | +0.299 (35) | +0.051 (11) | **oui** |
+
+**Les deux slices que la correction a fait tomber** — ils gardent leur espérance positive, mais ne
+survivent plus à la correction de tests multiples une fois les p-values réparées :
+
+| slice | n | esp/op (R) | IC 95 % (R) | esp. validation | pourquoi il tombe |
+|---|---|---|---|---|---|
+| `XAUUSD` · `trend_x_direction` · `down|SELL` | 46 | +0.2399 | [+0.029 ; +0.451] | +0.051 | p = 0.0135, le plus faible des quatre noms |
+| `XAUUSD` · `vwap_side_x_trend` · `en_dessous|down` | 46 | +0.2399 | [+0.029 ; +0.451] | +0.051 | même slice sous son autre nom |
+
+C'est le `down|SELL` de l'or qui tombe, et sous ses **deux** noms — donc l'effet « vente dans une
+tendance baissière sur l'or » n'est plus établi par cette mesure, alors que celui du bitcoin et
+les deux effets d'achat le restent. La validation de ce slice valait d'ailleurs **+0.051 R**, à
+la limite de zéro : c'était le plus fragile des quatre, et la correction l'a dit avant moi.
 
 **Les slices positifs qui ne survivent pas** (2) sont publiés pour que le tableau ne s'arrête pas à ce qui arrange :
 
@@ -623,7 +669,7 @@ Le `mfe_r` médian des **gagnants** vaut 0.940 R sur le bitcoin et 0.946 R sur l
 
 > **Existe-t-il une slice avec un avantage mesurable, ou l'espérance est-elle négative partout ?**
 
-**Il existe une slice avec un avantage mesurable, et elle est unique dans sa forme : l'entrée qui va dans le sens de la tendance nommée à l'instant de l'entrée.** 10 slices survivent à la correction de tests multiples sur 164 hypothèses, mais elles ne portent que deux effets (achat dans une tendance haussière, vente dans une tendance baissière), vus sous quatre noms dont deux dimensions mécaniquement équivalentes. L'espérance n'est donc **pas** négative partout : elle est négative pour les entrées contre la tendance (-0.5045 R et -0.6707 R), quasi nulle pour les entrées sans tendance nommée (-0.1825 R et -0.1567 R), et positive pour celles qui la suivent (+0.2975 R et +0.2198 R).
+**Il existe une slice avec un avantage mesurable, et elle est unique dans sa forme : l'entrée qui va dans le sens de la tendance nommée à l'instant de l'entrée.** 8 slices survivent à la correction de tests multiples sur 164 hypothèses *(10 avant la correction de l'erratum ci-dessus)*, mais elles ne portent que deux effets (achat dans une tendance haussière, vente dans une tendance baissière), vus sous quatre noms dont deux dimensions mécaniquement équivalentes. L'espérance n'est donc **pas** négative partout : elle est négative pour les entrées contre la tendance (-0.5045 R et -0.6707 R), quasi nulle pour les entrées sans tendance nommée (-0.1825 R et -0.1567 R), et positive pour celles qui la suivent (+0.2975 R et +0.2198 R).
 
 **Ce que cela vaut, et ce que cela ne vaut pas.** C'est une **hypothèse mesurée sur les fenêtres d'entraînement et de validation**, pas une découverte validée : elle n'a franchi aucune des neuf portes, elle n'est pas activée, et `config/` n'est pas touché. Elle a plusieurs raisons d'être fragile, et elles sont écrites ici plutôt que découvertes plus tard :
 

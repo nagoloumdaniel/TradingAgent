@@ -179,7 +179,8 @@ def _self_check(emit: Any) -> dict[str, Any]:
     """La loi de Student confrontee a des valeurs tabulees, avant toute mesure."""
     emit("--- self-check : loi de Student contre valeurs tabulees ---")
     results: list[dict[str, Any]] = []
-    for label, measured, expected, tolerance in SELF_CHECKS:
+
+    def record(label: str, measured: float, expected: float, tolerance: float) -> None:
         error = abs(measured - expected)
         ok = error <= tolerance
         results.append(
@@ -193,14 +194,57 @@ def _self_check(emit: Any) -> dict[str, Any]:
             }
         )
         emit(
-            f"  [{'ok ' if ok else 'NON'}] {label:<34} mesure {measured:.9f}"
+            f"  [{'ok ' if ok else 'NON'}] {label:<38} mesure {measured:.9f}"
             f"  erreur {error:.2e} (tolerance {tolerance:.0e})"
         )
+
+    for label, measured, expected, tolerance in SELF_CHECKS:
+        record(label, measured, expected, tolerance)
+    # Le controle qui compte le plus ici, parce qu'il attrape l'erreur qui se serait glissee sans
+    # bruit : une p-value unilaterale doit etre **orientee**. Sur une serie a esperance
+    # significativement negative, la valeur brute de `edge_location._significance`
+    # (`P(|T| >= |t|) / 2`) vaut presque zero et se lirait comme le resultat le plus significatif
+    # du balayage ; reorientee, elle vaut presque un. Les deux sont verifies.
+    losing = [-1.0, -1.0, -1.0, -1.0, -0.5]
+    record(
+        "p brute, esperance negative (doit etre ~0)",
+        float(_significance(losing)["p_value_one_sided"]),
+        0.0,
+        1e-3,
+    )
+    record(
+        "p reorientee, meme serie (doit etre ~1)",
+        float(_oriented_one_sided(losing)["p_value_one_sided"]),
+        1.0,
+        1e-2,
+    )
     failed = [item for item in results if not item["ok"]]
     if failed:
         raise SystemExit(f"self-check refuse : {len(failed)} controle(s) hors tolerance")
     emit(f"  les {len(results)} controles passent : la loi de Student est utilisable")
     return {"checks": results, "passed": True}
+
+
+def _oriented_one_sided(values: list[float]) -> dict[str, Any]:
+    """Les statistiques d'esperance en R, avec une p-value unilaterale **orientee**.
+
+    `edge_location._significance` rend `P(|T| >= |t|) / 2`. C'est la p-value unilaterale de
+    H0 « esperance <= 0 » quand la statistique est **positive**, et son **complement** quand elle
+    est negative. Ce balayage mesure les deux cotes de zero -- un seuil eleve ne garde presque
+    rien et perd autant qu'avant -- donc la valeur brute designerait les cases les plus perdantes
+    comme les plus significatives, et la correction de tests multiples les proclamerait
+    decouvertes. Elle est donc reorientee ici, une fois, et le self-check le verifie.
+    """
+    test = _significance(values)
+    half = test["p_value_one_sided"]
+    statistic = test["t_statistic"]
+    if half is None or statistic is None:
+        # Ecart-type nul : `_degenerate_significance` a deja rendu une p-value orientee par la
+        # position de la moyenne. Il n'y a rien a retourner.
+        return test
+    if statistic < 0:
+        return {**test, "p_value_one_sided": 1.0 - half}
+    return test
 
 
 def _variant(spec: Any, *, threshold: float | None) -> Any:
@@ -248,7 +292,6 @@ def _summary(run: Any, stats: Any) -> dict[str, Any]:
         "mean_r": round(math.fsum(values) / len(values), 6) if values else None,
         "stderr_r": significance["stderr_r"],
         "t_statistic": significance["t_statistic"],
-        "p_value_one_sided": significance["p_value_one_sided"],
         "ci95_low_r": significance["ci95_low_r"],
         "ci95_high_r": significance["ci95_high_r"],
         "r_values": values,
@@ -454,29 +497,41 @@ def _correct(
 
     Une hypothese est un couple (reglage, marche) : 9 seuils x 2 marches. La p-value est celle du
     t de Student unilateral sur le R net par operation des deux fenetres reunies -- la lecture du
-    depot (`edge_location.py`, `research.protocol.price_false_discoveries`). Un reglage dont la
+    depot (`edge_location.py`, `research.protocol.price_false_discoveries`), **reorientee** pour
+    que H0 soit bien « esperance <= 0 » (voir `_oriented_one_sided`). Un reglage dont la
     validation porte moins de `min_trades` operations est compte avec `p = 1` plutot que retire :
     le nombre de tests doit egaler le nombre de tentatives.
+
+    Les p-values par fenetre sont calculees ici et nulle part ailleurs : une p-value stockee au
+    moment de la mesure survivrait a une correction de son orientation, et un nombre faux vaut
+    moins qu'un nombre absent.
     """
     labelled: list[tuple[str, float | None]] = []
     significance: dict[str, Any] = {}
     retained_by_label: dict[str, bool] = {}
     for threshold, row in rows.items():
         for market in markets:
-            values = [
-                value
-                for window in WINDOWS
-                for value in measured[market][threshold][window]["r_values"]
-            ]
-            test = _significance(values)
-            enough = measured[market][threshold]["validation"]["trades"] >= MIN_SIGNIFICANT_SAMPLE
+            blocks = measured[market][threshold]
+            values = [value for window in WINDOWS for value in blocks[window]["r_values"]]
+            test = _oriented_one_sided(values)
+            enough = blocks["validation"]["trades"] >= MIN_SIGNIFICANT_SAMPLE
             label = f"{market}|trend_slope_atr={threshold:g}"
             significance[label] = {
                 "threshold": threshold,
                 "market": market,
                 "observations": len(values),
-                "validation_trades": measured[market][threshold]["validation"]["trades"],
+                "validation_trades": blocks["validation"]["trades"],
                 "conclusive": enough,
+                "by_window": {
+                    window: {
+                        "observations": len(blocks[window]["r_values"]),
+                        "mean_r": blocks[window]["mean_r"],
+                        "p_value_one_sided": _oriented_one_sided(list(blocks[window]["r_values"]))[
+                            "p_value_one_sided"
+                        ],
+                    }
+                    for window in WINDOWS
+                },
                 **test,
             }
             retained_by_label[label] = bool(row["retained"])
@@ -668,11 +723,17 @@ def _verdict(rows: dict[float, dict[str, Any]]) -> dict[str, Any]:
 
 
 def _strip(measured: dict[str, Any]) -> dict[str, Any]:
-    """Le meme bloc sans les R par operation : le JSON reste lisible, les tests sont ailleurs."""
+    """Le meme bloc sans les R par operation ni aucune p-value : le JSON reste lisible.
+
+    Les p-values sont recalculees a l'analyse (`_correct`) et **ne sont pas** reprises d'un bloc
+    mesure : une p-value ecrite au moment de la mesure garderait l'orientation de la version qui
+    l'a produite, et publier deux nombres qui se contredisent vaut moins que n'en publier qu'un.
+    """
+    dropped = {"r_values", "p_value_one_sided"}
     stripped: dict[str, Any] = {}
     for key, value in measured.items():
         if key in WINDOWS:
-            stripped[key] = {name: item for name, item in value.items() if name != "r_values"}
+            stripped[key] = {name: item for name, item in value.items() if name not in dropped}
         else:
             stripped[key] = value
     return stripped

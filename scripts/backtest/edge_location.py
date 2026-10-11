@@ -147,147 +147,18 @@ SIGN_FLIP_BOTTOM = 10
 # contre des valeurs tabulees plutot que supposee correcte.
 # ==========================================================================================
 
-_LANCZOS = (
-    676.5203681218851,
-    -1259.1392167224028,
-    771.32342877765313,
-    -176.61502916214059,
-    12.507343278686905,
-    -0.13857109526572012,
-    9.9843695780195716e-6,
-    1.5056327351493116e-7,
+#: Le calcul des distributions vit dans le paquet, ou `mypy` le couvre. Un test qui
+#: l'importerait d'ici serait intestable : la configuration de mypy liste src, tests, tools,
+#: et le hook de typage a refuse la premiere version du test pour cette raison exacte.
+from tradingagent.research.statistics import (  # noqa: E402
+    ASYMPTOTIC_DEGREES,
+    normal_quantile,
+    regularized_incomplete_beta,
+    student_cdf,
+    student_one_sided_p,
+    student_quantile,
+    student_two_sided_p,
 )
-
-
-def log_gamma(value: float) -> float:
-    """Logarithme de la fonction Gamma, par l'approximation de Lanczos (erreur relative ~1e-15)."""
-    if value < 0.5:
-        return math.log(math.pi / math.sin(math.pi * value)) - log_gamma(1.0 - value)
-    shifted = value - 1.0
-    series = 0.99999999999980993
-    for index, coefficient in enumerate(_LANCZOS):
-        series += coefficient / (shifted + index + 1.0)
-    base = shifted + len(_LANCZOS) - 0.5
-    return (
-        0.5 * math.log(2.0 * math.pi) + (shifted + 0.5) * math.log(base) + math.log(series) - base
-    )
-
-
-def _beta_continued_fraction(a: float, b: float, x: float) -> float:
-    """La fraction continue de Lentz pour la fonction beta incomplete (Numerical Recipes)."""
-    tiny = 1e-300
-    qab, qap, qam = a + b, a + 1.0, a - 1.0
-    c = 1.0
-    d = 1.0 - qab * x / qap
-    if abs(d) < tiny:
-        d = tiny
-    d = 1.0 / d
-    result = d
-    for step in range(1, 300):
-        twice = 2 * step
-        coefficient = step * (b - step) * x / ((qam + twice) * (a + twice))
-        d = 1.0 + coefficient * d
-        if abs(d) < tiny:
-            d = tiny
-        c = 1.0 + coefficient / c
-        if abs(c) < tiny:
-            c = tiny
-        d = 1.0 / d
-        result *= d * c
-        coefficient = -(a + step) * (qab + step) * x / ((a + twice) * (qap + twice))
-        d = 1.0 + coefficient * d
-        if abs(d) < tiny:
-            d = tiny
-        c = 1.0 + coefficient / c
-        if abs(c) < tiny:
-            c = tiny
-        d = 1.0 / d
-        delta = d * c
-        result *= delta
-        if abs(delta - 1.0) < 1e-15:
-            break
-    return result
-
-
-def regularized_incomplete_beta(a: float, b: float, x: float) -> float:
-    """`I_x(a, b)`, la fonction beta incomplete regularisee, par fraction continue."""
-    if not 0.0 <= x <= 1.0:
-        raise ValueError(f"x must lie in [0, 1], got {x}")
-    if x == 0.0:
-        return 0.0
-    if x == 1.0:
-        return 1.0
-    front = math.exp(
-        log_gamma(a + b) - log_gamma(a) - log_gamma(b) + a * math.log(x) + b * math.log1p(-x)
-    )
-    if x < (a + 1.0) / (a + b + 2.0):
-        return front * _beta_continued_fraction(a, b, x) / a
-    return 1.0 - front * _beta_continued_fraction(b, a, 1.0 - x) / b
-
-
-def student_two_sided_p(statistic: float, degrees: float) -> float:
-    """`P(|T| >= |t|)` pour une loi de Student a `degrees` degres de liberte."""
-    if degrees <= 0:
-        raise ValueError(f"degrees must be positive, got {degrees}")
-    if statistic == 0.0:
-        return 1.0
-    square = statistic * statistic
-    return regularized_incomplete_beta(degrees / 2.0, 0.5, degrees / (degrees + square))
-
-
-def student_cdf(statistic: float, degrees: float) -> float:
-    return 1.0 - student_two_sided_p(statistic, degrees) / 2.0
-
-
-def normal_quantile(probability: float) -> float:
-    """Le quantile d'une loi normale centree reduite, par bissection de `erfc`."""
-    if not 0.5 < probability < 1.0:
-        raise ValueError(f"probability must lie in (0.5, 1), got {probability}")
-    low, high = 0.0, 1.0
-    while 1.0 - normal_upper_p(high) < probability:
-        low, high = high, high * 2.0
-    for _ in range(200):
-        middle = (low + high) / 2.0
-        if 1.0 - normal_upper_p(middle) < probability:
-            low = middle
-        else:
-            high = middle
-    return (low + high) / 2.0
-
-
-#: Au-dela de ces degres de liberte, la loi de Student et la loi normale coincident a mieux que
-#: 1e-5 pour tout quantile de travail. La fonction beta incomplete perd de la precision bien avant
-#: (mesure : 2,4e-5 d'ecart a 100 000 degres, sur un cas qui ne sert jamais ici), donc la queue
-#: asymptotique est lue par la **loi limite** plutot que par une formule qui se degrade.
-ASYMPTOTIC_DEGREES = 3_000.0
-
-
-def student_quantile(probability: float, degrees: float) -> float:
-    """Le quantile d'ordre `probability` d'une loi de Student.
-
-    Bissection de la CDF, encadree en bas par le quantile normal quand Student lui est proche : sans
-    cette borne l'encadrement part de zero et la bissection depense une trentaine d'iterations a
-    traverser une region ou les deux lois sont indistinguables. Au-dela de
-    `ASYMPTOTIC_DEGREES`, la loi limite est utilisee directement -- et c'est la que la fonction beta
-    incomplete commencait a perdre ses chiffres significatifs.
-    """
-    if not 0.5 < probability < 1.0:
-        raise ValueError(f"probability must lie in (0.5, 1), got {probability}")
-    if degrees >= ASYMPTOTIC_DEGREES:
-        return normal_quantile(probability)
-    low = normal_quantile(probability) * 0.9
-    high = low * 4.0
-    while student_cdf(high, degrees) < probability:
-        low, high = high, high * 2.0
-        if high > 1e12:  # pragma: no cover - unreachable for any real degrees of freedom
-            raise ValueError("student quantile did not bracket: check degrees")
-    for _ in range(200):
-        middle = (low + high) / 2.0
-        if student_cdf(middle, degrees) < probability:
-            low = middle
-        else:
-            high = middle
-    return (low + high) / 2.0
 
 
 def sign_flip_p_value(
@@ -588,7 +459,7 @@ def _significance(rs: Sequence[float]) -> dict[str, Any]:
     return {
         "stderr_r": stderr,
         "t_statistic": statistic,
-        "p_value_one_sided": student_two_sided_p(statistic, count - 1) / 2.0,
+        "p_value_one_sided": student_one_sided_p(statistic, count - 1),
         "ci95_low_r": low,
         "ci95_high_r": high,
         "ci95_excludes_zero": low > 0.0 or high < 0.0,

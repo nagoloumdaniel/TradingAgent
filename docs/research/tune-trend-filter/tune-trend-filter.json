@@ -1,0 +1,2111 @@
+{
+  "method": "filtre de tendance bascule en memoire (CandidateSpec), meme decoupage (ancre 60/20/20), memes couts (campaign_costs, mode SIGNAL, une position a la fois), sortie au premier objectif comme la production l'execute",
+  "question": "existe-t-il un reglage moins selectif de trend_slope_atr qui conserve l'effet du filtre de tendance sur les deux fenetres et les deux marches ?",
+  "rule": {
+    "a": "plus d'operations gardees qu'au seuil par defaut, sur chacun des 4 blocs",
+    "b": "PF net superieur a la regle sans filtre, entrainement ET validation, 2 marches",
+    "c": "au moins 0.30 des operations gardees, sur chacun des 4 blocs",
+    "d": "au moins 60 operations en validation, par marche",
+    "reference_threshold": 0.05,
+    "tie_break": "PF net minimal le plus haut sur les 4 blocs",
+    "thresholds": [
+      0.001,
+      0.002,
+      0.005,
+      0.01,
+      0.02,
+      0.03,
+      0.05,
+      0.08,
+      0.12
+    ],
+    "hypotheses": 18,
+    "kept_floor": 0.3,
+    "min_validation_trades": 60
+  },
+  "refs": {
+    "BTCUSD": "vwap_pullback@1.2.0",
+    "XAUUSD": "vwap_pullback@1.1.0"
+  },
+  "bars": null,
+  "baseline": {
+    "BTCUSD": {
+      "market": "BTCUSD",
+      "ref": "vwap_pullback@1.2.0",
+      "threshold": null,
+      "filter": false,
+      "timeframe": "M15",
+      "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
+      "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+      "bars": 59999,
+      "sealed_bars_not_read": 12001,
+      "sealed_window_not_read": [
+        "2026-06-05T23:15:00+00:00",
+        "2026-10-09T01:45:00+00:00"
+      ],
+      "train": {
+        "trades": 709,
+        "wins": 392,
+        "losses": 317,
+        "win_rate": 0.5528913963328632,
+        "net_profit": -999.06396478052,
+        "profit_factor": 0.714838,
+        "expectancy": -1.409117,
+        "max_drawdown": 1054.10046060176,
+        "signals": 1220,
+        "skipped_no_room": 511,
+        "decisions": 35600,
+        "mean_r": -0.140912,
+        "stderr_r": 0.03273120349229884,
+        "t_statistic": -4.305118254961899,
+        "ci95_low_r": -0.20517353753160375,
+        "ci95_high_r": -0.07664986579153307
+      },
+      "train_window": [
+        "2025-01-21T16:30:00+00:00",
+        "2026-01-31T20:30:00+00:00"
+      ],
+      "validation": {
+        "trades": 205,
+        "wins": 113,
+        "losses": 92,
+        "win_rate": 0.551219512195122,
+        "net_profit": -327.7082293223,
+        "profit_factor": 0.681801,
+        "expectancy": -1.598577,
+        "max_drawdown": 357.5176663547,
+        "signals": 366,
+        "skipped_no_room": 161,
+        "decisions": 11600,
+        "mean_r": -0.159858,
+        "stderr_r": 0.0609976153094352,
+        "t_statistic": -2.6207200401065402,
+        "ci95_low_r": -0.2801242852981457,
+        "ci95_high_r": -0.03959106038214691
+      },
+      "validation_window": [
+        "2026-01-31T20:30:00+00:00",
+        "2026-06-05T23:15:00+00:00"
+      ]
+    },
+    "XAUUSD": {
+      "market": "XAUUSD",
+      "ref": "vwap_pullback@1.1.0",
+      "threshold": null,
+      "filter": false,
+      "timeframe": "M15",
+      "dataset_id": "mt5-XAUUSD-M15-2026-10-09",
+      "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+      "bars": 59999,
+      "sealed_bars_not_read": 12001,
+      "sealed_window_not_read": [
+        "2026-04-08T18:15:00+00:00",
+        "2026-10-09T03:30:00+00:00"
+      ],
+      "train": {
+        "trades": 656,
+        "wins": 378,
+        "losses": 278,
+        "win_rate": 0.5762195121951219,
+        "net_profit": -863.79608960392,
+        "profit_factor": 0.722939,
+        "expectancy": -1.316762,
+        "max_drawdown": 923.05907044431,
+        "signals": 1109,
+        "skipped_no_room": 452,
+        "decisions": 35600,
+        "mean_r": -0.131676,
+        "stderr_r": 0.03332599452215092,
+        "t_statistic": -3.9511568989728887,
+        "ci95_low_r": -0.19711490142605917,
+        "ci95_high_r": -0.0662375649165994
+      },
+      "train_window": [
+        "2024-03-25T13:00:00+00:00",
+        "2025-10-02T11:45:00+00:00"
+      ],
+      "validation": {
+        "trades": 231,
+        "wins": 108,
+        "losses": 123,
+        "win_rate": 0.4675324675324675,
+        "net_profit": -621.91036145895,
+        "profit_factor": 0.545443,
+        "expectancy": -2.692253,
+        "max_drawdown": 625.15542102044,
+        "signals": 403,
+        "skipped_no_room": 172,
+        "decisions": 11600,
+        "mean_r": -0.269225,
+        "stderr_r": 0.060226560016768765,
+        "t_statistic": -4.470208237460088,
+        "ci95_low_r": -0.38789156949694503,
+        "ci95_high_r": -0.15055895990474322
+      },
+      "validation_window": [
+        "2025-10-02T11:45:00+00:00",
+        "2026-04-08T18:15:00+00:00"
+      ]
+    }
+  },
+  "sweep": {
+    "0.001": {
+      "threshold": 0.001,
+      "criteria": {
+        "a_more_kept_than_default": true,
+        "b_pf_above_baseline_both_windows_both_markets": false,
+        "c_kept_at_least_floor": true,
+        "d_validation_trades_at_least_minimum": true
+      },
+      "retained": false,
+      "worst_profit_factor": 0.66145,
+      "kept_trades": {
+        "BTCUSD|train": 0.6657263751763046,
+        "BTCUSD|validation": 0.6536585365853659,
+        "XAUUSD|train": 0.6387195121951219,
+        "XAUUSD|validation": 0.6623376623376623
+      },
+      "kept_signals": {
+        "BTCUSD|train": 0.669672131147541,
+        "BTCUSD|validation": 0.6639344262295082,
+        "XAUUSD|train": 0.6411181244364292,
+        "XAUUSD|validation": 0.7022332506203474
+      },
+      "profit_factors": {
+        "BTCUSD|train": 0.747379,
+        "BTCUSD|validation": 0.746561,
+        "XAUUSD|train": 0.676755,
+        "XAUUSD|validation": 0.66145
+      },
+      "improves_above_baseline": {
+        "BTCUSD|train": true,
+        "BTCUSD|validation": true,
+        "XAUUSD|train": false,
+        "XAUUSD|validation": true
+      },
+      "blocks": {
+        "BTCUSD": {
+          "market": "BTCUSD",
+          "ref": "vwap_pullback@1.2.0",
+          "threshold": 0.001,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
+          "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-06-05T23:15:00+00:00",
+            "2026-10-09T01:45:00+00:00"
+          ],
+          "train": {
+            "trades": 472,
+            "wins": 266,
+            "losses": 206,
+            "win_rate": 0.5635593220338984,
+            "net_profit": -574.26760955966,
+            "profit_factor": 0.747379,
+            "expectancy": -1.216669,
+            "max_drawdown": 613.70385111642,
+            "signals": 817,
+            "skipped_no_room": 345,
+            "decisions": 35600,
+            "mean_r": -0.121667,
+            "stderr_r": 0.039972265728461805,
+            "t_statistic": -3.0437820877764206,
+            "ci95_low_r": -0.20021290427216795,
+            "ci95_high_r": -0.043120828592094734
+          },
+          "train_window": [
+            "2025-01-21T16:30:00+00:00",
+            "2026-01-31T20:30:00+00:00"
+          ],
+          "validation": {
+            "trades": 134,
+            "wins": 77,
+            "losses": 57,
+            "win_rate": 0.5746268656716418,
+            "net_profit": -160.45716411847,
+            "profit_factor": 0.746561,
+            "expectancy": -1.197442,
+            "max_drawdown": 185.39031738058,
+            "signals": 243,
+            "skipped_no_room": 109,
+            "decisions": 11600,
+            "mean_r": -0.119744,
+            "stderr_r": 0.07419832441872123,
+            "t_statistic": -1.6138390356562198,
+            "ci95_low_r": -0.266505563893598,
+            "ci95_high_r": 0.027017259239165148
+          },
+          "validation_window": [
+            "2026-01-31T20:30:00+00:00",
+            "2026-06-05T23:15:00+00:00"
+          ]
+        },
+        "XAUUSD": {
+          "market": "XAUUSD",
+          "ref": "vwap_pullback@1.1.0",
+          "threshold": 0.001,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-XAUUSD-M15-2026-10-09",
+          "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-04-08T18:15:00+00:00",
+            "2026-10-09T03:30:00+00:00"
+          ],
+          "train": {
+            "trades": 419,
+            "wins": 236,
+            "losses": 183,
+            "win_rate": 0.5632458233890215,
+            "net_profit": -662.93713643004,
+            "profit_factor": 0.676755,
+            "expectancy": -1.582189,
+            "max_drawdown": 680.9620668268,
+            "signals": 711,
+            "skipped_no_room": 291,
+            "decisions": 35600,
+            "mean_r": -0.158219,
+            "stderr_r": 0.04161372802030138,
+            "t_statistic": -3.8020839396786474,
+            "ci95_low_r": -0.2400171388222023,
+            "ci95_high_r": -0.0764206351300841
+          },
+          "train_window": [
+            "2024-03-25T13:00:00+00:00",
+            "2025-10-02T11:45:00+00:00"
+          ],
+          "validation": {
+            "trades": 153,
+            "wins": 78,
+            "losses": 75,
+            "win_rate": 0.5098039215686274,
+            "net_profit": -275.86483037969,
+            "profit_factor": 0.66145,
+            "expectancy": -1.803038,
+            "max_drawdown": 301.64306701373,
+            "signals": 283,
+            "skipped_no_room": 130,
+            "decisions": 11600,
+            "mean_r": -0.180304,
+            "stderr_r": 0.07226319671299612,
+            "t_statistic": -2.495098735000373,
+            "ci95_low_r": -0.32307376965606904,
+            "ci95_high_r": -0.03753385175529045
+          },
+          "validation_window": [
+            "2025-10-02T11:45:00+00:00",
+            "2026-04-08T18:15:00+00:00"
+          ]
+        }
+      }
+    },
+    "0.002": {
+      "threshold": 0.002,
+      "criteria": {
+        "a_more_kept_than_default": true,
+        "b_pf_above_baseline_both_windows_both_markets": false,
+        "c_kept_at_least_floor": true,
+        "d_validation_trades_at_least_minimum": true
+      },
+      "retained": false,
+      "worst_profit_factor": 0.679754,
+      "kept_trades": {
+        "BTCUSD|train": 0.6488011283497884,
+        "BTCUSD|validation": 0.6390243902439025,
+        "XAUUSD|train": 0.6097560975609756,
+        "XAUUSD|validation": 0.645021645021645
+      },
+      "kept_signals": {
+        "BTCUSD|train": 0.6557377049180327,
+        "BTCUSD|validation": 0.6530054644808743,
+        "XAUUSD|train": 0.6131650135256989,
+        "XAUUSD|validation": 0.6799007444168734
+      },
+      "profit_factors": {
+        "BTCUSD|train": 0.764859,
+        "BTCUSD|validation": 0.739557,
+        "XAUUSD|train": 0.680222,
+        "XAUUSD|validation": 0.679754
+      },
+      "improves_above_baseline": {
+        "BTCUSD|train": true,
+        "BTCUSD|validation": true,
+        "XAUUSD|train": false,
+        "XAUUSD|validation": true
+      },
+      "blocks": {
+        "BTCUSD": {
+          "market": "BTCUSD",
+          "ref": "vwap_pullback@1.2.0",
+          "threshold": 0.002,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
+          "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-06-05T23:15:00+00:00",
+            "2026-10-09T01:45:00+00:00"
+          ],
+          "train": {
+            "trades": 460,
+            "wins": 262,
+            "losses": 198,
+            "win_rate": 0.5695652173913044,
+            "net_profit": -514.20799256571,
+            "profit_factor": 0.764859,
+            "expectancy": -1.117843,
+            "max_drawdown": 553.64423412247,
+            "signals": 800,
+            "skipped_no_room": 340,
+            "decisions": 35600,
+            "mean_r": -0.111784,
+            "stderr_r": 0.04044402553104521,
+            "t_statistic": -2.7639272980907963,
+            "ci95_low_r": -0.19126275129486422,
+            "ci95_high_r": -0.0323059411250097
+          },
+          "train_window": [
+            "2025-01-21T16:30:00+00:00",
+            "2026-01-31T20:30:00+00:00"
+          ],
+          "validation": {
+            "trades": 131,
+            "wins": 75,
+            "losses": 56,
+            "win_rate": 0.5725190839694656,
+            "net_profit": -162.06283700962,
+            "profit_factor": 0.739557,
+            "expectancy": -1.237121,
+            "max_drawdown": 186.99599027173,
+            "signals": 239,
+            "skipped_no_room": 108,
+            "decisions": 11600,
+            "mean_r": -0.123712,
+            "stderr_r": 0.07511050537116243,
+            "t_statistic": -1.6470677265316078,
+            "ci95_low_r": -0.2723092413898534,
+            "ci95_high_r": 0.024885062749212164
+          },
+          "validation_window": [
+            "2026-01-31T20:30:00+00:00",
+            "2026-06-05T23:15:00+00:00"
+          ]
+        },
+        "XAUUSD": {
+          "market": "XAUUSD",
+          "ref": "vwap_pullback@1.1.0",
+          "threshold": 0.002,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-XAUUSD-M15-2026-10-09",
+          "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-04-08T18:15:00+00:00",
+            "2026-10-09T03:30:00+00:00"
+          ],
+          "train": {
+            "trades": 400,
+            "wins": 226,
+            "losses": 174,
+            "win_rate": 0.565,
+            "net_profit": -624.11707078704,
+            "profit_factor": 0.680222,
+            "expectancy": -1.560293,
+            "max_drawdown": 642.1420011838,
+            "signals": 680,
+            "skipped_no_room": 279,
+            "decisions": 35600,
+            "mean_r": -0.156029,
+            "stderr_r": 0.042586810319064305,
+            "t_statistic": -3.6637932385115093,
+            "ci95_low_r": -0.23975184054921111,
+            "ci95_high_r": -0.07230669484430886
+          },
+          "train_window": [
+            "2024-03-25T13:00:00+00:00",
+            "2025-10-02T11:45:00+00:00"
+          ],
+          "validation": {
+            "trades": 149,
+            "wins": 77,
+            "losses": 72,
+            "win_rate": 0.5167785234899329,
+            "net_profit": -250.69060074176,
+            "profit_factor": 0.679754,
+            "expectancy": -1.682487,
+            "max_drawdown": 287.21940882547,
+            "signals": 274,
+            "skipped_no_room": 125,
+            "decisions": 11600,
+            "mean_r": -0.168249,
+            "stderr_r": 0.07324537163498686,
+            "t_statistic": -2.2970560674945566,
+            "ci95_low_r": -0.3129905517710371,
+            "ci95_high_r": -0.02350689888904342
+          },
+          "validation_window": [
+            "2025-10-02T11:45:00+00:00",
+            "2026-04-08T18:15:00+00:00"
+          ]
+        }
+      }
+    },
+    "0.005": {
+      "threshold": 0.005,
+      "criteria": {
+        "a_more_kept_than_default": true,
+        "b_pf_above_baseline_both_windows_both_markets": false,
+        "c_kept_at_least_floor": true,
+        "d_validation_trades_at_least_minimum": true
+      },
+      "retained": false,
+      "worst_profit_factor": 0.685223,
+      "kept_trades": {
+        "BTCUSD|train": 0.61212976022567,
+        "BTCUSD|validation": 0.5902439024390244,
+        "XAUUSD|train": 0.5655487804878049,
+        "XAUUSD|validation": 0.5844155844155844
+      },
+      "kept_signals": {
+        "BTCUSD|train": 0.6122950819672132,
+        "BTCUSD|validation": 0.6147540983606558,
+        "XAUUSD|train": 0.5689810640216412,
+        "XAUUSD|validation": 0.6327543424317618
+      },
+      "profit_factors": {
+        "BTCUSD|train": 0.777528,
+        "BTCUSD|validation": 0.755174,
+        "XAUUSD|train": 0.694883,
+        "XAUUSD|validation": 0.685223
+      },
+      "improves_above_baseline": {
+        "BTCUSD|train": true,
+        "BTCUSD|validation": true,
+        "XAUUSD|train": false,
+        "XAUUSD|validation": true
+      },
+      "blocks": {
+        "BTCUSD": {
+          "market": "BTCUSD",
+          "ref": "vwap_pullback@1.2.0",
+          "threshold": 0.005,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
+          "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-06-05T23:15:00+00:00",
+            "2026-10-09T01:45:00+00:00"
+          ],
+          "train": {
+            "trades": 434,
+            "wins": 249,
+            "losses": 185,
+            "win_rate": 0.5737327188940092,
+            "net_profit": -454.68062760442,
+            "profit_factor": 0.777528,
+            "expectancy": -1.047651,
+            "max_drawdown": 494.11686916118,
+            "signals": 747,
+            "skipped_no_room": 313,
+            "decisions": 35600,
+            "mean_r": -0.104765,
+            "stderr_r": 0.0415991204152109,
+            "t_statistic": -2.5184455950547187,
+            "ci95_low_r": -0.1865264354606994,
+            "ci95_high_r": -0.023003807674977964
+          },
+          "train_window": [
+            "2025-01-21T16:30:00+00:00",
+            "2026-01-31T20:30:00+00:00"
+          ],
+          "validation": {
+            "trades": 121,
+            "wins": 70,
+            "losses": 51,
+            "win_rate": 0.5785123966942148,
+            "net_profit": -139.07947863408,
+            "profit_factor": 0.755174,
+            "expectancy": -1.149417,
+            "max_drawdown": 173.24380592584,
+            "signals": 225,
+            "skipped_no_room": 104,
+            "decisions": 11600,
+            "mean_r": -0.114942,
+            "stderr_r": 0.07814196758686615,
+            "t_statistic": -1.4709345237772589,
+            "ci95_low_r": -0.2696573754176067,
+            "ci95_high_r": 0.03977393965879679
+          },
+          "validation_window": [
+            "2026-01-31T20:30:00+00:00",
+            "2026-06-05T23:15:00+00:00"
+          ]
+        },
+        "XAUUSD": {
+          "market": "XAUUSD",
+          "ref": "vwap_pullback@1.1.0",
+          "threshold": 0.005,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-XAUUSD-M15-2026-10-09",
+          "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-04-08T18:15:00+00:00",
+            "2026-10-09T03:30:00+00:00"
+          ],
+          "train": {
+            "trades": 371,
+            "wins": 212,
+            "losses": 159,
+            "win_rate": 0.5714285714285714,
+            "net_profit": -544.89435914019,
+            "profit_factor": 0.694883,
+            "expectancy": -1.468718,
+            "max_drawdown": 559.90012556551,
+            "signals": 631,
+            "skipped_no_room": 260,
+            "decisions": 35600,
+            "mean_r": -0.146872,
+            "stderr_r": 0.04413962218122445,
+            "t_statistic": -3.3274366126986856,
+            "ci95_low_r": -0.23366778007436156,
+            "ci95_high_r": -0.060075809758624935
+          },
+          "train_window": [
+            "2024-03-25T13:00:00+00:00",
+            "2025-10-02T11:45:00+00:00"
+          ],
+          "validation": {
+            "trades": 135,
+            "wins": 70,
+            "losses": 65,
+            "win_rate": 0.5185185185185185,
+            "net_profit": -222.28292015394,
+            "profit_factor": 0.685223,
+            "expectancy": -1.64654,
+            "max_drawdown": 235.22635880849,
+            "signals": 255,
+            "skipped_no_room": 120,
+            "decisions": 11600,
+            "mean_r": -0.164654,
+            "stderr_r": 0.07695229530195424,
+            "t_statistic": -2.1396894567310327,
+            "ci95_low_r": -0.31685224672097634,
+            "ci95_high_r": -0.012455783136712584
+          },
+          "validation_window": [
+            "2025-10-02T11:45:00+00:00",
+            "2026-04-08T18:15:00+00:00"
+          ]
+        }
+      }
+    },
+    "0.01": {
+      "threshold": 0.01,
+      "criteria": {
+        "a_more_kept_than_default": true,
+        "b_pf_above_baseline_both_windows_both_markets": true,
+        "c_kept_at_least_floor": true,
+        "d_validation_trades_at_least_minimum": true
+      },
+      "retained": true,
+      "worst_profit_factor": 0.686979,
+      "kept_trades": {
+        "BTCUSD|train": 0.5430183356840621,
+        "BTCUSD|validation": 0.5609756097560976,
+        "XAUUSD|train": 0.4954268292682927,
+        "XAUUSD|validation": 0.5194805194805194
+      },
+      "kept_signals": {
+        "BTCUSD|train": 0.5393442622950819,
+        "BTCUSD|validation": 0.5710382513661202,
+        "XAUUSD|train": 0.5004508566275925,
+        "XAUUSD|validation": 0.5682382133995038
+      },
+      "profit_factors": {
+        "BTCUSD|train": 0.831215,
+        "BTCUSD|validation": 0.73908,
+        "XAUUSD|train": 0.745717,
+        "XAUUSD|validation": 0.686979
+      },
+      "improves_above_baseline": {
+        "BTCUSD|train": true,
+        "BTCUSD|validation": true,
+        "XAUUSD|train": true,
+        "XAUUSD|validation": true
+      },
+      "blocks": {
+        "BTCUSD": {
+          "market": "BTCUSD",
+          "ref": "vwap_pullback@1.2.0",
+          "threshold": 0.01,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
+          "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-06-05T23:15:00+00:00",
+            "2026-10-09T01:45:00+00:00"
+          ],
+          "train": {
+            "trades": 385,
+            "wins": 227,
+            "losses": 158,
+            "win_rate": 0.5896103896103896,
+            "net_profit": -293.6109854966,
+            "profit_factor": 0.831215,
+            "expectancy": -0.762626,
+            "max_drawdown": 346.13708100031,
+            "signals": 658,
+            "skipped_no_room": 273,
+            "decisions": 35600,
+            "mean_r": -0.076263,
+            "stderr_r": 0.043769283878624415,
+            "t_statistic": -1.742377002259451,
+            "ci95_low_r": -0.16232005087574142,
+            "ci95_high_r": 0.009794863604780366
+          },
+          "train_window": [
+            "2025-01-21T16:30:00+00:00",
+            "2026-01-31T20:30:00+00:00"
+          ],
+          "validation": {
+            "trades": 115,
+            "wins": 66,
+            "losses": 49,
+            "win_rate": 0.5739130434782609,
+            "net_profit": -142.52686542808,
+            "profit_factor": 0.73908,
+            "expectancy": -1.239364,
+            "max_drawdown": 176.69119271984,
+            "signals": 209,
+            "skipped_no_room": 94,
+            "decisions": 11600,
+            "mean_r": -0.123936,
+            "stderr_r": 0.08028495847602177,
+            "t_statistic": -1.5437064061892105,
+            "ci95_low_r": -0.28298028910438006,
+            "ci95_high_r": 0.03510747966424094
+          },
+          "validation_window": [
+            "2026-01-31T20:30:00+00:00",
+            "2026-06-05T23:15:00+00:00"
+          ]
+        },
+        "XAUUSD": {
+          "market": "XAUUSD",
+          "ref": "vwap_pullback@1.1.0",
+          "threshold": 0.01,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-XAUUSD-M15-2026-10-09",
+          "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-04-08T18:15:00+00:00",
+            "2026-10-09T03:30:00+00:00"
+          ],
+          "train": {
+            "trades": 325,
+            "wins": 192,
+            "losses": 133,
+            "win_rate": 0.5907692307692308,
+            "net_profit": -381.99524947527,
+            "profit_factor": 0.745717,
+            "expectancy": -1.17537,
+            "max_drawdown": 396.03595314167,
+            "signals": 555,
+            "skipped_no_room": 230,
+            "decisions": 35600,
+            "mean_r": -0.117537,
+            "stderr_r": 0.04700801626739563,
+            "t_statistic": -2.5003607718725904,
+            "ci95_low_r": -0.21001647061363532,
+            "ci95_high_r": -0.02505752906345393
+          },
+          "train_window": [
+            "2024-03-25T13:00:00+00:00",
+            "2025-10-02T11:45:00+00:00"
+          ],
+          "validation": {
+            "trades": 120,
+            "wins": 62,
+            "losses": 58,
+            "win_rate": 0.5166666666666667,
+            "net_profit": -195.53349640699,
+            "profit_factor": 0.686979,
+            "expectancy": -1.629446,
+            "max_drawdown": 195.53349640699,
+            "signals": 229,
+            "skipped_no_room": 109,
+            "decisions": 11600,
+            "mean_r": -0.162945,
+            "stderr_r": 0.08112439272473386,
+            "t_statistic": -2.0085768887300217,
+            "ci95_low_r": -0.3235789803510495,
+            "ci95_high_r": -0.0023101803272672083
+          },
+          "validation_window": [
+            "2025-10-02T11:45:00+00:00",
+            "2026-04-08T18:15:00+00:00"
+          ]
+        }
+      }
+    },
+    "0.02": {
+      "threshold": 0.02,
+      "criteria": {
+        "a_more_kept_than_default": true,
+        "b_pf_above_baseline_both_windows_both_markets": true,
+        "c_kept_at_least_floor": true,
+        "d_validation_trades_at_least_minimum": true
+      },
+      "retained": true,
+      "worst_profit_factor": 0.642167,
+      "kept_trades": {
+        "BTCUSD|train": 0.4132581100141044,
+        "BTCUSD|validation": 0.43414634146341463,
+        "XAUUSD|train": 0.37347560975609756,
+        "XAUUSD|validation": 0.38961038961038963
+      },
+      "kept_signals": {
+        "BTCUSD|train": 0.4155737704918033,
+        "BTCUSD|validation": 0.43989071038251365,
+        "XAUUSD|train": 0.37330928764652843,
+        "XAUUSD|validation": 0.4094292803970223
+      },
+      "profit_factors": {
+        "BTCUSD|train": 0.821422,
+        "BTCUSD|validation": 0.781827,
+        "XAUUSD|train": 0.750874,
+        "XAUUSD|validation": 0.642167
+      },
+      "improves_above_baseline": {
+        "BTCUSD|train": true,
+        "BTCUSD|validation": true,
+        "XAUUSD|train": true,
+        "XAUUSD|validation": true
+      },
+      "blocks": {
+        "BTCUSD": {
+          "market": "BTCUSD",
+          "ref": "vwap_pullback@1.2.0",
+          "threshold": 0.02,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
+          "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-06-05T23:15:00+00:00",
+            "2026-10-09T01:45:00+00:00"
+          ],
+          "train": {
+            "trades": 293,
+            "wins": 172,
+            "losses": 121,
+            "win_rate": 0.5870307167235495,
+            "net_profit": -238.081496829,
+            "profit_factor": 0.821422,
+            "expectancy": -0.812565,
+            "max_drawdown": 273.08137171183,
+            "signals": 507,
+            "skipped_no_room": 214,
+            "decisions": 35600,
+            "mean_r": -0.081256,
+            "stderr_r": 0.05026148399534088,
+            "t_statistic": -1.6166749785366052,
+            "ci95_low_r": -0.18017718615868372,
+            "ci95_high_r": 0.01766421903991243
+          },
+          "train_window": [
+            "2025-01-21T16:30:00+00:00",
+            "2026-01-31T20:30:00+00:00"
+          ],
+          "validation": {
+            "trades": 89,
+            "wins": 52,
+            "losses": 37,
+            "win_rate": 0.5842696629213483,
+            "net_profit": -88.9278423186,
+            "profit_factor": 0.781827,
+            "expectancy": -0.999189,
+            "max_drawdown": 115.20308500171,
+            "signals": 161,
+            "skipped_no_room": 72,
+            "decisions": 11600,
+            "mean_r": -0.099919,
+            "stderr_r": 0.09019369419450911,
+            "t_statistic": -1.1078260497679682,
+            "ci95_low_r": -0.27915993829791214,
+            "ci95_high_r": 0.07932209039094584
+          },
+          "validation_window": [
+            "2026-01-31T20:30:00+00:00",
+            "2026-06-05T23:15:00+00:00"
+          ]
+        },
+        "XAUUSD": {
+          "market": "XAUUSD",
+          "ref": "vwap_pullback@1.1.0",
+          "threshold": 0.02,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-XAUUSD-M15-2026-10-09",
+          "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-04-08T18:15:00+00:00",
+            "2026-10-09T03:30:00+00:00"
+          ],
+          "train": {
+            "trades": 245,
+            "wins": 145,
+            "losses": 100,
+            "win_rate": 0.5918367346938775,
+            "net_profit": -281.43919809416,
+            "profit_factor": 0.750874,
+            "expectancy": -1.148731,
+            "max_drawdown": 322.07719599025,
+            "signals": 414,
+            "skipped_no_room": 169,
+            "decisions": 35600,
+            "mean_r": -0.114873,
+            "stderr_r": 0.054215721483744005,
+            "t_statistic": -2.118816072819255,
+            "ci95_low_r": -0.2216636916013498,
+            "ci95_high_r": -0.008082592557148174
+          },
+          "train_window": [
+            "2024-03-25T13:00:00+00:00",
+            "2025-10-02T11:45:00+00:00"
+          ],
+          "validation": {
+            "trades": 90,
+            "wins": 45,
+            "losses": 45,
+            "win_rate": 0.5,
+            "net_profit": -173.56255354039,
+            "profit_factor": 0.642167,
+            "expectancy": -1.928473,
+            "max_drawdown": 180.35518177373,
+            "signals": 165,
+            "skipped_no_room": 75,
+            "decisions": 11600,
+            "mean_r": -0.192847,
+            "stderr_r": 0.09392284273253851,
+            "t_statistic": -2.0532521812687285,
+            "ci95_low_r": -0.37946996961817764,
+            "ci95_high_r": -0.006224593804911249
+          },
+          "validation_window": [
+            "2025-10-02T11:45:00+00:00",
+            "2026-04-08T18:15:00+00:00"
+          ]
+        }
+      }
+    },
+    "0.03": {
+      "threshold": 0.03,
+      "criteria": {
+        "a_more_kept_than_default": true,
+        "b_pf_above_baseline_both_windows_both_markets": false,
+        "c_kept_at_least_floor": false,
+        "d_validation_trades_at_least_minimum": false
+      },
+      "retained": false,
+      "worst_profit_factor": 0.619471,
+      "kept_trades": {
+        "BTCUSD|train": 0.2778561354019746,
+        "BTCUSD|validation": 0.2926829268292683,
+        "XAUUSD|train": 0.27439024390243905,
+        "XAUUSD|validation": 0.2554112554112554
+      },
+      "kept_signals": {
+        "BTCUSD|train": 0.2786885245901639,
+        "BTCUSD|validation": 0.27595628415300544,
+        "XAUUSD|train": 0.2696122633002705,
+        "XAUUSD|validation": 0.2704714640198511
+      },
+      "profit_factors": {
+        "BTCUSD|train": 0.826756,
+        "BTCUSD|validation": 0.894732,
+        "XAUUSD|train": 0.679373,
+        "XAUUSD|validation": 0.619471
+      },
+      "improves_above_baseline": {
+        "BTCUSD|train": true,
+        "BTCUSD|validation": true,
+        "XAUUSD|train": false,
+        "XAUUSD|validation": true
+      },
+      "blocks": {
+        "BTCUSD": {
+          "market": "BTCUSD",
+          "ref": "vwap_pullback@1.2.0",
+          "threshold": 0.03,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
+          "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-06-05T23:15:00+00:00",
+            "2026-10-09T01:45:00+00:00"
+          ],
+          "train": {
+            "trades": 197,
+            "wins": 116,
+            "losses": 81,
+            "win_rate": 0.5888324873096447,
+            "net_profit": -154.25198931609,
+            "profit_factor": 0.826756,
+            "expectancy": -0.783005,
+            "max_drawdown": 169.34685793126,
+            "signals": 340,
+            "skipped_no_room": 143,
+            "decisions": 35600,
+            "mean_r": -0.078301,
+            "stderr_r": 0.061091801255817556,
+            "t_statistic": -1.2816859313581355,
+            "ci95_low_r": -0.19878216175309116,
+            "ci95_high_r": 0.0421811573712739
+          },
+          "train_window": [
+            "2025-01-21T16:30:00+00:00",
+            "2026-01-31T20:30:00+00:00"
+          ],
+          "validation": {
+            "trades": 60,
+            "wins": 37,
+            "losses": 23,
+            "win_rate": 0.6166666666666667,
+            "net_profit": -26.64053069485,
+            "profit_factor": 0.894732,
+            "expectancy": -0.444009,
+            "max_drawdown": 54.9798556397,
+            "signals": 101,
+            "skipped_no_room": 41,
+            "decisions": 11600,
+            "mean_r": -0.044401,
+            "stderr_r": 0.10852322500494302,
+            "t_statistic": -0.40913716385957294,
+            "ci95_low_r": -0.2615553561415404,
+            "ci95_high_r": 0.1727535871587071
+          },
+          "validation_window": [
+            "2026-01-31T20:30:00+00:00",
+            "2026-06-05T23:15:00+00:00"
+          ]
+        },
+        "XAUUSD": {
+          "market": "XAUUSD",
+          "ref": "vwap_pullback@1.1.0",
+          "threshold": 0.03,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-XAUUSD-M15-2026-10-09",
+          "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-04-08T18:15:00+00:00",
+            "2026-10-09T03:30:00+00:00"
+          ],
+          "train": {
+            "trades": 180,
+            "wins": 102,
+            "losses": 78,
+            "win_rate": 0.5666666666666667,
+            "net_profit": -283.60847049114,
+            "profit_factor": 0.679373,
+            "expectancy": -1.575603,
+            "max_drawdown": 336.99459072469,
+            "signals": 299,
+            "skipped_no_room": 119,
+            "decisions": 35600,
+            "mean_r": -0.15756,
+            "stderr_r": 0.06419513744358225,
+            "t_statistic": -2.454395576649994,
+            "ci95_low_r": -0.2842368749275863,
+            "ci95_high_r": -0.030883647840347028
+          },
+          "train_window": [
+            "2024-03-25T13:00:00+00:00",
+            "2025-10-02T11:45:00+00:00"
+          ],
+          "validation": {
+            "trades": 59,
+            "wins": 29,
+            "losses": 30,
+            "win_rate": 0.4915254237288136,
+            "net_profit": -123.15268454239,
+            "profit_factor": 0.619471,
+            "expectancy": -2.087334,
+            "max_drawdown": 165.77617959841,
+            "signals": 109,
+            "skipped_no_room": 50,
+            "decisions": 11600,
+            "mean_r": -0.208733,
+            "stderr_r": 0.11638748037152745,
+            "t_statistic": -1.7934348519691226,
+            "ci95_low_r": -0.44170821802646604,
+            "ci95_high_r": 0.02424149076412707
+          },
+          "validation_window": [
+            "2025-10-02T11:45:00+00:00",
+            "2026-04-08T18:15:00+00:00"
+          ]
+        }
+      }
+    },
+    "0.05": {
+      "threshold": 0.05,
+      "criteria": {
+        "a_more_kept_than_default": false,
+        "b_pf_above_baseline_both_windows_both_markets": false,
+        "c_kept_at_least_floor": false,
+        "d_validation_trades_at_least_minimum": false
+      },
+      "retained": false,
+      "worst_profit_factor": 0.678213,
+      "kept_trades": {
+        "BTCUSD|train": 0.12693935119887165,
+        "BTCUSD|validation": 0.14634146341463414,
+        "XAUUSD|train": 0.12195121951219512,
+        "XAUUSD|validation": 0.14285714285714285
+      },
+      "kept_signals": {
+        "BTCUSD|train": 0.12950819672131147,
+        "BTCUSD|validation": 0.14207650273224043,
+        "XAUUSD|train": 0.1145175834084761,
+        "XAUUSD|validation": 0.1488833746898263
+      },
+      "profit_factors": {
+        "BTCUSD|train": 0.964325,
+        "BTCUSD|validation": 1.537647,
+        "XAUUSD|train": 0.678213,
+        "XAUUSD|validation": 0.963033
+      },
+      "improves_above_baseline": {
+        "BTCUSD|train": true,
+        "BTCUSD|validation": true,
+        "XAUUSD|train": false,
+        "XAUUSD|validation": true
+      },
+      "blocks": {
+        "BTCUSD": {
+          "market": "BTCUSD",
+          "ref": "vwap_pullback@1.2.0",
+          "threshold": 0.05,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
+          "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-06-05T23:15:00+00:00",
+            "2026-10-09T01:45:00+00:00"
+          ],
+          "train": {
+            "trades": 90,
+            "wins": 56,
+            "losses": 34,
+            "win_rate": 0.6222222222222222,
+            "net_profit": -13.50430615614,
+            "profit_factor": 0.964325,
+            "expectancy": -0.150048,
+            "max_drawdown": 50.20104865337,
+            "signals": 158,
+            "skipped_no_room": 68,
+            "decisions": 35600,
+            "mean_r": -0.015005,
+            "stderr_r": 0.09094632728714962,
+            "t_statistic": -0.16498505289342733,
+            "ci95_low_r": -0.19571319973582732,
+            "ci95_high_r": 0.16570363049996065
+          },
+          "train_window": [
+            "2025-01-21T16:30:00+00:00",
+            "2026-01-31T20:30:00+00:00"
+          ],
+          "validation": {
+            "trades": 30,
+            "wins": 22,
+            "losses": 8,
+            "win_rate": 0.7333333333333333,
+            "net_profit": 47.3428374223,
+            "profit_factor": 1.537647,
+            "expectancy": 1.578095,
+            "max_drawdown": 22.3180939604,
+            "signals": 52,
+            "skipped_no_room": 22,
+            "decisions": 11600,
+            "mean_r": 0.157809,
+            "stderr_r": 0.1411507760049636,
+            "t_statistic": 1.1180204781076368,
+            "ci95_low_r": -0.13087629302105147,
+            "ci95_high_r": 0.44649520916971813
+          },
+          "validation_window": [
+            "2026-01-31T20:30:00+00:00",
+            "2026-06-05T23:15:00+00:00"
+          ]
+        },
+        "XAUUSD": {
+          "market": "XAUUSD",
+          "ref": "vwap_pullback@1.1.0",
+          "threshold": 0.05,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-XAUUSD-M15-2026-10-09",
+          "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-04-08T18:15:00+00:00",
+            "2026-10-09T03:30:00+00:00"
+          ],
+          "train": {
+            "trades": 80,
+            "wins": 45,
+            "losses": 35,
+            "win_rate": 0.5625,
+            "net_profit": -125.09236447092,
+            "profit_factor": 0.678213,
+            "expectancy": -1.563655,
+            "max_drawdown": 141.99192232931,
+            "signals": 127,
+            "skipped_no_room": 47,
+            "decisions": 35600,
+            "mean_r": -0.156365,
+            "stderr_r": 0.09486820483575838,
+            "t_statistic": -1.64823879464526,
+            "ci95_low_r": -0.34519589384813987,
+            "ci95_high_r": 0.03246498267083986
+          },
+          "train_window": [
+            "2024-03-25T13:00:00+00:00",
+            "2025-10-02T11:45:00+00:00"
+          ],
+          "validation": {
+            "trades": 33,
+            "wins": 20,
+            "losses": 13,
+            "win_rate": 0.6060606060606061,
+            "net_profit": -5.27269740464,
+            "profit_factor": 0.963033,
+            "expectancy": -0.159779,
+            "max_drawdown": 60.33331524444,
+            "signals": 60,
+            "skipped_no_room": 27,
+            "decisions": 11600,
+            "mean_r": -0.015978,
+            "stderr_r": 0.1545073183083408,
+            "t_statistic": -0.10341174190380703,
+            "ci95_low_r": -0.3306989793940143,
+            "ci95_high_r": 0.2987432375477113
+          },
+          "validation_window": [
+            "2025-10-02T11:45:00+00:00",
+            "2026-04-08T18:15:00+00:00"
+          ]
+        }
+      }
+    },
+    "0.08": {
+      "threshold": 0.08,
+      "criteria": {
+        "a_more_kept_than_default": false,
+        "b_pf_above_baseline_both_windows_both_markets": true,
+        "c_kept_at_least_floor": false,
+        "d_validation_trades_at_least_minimum": false
+      },
+      "retained": false,
+      "worst_profit_factor": 0.812887,
+      "kept_trades": {
+        "BTCUSD|train": 0.03526093088857546,
+        "BTCUSD|validation": 0.05365853658536585,
+        "XAUUSD|train": 0.03201219512195122,
+        "XAUUSD|validation": 0.07792207792207792
+      },
+      "kept_signals": {
+        "BTCUSD|train": 0.04016393442622951,
+        "BTCUSD|validation": 0.06557377049180328,
+        "XAUUSD|train": 0.027051397655545536,
+        "XAUUSD|validation": 0.07692307692307693
+      },
+      "profit_factors": {
+        "BTCUSD|train": 1.08013,
+        "BTCUSD|validation": 2.478689,
+        "XAUUSD|train": 0.883922,
+        "XAUUSD|validation": 0.812887
+      },
+      "improves_above_baseline": {
+        "BTCUSD|train": true,
+        "BTCUSD|validation": true,
+        "XAUUSD|train": true,
+        "XAUUSD|validation": true
+      },
+      "blocks": {
+        "BTCUSD": {
+          "market": "BTCUSD",
+          "ref": "vwap_pullback@1.2.0",
+          "threshold": 0.08,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
+          "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-06-05T23:15:00+00:00",
+            "2026-10-09T01:45:00+00:00"
+          ],
+          "train": {
+            "trades": 25,
+            "wins": 16,
+            "losses": 9,
+            "win_rate": 0.64,
+            "net_profit": 7.86691058872,
+            "profit_factor": 1.08013,
+            "expectancy": 0.314676,
+            "max_drawdown": 28.33577169437,
+            "signals": 49,
+            "skipped_no_room": 24,
+            "decisions": 35600,
+            "mean_r": 0.031468,
+            "stderr_r": 0.17191004386924688,
+            "t_statistic": 0.18304714283485365,
+            "ci95_low_r": -0.32333724991626933,
+            "ci95_high_r": 0.3862725346260293
+          },
+          "train_window": [
+            "2025-01-21T16:30:00+00:00",
+            "2026-01-31T20:30:00+00:00"
+          ],
+          "validation": {
+            "trades": 11,
+            "wins": 9,
+            "losses": 2,
+            "win_rate": 0.8181818181818182,
+            "net_profit": 32.45051627486,
+            "profit_factor": 2.478689,
+            "expectancy": 2.950047,
+            "max_drawdown": 10.98590127444,
+            "signals": 24,
+            "skipped_no_room": 13,
+            "decisions": 11600,
+            "mean_r": 0.295005,
+            "stderr_r": 0.20807696137807927,
+            "t_statistic": 1.4177672119682188,
+            "ci95_low_r": -0.16861966844192766,
+            "ci95_high_r": 0.758629055257564
+          },
+          "validation_window": [
+            "2026-01-31T20:30:00+00:00",
+            "2026-06-05T23:15:00+00:00"
+          ]
+        },
+        "XAUUSD": {
+          "market": "XAUUSD",
+          "ref": "vwap_pullback@1.1.0",
+          "threshold": 0.08,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-XAUUSD-M15-2026-10-09",
+          "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-04-08T18:15:00+00:00",
+            "2026-10-09T03:30:00+00:00"
+          ],
+          "train": {
+            "trades": 21,
+            "wins": 13,
+            "losses": 8,
+            "win_rate": 0.6190476190476191,
+            "net_profit": -10.24253097445,
+            "profit_factor": 0.883922,
+            "expectancy": -0.48774,
+            "max_drawdown": 36.5253197901,
+            "signals": 30,
+            "skipped_no_room": 9,
+            "decisions": 35600,
+            "mean_r": -0.048774,
+            "stderr_r": 0.1850931512889297,
+            "t_statistic": -0.26351032807829033,
+            "ci95_low_r": -0.43487150494914834,
+            "ci95_high_r": 0.3373235909067674
+          },
+          "train_window": [
+            "2024-03-25T13:00:00+00:00",
+            "2025-10-02T11:45:00+00:00"
+          ],
+          "validation": {
+            "trades": 18,
+            "wins": 10,
+            "losses": 8,
+            "win_rate": 0.5555555555555556,
+            "net_profit": -16.0296463455,
+            "profit_factor": 0.812887,
+            "expectancy": -0.890536,
+            "max_drawdown": 31.88321922012,
+            "signals": 31,
+            "skipped_no_room": 13,
+            "decisions": 11600,
+            "mean_r": -0.089054,
+            "stderr_r": 0.21301812735094658,
+            "t_statistic": -0.4180563969638971,
+            "ci95_low_r": -0.5384825542542415,
+            "ci95_high_r": 0.36037537263757485
+          },
+          "validation_window": [
+            "2025-10-02T11:45:00+00:00",
+            "2026-04-08T18:15:00+00:00"
+          ]
+        }
+      }
+    },
+    "0.12": {
+      "threshold": 0.12,
+      "criteria": {
+        "a_more_kept_than_default": false,
+        "b_pf_above_baseline_both_windows_both_markets": false,
+        "c_kept_at_least_floor": false,
+        "d_validation_trades_at_least_minimum": false
+      },
+      "retained": false,
+      "worst_profit_factor": null,
+      "kept_trades": {
+        "BTCUSD|train": 0.0028208744710860366,
+        "BTCUSD|validation": 0.024390243902439025,
+        "XAUUSD|train": 0.004573170731707317,
+        "XAUUSD|validation": 0.030303030303030304
+      },
+      "kept_signals": {
+        "BTCUSD|train": 0.005737704918032787,
+        "BTCUSD|validation": 0.03551912568306011,
+        "XAUUSD|train": 0.004508566275924256,
+        "XAUUSD|validation": 0.019851116625310174
+      },
+      "profit_factors": {
+        "BTCUSD|train": 0.0,
+        "BTCUSD|validation": 2.117848,
+        "XAUUSD|train": null,
+        "XAUUSD|validation": 0.867848
+      },
+      "improves_above_baseline": {
+        "BTCUSD|train": false,
+        "BTCUSD|validation": true,
+        "XAUUSD|train": false,
+        "XAUUSD|validation": true
+      },
+      "blocks": {
+        "BTCUSD": {
+          "market": "BTCUSD",
+          "ref": "vwap_pullback@1.2.0",
+          "threshold": 0.12,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-BTCUSD-M15-2026-10-09",
+          "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-06-05T23:15:00+00:00",
+            "2026-10-09T01:45:00+00:00"
+          ],
+          "train": {
+            "trades": 2,
+            "wins": 0,
+            "losses": 2,
+            "win_rate": 0.0,
+            "net_profit": -21.86623725584,
+            "profit_factor": 0.0,
+            "expectancy": -10.933119,
+            "max_drawdown": 21.86623725584,
+            "signals": 7,
+            "skipped_no_room": 5,
+            "decisions": 35600,
+            "mean_r": -1.093312,
+            "stderr_r": 0.00548076416800003,
+            "t_statistic": -199.48164695270174,
+            "ci95_low_r": -1.1629515744212984,
+            "ci95_high_r": -1.0236721511627016
+          },
+          "train_window": [
+            "2025-01-21T16:30:00+00:00",
+            "2026-01-31T20:30:00+00:00"
+          ],
+          "validation": {
+            "trades": 5,
+            "wins": 4,
+            "losses": 1,
+            "win_rate": 0.8,
+            "net_profit": 12.25112013258,
+            "profit_factor": 2.117848,
+            "expectancy": 2.450224,
+            "max_drawdown": 10.95956040849,
+            "signals": 13,
+            "skipped_no_room": 8,
+            "decisions": 11600,
+            "mean_r": 0.245022,
+            "stderr_r": 0.3364618842224469,
+            "t_statistic": 0.7282322727813263,
+            "ci95_low_r": -0.689145548883439,
+            "ci95_high_r": 1.179190354186639
+          },
+          "validation_window": [
+            "2026-01-31T20:30:00+00:00",
+            "2026-06-05T23:15:00+00:00"
+          ]
+        },
+        "XAUUSD": {
+          "market": "XAUUSD",
+          "ref": "vwap_pullback@1.1.0",
+          "threshold": 0.12,
+          "filter": true,
+          "timeframe": "M15",
+          "dataset_id": "mt5-XAUUSD-M15-2026-10-09",
+          "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+          "bars": 59999,
+          "sealed_bars_not_read": 12001,
+          "sealed_window_not_read": [
+            "2026-04-08T18:15:00+00:00",
+            "2026-10-09T03:30:00+00:00"
+          ],
+          "train": {
+            "trades": 3,
+            "wins": 3,
+            "losses": 0,
+            "win_rate": 1.0,
+            "net_profit": 17.93697816528,
+            "profit_factor": null,
+            "expectancy": 5.978993,
+            "max_drawdown": 0.0,
+            "signals": 5,
+            "skipped_no_room": 2,
+            "decisions": 35600,
+            "mean_r": 0.597899,
+            "stderr_r": 0.004897615334457731,
+            "t_statistic": 122.07967170663886,
+            "ci95_low_r": 0.5768265341879326,
+            "ci95_high_r": 0.6189720101640674
+          },
+          "train_window": [
+            "2024-03-25T13:00:00+00:00",
+            "2025-10-02T11:45:00+00:00"
+          ],
+          "validation": {
+            "trades": 7,
+            "wins": 4,
+            "losses": 3,
+            "win_rate": 0.5714285714285714,
+            "net_profit": -4.2453192985,
+            "profit_factor": 0.867848,
+            "expectancy": -0.606474,
+            "max_drawdown": 14.14007026085,
+            "signals": 8,
+            "skipped_no_room": 1,
+            "decisions": 11600,
+            "mean_r": -0.060647,
+            "stderr_r": 0.35717547684712525,
+            "t_statistic": -0.1697972634777434,
+            "ci95_low_r": -0.9346243257855859,
+            "ci95_high_r": 0.8133294886855859
+          },
+          "validation_window": [
+            "2025-10-02T11:45:00+00:00",
+            "2026-04-08T18:15:00+00:00"
+          ]
+        }
+      }
+    }
+  },
+  "default_threshold_kept_trades": {
+    "BTCUSD|train": 0.12693935119887165,
+    "BTCUSD|validation": 0.14634146341463414,
+    "XAUUSD|train": 0.12195121951219512,
+    "XAUUSD|validation": 0.14285714285714285
+  },
+  "multiple_testing": {
+    "method": "benjamini_hochberg",
+    "alpha": 0.1,
+    "hypotheses": 18,
+    "conclusive_hypotheses": 14,
+    "bonferroni_threshold": 0.005555555555555556,
+    "expected_false_discoveries": 1.8,
+    "discoveries_before": 14,
+    "discoveries_after": 0,
+    "survivors": [],
+    "hypothesis_p_values": {
+      "BTCUSD|trend_slope_atr=0.001": {
+        "threshold": 0.001,
+        "market": "BTCUSD",
+        "observations": 606,
+        "validation_trades": 134,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 472,
+            "mean_r": -0.121667,
+            "p_value_one_sided": 0.9987665284658428
+          },
+          "validation": {
+            "observations": 134,
+            "mean_r": -0.119744,
+            "p_value_one_sided": 0.9455337662907819
+          }
+        },
+        "stderr_r": 0.035163343208942585,
+        "t_statistic": -3.4479574683115057,
+        "p_value_one_sided": 0.9996979666311624,
+        "ci95_low_r": -0.19029874897020332,
+        "ci95_high_r": -0.052184674685945176,
+        "ci95_excludes_zero": true
+      },
+      "XAUUSD|trend_slope_atr=0.001": {
+        "threshold": 0.001,
+        "market": "XAUUSD",
+        "observations": 572,
+        "validation_trades": 153,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 419,
+            "mean_r": -0.158219,
+            "p_value_one_sided": 0.9999175764969315
+          },
+          "validation": {
+            "observations": 153,
+            "mean_r": -0.180304,
+            "p_value_one_sided": 0.9931695111136614
+          }
+        },
+        "stderr_r": 0.036063791396867655,
+        "t_statistic": -4.550997319377361,
+        "p_value_one_sided": 0.9999967364117713,
+        "ci95_low_r": -0.23496009324179526,
+        "ci95_high_r": -0.0932923427056628,
+        "ci95_excludes_zero": true
+      },
+      "BTCUSD|trend_slope_atr=0.002": {
+        "threshold": 0.002,
+        "market": "BTCUSD",
+        "observations": 591,
+        "validation_trades": 131,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 460,
+            "mean_r": -0.111784,
+            "p_value_one_sided": 0.997029615758306
+          },
+          "validation": {
+            "observations": 131,
+            "mean_r": -0.123712,
+            "p_value_one_sided": 0.9490203403317072
+          }
+        },
+        "stderr_r": 0.0355814967414913,
+        "t_statistic": -3.21594758044863,
+        "p_value_one_sided": 0.9993143671601911,
+        "ci95_low_r": -0.1843100354682195,
+        "ci95_high_r": -0.04454642124086003,
+        "ci95_excludes_zero": true
+      },
+      "XAUUSD|trend_slope_atr=0.002": {
+        "threshold": 0.002,
+        "market": "XAUUSD",
+        "observations": 549,
+        "validation_trades": 149,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 400,
+            "mean_r": -0.156029,
+            "p_value_one_sided": 0.9998589784083611
+          },
+          "validation": {
+            "observations": 149,
+            "mean_r": -0.168249,
+            "p_value_one_sided": 0.9884910356171968
+          }
+        },
+        "stderr_r": 0.03681594767018429,
+        "t_statistic": -4.328169441315497,
+        "p_value_one_sided": 0.9999910622396148,
+        "ci95_low_r": -0.23166331258986278,
+        "ci95_high_r": -0.08702800672846146,
+        "ci95_excludes_zero": true
+      },
+      "BTCUSD|trend_slope_atr=0.005": {
+        "threshold": 0.005,
+        "market": "BTCUSD",
+        "observations": 555,
+        "validation_trades": 121,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 434,
+            "mean_r": -0.104765,
+            "p_value_one_sided": 0.9939265705325158
+          },
+          "validation": {
+            "observations": 121,
+            "mean_r": -0.114942,
+            "p_value_one_sided": 0.9280368796002418
+          }
+        },
+        "stderr_r": 0.036688460813954576,
+        "t_statistic": -2.916006846631304,
+        "p_value_one_sided": 0.9981555095036768,
+        "ci95_low_r": -0.17904930557257048,
+        "ci95_high_r": -0.03491830027914122,
+        "ci95_excludes_zero": true
+      },
+      "XAUUSD|trend_slope_atr=0.005": {
+        "threshold": 0.005,
+        "market": "XAUUSD",
+        "observations": 506,
+        "validation_trades": 135,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 371,
+            "mean_r": -0.146872,
+            "p_value_one_sided": 0.9995178046956699
+          },
+          "validation": {
+            "observations": 135,
+            "mean_r": -0.164654,
+            "p_value_one_sided": 0.9829040034528338
+          }
+        },
+        "stderr_r": 0.03828792306459901,
+        "t_statistic": -3.959892597093908,
+        "p_value_one_sided": 0.9999571224238848,
+        "ci95_low_r": -0.2268392979407961,
+        "ci95_high_r": -0.07639282826241735,
+        "ci95_excludes_zero": true
+      },
+      "BTCUSD|trend_slope_atr=0.01": {
+        "threshold": 0.01,
+        "market": "BTCUSD",
+        "observations": 500,
+        "validation_trades": 115,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 385,
+            "mean_r": -0.076263,
+            "p_value_one_sided": 0.9588784572447762
+          },
+          "validation": {
+            "observations": 115,
+            "mean_r": -0.123936,
+            "p_value_one_sided": 0.9372845317674796
+          }
+        },
+        "stderr_r": 0.03840134852939319,
+        "t_statistic": -2.2714715374688,
+        "p_value_one_sided": 0.9882282702493818,
+        "ci95_low_r": -0.1626758282941962,
+        "ci95_high_r": -0.011779312075675813,
+        "ci95_excludes_zero": true
+      },
+      "XAUUSD|trend_slope_atr=0.01": {
+        "threshold": 0.01,
+        "market": "XAUUSD",
+        "observations": 445,
+        "validation_trades": 120,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 325,
+            "mean_r": -0.117537,
+            "p_value_one_sided": 0.9935498056613676
+          },
+          "validation": {
+            "observations": 120,
+            "mean_r": -0.162945,
+            "p_value_one_sided": 0.9765770178803724
+          }
+        },
+        "stderr_r": 0.040672478847138545,
+        "t_statistic": -3.1908982271639803,
+        "p_value_one_sided": 0.9992405443715264,
+        "ci95_low_r": -0.20971622902027287,
+        "ci95_high_r": -0.04984725227512489,
+        "ci95_excludes_zero": true
+      },
+      "BTCUSD|trend_slope_atr=0.02": {
+        "threshold": 0.02,
+        "market": "BTCUSD",
+        "observations": 382,
+        "validation_trades": 89,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 293,
+            "mean_r": -0.081256,
+            "p_value_one_sided": 0.946485873499526
+          },
+          "validation": {
+            "observations": 89,
+            "mean_r": -0.099919,
+            "p_value_one_sided": 0.8645221242828518
+          }
+        },
+        "stderr_r": 0.04385140249004519,
+        "t_statistic": -1.952150539844367,
+        "p_value_one_sided": 0.9741737725589152,
+        "ci95_low_r": -0.1718256011179936,
+        "ci95_high_r": 0.0006165230302449254,
+        "ci95_excludes_zero": false
+      },
+      "XAUUSD|trend_slope_atr=0.02": {
+        "threshold": 0.02,
+        "market": "XAUUSD",
+        "observations": 335,
+        "validation_trades": 90,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 245,
+            "mean_r": -0.114873,
+            "p_value_one_sided": 0.982441613557383
+          },
+          "validation": {
+            "observations": 90,
+            "mean_r": -0.192847,
+            "p_value_one_sided": 0.9785082822044306
+          }
+        },
+        "stderr_r": 0.04696284858821694,
+        "t_statistic": -2.8921034920452198,
+        "p_value_one_sided": 0.9979611813068423,
+        "ci95_low_r": -0.22820166041203954,
+        "ci95_high_r": -0.04344117638470675,
+        "ci95_excludes_zero": true
+      },
+      "BTCUSD|trend_slope_atr=0.03": {
+        "threshold": 0.03,
+        "market": "BTCUSD",
+        "observations": 257,
+        "validation_trades": 60,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 197,
+            "mean_r": -0.078301,
+            "p_value_one_sided": 0.8992665250271809
+          },
+          "validation": {
+            "observations": 60,
+            "mean_r": -0.044401,
+            "p_value_one_sided": 0.6580397659335602
+          }
+        },
+        "stderr_r": 0.05314931117040254,
+        "t_statistic": -1.3243105697291186,
+        "p_value_one_sided": 0.9067094851027788,
+        "ci95_low_r": -0.17505174529784298,
+        "ci95_high_r": 0.034279356184271,
+        "ci95_excludes_zero": false
+      },
+      "XAUUSD|trend_slope_atr=0.03": {
+        "threshold": 0.03,
+        "market": "XAUUSD",
+        "observations": 239,
+        "validation_trades": 59,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 180,
+            "mean_r": -0.15756,
+            "p_value_one_sided": 0.9924656941799669
+          },
+          "validation": {
+            "observations": 59,
+            "mean_r": -0.208733,
+            "p_value_one_sided": 0.9609413574349044
+          }
+        },
+        "stderr_r": 0.05613609769909247,
+        "t_statistic": -3.031791643394299,
+        "p_value_one_sided": 0.9986499825615234,
+        "ci95_low_r": -0.28078002750397174,
+        "ci95_high_r": -0.059605876289777204,
+        "ci95_excludes_zero": true
+      },
+      "BTCUSD|trend_slope_atr=0.05": {
+        "threshold": 0.05,
+        "market": "BTCUSD",
+        "observations": 120,
+        "validation_trades": 30,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 90,
+            "mean_r": -0.015005,
+            "p_value_one_sided": 0.5653350467813563
+          },
+          "validation": {
+            "observations": 30,
+            "mean_r": 0.157809,
+            "p_value_one_sided": 0.13636735425853513
+          }
+        },
+        "stderr_r": 0.07681420445182759,
+        "t_statistic": 0.36710366599992067,
+        "p_value_one_sided": 0.35709684896522054,
+        "ci95_low_r": -0.12390102069006985,
+        "ci95_high_r": 0.1802985728003365,
+        "ci95_excludes_zero": false
+      },
+      "XAUUSD|trend_slope_atr=0.05": {
+        "threshold": 0.05,
+        "market": "XAUUSD",
+        "observations": 113,
+        "validation_trades": 33,
+        "conclusive": true,
+        "by_window": {
+          "train": {
+            "observations": 80,
+            "mean_r": -0.156365,
+            "p_value_one_sided": 0.9483622949761756
+          },
+          "validation": {
+            "observations": 33,
+            "mean_r": -0.015978,
+            "p_value_one_sided": 0.5408592100470235
+          }
+        },
+        "stderr_r": 0.08076244244979566,
+        "t_statistic": -1.4284772462895314,
+        "p_value_one_sided": 0.9220313134480488,
+        "ci95_low_r": -0.2753877385648945,
+        "ci95_high_r": 0.0446531157762928,
+        "ci95_excludes_zero": false
+      },
+      "BTCUSD|trend_slope_atr=0.08": {
+        "threshold": 0.08,
+        "market": "BTCUSD",
+        "observations": 36,
+        "validation_trades": 11,
+        "conclusive": false,
+        "by_window": {
+          "train": {
+            "observations": 25,
+            "mean_r": 0.031468,
+            "p_value_one_sided": 0.42814929538975294
+          },
+          "validation": {
+            "observations": 11,
+            "mean_r": 0.295005,
+            "p_value_one_sided": 0.09332882206944909
+          }
+        },
+        "stderr_r": 0.1351804635194285,
+        "t_statistic": 0.8284692142865555,
+        "p_value_one_sided": 0.20650944469146842,
+        "ci95_low_r": -0.1624380783365144,
+        "ci95_high_r": 0.3864237831341811,
+        "ci95_excludes_zero": false
+      },
+      "XAUUSD|trend_slope_atr=0.08": {
+        "threshold": 0.08,
+        "market": "XAUUSD",
+        "observations": 39,
+        "validation_trades": 18,
+        "conclusive": false,
+        "by_window": {
+          "train": {
+            "observations": 21,
+            "mean_r": -0.048774,
+            "p_value_one_sided": 0.6025734384765172
+          },
+          "validation": {
+            "observations": 18,
+            "mean_r": -0.089054,
+            "p_value_one_sided": 0.6594304883190326
+          }
+        },
+        "stderr_r": 0.138163151757182,
+        "t_statistic": -0.48757252837596243,
+        "p_value_one_sided": 0.6856730560973742,
+        "ci95_low_r": -0.34706123531556365,
+        "ci95_high_r": 0.21233212085428158,
+        "ci95_excludes_zero": false
+      },
+      "BTCUSD|trend_slope_atr=0.12": {
+        "threshold": 0.12,
+        "market": "BTCUSD",
+        "observations": 7,
+        "validation_trades": 5,
+        "conclusive": false,
+        "by_window": {
+          "train": {
+            "observations": 2,
+            "mean_r": -1.093312,
+            "p_value_one_sided": 0.9984043282943533
+          },
+          "validation": {
+            "observations": 5,
+            "mean_r": 0.245022,
+            "p_value_one_sided": 0.25340691364360973
+          }
+        },
+        "stderr_r": 0.3388693211208958,
+        "t_statistic": -0.4053445015093799,
+        "p_value_one_sided": 0.6503591298341893,
+        "ci95_low_r": -0.9665421738867412,
+        "ci95_high_r": 0.6918245417935982,
+        "ci95_excludes_zero": false
+      },
+      "XAUUSD|trend_slope_atr=0.12": {
+        "threshold": 0.12,
+        "market": "XAUUSD",
+        "observations": 10,
+        "validation_trades": 7,
+        "conclusive": false,
+        "by_window": {
+          "train": {
+            "observations": 3,
+            "mean_r": 0.597899,
+            "p_value_one_sided": 3.354591102694746e-05
+          },
+          "validation": {
+            "observations": 7,
+            "mean_r": -0.060647,
+            "p_value_one_sided": 0.5646250057459475
+          }
+        },
+        "stderr_r": 0.2639234163939635,
+        "t_statistic": 0.5187739327510904,
+        "p_value_one_sided": 0.30821586649932686,
+        "ci95_low_r": -0.46011965815797656,
+        "ci95_high_r": 0.7339528354935767,
+        "ci95_excludes_zero": false
+      }
+    }
+  },
+  "reproduction": {
+    "source": "docs\\research\\measurements\\trend-filter-effect.json",
+    "compared_fields": [
+      "trades",
+      "wins",
+      "losses",
+      "net_profit",
+      "profit_factor",
+      "expectancy"
+    ],
+    "checks": 48,
+    "max_absolute_error": 0.0,
+    "reproduced": true,
+    "deltas": []
+  },
+  "self_check": {
+    "checks": [
+      {
+        "check": "t(0.975, 10) = 2.228138852",
+        "measured": 2.228138851986274,
+        "expected": 2.228138852,
+        "tolerance": 1e-06,
+        "error": 1.3725909298045735e-11,
+        "ok": true
+      },
+      {
+        "check": "t(0.975, 1) = 12.70620474",
+        "measured": 12.706204736174648,
+        "expected": 12.70620474,
+        "tolerance": 1e-06,
+        "error": 3.82535247922533e-09,
+        "ok": true
+      },
+      {
+        "check": "t(0.95, 29) = 1.699127027",
+        "measured": 1.6991270265334957,
+        "expected": 1.699127027,
+        "tolerance": 1e-06,
+        "error": 4.665043906726396e-10,
+        "ok": true
+      },
+      {
+        "check": "t(0.975, 100000) = 1.959963985",
+        "measured": 1.9599639845400532,
+        "expected": 1.959963985,
+        "tolerance": 1e-09,
+        "error": 4.5994674735538865e-10,
+        "ok": true
+      },
+      {
+        "check": "P(|T| >= 2.228138852, 10) = 0.05",
+        "measured": 0.04999999999883667,
+        "expected": 0.05,
+        "tolerance": 1e-09,
+        "error": 1.1633333185656625e-12,
+        "ok": true
+      },
+      {
+        "check": "p brute, esperance negative (doit etre ~0)",
+        "measured": 0.00042191625880063933,
+        "expected": 0.0,
+        "tolerance": 0.001,
+        "error": 0.00042191625880063933,
+        "ok": true
+      },
+      {
+        "check": "p reorientee, meme serie (doit etre ~1)",
+        "measured": 0.9995780837411994,
+        "expected": 1.0,
+        "tolerance": 0.01,
+        "error": 0.00042191625880061423,
+        "ok": true
+      }
+    ],
+    "passed": true
+  },
+  "verdict": {
+    "question": "existe-t-il un reglage moins selectif de trend_slope_atr qui conserve l'effet du filtre de tendance sur les deux fenetres et les deux marches ?",
+    "answer": "oui",
+    "retained_thresholds": [
+      0.01,
+      0.02
+    ],
+    "chosen_threshold": 0.01,
+    "chosen_worst_profit_factor": 0.686979,
+    "chosen_kept_trades": {
+      "BTCUSD|train": 0.5430183356840621,
+      "BTCUSD|validation": 0.5609756097560976,
+      "XAUUSD|train": 0.4954268292682927,
+      "XAUUSD|validation": 0.5194805194805194
+    },
+    "adopted": false,
+    "note": "aucune activation : ce script decide d'un reglage de mesure, pas d'une mise en production. L'activation est une decision du Lead apres les neuf portes."
+  }
+}

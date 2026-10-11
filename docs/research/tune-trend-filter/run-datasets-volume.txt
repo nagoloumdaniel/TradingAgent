@@ -1,0 +1,102 @@
+--- self-check : loi de Student contre valeurs tabulees ---
+  [ok ] t(0.975, 10) = 2.228138852             mesure 2.228138852  erreur 1.37e-11 (tolerance 1e-06)
+  [ok ] t(0.975, 1) = 12.70620474              mesure 12.706204736  erreur 3.83e-09 (tolerance 1e-06)
+  [ok ] t(0.95, 29) = 1.699127027              mesure 1.699127027  erreur 4.67e-10 (tolerance 1e-06)
+  [ok ] t(0.975, 100000) = 1.959963985         mesure 1.959963985  erreur 4.60e-10 (tolerance 1e-09)
+  [ok ] P(|T| >= 2.228138852, 10) = 0.05       mesure 0.050000000  erreur 1.16e-12 (tolerance 1e-09)
+  [ok ] p brute, esperance negative (doit etre ~0) mesure 0.000421916  erreur 4.22e-04 (tolerance 1e-03)
+  [ok ] p reorientee, meme serie (doit etre ~1) mesure 0.999578084  erreur 4.22e-04 (tolerance 1e-02)
+  les 7 controles passent : la loi de Student est utilisable
+
+versions declarees : {'XAUUSD': 'vwap_pullback@1.1.0', 'BTCUSD': 'vwap_pullback@1.2.0'}
+marches mesures    : BTCUSD, XAUUSD
+seuils balayes (9) : 0.001, 0.002, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.12
+reference a battre : 0.05 (lu dans indicators.regime)
+exigences fixees   : (c) >= 30% des operations sur les 4 blocs, (d) >= 60 operations en validation par marche
+hypotheses         : 9 seuils x 2 marches
+
+20 blocs relus depuis D:\Projets\TradingAgent\docs\research\tune-trend-filter\measurements-cache.json : aucun backtest relance
+
+=== BTCUSD — vwap_pullback@1.2.0 ===
+
+  jeu gele  : mt5-BTCUSD-M15-2026-10-09
+  empreinte : 2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459
+  59999 bougies M15 mesurees
+  train        2025-01-21T16:30 -> 2026-01-31T20:30 UTC
+  validation   2026-01-31T20:30 -> 2026-06-05T23:15 UTC
+  scelle       2026-06-05T23:15 -> 2026-10-09T01:45 UTC  (12001 bougies NON LUES)
+
+=== XAUUSD — vwap_pullback@1.1.0 ===
+
+  jeu gele  : mt5-XAUUSD-M15-2026-10-09
+  empreinte : d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b
+  59999 bougies M15 mesurees
+  train        2024-03-25T13:00 -> 2025-10-02T11:45 UTC
+  validation   2025-10-02T11:45 -> 2026-04-08T18:15 UTC
+  scelle       2026-04-08T18:15 -> 2026-10-09T03:30 UTC  (12001 bougies NON LUES)
+
+########## la reference : la regle sans filtre ##########
+  BTCUSD (vwap_pullback@1.2.0)
+    train          709 op.  PF     0.7148  net    -999.06 EUR  signaux  1220  esperance -0.1409 R
+    validation     205 op.  PF     0.6818  net    -327.71 EUR  signaux   366  esperance -0.1599 R
+  XAUUSD (vwap_pullback@1.1.0)
+    train          656 op.  PF     0.7229  net    -863.80 EUR  signaux  1109  esperance -0.1317 R
+    validation     231 op.  PF     0.5454  net    -621.91 EUR  signaux   403  esperance -0.2692 R
+
+########## le balayage : selectivite contre effet ##########
+  un seuil plus bas rend NEUTRAL plus rare : la colonne 'conserve' MONTE vers le bas.
+  c'est attendu, et ce n'est pas le resultat. Le resultat est la colonne PF et 'retenu'.
+   seuil |      conserve BTCUSD tr / va |      conserve XAUUSD tr / va |      PF net BTCUSD tr / va |      PF net XAUUSD tr / va | a b c d  verdict
+   0.001 |   66.6 % /  65.4 % |   63.9 % /  66.2 % |     0.7474 /    0.7466 |     0.6768 /    0.6614 | oui NON oui oui  refuse
+   0.002 |   64.9 % /  63.9 % |   61.0 % /  64.5 % |     0.7649 /    0.7396 |     0.6802 /    0.6798 | oui NON oui oui  refuse
+   0.005 |   61.2 % /  59.0 % |   56.6 % /  58.4 % |     0.7775 /    0.7552 |     0.6949 /    0.6852 | oui NON oui oui  refuse
+    0.01 |   54.3 % /  56.1 % |   49.5 % /  51.9 % |     0.8312 /    0.7391 |     0.7457 /    0.6870 | oui oui oui oui  RETENU
+    0.02 |   41.3 % /  43.4 % |   37.3 % /  39.0 % |     0.8214 /    0.7818 |     0.7509 /    0.6422 | oui oui oui oui  RETENU
+    0.03 |   27.8 % /  29.3 % |   27.4 % /  25.5 % |     0.8268 /    0.8947 |     0.6794 /    0.6195 | oui NON NON NON  refuse
+    0.05 |   12.7 % /  14.6 % |   12.2 % /  14.3 % |     0.9643 /    1.5376 |     0.6782 /    0.9630 | NON NON NON NON  refuse
+    0.08 |    3.5 % /   5.4 % |    3.2 % /   7.8 % |     1.0801 /    2.4787 |     0.8839 /    0.8129 | NON oui NON NON  refuse
+    0.12 |    0.3 % /   2.4 % |    0.5 % /   3.0 % |     0.0000 /    2.1178 |   non defini /    0.8678 | NON NON NON NON  refuse
+
+########## la regle de decision, appliquee telle qu'elle a ete ecrite ##########
+  (a) plus d'operations qu'au seuil par defaut sur les 4 blocs ; (b) PF net au-dessus de la regle sans filtre sur l'entrainement ET la validation, 2 marches ;
+  (c) au moins 30% des operations sur les 4 blocs ; (d) au moins 60 operations en validation par marche.
+  2 reglage(s) retenu(s) : 0.01, 0.02
+  ordre fixe d'avance (PF net minimal le plus haut sur les 4 blocs) : seuil 0.01 (PF minimal 0.6870, operations conservees 49.5 % au minimum)
+
+########## la mesure publiee est-elle reproduite ? ##########
+  48 champs confrontes a docs\research\measurements\trend-filter-effect.json : ecart maximal 0.000e+00 -> REPRODUITE
+
+########## correction de tests multiples (Benjamini-Hochberg du depot) ##########
+  hypotheses essayees : 18
+  dont concluantes (>= min_trades en validation) : 14
+  alpha 0.10, ligne de Bonferroni 5.556e-03, fausses decouvertes attendues 1.8
+  survivantes : 0
+
+########## lectures secondaires (jamais utilisees pour retenir) ##########
+  signaux conserves, en entrainement / validation :
+   0.001  BTCUSD   67.0 % /   66.4 %   XAUUSD   64.1 % /   70.2 %
+   0.002  BTCUSD   65.6 % /   65.3 %   XAUUSD   61.3 % /   68.0 %
+   0.005  BTCUSD   61.2 % /   61.5 %   XAUUSD   56.9 % /   63.3 %
+    0.01  BTCUSD   53.9 % /   57.1 %   XAUUSD   50.0 % /   56.8 %
+    0.02  BTCUSD   41.6 % /   44.0 %   XAUUSD   37.3 % /   40.9 %
+    0.03  BTCUSD   27.9 % /   27.6 %   XAUUSD   27.0 % /   27.0 %
+    0.05  BTCUSD   13.0 % /   14.2 %   XAUUSD   11.5 % /   14.9 %
+    0.08  BTCUSD    4.0 % /    6.6 %   XAUUSD    2.7 % /    7.7 %
+    0.12  BTCUSD    0.6 % /    3.6 %   XAUUSD    0.5 % /    2.0 %
+  p-value unilaterale du t de Student sur le R net, deux fenetres reunies :
+   0.001  BTCUSD p=9.997e-01   XAUUSD p=1.000e+00
+   0.002  BTCUSD p=9.993e-01   XAUUSD p=1.000e+00
+   0.005  BTCUSD p=9.982e-01   XAUUSD p=1.000e+00
+    0.01  BTCUSD p=9.882e-01   XAUUSD p=9.992e-01
+    0.02  BTCUSD p=9.742e-01   XAUUSD p=9.980e-01
+    0.03  BTCUSD p=9.067e-01   XAUUSD p=9.986e-01
+    0.05  BTCUSD p=3.571e-01   XAUUSD p=9.220e-01
+    0.08  BTCUSD p=2.065e-01   XAUUSD p=6.857e-01
+    0.12  BTCUSD p=6.504e-01   XAUUSD p=3.082e-01
+
+########## reponse a la question posee ##########
+  existe-t-il un reglage moins selectif de trend_slope_atr qui conserve l'effet du filtre de tendance sur les deux fenetres et les deux marches ?
+  REPONSE : OUI
+  reglages retenus : 0.01, 0.02
+  retenu par l'ordre fixe d'avance : seuil 0.01, PF net minimal 0.6870
+  aucune activation : ce script decide d'un reglage de mesure, pas d'une mise en production. L'activation est une decision du Lead apres les neuf portes.
