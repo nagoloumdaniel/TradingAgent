@@ -243,7 +243,8 @@ def test_the_hiding_helper_compiles_and_survives_a_missing_process() -> None:
         "'Add-Type -TypeDefinition \\$source -ErrorAction SilentlyContinue', "
         "'Add-Type -TypeDefinition $source -ErrorAction Stop'; "
         "try { Invoke-Expression $source } catch { Write-Error $_; exit 3 }; "
-        "$gone = Hide-TerminalWindow -TargetProcessId 999999 -Attempts 1 -DelaySeconds 1; "
+        "$gone = Hide-TerminalWindow -TargetProcessId 999999 -TimeoutSeconds 1 "
+        "-PollMilliseconds 50 -QuietSeconds 1; "
         "if ($gone -ne $false) { Write-Error ('expected false, got {0}' -f $gone); exit 4 }; "
         "'ok'"
     )

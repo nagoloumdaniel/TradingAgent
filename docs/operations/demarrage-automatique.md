@@ -38,14 +38,22 @@ processus, et **faux pour MT5 sans le correctif du 2026-10-11** :
 -WindowStyle Hidden` sur `terminal64.exe` **ne masque rien** : MT5 restaure son propre état de
 fenêtre au démarrage et ignore ce qu'on lui demande. Vérifié le 2026-10-11 en relançant le
 terminal avec `-WindowStyle Hidden` puis en interrogeant `IsWindowVisible` — la fenêtre était
-**visible**, et réduite. Le superviseur la masque donc par `ShowWindow(SW_HIDE)`, appliqué trois
-fois à trois secondes d'intervalle, parce que la fenêtre n'existe pas encore à l'instant où le
-processus démarre et que MT5 peut la recréer après connexion.
+**visible**, et réduite.
+
+**Combien de temps la fenêtre reste à l'écran, et pourquoi la boucle est serrée.** La fenêtre de
+MT5 devient visible **1,84 s à 2,25 s après le lancement** (mesuré en échantillonnant
+`IsWindowVisible` toutes les 200 ms). Une première version du masquage essayait trois fois à trois
+secondes d'intervalle : elle masquait bien, mais **plus de vingt secondes trop tard** —
+l'échantillonnage l'a montré, fenêtre visible de t=2,9 s à t=27 s. Le défaut signalé était donc
+toujours là. La version retenue sonde toutes les 250 ms et masque dès l'apparition, puis vérifie
+que la fenêtre ne revient pas pendant deux secondes. Mesuré après correction, en relançant le
+superviseur entier : **un seul échantillon visible sur 178**, soit environ **500 ms**.
 
 **Ce qui n'est pas touché :** MT5 continue de tourner dans la session interactive et l'agent s'y
 connecte exactement comme avant — `initialize` répond `True`, le compte et les cotations sont
 lus, aucun ordre n'est concerné. Seule la fenêtre disparaît. **Pour la revoir**, relancer
-`terminal64.exe` à la main : le superviseur ne reprend pas la main sur une fenêtre rouverte.
+`terminal64.exe` à la main : le masquage est borné dans le temps et ne reprend pas la main sur une
+fenêtre rouverte plus tard.
 
 ## 2. Installer
 

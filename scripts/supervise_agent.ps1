@@ -334,26 +334,46 @@ function Hide-TerminalWindow {
         en interrogeant `IsWindowVisible` : la fenêtre était visible, et réduite. Passer par
         `ShowWindow(SW_HIDE)` la masque réellement, quelle que soit l'idée de MT5.
 
-        **Pourquoi trois passages.** La fenêtre de MT5 n'existe pas à l'instant où le processus
-        démarre : le terminal met une à deux secondes à l'ouvrir, et il peut la rouvrir une fois
-        connecté au compte. Un seul appel raterait la cible. Les passages sont espacés et
-        s'arrêtent — le script ne prend pas la main sur une fenêtre que l'opérateur rouvrirait
-        plus tard.
+        **Pourquoi une boucle serrée plutôt que trois passages espacés.** Une première version
+        essayait trois fois à trois secondes d'intervalle. Mesuré le 2026-10-11 en échantillonnant
+        `IsWindowVisible` toutes les 200 ms : **la fenêtre devient visible 1,84 s après le
+        lancement**, donc elle restait à l'écran plus de vingt secondes avant d'être masquée. Le
+        masquage arrivait, mais trop tard — l'opérateur voyait quand même la fenêtre apparaître,
+        ce qui est exactement le défaut signalé. La boucle sonde donc toutes les 250 ms et masque
+        dès l'apparition, puis vérifie qu'elle ne revient pas. Coût quand il n'y a rien à
+        masquer : quelques lectures de handles, aucune attente.
 
         **Ce qui n'est pas touché :** le processus continue de tourner normalement, dans sa session
-        interactive, et l'agent s'y connecte comme avant. Seule la fenêtre disparaît.
+        interactive, et l'agent s'y connecte comme avant. Seule la fenêtre disparaît. Le script ne
+        reprend pas la main sur une fenêtre que l'opérateur rouvrirait plus tard : la boucle est
+        bornée dans le temps.
     #>
-    param([int]$TargetProcessId, [int]$Attempts = 3, [int]$DelaySeconds = 3)
+    param(
+        [int]$TargetProcessId,
+        [int]$TimeoutSeconds = 20,
+        [int]$PollMilliseconds = 250,
+        [int]$QuietSeconds = 2
+    )
     if ($TargetProcessId -le 0) { return $false }
     $hidden = 0
-    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    #: Depuis combien de temps aucune fenêtre n'a été masquée. La boucle s'arrête dès que le
+    #: terminal se tient tranquille assez longtemps, sans attendre le délai complet.
+    $quietSince = Get-Date
+    while ((Get-Date) -lt $deadline) {
         # `-ErrorAction SilentlyContinue` est indispensable ici : le terminal peut mourir pendant
-        # les tentatives, et `Get-Process` leve alors sur un identifiant absent.
+        # la boucle, et `Get-Process` leve alors sur un identifiant absent.
         if ($null -eq (Get-Process -Id $TargetProcessId -ErrorAction SilentlyContinue)) { break }
         $count = 0
         try { $count = [TradingAgent.Window]::HideAll($TargetProcessId) } catch { $count = 0 }
-        if ($count -gt 0) { $hidden += $count }
-        if ($attempt -lt $Attempts) { Start-Sleep -Seconds $DelaySeconds }
+        if ($count -gt 0) {
+            $hidden += $count
+            $quietSince = Get-Date
+        }
+        elseif ($hidden -gt 0 -and ((Get-Date) - $quietSince).TotalSeconds -ge $QuietSeconds) {
+            break
+        }
+        Start-Sleep -Milliseconds $PollMilliseconds
     }
     return ($hidden -gt 0)
 }
