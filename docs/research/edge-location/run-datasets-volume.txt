@@ -1,0 +1,521 @@
+﻿-- auto-verification des statistiques --
+  [ok ] I_0.5(1,1) = 0.5                 trouve 0.500000000
+  [ok ] I_0.05(2,3) = 0.01401875         trouve 0.014018750
+  [ok ] t(0.975, 10) = 2.228138852       trouve 2.228138852
+  [ok ] t(0.975, 1) = 12.70620474        trouve 12.706204736
+  [ok ] t(0.95, 29) = 1.699127027        trouve 1.699127027
+  [ok ] t(0.975, 100000) = 1.959963985   trouve 1.959963985
+  [ok ] P(|T|>=2.228138852, 10) = 0.05   trouve 0.050000000
+  [ok ] P(Z>=1.959963985) = 0.025        trouve 0.025000000
+  [ok ] z(0.975) = 1.959963985           trouve 1.959963985
+  [ok ] z(0.95) = 1.644853627            trouve 1.644853627
+  [ok ] frontiere asymptotique a 1e-4    trouve 0.974953778
+  11 controles passes.
+
+versions declarees : {'XAUUSD': 'vwap_pullback@1.1.0', 'BTCUSD': 'vwap_pullback@1.2.0'}
+jeu gele : D:\Projets\TradingAgent\docs\research\datasets-volume
+  BTCUSD : entrainement 35999 barres 2025-01-21 -> 2026-01-31 | validation 11999 barres 2026-01-31 -> 2026-06-05 | scelle 12001 barres (non ouvert)
+    operations : entrainement 709 + validation 205 | sans indicateurs : 0
+  XAUUSD : entrainement 35999 barres 2024-03-25 -> 2025-10-02 | validation 11999 barres 2025-10-02 -> 2026-04-08 | scelle 12001 barres (non ouvert)
+    operations : entrainement 656 + validation 231 | sans indicateurs : 2
+
+====================================================================================================
+BASELINE — geometrie en production, sortie au premier objectif
+====================================================================================================
+
+== BTCUSD — vwap_pullback@1.2.0 ==
+  train        709 op.  reussite 55.3 %  PF net 0.715  net -999.06 EUR  esp/op -1.409 EUR = -0.1409 R  IC95 R [-0.205 ; -0.077]
+  validation   205 op.  reussite 55.1 %  PF net 0.682  net -327.71 EUR  esp/op -1.599 EUR = -0.1599 R  IC95 R [-0.280 ; -0.040]
+  confrontation a la mesure publiee : la baseline reproduit vwap_pullback@1.1.0 sur le meme jeu de donnees (etiquette de version differente, cf. l'errata des bandeaux de config/)
+    train       709 op. mesurees contre 709 publiees, PF 0.7148382349384762 contre 0.714838
+    validation  205 op. mesurees contre 205 publiees, PF 0.6818014088561325 contre 0.681801
+
+== XAUUSD — vwap_pullback@1.1.0 ==
+  train        656 op.  reussite 57.6 %  PF net 0.723  net -863.80 EUR  esp/op -1.317 EUR = -0.1317 R  IC95 R [-0.197 ; -0.066]
+  validation   231 op.  reussite 46.8 %  PF net 0.545  net -621.91 EUR  esp/op -2.692 EUR = -0.2692 R  IC95 R [-0.388 ; -0.151]
+  confrontation a la mesure publiee : la baseline reproduit la mesure publiee, aux chiffres publies pres
+    train       656 op. mesurees contre 656 publiees, PF 0.7229393037057251 contre 0.722939
+    validation  231 op. mesurees contre 231 publiees, PF 0.5454434511968805 contre 0.545443
+
+====================================================================================================
+LES COUPURES — quartiles de l'entrainement, appliques tels quels a la validation
+====================================================================================================
+  atr_ratio            0.9292, 0.9800, 1.0430
+  slope_atr            -0.0382, 0.0009, 0.0405
+  vwap_distance_atr    0.0796, 0.1653, 0.2629
+  vwap_gap_atr         0.0795, 0.1649, 0.2635
+  volume_ratio         0.8179, 1.0428, 1.3816
+  duration_bars        1.0000, 3.0000, 7.0000
+
+====================================================================================================
+LE TABLEAU — PnL par dimension d'entree, esperance en R net, IC 95 % de Student
+====================================================================================================
+  `concl` = au moins 30 operations ; sous ce seuil on observe et on ne conclut pas.
+  Les colonnes train_R et val_R disent si le signe tient dans les deux fenetres.
+
+-- verdict de tendance (EMA 10/30 et pente en ATR) — entry_features (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  neutral                         629    52.8 %    0.648    -0.183    -0.251    -0.114    -0.167    -0.239    oui
+  up                              148    57.4 %    0.738    -0.128    -0.273    +0.017    -0.170    -0.006    oui
+  down                            137    64.2 %    1.020    +0.008    -0.135    +0.151    +0.006    +0.016    oui
+
+-- verdict de tendance (EMA 10/30 et pente en ATR) — entry_features (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  neutral                         638    54.9 %    0.684    -0.157    -0.223    -0.090    -0.128    -0.241    oui
+  up                              133    60.2 %    0.818    -0.082    -0.232    +0.067    -0.073    -0.106    oui
+  down                            116    48.3 %    0.475    -0.324    -0.496    -0.153    -0.217    -0.631    oui
+
+-- verdict de volatilite nomme (ATR courant / moyenne) — entry_features (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  normal                          913    55.2 %    0.706    -0.146    -0.203    -0.090    -0.142    -0.160    oui
+  volatile                          1   100.0 %        —    +0.721         —         —    +0.721         —    non
+
+-- verdict de volatilite nomme (ATR courant / moyenne) — entry_features (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  normal                          887    54.8 %    0.669    -0.167    -0.225    -0.110    -0.132    -0.269    oui
+
+-- structure de marche (cloture contre le canal des 20 precedentes) — entry_features (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  range                           837    56.8 %    0.762    -0.113    -0.171    -0.054    -0.107    -0.132    oui
+  breakout_up                      42    35.7 %    0.271    -0.583    -0.875    -0.292    -0.508    -0.751    oui
+  breakout_down                    35    42.9 %    0.401    -0.397    -0.709    -0.086    -0.494    +0.635    oui
+
+-- structure de marche (cloture contre le canal des 20 precedentes) — entry_features (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  range                           804    56.1 %    0.715    -0.138    -0.197    -0.079    -0.122    -0.185    oui
+  breakout_up                      42    45.2 %    0.451    -0.346    -0.628    -0.064    -0.184    -0.585    oui
+  breakout_down                    41    39.0 %    0.295    -0.565    -0.884    -0.247    -0.285    -1.330    oui
+
+-- seance UTC de la barre de decision — entry_features (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  tokyo                           328    52.4 %    0.627    -0.198    -0.293    -0.102    -0.195    -0.205    oui
+  london                          231    55.0 %    0.682    -0.160    -0.273    -0.047    -0.148    -0.201    oui
+  overlap                         135    60.0 %    0.867    -0.059    -0.208    +0.089    -0.094    +0.069    oui
+  new_york                        181    57.5 %    0.802    -0.091    -0.218    +0.035    -0.077    -0.147    oui
+  off                              39    53.8 %    0.673    -0.164    -0.445    +0.117    -0.122    -0.357    oui
+
+-- seance UTC de la barre de decision — entry_features (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  tokyo                           310    52.3 %    0.582    -0.225    -0.322    -0.127    -0.202    -0.297    oui
+  london                          252    59.5 %    0.808    -0.087    -0.192    +0.019    -0.076    -0.124    oui
+  overlap                         176    52.8 %    0.649    -0.183    -0.313    -0.052    -0.095    -0.398    oui
+  new_york                        121    54.5 %    0.694    -0.156    -0.318    +0.006    -0.171    -0.128    oui
+  off                              28    53.6 %    0.593    -0.214    -0.554    +0.126    +0.101    -0.877    non
+
+-- sens de l'operation (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  BUY                             471    57.7 %    0.787    -0.099    -0.177    -0.021    -0.095    -0.115    oui
+  SELL                            443    52.6 %    0.633    -0.194    -0.277    -0.112    -0.193    -0.197    oui
+
+-- sens de l'operation (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  BUY                             523    57.0 %    0.731    -0.130    -0.205    -0.055    -0.094    -0.231    oui
+  SELL                            364    51.6 %    0.589    -0.221    -0.311    -0.132    -0.185    -0.324    oui
+
+-- structure de swing (HH/HL, LH/LL, mixte) — entry_features, non nommee par la demande (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  hh_hl                           263    54.8 %    0.699    -0.150    -0.255    -0.045    -0.160    -0.112    oui
+  lh_ll                           256    57.4 %    0.771    -0.109    -0.216    -0.001    -0.064    -0.236    oui
+  mixed                           395    54.2 %    0.674    -0.166    -0.252    -0.079    -0.175    -0.131    oui
+
+-- structure de swing (HH/HL, LH/LL, mixte) — entry_features, non nommee par la demande (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  hh_hl                           217    57.1 %    0.711    -0.144    -0.263    -0.024    -0.125    -0.199    oui
+  lh_ll                           251    58.2 %    0.771    -0.106    -0.212    -0.000    -0.079    -0.180    oui
+  mixed                           419    51.6 %    0.596    -0.217    -0.300    -0.133    -0.167    -0.359    oui
+
+-- cote du VWAP a l'entree — derive de l'indicateur `vwap` du signal (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  au_dessus                       471    57.7 %    0.787    -0.099    -0.177    -0.021    -0.095    -0.115    oui
+  en_dessous                      443    52.6 %    0.633    -0.194    -0.277    -0.112    -0.193    -0.197    oui
+
+-- cote du VWAP a l'entree — derive de l'indicateur `vwap` du signal (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  au_dessus                       522    57.1 %    0.734    -0.128    -0.203    -0.053    -0.094    -0.225    oui
+  en_dessous                      363    51.5 %    0.586    -0.223    -0.313    -0.133    -0.187    -0.324    oui
+  non_measure                       2    50.0 %    0.415    -0.313    -9.942    +9.315    +0.445    -1.071    non
+
+-- l'operation va-t-elle DANS le sens de la tendance nommee ? — pre-enregistre (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  dans_la_tendance                157    80.9 %    2.415    +0.297    +0.190    +0.405    +0.289    +0.322    oui
+  contre_la_tendance              128    35.9 %    0.313    -0.505    -0.657    -0.352    -0.506    -0.499    oui
+  sans_tendance                   629    52.8 %    0.648    -0.183    -0.251    -0.114    -0.167    -0.239    oui
+
+-- l'operation va-t-elle DANS le sens de la tendance nommee ? — pre-enregistre (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  dans_la_tendance                133    76.7 %    1.866    +0.220    +0.095    +0.344    +0.235    +0.182    oui
+  contre_la_tendance              116    29.3 %    0.207    -0.671    -0.829    -0.512    -0.557    -0.996    oui
+  sans_tendance                   638    54.9 %    0.684    -0.157    -0.223    -0.090    -0.128    -0.241    oui
+
+-- rapport ATR courant / moyenne, en quartiles — entry_features (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              266    54.5 %    0.611    -0.201    -0.306    -0.097    -0.196    -0.226    oui
+  q2                              176    58.0 %    0.803    -0.092    -0.221    +0.037    -0.019    -0.274    oui
+  q3                              209    56.5 %    0.777    -0.106    -0.223    +0.012    -0.133    -0.013    oui
+  q4                              263    53.2 %    0.697    -0.156    -0.263    -0.048    -0.163    -0.132    oui
+
+-- rapport ATR courant / moyenne, en quartiles — entry_features (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              179    50.8 %    0.543    -0.251    -0.377    -0.124    -0.223    -0.310    oui
+  q2                              267    59.2 %    0.778    -0.101    -0.204    +0.001    -0.102    -0.098    oui
+  q3                              253    56.1 %    0.721    -0.137    -0.247    -0.028    -0.091    -0.251    oui
+  q4                              188    50.5 %    0.596    -0.223    -0.351    -0.094    -0.149    -0.430    oui
+
+-- pente de la moyenne lente en ATR par barre, en quartiles — entry_features (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              229    56.3 %    0.738    -0.127    -0.240    -0.013    -0.130    -0.117    oui
+  q2                              218    52.8 %    0.659    -0.175    -0.291    -0.059    -0.153    -0.284    oui
+  q3                              227    59.9 %    0.863    -0.060    -0.171    +0.051    -0.036    -0.131    oui
+  q4                              240    52.1 %    0.603    -0.216    -0.329    -0.102    -0.240    -0.144    oui
+
+-- pente de la moyenne lente en ATR par barre, en quartiles — entry_features (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              221    50.2 %    0.538    -0.266    -0.386    -0.146    -0.204    -0.437    oui
+  q2                              207    54.1 %    0.663    -0.169    -0.287    -0.052    -0.154    -0.222    oui
+  q3                              240    57.5 %    0.774    -0.105    -0.213    +0.003    -0.065    -0.203    oui
+  q4                              219    57.1 %    0.722    -0.135    -0.251    -0.019    -0.107    -0.214    oui
+
+-- distance au VWAP a l'entree en ATR, en quartiles — indicateur `distance_atr` (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              237    57.4 %    0.789    -0.098    -0.207    +0.012    -0.122    +0.023    oui
+  q2                              220    53.2 %    0.632    -0.194    -0.312    -0.077    -0.198    -0.182    oui
+  q3                              231    54.1 %    0.683    -0.160    -0.272    -0.047    -0.104    -0.308    oui
+  q4                              226    56.2 %    0.730    -0.133    -0.248    -0.017    -0.143    -0.095    oui
+
+-- distance au VWAP a l'entree en ATR, en quartiles — indicateur `distance_atr` (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              210    53.3 %    0.638    -0.186    -0.303    -0.069    -0.080    -0.418    oui
+  q2                              223    55.2 %    0.671    -0.166    -0.282    -0.050    -0.195    -0.063    oui
+  q3                              230    57.0 %    0.741    -0.123    -0.235    -0.012    -0.095    -0.208    oui
+  q4                              222    53.6 %    0.630    -0.196    -0.314    -0.077    -0.152    -0.320    oui
+  non_measure                       2    50.0 %    0.415    -0.313    -9.942    +9.315    +0.445    -1.071    non
+
+-- ecart signe au VWAP en ATR dans le sens de l'operation, en quartiles — derive (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              241    56.8 %    0.763    -0.113    -0.223    -0.003    -0.133    -0.016    oui
+  q2                              216    53.7 %    0.652    -0.180    -0.297    -0.062    -0.177    -0.188    oui
+  q3                              231    54.5 %    0.691    -0.155    -0.268    -0.042    -0.105    -0.298    oui
+  q4                              226    55.8 %    0.723    -0.137    -0.252    -0.022    -0.152    -0.086    oui
+
+-- ecart signe au VWAP en ATR dans le sens de l'operation, en quartiles — derive (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              206    53.9 %    0.652    -0.177    -0.295    -0.058    -0.069    -0.409    oui
+  q2                              227    54.2 %    0.646    -0.183    -0.298    -0.068    -0.191    -0.157    oui
+  q3                              227    56.4 %    0.717    -0.138    -0.252    -0.024    -0.117    -0.200    oui
+  q4                              225    54.7 %    0.663    -0.172    -0.288    -0.056    -0.140    -0.264    oui
+  non_measure                       2    50.0 %    0.415    -0.313    -9.942    +9.315    +0.445    -1.071    non
+
+-- volume de la barre de contact / moyenne des 20 precedentes, en quartiles — indicateur (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              199    58.8 %    0.825    -0.079    -0.199    +0.041    -0.051    -0.333    oui
+  q2                              319    51.7 %    0.616    -0.204    -0.300    -0.108    -0.248    -0.109    oui
+  q3                              259    52.9 %    0.635    -0.192    -0.300    -0.084    -0.182    -0.216    oui
+  q4                              137    62.8 %    0.967    -0.014    -0.159    +0.131    -0.023    +0.096    oui
+
+-- volume de la barre de contact / moyenne des 20 precedentes, en quartiles — indicateur (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              207    54.6 %    0.659    -0.174    -0.294    -0.054    -0.153    -0.249    oui
+  q2                              175    58.3 %    0.782    -0.100    -0.227    +0.027    -0.094    -0.114    oui
+  q3                              239    49.0 %    0.544    -0.259    -0.372    -0.147    -0.262    -0.255    oui
+  q4                              264    58.0 %    0.741    -0.123    -0.229    -0.018    -0.045    -0.459    oui
+  non_measure                       2    50.0 %    0.415    -0.313    -9.942    +9.315    +0.445    -1.071    non
+
+-- duree de l'operation en barres, en quartiles — derive des horodatages (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              230    58.7 %    0.769    -0.111    -0.227    +0.006    -0.086    -0.209    oui
+  q2                              233    61.4 %    0.924    -0.032    -0.141    +0.077    -0.036    -0.020    oui
+  q3                              237    50.6 %    0.592    -0.220    -0.331    -0.109    -0.216    -0.231    oui
+  q4                              214    50.0 %    0.592    -0.222    -0.340    -0.105    -0.233    -0.180    oui
+
+-- duree de l'operation en barres, en quartiles — derive des horodatages (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  q1                              244    61.1 %    0.810    -0.088    -0.201    +0.025    -0.013    -0.278    oui
+  q2                              240    52.5 %    0.617    -0.199    -0.308    -0.090    -0.163    -0.316    oui
+  q3                              212    55.7 %    0.710    -0.141    -0.257    -0.025    -0.131    -0.171    oui
+  q4                              191    48.7 %    0.543    -0.259    -0.384    -0.134    -0.242    -0.302    oui
+
+-- heure UTC de la decision (groupes, plus un seau « autres ») — derive (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  00-03                           177    49.7 %    0.571    -0.238    -0.368    -0.108    -0.255    -0.183    oui
+  04-07                           199    56.3 %    0.721    -0.137    -0.259    -0.014    -0.100    -0.237    oui
+  08-11                           152    54.6 %    0.669    -0.169    -0.309    -0.028    -0.149    -0.243    oui
+  12-15                           169    59.2 %    0.836    -0.075    -0.206    +0.057    -0.110    +0.061    oui
+  16-19                           137    56.2 %    0.772    -0.109    -0.255    +0.038    -0.105    -0.123    oui
+  20-23                            80    56.2 %    0.734    -0.127    -0.319    +0.064    -0.104    -0.235    oui
+
+-- heure UTC de la decision (groupes, plus un seau « autres ») — derive (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  00-03                           173    53.8 %    0.612    -0.205    -0.339    -0.072    -0.156    -0.342    oui
+  04-07                           197    53.3 %    0.618    -0.198    -0.318    -0.078    -0.177    -0.272    oui
+  08-11                           151    58.9 %    0.788    -0.097    -0.234    +0.040    -0.099    -0.089    oui
+  12-15                           224    54.5 %    0.691    -0.156    -0.271    -0.041    -0.103    -0.286    oui
+  16-19                            91    56.0 %    0.759    -0.116    -0.297    +0.066    -0.111    -0.126    oui
+  20-23                            51    51.0 %    0.528    -0.275    -0.537    -0.013    -0.127    -0.525    oui
+
+-- jour de la semaine de la decision (groupes, plus un seau « autres ») — derive (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  lun-mar                         251    52.6 %    0.660    -0.178    -0.287    -0.068    -0.187    -0.152    oui
+  mer-jeu                         278    55.4 %    0.743    -0.126    -0.229    -0.023    -0.101    -0.210    oui
+  ven                             120    59.2 %    0.861    -0.062    -0.220    +0.095    -0.071    -0.023    oui
+  autres                          265    55.8 %    0.655    -0.172    -0.276    -0.068    -0.175    -0.164    oui
+
+-- jour de la semaine de la decision (groupes, plus un seau « autres ») — derive (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  lun-mar                         356    56.7 %    0.728    -0.131    -0.221    -0.041    -0.088    -0.249    oui
+  mer-jeu                         361    52.9 %    0.621    -0.199    -0.290    -0.109    -0.165    -0.307    oui
+  ven                             161    54.7 %    0.656    -0.177    -0.315    -0.039    -0.158    -0.224    oui
+  autres                            9    55.6 %    0.686    -0.154    -0.845    +0.537    -0.040    -1.060    non
+
+-- croisement tendance x volatilite : le filtre de tendance est le seul qui ait tenu (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  down|normal                     136    64.0 %    1.007    +0.003    -0.141    +0.146    -0.001    +0.016    oui
+  down|volatile                     1   100.0 %        —    +0.721         —         —    +0.721         —    non
+  neutral|normal                  629    52.8 %    0.648    -0.183    -0.251    -0.114    -0.167    -0.239    oui
+  up|normal                       148    57.4 %    0.738    -0.128    -0.273    +0.017    -0.170    -0.006    oui
+
+-- croisement tendance x volatilite : le filtre de tendance est le seul qui ait tenu (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  down|normal                     116    48.3 %    0.475    -0.324    -0.496    -0.153    -0.217    -0.631    oui
+  neutral|normal                  638    54.9 %    0.684    -0.157    -0.223    -0.090    -0.128    -0.241    oui
+  up|normal                       133    60.2 %    0.818    -0.082    -0.232    +0.067    -0.073    -0.106    oui
+
+-- croisement tendance x sens : entrer avec la tendance nommee, ou contre elle (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  down|BUY                         60    40.0 %    0.378    -0.419    -0.644    -0.193    -0.418    -0.421    oui
+  down|SELL                        77    83.1 %    2.823    +0.340    +0.191    +0.490    +0.371    +0.246    oui
+  neutral|BUY                     331    55.9 %    0.737    -0.127    -0.220    -0.034    -0.100    -0.246    oui
+  neutral|SELL                    298    49.3 %    0.563    -0.244    -0.344    -0.144    -0.248    -0.234    oui
+  up|BUY                           80    78.8 %    2.101    +0.256    +0.098    +0.414    +0.206    +0.388    oui
+  up|SELL                          68    32.4 %    0.264    -0.580    -0.792    -0.369    -0.590    -0.548    oui
+
+-- croisement tendance x sens : entrer avec la tendance nommee, ou contre elle (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  down|BUY                         70    28.6 %    0.199    -0.695    -0.903    -0.487    -0.572    -1.026    oui
+  down|SELL                        46    78.3 %    2.012    +0.240    +0.029    +0.451    +0.299    +0.051    oui
+  neutral|BUY                     366    57.9 %    0.778    -0.103    -0.190    -0.015    -0.069    -0.204    oui
+  neutral|SELL                    272    50.7 %    0.577    -0.229    -0.332    -0.127    -0.209    -0.287    oui
+  up|BUY                           87    75.9 %    1.797    +0.209    +0.052    +0.366    +0.197    +0.236    oui
+  up|SELL                          46    30.4 %    0.222    -0.633    -0.885    -0.381    -0.536    -0.944    oui
+
+-- croisement structure de marche x sens (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  breakout_down|BUY                27    29.6 %    0.227    -0.634    -0.970    -0.298    -0.734    +0.619    non
+  breakout_down|SELL                8    87.5 %    3.958    +0.401    -0.102    +0.905    +0.363    +0.667    non
+  breakout_up|BUY                   8    87.5 %    3.650    +0.372    -0.138    +0.881    +0.350    +0.523    non
+  breakout_up|SELL                 34    23.5 %    0.155    -0.808    -1.107    -0.509    -0.781    -0.857    oui
+  range|BUY                       436    58.9 %    0.834    -0.075    -0.155    +0.006    -0.058    -0.138    oui
+  range|SELL                      401    54.4 %    0.693    -0.154    -0.239    -0.069    -0.163    -0.126    oui
+
+-- croisement structure de marche x sens (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  breakout_down|BUY                32    21.9 %    0.128    -0.896    -1.219    -0.574    -0.605    -1.537    oui
+  breakout_down|SELL                9   100.0 %        —    +0.611    +0.561    +0.661    +0.595    +0.739    non
+  breakout_up|BUY                  12   100.0 %        —    +0.641    +0.603    +0.679    +0.615    +0.692    non
+  breakout_up|SELL                 30    23.3 %    0.161    -0.741    -1.028    -0.454    -0.560    -0.978    oui
+  range|BUY                       479    58.2 %    0.786    -0.098    -0.175    -0.022    -0.079    -0.155    oui
+  range|SELL                      325    52.9 %    0.623    -0.196    -0.291    -0.102    -0.185    -0.232    oui
+
+-- croisement cote du VWAP x tendance (BTCUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  au_dessus|down                   60    40.0 %    0.378    -0.419    -0.644    -0.193    -0.418    -0.421    oui
+  au_dessus|neutral               331    55.9 %    0.737    -0.127    -0.220    -0.034    -0.100    -0.246    oui
+  au_dessus|up                     80    78.8 %    2.101    +0.256    +0.098    +0.414    +0.206    +0.388    oui
+  en_dessous|down                  77    83.1 %    2.823    +0.340    +0.191    +0.490    +0.371    +0.246    oui
+  en_dessous|neutral              298    49.3 %    0.563    -0.244    -0.344    -0.144    -0.248    -0.234    oui
+  en_dessous|up                    68    32.4 %    0.264    -0.580    -0.792    -0.369    -0.590    -0.548    oui
+
+-- croisement cote du VWAP x tendance (XAUUSD) --
+                          case      n  reussite       PF     esp_R    IC_low   IC_high   train_R     val_R  concl
+  au_dessus|down                   69    29.0 %    0.202    -0.690    -0.901    -0.479    -0.572    -1.024    oui
+  au_dessus|neutral               366    57.9 %    0.778    -0.103    -0.190    -0.015    -0.069    -0.204    oui
+  au_dessus|up                     87    75.9 %    1.797    +0.209    +0.052    +0.366    +0.197    +0.236    oui
+  en_dessous|down                  46    78.3 %    2.012    +0.240    +0.029    +0.451    +0.299    +0.051    oui
+  en_dessous|neutral              271    50.6 %    0.573    -0.232    -0.335    -0.129    -0.212    -0.287    oui
+  en_dessous|up                    46    30.4 %    0.222    -0.633    -0.885    -0.381    -0.536    -0.944    oui
+  non_measure|down                  1     0.0 %    0.000    -1.071         —         —         —    -1.071    non
+  non_measure|neutral               1   100.0 %        —    +0.445         —         —    +0.445         —    non
+
+====================================================================================================
+LES SLICES POSITIFS, ET CEUX QUI SURVIVENT A LA CORRECTION
+====================================================================================================
+  `BH` = survit a Benjamini-Hochberg sur toutes les hypotheses du script.
+  La derniere colonne dit si l'esperance reste positive dans la fenetre de validation, qui n'a pas servi a choisir.
+                                       slice      n     esp_R    IC_low   IC_high   train_R     val_R    BH
+  XAUUSD|trend_agreement|contre_la_tendance     116    -0.671    -0.829    -0.512    -0.557    -0.996   oui
+  XAUUSD|structure_x_direction|breakout_up|BUY     12    +0.641    +0.603    +0.679    +0.615    +0.692   oui
+  BTCUSD|trend_agreement|contre_la_tendance     128    -0.505    -0.657    -0.352    -0.506    -0.499   oui
+  XAUUSD|structure_x_direction|breakout_down|SELL      9    +0.611    +0.561    +0.661    +0.595    +0.739   oui
+  XAUUSD|trend_x_direction|down|BUY              70    -0.695    -0.903    -0.487    -0.572    -1.026   oui
+  XAUUSD|vwap_side_x_trend|au_dessus|down        69    -0.690    -0.901    -0.479    -0.572    -1.024   oui
+  XAUUSD|volatility|normal                      887    -0.167    -0.225    -0.110    -0.132    -0.269   oui
+  BTCUSD|trend_agreement|dans_la_tendance       157    +0.297    +0.190    +0.405    +0.289    +0.322   oui
+  BTCUSD|trend|neutral                          629    -0.183    -0.251    -0.114    -0.167    -0.239   oui
+  BTCUSD|trend_agreement|sans_tendance          629    -0.183    -0.251    -0.114    -0.167    -0.239   oui
+  BTCUSD|trend_x_volatility|neutral|normal      629    -0.183    -0.251    -0.114    -0.167    -0.239   oui
+  BTCUSD|volatility|normal                      913    -0.146    -0.203    -0.090    -0.142    -0.160   oui
+  XAUUSD|swing|mixed                            419    -0.217    -0.300    -0.133    -0.167    -0.359   oui
+  BTCUSD|trend_x_direction|up|SELL               68    -0.580    -0.792    -0.369    -0.590    -0.548   oui
+  BTCUSD|vwap_side_x_trend|en_dessous|up         68    -0.580    -0.792    -0.369    -0.590    -0.548   oui
+  XAUUSD|vwap_side|en_dessous                   363    -0.223    -0.313    -0.133    -0.187    -0.324   oui
+  XAUUSD|direction|SELL                         364    -0.221    -0.311    -0.132    -0.185    -0.324   oui
+  BTCUSD|trend_x_direction|neutral|SELL         298    -0.244    -0.344    -0.144    -0.248    -0.234   oui
+  BTCUSD|vwap_side_x_trend|en_dessous|neutral    298    -0.244    -0.344    -0.144    -0.248    -0.234   oui
+  XAUUSD|structure_x_direction|breakout_down|BUY     32    -0.896    -1.219    -0.574    -0.605    -1.537   oui
+  BTCUSD|structure_x_direction|breakout_up|SELL     34    -0.808    -1.107    -0.509    -0.781    -0.857   oui
+  XAUUSD|trend|neutral                          638    -0.157    -0.223    -0.090    -0.128    -0.241   oui
+  XAUUSD|trend_agreement|sans_tendance          638    -0.157    -0.223    -0.090    -0.128    -0.241   oui
+  XAUUSD|trend_x_volatility|neutral|normal      638    -0.157    -0.223    -0.090    -0.128    -0.241   oui
+  BTCUSD|direction|SELL                         443    -0.194    -0.277    -0.112    -0.193    -0.197   oui
+  BTCUSD|vwap_side|en_dessous                   443    -0.194    -0.277    -0.112    -0.193    -0.197   oui
+  XAUUSD|structure|range                        804    -0.138    -0.197    -0.079    -0.122    -0.185   oui
+  XAUUSD|trend_x_direction|up|SELL               46    -0.633    -0.885    -0.381    -0.536    -0.944   oui
+  XAUUSD|vwap_side_x_trend|en_dessous|up         46    -0.633    -0.885    -0.381    -0.536    -0.944   oui
+  XAUUSD|volume_ratio|q3                        239    -0.259    -0.372    -0.147    -0.262    -0.255   oui
+  XAUUSD|session|tokyo                          310    -0.225    -0.322    -0.127    -0.202    -0.297   oui
+  XAUUSD|structure_x_direction|breakout_up|SELL     30    -0.741    -1.028    -0.454    -0.560    -0.978   oui
+  XAUUSD|vwap_side_x_trend|en_dessous|neutral    271    -0.232    -0.335    -0.129    -0.212    -0.287   oui
+  XAUUSD|trend_x_direction|neutral|SELL         272    -0.229    -0.332    -0.127    -0.209    -0.287   oui
+  XAUUSD|weekday|mer-jeu                        361    -0.199    -0.290    -0.109    -0.165    -0.307   oui
+  XAUUSD|slope_atr|q1                           221    -0.266    -0.386    -0.146    -0.204    -0.437   oui
+  BTCUSD|trend_x_direction|down|SELL             77    +0.340    +0.191    +0.490    +0.371    +0.246   oui
+  BTCUSD|vwap_side_x_trend|en_dessous|down       77    +0.340    +0.191    +0.490    +0.371    +0.246   oui
+  BTCUSD|volume_ratio|q2                        319    -0.204    -0.300    -0.108    -0.248    -0.109   oui
+  XAUUSD|structure_x_direction|range|SELL       325    -0.196    -0.291    -0.102    -0.185    -0.232   oui
+  BTCUSD|session|tokyo                          328    -0.198    -0.293    -0.102    -0.195    -0.205   oui
+  XAUUSD|duration_bars|q4                       191    -0.259    -0.384    -0.134    -0.242    -0.302   oui
+  BTCUSD|duration_bars|q3                       237    -0.220    -0.331    -0.109    -0.216    -0.231   oui
+  XAUUSD|atr_ratio|q1                           179    -0.251    -0.377    -0.124    -0.223    -0.310   oui
+  BTCUSD|structure|range                        837    -0.113    -0.171    -0.054    -0.107    -0.132   oui
+  BTCUSD|atr_ratio|q1                           266    -0.201    -0.306    -0.097    -0.196    -0.226   oui
+  BTCUSD|swing|mixed                            395    -0.166    -0.252    -0.079    -0.175    -0.131   oui
+  BTCUSD|slope_atr|q4                           240    -0.216    -0.329    -0.102    -0.240    -0.144   oui
+  BTCUSD|structure|breakout_up                   42    -0.583    -0.875    -0.292    -0.508    -0.751   oui
+  BTCUSD|duration_bars|q4                       214    -0.222    -0.340    -0.105    -0.233    -0.180   oui
+  XAUUSD|trend|down                             116    -0.324    -0.496    -0.153    -0.217    -0.631   oui
+  XAUUSD|trend_x_volatility|down|normal         116    -0.324    -0.496    -0.153    -0.217    -0.631   oui
+  XAUUSD|duration_bars|q2                       240    -0.199    -0.308    -0.090    -0.163    -0.316   oui
+  BTCUSD|hour|00-03                             177    -0.238    -0.368    -0.108    -0.255    -0.183   oui
+  BTCUSD|structure_x_direction|range|SELL       401    -0.154    -0.239    -0.069    -0.163    -0.126   oui
+  BTCUSD|trend_x_direction|down|BUY              60    -0.419    -0.644    -0.193    -0.418    -0.421   oui
+  BTCUSD|vwap_side_x_trend|au_dessus|down        60    -0.419    -0.644    -0.193    -0.418    -0.421   oui
+  BTCUSD|volume_ratio|q3                        259    -0.192    -0.300    -0.084    -0.182    -0.216   oui
+  BTCUSD|structure_x_direction|breakout_down|BUY     27    -0.634    -0.970    -0.298    -0.734    +0.619   oui
+  XAUUSD|trend_agreement|dans_la_tendance       133    +0.220    +0.095    +0.344    +0.235    +0.182   oui
+  XAUUSD|direction|BUY                          523    -0.130    -0.205    -0.055    -0.094    -0.231   oui
+  XAUUSD|atr_ratio|q4                           188    -0.223    -0.351    -0.094    -0.149    -0.430   oui
+  XAUUSD|vwap_side|au_dessus                    522    -0.128    -0.203    -0.053    -0.094    -0.225   oui
+  XAUUSD|structure|breakout_down                 41    -0.565    -0.884    -0.247    -0.285    -1.330   oui
+  BTCUSD|weekday|autres                         265    -0.172    -0.276    -0.068    -0.175    -0.164   oui
+  XAUUSD|vwap_distance_atr|q4                   222    -0.196    -0.314    -0.077    -0.152    -0.320   oui
+  BTCUSD|vwap_distance_atr|q2                   220    -0.194    -0.312    -0.077    -0.198    -0.182   oui
+  XAUUSD|hour|04-07                             197    -0.198    -0.318    -0.078    -0.177    -0.272   oui
+  BTCUSD|weekday|lun-mar                        251    -0.178    -0.287    -0.068    -0.187    -0.152   oui
+  BTCUSD|trend_x_direction|up|BUY                80    +0.256    +0.098    +0.414    +0.206    +0.388   oui
+  BTCUSD|vwap_side_x_trend|au_dessus|up          80    +0.256    +0.098    +0.414    +0.206    +0.388   oui
+  XAUUSD|vwap_gap_atr|q2                        227    -0.183    -0.298    -0.068    -0.191    -0.157   oui
+  XAUUSD|vwap_distance_atr|q1                   210    -0.186    -0.303    -0.069    -0.080    -0.418   oui
+  XAUUSD|hour|00-03                             173    -0.205    -0.339    -0.072    -0.156    -0.342   oui
+  BTCUSD|vwap_gap_atr|q2                        216    -0.180    -0.297    -0.062    -0.177    -0.188   oui
+  BTCUSD|slope_atr|q2                           218    -0.175    -0.291    -0.059    -0.153    -0.284   oui
+  XAUUSD|vwap_gap_atr|q1                        206    -0.177    -0.295    -0.058    -0.069    -0.409   oui
+  XAUUSD|vwap_gap_atr|q4                        225    -0.172    -0.288    -0.056    -0.140    -0.264   oui
+  XAUUSD|weekday|lun-mar                        356    -0.131    -0.221    -0.041    -0.088    -0.249   oui
+  XAUUSD|volume_ratio|q1                        207    -0.174    -0.294    -0.054    -0.153    -0.249   oui
+  BTCUSD|atr_ratio|q4                           263    -0.156    -0.263    -0.048    -0.163    -0.132   oui
+  XAUUSD|slope_atr|q2                           207    -0.169    -0.287    -0.052    -0.154    -0.222   oui
+  XAUUSD|vwap_distance_atr|q2                   223    -0.166    -0.282    -0.050    -0.195    -0.063   oui
+  BTCUSD|swing|hh_hl                            263    -0.150    -0.255    -0.045    -0.160    -0.112   oui
+  BTCUSD|vwap_distance_atr|q3                   231    -0.160    -0.272    -0.047    -0.104    -0.308   oui
+  BTCUSD|session|london                         231    -0.160    -0.273    -0.047    -0.148    -0.201   oui
+  XAUUSD|session|overlap                        176    -0.183    -0.313    -0.052    -0.095    -0.398   oui
+  BTCUSD|vwap_gap_atr|q3                        231    -0.155    -0.268    -0.042    -0.105    -0.298   oui
+  BTCUSD|trend_x_direction|neutral|BUY          331    -0.127    -0.220    -0.034    -0.100    -0.246   oui
+  BTCUSD|vwap_side_x_trend|au_dessus|neutral    331    -0.127    -0.220    -0.034    -0.100    -0.246   oui
+  XAUUSD|hour|12-15                             224    -0.156    -0.271    -0.041    -0.103    -0.286   oui
+  XAUUSD|trend_x_direction|up|BUY                87    +0.209    +0.052    +0.366    +0.197    +0.236   oui
+  XAUUSD|vwap_side_x_trend|au_dessus|up          87    +0.209    +0.052    +0.366    +0.197    +0.236   oui
+  XAUUSD|structure_x_direction|range|BUY        479    -0.098    -0.175    -0.022    -0.079    -0.155   oui
+  XAUUSD|weekday|ven                            161    -0.177    -0.315    -0.039    -0.158    -0.224   oui
+  BTCUSD|direction|BUY                          471    -0.099    -0.177    -0.021    -0.095    -0.115   oui
+  BTCUSD|vwap_side|au_dessus                    471    -0.099    -0.177    -0.021    -0.095    -0.115   oui
+  BTCUSD|structure|breakout_down                 35    -0.397    -0.709    -0.086    -0.494    +0.635   oui
+  XAUUSD|atr_ratio|q3                           253    -0.137    -0.247    -0.028    -0.091    -0.251   oui
+  BTCUSD|weekday|mer-jeu                        278    -0.126    -0.229    -0.023    -0.101    -0.210   oui
+  XAUUSD|duration_bars|q3                       212    -0.141    -0.257    -0.025    -0.131    -0.171   oui
+  XAUUSD|structure|breakout_up                   42    -0.346    -0.628    -0.064    -0.184    -0.585   oui
+  XAUUSD|vwap_gap_atr|q3                        227    -0.138    -0.252    -0.024    -0.117    -0.200   oui
+  XAUUSD|swing|hh_hl                            217    -0.144    -0.263    -0.024    -0.125    -0.199   oui
+  BTCUSD|hour|08-11                             152    -0.169    -0.309    -0.028    -0.149    -0.243   oui
+  BTCUSD|vwap_gap_atr|q4                        226    -0.137    -0.252    -0.022    -0.152    -0.086   oui
+  XAUUSD|trend_x_direction|neutral|BUY          366    -0.103    -0.190    -0.015    -0.069    -0.204   oui
+  XAUUSD|vwap_side_x_trend|au_dessus|neutral    366    -0.103    -0.190    -0.015    -0.069    -0.204   oui
+  XAUUSD|volume_ratio|q4                        264    -0.123    -0.229    -0.018    -0.045    -0.459   oui
+  XAUUSD|slope_atr|q4                           219    -0.135    -0.251    -0.019    -0.107    -0.214   oui
+  BTCUSD|vwap_distance_atr|q4                   226    -0.133    -0.248    -0.017    -0.143    -0.095   oui
+  XAUUSD|trend_x_direction|down|SELL             46    +0.240    +0.029    +0.451    +0.299    +0.051   oui
+  XAUUSD|vwap_side_x_trend|en_dessous|down       46    +0.240    +0.029    +0.451    +0.299    +0.051   oui
+  BTCUSD|slope_atr|q1                           229    -0.127    -0.240    -0.013    -0.130    -0.117   oui
+  BTCUSD|hour|04-07                             199    -0.137    -0.259    -0.014    -0.100    -0.237   oui
+  XAUUSD|vwap_distance_atr|q3                   230    -0.123    -0.235    -0.012    -0.095    -0.208   oui
+  XAUUSD|hour|20-23                              51    -0.275    -0.537    -0.013    -0.127    -0.525   oui
+  BTCUSD|vwap_gap_atr|q1                        241    -0.113    -0.223    -0.003    -0.133    -0.016   oui
+  BTCUSD|swing|lh_ll                            256    -0.109    -0.216    -0.001    -0.064    -0.236   oui
+  XAUUSD|swing|lh_ll                            251    -0.106    -0.212    -0.000    -0.079    -0.180   oui
+  XAUUSD|atr_ratio|q2                           267    -0.101    -0.204    +0.001    -0.102    -0.098   oui
+  XAUUSD|slope_atr|q3                           240    -0.105    -0.213    +0.003    -0.065    -0.203   oui
+  XAUUSD|session|new_york                       121    -0.156    -0.318    +0.006    -0.171    -0.128   oui
+  BTCUSD|duration_bars|q1                       230    -0.111    -0.227    +0.006    -0.086    -0.209   oui
+  BTCUSD|structure_x_direction|range|BUY        436    -0.075    -0.155    +0.006    -0.058    -0.138   oui
+  BTCUSD|atr_ratio|q3                           209    -0.106    -0.223    +0.012    -0.133    -0.013   oui
+  BTCUSD|vwap_distance_atr|q1                   237    -0.098    -0.207    +0.012    -0.122    +0.023   oui
+  BTCUSD|trend|up                               148    -0.128    -0.273    +0.017    -0.170    -0.006   oui
+  BTCUSD|trend_x_volatility|up|normal           148    -0.128    -0.273    +0.017    -0.170    -0.006   oui
+  BTCUSD|structure_x_direction|breakout_down|SELL      8    +0.401    -0.102    +0.905    +0.363    +0.667   oui
+  XAUUSD|session|london                         252    -0.087    -0.192    +0.019    -0.076    -0.124   oui
+  XAUUSD|volume_ratio|q2                        175    -0.100    -0.227    +0.027    -0.094    -0.114   oui
+  XAUUSD|duration_bars|q1                       244    -0.088    -0.201    +0.025    -0.013    -0.278   oui
+  BTCUSD|structure_x_direction|breakout_up|BUY      8    +0.372    -0.138    +0.881    +0.350    +0.523   oui
+  BTCUSD|hour|16-19                             137    -0.109    -0.255    +0.038    -0.105    -0.123   oui
+  BTCUSD|session|new_york                       181    -0.091    -0.218    +0.035    -0.077    -0.147   oui
+  BTCUSD|atr_ratio|q2                           176    -0.092    -0.221    +0.037    -0.019    -0.274   oui
+  XAUUSD|hour|08-11                             151    -0.097    -0.234    +0.040    -0.099    -0.089   oui
+
+====================================================================================================
+LES EXCURSIONS — la sortie coupe-t-elle trop tot, le stop est-il trop large ?
+====================================================================================================
+  BTCUSD   tout          n=914   MAE median +0.816 R (stop touche 45.3 %)  MFE median +0.765 R  | gagnants n=505  MFE median +0.940 R  | perdants n=409  MAE median +1.196 R
+  BTCUSD   entrainement  n=709   MAE median +0.789 R (stop touche 45.3 %)  MFE median +0.766 R  | gagnants n=392  MFE median +0.937 R  | perdants n=317  MAE median +1.204 R
+  BTCUSD   validation    n=205   MAE median +0.865 R (stop touche 45.4 %)  MFE median +0.758 R  | gagnants n=113  MFE median +0.952 R  | perdants n=92   MAE median +1.180 R
+    MAE : {'0-0.25': 188, '0.25-0.5': 154, '0.5-0.75': 94, '0.75-1': 64, '1-1.25': 246, '1.25-1.5': 81, '1.5-2': 53, '2-3': 30, '3+': 4}
+    MFE : {'0-0.25': 176, '0.25-0.5': 101, '0.5-0.75': 104, '0.75-1': 256, '1-1.25': 116, '1.25-1.5': 46, '1.5-2': 42, '2-3': 21, '3+': 3}
+    gagnants dont le MFE atteint 1,5 R : 66 / 505 ; perdants dont le MFE atteint 0,8 R : 6 / 409
+
+  XAUUSD   tout          n=887   MAE median +0.858 R (stop touche 46.0 %)  MFE median +0.750 R  | gagnants n=486  MFE median +0.946 R  | perdants n=401  MAE median +1.211 R
+  XAUUSD   entrainement  n=656   MAE median +0.794 R (stop touche 43.4 %)  MFE median +0.755 R  | gagnants n=378  MFE median +0.956 R  | perdants n=278  MAE median +1.212 R
+  XAUUSD   validation    n=231   MAE median +1.015 R (stop touche 53.2 %)  MFE median +0.725 R  | gagnants n=108  MFE median +0.933 R  | perdants n=123  MAE median +1.208 R
+    MAE : {'0-0.25': 181, '0.25-0.5': 136, '0.5-0.75': 93, '0.75-1': 69, '1-1.25': 230, '1.25-1.5': 83, '1.5-2': 72, '2-3': 18, '3+': 5}
+    MFE : {'0-0.25': 161, '0.25-0.5': 116, '0.5-0.75': 126, '0.75-1': 233, '1-1.25': 114, '1.25-1.5': 48, '1.5-2': 31, '2-3': 11, '3+': 7}
+    gagnants dont le MFE atteint 1,5 R : 49 / 486 ; perdants dont le MFE atteint 0,8 R : 6 / 401
+
+====================================================================================================
+LE VERDICT
+====================================================================================================
+  hypotheses essayees                       : 164
+  hypotheses concluantes (>= 30 op.)       : 147
+  slices a esperance strictement positive   12
+  ... et IC 95 % entierement > 0            : 10
+  ... et survivant a Benjamini-Hochberg     : 10
+  seuil de Bonferroni (FDR 0.1)             : 6.098e-04
+  fausses decouvertes attendues par hasard  : 16.4
+
+  REPONSE : AU MOINS UN SLICE SURVIT A LA CORRECTION : un avantage localise existe, a valider
+  Un slice positif trouve en regardant beaucoup de slices est une hypothese, pas une decouverte : il doit passer le protocole complet sur une fenetre qui n'a pas servi a le choisir. Le jeu scelle reste ferme, et rouvrir cette question sur lui depenserait la seule fenetre vraiment hors echantillon du projet.
+
+  limites :
+    - les operations ne sont pas independantes (regimes, positions qui se chevauchent) : toute p-value est optimiste
+    - l'IC de chaque case ne corrige pas la selection ; seule la correction de tests multiples en tient compte
+    - le jeu scelle n'a pas ete ouvert : aucune conclusion n'en vient
+-- confrontation t de Student / retournement de signe (les deux bilateraux) --
+  20 slices verifies, ecart maximal de p-value +0.0060
+
+ecrit : D:\Projets\TradingAgent\docs\research\edge-location\edge-location.json
