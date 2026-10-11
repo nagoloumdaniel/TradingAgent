@@ -23,6 +23,30 @@ Deux scripts, et rien d'autre :
 6. écrit `logs/superviseur.json` (PID, relances, dernier code de sortie) et un journal par
    service et par jour.
 
+### Ce qui s'affiche à l'écran, et ce qui ne s'affiche pas
+
+Rien ne doit apparaître pendant un démarrage automatique. C'est vrai pour trois des quatre
+processus, et **faux pour MT5 sans le correctif du 2026-10-11** :
+
+| processus | fenêtre |
+|---|---|
+| `cmd.exe` des services (agent, dashboard) | **aucune** — lancé avec `-WindowStyle Hidden`, vérifié : `EnumWindows` ne trouve aucune fenêtre visible |
+| agent et dashboard (Python) | **aucune** |
+| terminal MT5 | **masquée** par `ShowWindow(SW_HIDE)` |
+
+**Pourquoi MT5 a besoin d'une API et pas d'un paramètre, et c'est mesuré.** `Start-Process
+-WindowStyle Hidden` sur `terminal64.exe` **ne masque rien** : MT5 restaure son propre état de
+fenêtre au démarrage et ignore ce qu'on lui demande. Vérifié le 2026-10-11 en relançant le
+terminal avec `-WindowStyle Hidden` puis en interrogeant `IsWindowVisible` — la fenêtre était
+**visible**, et réduite. Le superviseur la masque donc par `ShowWindow(SW_HIDE)`, appliqué trois
+fois à trois secondes d'intervalle, parce que la fenêtre n'existe pas encore à l'instant où le
+processus démarre et que MT5 peut la recréer après connexion.
+
+**Ce qui n'est pas touché :** MT5 continue de tourner dans la session interactive et l'agent s'y
+connecte exactement comme avant — `initialize` répond `True`, le compte et les cotations sont
+lus, aucun ordre n'est concerné. Seule la fenêtre disparaît. **Pour la revoir**, relancer
+`terminal64.exe` à la main : le superviseur ne reprend pas la main sur une fenêtre rouverte.
+
 ## 2. Installer
 
 ```powershell

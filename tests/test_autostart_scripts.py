@@ -181,3 +181,80 @@ def test_the_installer_status_reports_and_exits_cleanly() -> None:
     result = run_script(INSTALLER, "-Status")
     assert "tâche planifiée" in result.stdout
     assert "dossier Démarrage" in result.stdout
+
+
+def test_the_terminal_window_is_hidden_by_an_api_not_by_a_parameter() -> None:
+    """`Start-Process -WindowStyle Hidden` does **not** hide MetaTrader 5.
+
+    Measured on 2026-10-11: relaunching `terminal64.exe` with `-WindowStyle Hidden` and then
+    asking `IsWindowVisible` showed the window still visible — MT5 restores its own window state
+    at start-up and ignores what it was asked for. So the supervisor hides it through
+    `ShowWindow(SW_HIDE)`, and the P/Invoke that needs has to actually be there.
+
+    This asserts the mechanism, not the intent: a comment that drops the API while keeping the
+    claim would otherwise leave a green suite over a window that still pops up on screen.
+    """
+    text = (SCRIPTS / SUPERVISOR).read_text(encoding="utf-8")
+    for needed in ("ShowWindow", "SW_HIDE", "IsWindowVisible", "EnumWindows"):
+        assert needed in text, f"{needed} is gone: nothing would hide the window any more"
+
+
+def test_both_places_that_start_the_terminal_hide_its_window() -> None:
+    """Two places start MT5 — `Start-Terminal` and the main flow — and both must hide it.
+
+    A terminal started by the one that forgot is a terminal that pops up on screen, which is the
+    whole defect. Counting the calls is what catches the forgotten one.
+    """
+    text = (SCRIPTS / SUPERVISOR).read_text(encoding="utf-8")
+    assert text.count("Hide-TerminalWindow -TargetProcessId") == 2, (
+        "both launch sites must hide the window"
+    )
+    assert "function Hide-TerminalWindow" in text
+
+
+def test_the_hiding_helper_compiles_and_survives_a_missing_process() -> None:
+    """Run the supervisor's own `Hide-TerminalWindow`, with the swallowed error turned into a throw.
+
+    Two things are checked, and both are load-bearing.
+
+    **The C# must compile.** That `Add-Type` is the only statement in the supervisor that can
+    fail with a compiler error, and it runs on the start-up path: a typo there is a supervisor
+    that starts the terminal and then dies. The script scopes the source inside the function and
+    calls `Add-Type -ErrorAction SilentlyContinue`, so from outside there is nothing to see — the
+    mutation is what makes the failure reachable instead of silent.
+
+    **A missing process must not throw.** The window does not exist at the instant the process
+    starts, MT5 can recreate it, and the terminal can die while the helper is still retrying. An
+    exception on that path would take the supervisor down with a started terminal behind it, so
+    the helper must answer `$false` and let the caller log a warning.
+
+    Nothing here touches a real window: the id is nonsense on purpose.
+    """
+    assert POWERSHELL is not None
+    command = (
+        "$errors = $null; $tokens = $null; "
+        "$ast = [System.Management.Automation.Language.Parser]"
+        f"::ParseFile('{SCRIPTS / SUPERVISOR}', [ref]$tokens, [ref]$errors); "
+        "$blocks = @($ast.FindAll({ param($n) $n -is "
+        "[System.Management.Automation.Language.FunctionDefinitionAst] -and "
+        "$n.Name -eq 'Hide-TerminalWindow' }, $true)); "
+        "if ($blocks.Count -ne 1) { Write-Error 'Hide-TerminalWindow not found'; exit 2 }; "
+        "$source = $blocks[0].Extent.Text -replace "
+        "'Add-Type -TypeDefinition \\$source -ErrorAction SilentlyContinue', "
+        "'Add-Type -TypeDefinition $source -ErrorAction Stop'; "
+        "try { Invoke-Expression $source } catch { Write-Error $_; exit 3 }; "
+        "$gone = Hide-TerminalWindow -TargetProcessId 999999 -Attempts 1 -DelaySeconds 1; "
+        "if ($gone -ne $false) { Write-Error ('expected false, got {0}' -f $gone); exit 4 }; "
+        "'ok'"
+    )
+    result = subprocess.run(  # noqa: S603 - fixed interpreter, repository-owned script
+        [POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", command],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "ok" in result.stdout

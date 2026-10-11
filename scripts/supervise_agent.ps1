@@ -276,6 +276,88 @@ function Get-TerminalProcess {
     return @($process)[0]
 }
 
+# --- Masquage de la fenêtre du terminal ---------------------------------------
+
+if (-not ('TradingAgent.Window' -as [type])) {
+    $source = @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+
+namespace TradingAgent {
+    public static class Window {
+        private delegate bool EnumProc(IntPtr handle, IntPtr parameter);
+
+        [DllImport("user32.dll")] private static extern bool EnumWindows(EnumProc callback, IntPtr parameter);
+        [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint pid);
+        [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr handle, int command);
+        [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr handle);
+
+        private const int SW_HIDE = 0;
+
+        /// Toutes les fenêtres de premier niveau d'un processus, y compris celles sans titre.
+        public static IntPtr[] Handles(int pid) {
+            var found = new List<IntPtr>();
+            EnumWindows((handle, parameter) => {
+                uint owner;
+                GetWindowThreadProcessId(handle, out owner);
+                if (owner == (uint)pid) { found.Add(handle); }
+                return true;
+            }, IntPtr.Zero);
+            return found.ToArray();
+        }
+
+        /// Masque chaque fenêtre et rend le nombre de fenêtres qui étaient visibles.
+        public static int HideAll(int pid) {
+            int hidden = 0;
+            foreach (IntPtr handle in Handles(pid)) {
+                if (IsWindowVisible(handle)) {
+                    ShowWindow(handle, SW_HIDE);
+                    hidden++;
+                }
+            }
+            return hidden;
+        }
+    }
+}
+'@
+    Add-Type -TypeDefinition $source -ErrorAction SilentlyContinue
+}
+
+function Hide-TerminalWindow {
+    <#
+        Masque la fenêtre du terminal MT5, et insiste parce que `-WindowStyle` ne suffit pas.
+
+        **Pourquoi une API plutôt qu'un paramètre, et c'est mesuré.** `Start-Process -WindowStyle
+        Hidden` sur `terminal64.exe` ne masque rien : MT5 restaure son propre état de fenêtre au
+        démarrage. Vérifié le 2026-10-11 en relançant le terminal avec `-WindowStyle Hidden` puis
+        en interrogeant `IsWindowVisible` : la fenêtre était visible, et réduite. Passer par
+        `ShowWindow(SW_HIDE)` la masque réellement, quelle que soit l'idée de MT5.
+
+        **Pourquoi trois passages.** La fenêtre de MT5 n'existe pas à l'instant où le processus
+        démarre : le terminal met une à deux secondes à l'ouvrir, et il peut la rouvrir une fois
+        connecté au compte. Un seul appel raterait la cible. Les passages sont espacés et
+        s'arrêtent — le script ne prend pas la main sur une fenêtre que l'opérateur rouvrirait
+        plus tard.
+
+        **Ce qui n'est pas touché :** le processus continue de tourner normalement, dans sa session
+        interactive, et l'agent s'y connecte comme avant. Seule la fenêtre disparaît.
+    #>
+    param([int]$TargetProcessId, [int]$Attempts = 3, [int]$DelaySeconds = 3)
+    if ($TargetProcessId -le 0) { return $false }
+    $hidden = 0
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        # `-ErrorAction SilentlyContinue` est indispensable ici : le terminal peut mourir pendant
+        # les tentatives, et `Get-Process` leve alors sur un identifiant absent.
+        if ($null -eq (Get-Process -Id $TargetProcessId -ErrorAction SilentlyContinue)) { break }
+        $count = 0
+        try { $count = [TradingAgent.Window]::HideAll($TargetProcessId) } catch { $count = 0 }
+        if ($count -gt 0) { $hidden += $count }
+        if ($attempt -lt $Attempts) { Start-Sleep -Seconds $DelaySeconds }
+    }
+    return ($hidden -gt 0)
+}
+
 function Resolve-TerminalPath {
     if (-not [string]::IsNullOrWhiteSpace($TerminalPath)) {
         if (Test-Path -LiteralPath $TerminalPath) { return $TerminalPath }
@@ -470,7 +552,17 @@ function Start-Terminal {
         return
     }
     Write-Journal 'INFO' ("demarrage du terminal MT5 : {0}" -f $path) $supervisorLog
-    Start-Process -FilePath $path -WorkingDirectory (Split-Path -Parent $path) | Out-Null
+    $terminal = Start-Process -FilePath $path -WorkingDirectory (Split-Path -Parent $path) -PassThru
+    # MT5 doit tourner dans la session interactive, mais sa fenetre n'a aucune raison de
+    # s'afficher : elle prend le focus a chaque redemarrage du superviseur. On la masque.
+    if ($null -ne $terminal) {
+        if (Hide-TerminalWindow -TargetProcessId $terminal.Id) {
+            Write-Journal 'INFO' 'fenetre du terminal masquee (le processus tourne normalement)' $supervisorLog
+        }
+        else {
+            Write-Journal 'WARN' 'fenetre du terminal non masquee : elle restera visible' $supervisorLog
+        }
+    }
     $waited = 0
     while ($null -eq (Get-TerminalProcess) -and $waited -lt $TerminalWaitSeconds) {
         Start-Sleep -Seconds 2
@@ -688,7 +780,17 @@ try {
             $terminalPath = Resolve-TerminalPath
             if ($null -ne $terminalPath) {
                 Write-Journal 'INFO' ("démarrage du terminal MT5 : {0}" -f $terminalPath) $supervisorLog
-                Start-Process -FilePath $terminalPath -WorkingDirectory (Split-Path -Parent $terminalPath) | Out-Null
+                $terminal = Start-Process -FilePath $terminalPath `
+                    -WorkingDirectory (Split-Path -Parent $terminalPath) -PassThru
+                # Meme raison qu'a `Start-Terminal` : la fenetre n'a pas a s'afficher.
+                if ($null -ne $terminal) {
+                    if (Hide-TerminalWindow -TargetProcessId $terminal.Id) {
+                        Write-Journal 'INFO' 'fenetre du terminal masquee (le processus tourne normalement)' $supervisorLog
+                    }
+                    else {
+                        Write-Journal 'WARN' 'fenetre du terminal non masquee : elle restera visible' $supervisorLog
+                    }
+                }
                 $waited = 0
                 while ($null -eq (Get-TerminalProcess) -and $waited -lt $TerminalWaitSeconds) {
                     Start-Sleep -Seconds 2
