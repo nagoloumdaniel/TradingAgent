@@ -1,0 +1,152 @@
+{
+  "method": "trend_filter flipped in memory, same split and costs, first target only",
+  "refs": {
+    "XAUUSD": "vwap_pullback@1.1.0",
+    "BTCUSD": "vwap_pullback@1.2.0"
+  },
+  "bars": null,
+  "rows": [
+    {
+      "market": "BTCUSD",
+      "ref": "vwap_pullback@1.2.0",
+      "filter": false,
+      "train": {
+        "trades": 709,
+        "wins": 392,
+        "losses": 317,
+        "win_rate": 0.5528913963328632,
+        "net_profit": -999.06396478052,
+        "profit_factor": 0.714838,
+        "expectancy": -1.409117,
+        "average_win": 6.388865,
+        "average_loss": -11.052047,
+        "max_drawdown": 1054.10046060176
+      },
+      "train_refused": 0,
+      "validation": {
+        "trades": 205,
+        "wins": 113,
+        "losses": 92,
+        "win_rate": 0.551219512195122,
+        "net_profit": -327.7082293223,
+        "profit_factor": 0.681801,
+        "expectancy": -1.598577,
+        "average_win": 6.213961,
+        "average_loss": -11.194412,
+        "max_drawdown": 357.5176663547
+      },
+      "validation_refused": 0
+    },
+    {
+      "market": "BTCUSD",
+      "ref": "vwap_pullback@1.2.0",
+      "filter": true,
+      "train": {
+        "trades": 90,
+        "wins": 56,
+        "losses": 34,
+        "win_rate": 0.6222222222222222,
+        "net_profit": -13.50430615614,
+        "profit_factor": 0.964325,
+        "expectancy": -0.150048,
+        "average_win": 6.518531,
+        "average_loss": -11.13359,
+        "max_drawdown": 50.20104865337
+      },
+      "train_refused": 0,
+      "validation": {
+        "trades": 30,
+        "wins": 22,
+        "losses": 8,
+        "win_rate": 0.7333333333333333,
+        "net_profit": 47.3428374223,
+        "profit_factor": 1.537647,
+        "expectancy": 1.578095,
+        "average_win": 6.154477,
+        "average_loss": -11.006956,
+        "max_drawdown": 22.3180939604
+      },
+      "validation_refused": 0
+    },
+    {
+      "market": "XAUUSD",
+      "ref": "vwap_pullback@1.1.0",
+      "filter": false,
+      "train": {
+        "trades": 656,
+        "wins": 378,
+        "losses": 278,
+        "win_rate": 0.5762195121951219,
+        "net_profit": -863.79608960392,
+        "profit_factor": 0.722939,
+        "expectancy": -1.316762,
+        "average_win": 5.962747,
+        "average_loss": -11.2148,
+        "max_drawdown": 923.05907044431
+      },
+      "train_refused": 0,
+      "validation": {
+        "trades": 231,
+        "wins": 108,
+        "losses": 123,
+        "win_rate": 0.4675324675324675,
+        "net_profit": -621.91036145895,
+        "profit_factor": 0.545443,
+        "expectancy": -2.692253,
+        "average_win": 6.909806,
+        "average_loss": -11.123328,
+        "max_drawdown": 625.15542102044
+      },
+      "validation_refused": 0
+    },
+    {
+      "market": "XAUUSD",
+      "ref": "vwap_pullback@1.1.0",
+      "filter": true,
+      "train": {
+        "trades": 80,
+        "wins": 45,
+        "losses": 35,
+        "win_rate": 0.5625,
+        "net_profit": -125.09236447092,
+        "profit_factor": 0.678213,
+        "expectancy": -1.563655,
+        "average_win": 5.858898,
+        "average_loss": -11.106936,
+        "max_drawdown": 141.99192232931
+      },
+      "train_refused": 0,
+      "validation": {
+        "trades": 33,
+        "wins": 20,
+        "losses": 13,
+        "win_rate": 0.6060606060606061,
+        "net_profit": -5.27269740464,
+        "profit_factor": 0.963033,
+        "expectancy": -0.159779,
+        "average_win": 6.868037,
+        "average_loss": -10.971804,
+        "max_drawdown": 60.33331524444
+      },
+      "validation_refused": 0
+    }
+  ],
+  "verdicts": {
+    "BTCUSD": {
+      "train_pf_off": 0.714838,
+      "train_pf_on": 0.964325,
+      "validation_pf_off": 0.681801,
+      "validation_pf_on": 1.537647,
+      "trades_kept": 0.1463,
+      "improves_both_windows": true
+    },
+    "XAUUSD": {
+      "train_pf_off": 0.722939,
+      "train_pf_on": 0.678213,
+      "validation_pf_off": 0.545443,
+      "validation_pf_on": 0.963033,
+      "trades_kept": 0.1429,
+      "improves_both_windows": false
+    }
+  }
+}
