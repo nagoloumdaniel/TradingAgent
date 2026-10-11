@@ -1,0 +1,89 @@
+{
+  "samples": 320,
+  "first": "2026-10-10T23:50:18.907510+00:00",
+  "last": "2026-10-11T01:49:34.149354+00:00",
+  "span_hours": 1.99,
+  "min_samples_per_hour": 10,
+  "symbols": [
+    {
+      "symbol": "BTCUSD",
+      "samples": 160,
+      "spread_median": 18.424,
+      "spread_p05": 18.424,
+      "spread_p95": 18.938,
+      "spread_min": 18.424,
+      "spread_max": 19.726,
+      "spread_over_atr_median": 0.3123,
+      "spread_over_atr_p95": 0.3285,
+      "by_hour": {
+        "00": {
+          "samples": 80,
+          "median": 18.424,
+          "conclusive": true
+        },
+        "01": {
+          "samples": 67,
+          "median": 18.424,
+          "conclusive": true
+        },
+        "23": {
+          "samples": 13,
+          "median": 18.424,
+          "conclusive": true
+        }
+      },
+      "by_weekday": {
+        "samedi": {
+          "samples": 13,
+          "median": 18.424,
+          "conclusive": true
+        },
+        "dimanche": {
+          "samples": 147,
+          "median": 18.424,
+          "conclusive": true
+        }
+      }
+    },
+    {
+      "symbol": "XAUUSD",
+      "samples": 160,
+      "spread_median": 0.74,
+      "spread_p05": 0.74,
+      "spread_p95": 0.74,
+      "spread_min": 0.74,
+      "spread_max": 0.74,
+      "spread_over_atr_median": 0.1848,
+      "spread_over_atr_p95": 0.1848,
+      "by_hour": {
+        "00": {
+          "samples": 80,
+          "median": 0.74,
+          "conclusive": true
+        },
+        "01": {
+          "samples": 67,
+          "median": 0.74,
+          "conclusive": true
+        },
+        "23": {
+          "samples": 13,
+          "median": 0.74,
+          "conclusive": true
+        }
+      },
+      "by_weekday": {
+        "samedi": {
+          "samples": 13,
+          "median": 0.74,
+          "conclusive": true
+        },
+        "dimanche": {
+          "samples": 147,
+          "median": 0.74,
+          "conclusive": true
+        }
+      }
+    }
+  ]
+}
