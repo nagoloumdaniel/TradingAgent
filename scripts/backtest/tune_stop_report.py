@@ -217,9 +217,7 @@ def main() -> int:
         + table(decision_rows, show_geometry=True)
     )
     controls = source("axe-A-verification-source.jsonl") + source("axe-A-harness-check.jsonl")
-    sections["controles"] = (
-        f"{len(controls)} mesure(s).\n\n" + table(controls, show_geometry=True)
-    )
+    sections["controles"] = f"{len(controls)} mesure(s).\n\n" + table(controls, show_geometry=True)
     spread = source("axe-A-spread-observe.jsonl")
     sections["spread"] = (
         f"Source : spread impose a 18,424 $, reste du modele du depot. "

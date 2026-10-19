@@ -25,9 +25,7 @@ def load(name: str) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     return [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
 
 
@@ -62,8 +60,10 @@ def compare(rows: list[dict[str, Any]], title: str) -> None:
         winner = "partiel" if gap > 0 else "unique"
         unique_wins += winner == "unique"
         partial_wins += winner == "partiel"
-        print(f"  {key[0]:>5} {key[1]:>5} {key[2]:>5} | {partial['profit_factor']:>8} "
-              f"{single['profit_factor']:>8} | {gap:>+7.4f} | {winner}")
+        print(
+            f"  {key[0]:>5} {key[1]:>5} {key[2]:>5} | {partial['profit_factor']:>8} "
+            f"{single['profit_factor']:>8} | {gap:>+7.4f} | {winner}"
+        )
     total = unique_wins + partial_wins
     if total:
         print(f"  -> sortie unique {unique_wins}/{total} ; partiel {partial_wins}/{total}")
