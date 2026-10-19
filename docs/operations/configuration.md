@@ -22,6 +22,35 @@ Elle sort en code 1 s'il manque une clé obligatoire, 0 sinon.
 C'est la première commande à lancer sur un poste neuf, et la première à relancer quand
 l'agent refuse de démarrer.
 
+### La base est injoignable : l'hôte doit être celui du pooler
+
+Symptôme : `doctor` affiche `base : erreur à la connexion (OperationalError)`, le tableau
+de bord répond `503`, et le journal de l'agent se termine par :
+
+```text
+failed to resolve host 'db.<projet>.supabase.co': [Errno 11001] getaddrinfo failed
+```
+
+Cause : l'URI de connexion **directe** `db.<projet>.supabase.co` ne publie qu'un
+enregistrement `AAAA` (IPv6). Un poste sans adresse IPv6 globale ne peut pas la résoudre,
+et `getaddrinfo` échoue avant même d'ouvrir une connexion TCP. Vérifié le 2026-10-19 :
+`Resolve-DnsName db.<projet>.supabase.co -Type A` ne renvoie aucun `A`, seulement un
+`AAAA`, tandis que le poste n'avait qu'une adresse lien-local sur le Wi-Fi.
+
+Correctif : reprendre dans Supabase l'URI **Session pooler** (IPv4), de la forme
+`postgresql://postgres.<projet>:<mot de passe>@aws-<n>-<région>.pooler.supabase.com:5432/postgres`,
+et l'utiliser pour `DATABASE_URL` **et** `TEST_DATABASE_URL`. L'utilisateur devient
+`postgres.<projet>` ; le mot de passe ne change pas. Vérifier ensuite :
+
+```powershell
+uv run tradingagent doctor                         # base : joignable
+powershell.exe -File scripts/supervise_agent.ps1 -Stop
+powershell.exe -File scripts/install_autostart.ps1 -WithDashboard -RunNow
+```
+
+Redémarrer le superviseur est nécessaire : le tableau de bord et l'agent lisent `.env` au
+démarrage, et une tentative de relance déjà planifiée peut encore porter l'ancienne URI.
+
 ## Variables
 
 Le modèle à copier est [`.env.example`](../../.env.example).
