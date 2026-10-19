@@ -40,10 +40,42 @@ MANAGED_SCRIPTS = (
 )
 
 
+def _quote(value: str) -> str:
+    """One PowerShell single-quoted literal. Paths rendered with backslashes are safe."""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _token(value: str) -> str:
+    """A parameter name stays bare; a value is quoted.
+
+    Quoting `-LogDirectory` itself would make the script bind it as the first positional
+    argument instead of as a named parameter, and the supervisor would then resolve
+    "-LogDirectory" as a directory.
+    """
+    if value.startswith("-") and " " not in value:
+        return value
+    return _quote(value)
+
+
 def run_script(name: str, *arguments: str, timeout: int = 180) -> subprocess.CompletedProcess:
+    """Run a repository script and decode its output as UTF-8, on either PowerShell.
+
+    Windows PowerShell 5.1 writes redirected output in the OEM code page, so an accented
+    message decodes as U+FFFD when read as UTF-8. It has no `-OutputEncoding` switch, but
+    `[Console]::OutputEncoding` can be set before invoking the script: doing that in a
+    `-Command` wrapper keeps the fallback to `powershell.exe` honest. PowerShell 7 is
+    already UTF-8, and the same wrapper is harmless there.
+    """
     assert POWERSHELL is not None
+    invocation = " ".join(_token(argument) for argument in arguments)
+    command = (
+        "$global:LASTEXITCODE = 0; "
+        "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); "
+        f"& {_quote(str(SCRIPTS / name))} {invocation}; "
+        "exit $LASTEXITCODE"
+    )
     return subprocess.run(  # noqa: S603 - fixed interpreter, repository-owned script
-        [POWERSHELL, "-NoProfile", "-NonInteractive", "-File", str(SCRIPTS / name), *arguments],
+        [POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", command],
         cwd=ROOT,
         capture_output=True,
         text=True,
