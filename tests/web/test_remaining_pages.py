@@ -664,7 +664,7 @@ def test_every_table_is_wrapped_in_a_named_scroll_region(
     for table_id in table_ids:
         before = body[: body.index(f'id="{table_id}"')]
         assert before.rindex('<div class="table-wrap">') > before.rindex("</div>"), table_id
-    assert 'wrap.setAttribute("role", "region")' in body
+    assert 'wrap.setAttribute("role", "region")' in seeded_client.get("/static/js/app.js").text
 
 
 def test_the_result_colours_come_from_the_shared_formatter() -> None:

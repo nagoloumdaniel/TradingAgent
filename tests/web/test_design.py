@@ -32,9 +32,9 @@ def test_the_theme_can_be_forced_from_the_url(client: TestClient) -> None:
 
 def test_the_fonts_are_embedded_and_served_locally(client: TestClient) -> None:
     """No CDN and no network: the dashboard must look the same offline."""
-    page = client.get("/")
-    assert "@font-face" in page.text
-    assert "/static/fonts/geist-latin.woff2" in page.text
+    stylesheet = client.get("/static/css/app.css")
+    assert "@font-face" in stylesheet.text
+    assert "/static/fonts/geist-latin.woff2" in stylesheet.text
     for name in ("geist-latin", "geist-mono-latin"):
         served = client.get(f"/static/fonts/{name}.woff2")
         assert served.status_code == 200, name

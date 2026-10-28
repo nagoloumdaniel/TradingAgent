@@ -62,8 +62,8 @@
 <table>
   <thead>
     <tr>
-      <th>Découpe</th><th class="num">Trades</th><th class="num">Résultat net</th>
-      <th class="num">Réussite</th><th class="num">Espérance</th>
+      <th scope="col">Découpe</th><th scope="col" class="num">Trades</th><th scope="col" class="num">Résultat net</th>
+      <th scope="col" class="num">Réussite</th><th scope="col" class="num">Espérance</th>
     </tr>
   </thead>
   <tbody id="{{ table_id }}">
@@ -98,7 +98,7 @@
 <h2>Coûts</h2>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Mesure</th><th class="num">Valeur</th><th class="num">Échantillon</th></tr></thead>
+  <thead><tr><th scope="col">Mesure</th><th scope="col" class="num">Valeur</th><th scope="col" class="num">Échantillon</th></tr></thead>
   <tbody>
     <tr><td>Slippage moyen</td><td class="num">{{ display.number(view.costs.average_slippage, 4) }}</td><td class="num">{{ view.costs.slippage_sample }}</td></tr>
     <tr><td>Slippage maximal</td><td class="num">{{ display.number(view.costs.max_slippage, 4) }}</td><td class="num">{{ view.costs.slippage_sample }}</td></tr>

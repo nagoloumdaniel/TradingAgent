@@ -51,7 +51,7 @@
 <h3>Paires en quarantaine</h3>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Stratégie</th><th>Marché</th></tr></thead>
+  <thead><tr><th scope="col">Stratégie</th><th scope="col">Marché</th></tr></thead>
   <tbody>
     {% for strategy, market in data.halted_pairs %}
       <tr><td>{{ strategy }}</td><td>{{ market }}</td></tr>
@@ -75,8 +75,8 @@
    actionner cet interrupteur.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Marché</th><th>État EA</th><th>Battement (UTC)</th><th>Âge</th>
-             <th>Connecté</th><th>Trading autorisé</th><th>Kill switch</th><th>Arrêt local</th><th>Motif</th></tr></thead>
+  <thead><tr><th scope="col">Marché</th><th scope="col">État EA</th><th scope="col">Battement (UTC)</th><th scope="col">Âge</th>
+             <th scope="col">Connecté</th><th scope="col">Trading autorisé</th><th scope="col">Kill switch</th><th scope="col">Arrêt local</th><th scope="col">Motif</th></tr></thead>
   <tbody>
     {% for guardian in data.ea %}
       <tr>
@@ -100,7 +100,7 @@
 <h2>Expositions</h2>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Marché</th><th class="num">Positions ouvertes</th><th class="num">Notionnel</th></tr></thead>
+  <thead><tr><th scope="col">Marché</th><th scope="col" class="num">Positions ouvertes</th><th scope="col" class="num">Notionnel</th></tr></thead>
   <tbody>
     {% for exposure in data.exposures %}
       <tr>
@@ -123,11 +123,11 @@
 <div class="table-wrap">
 <table>
   <thead>
-    <tr><th>Profil</th><th class="num">Risque / trade</th><th class="num">Perte jour</th>
-        <th class="num">Perte semaine</th><th class="num">Drawdown max</th>
-        <th class="num">Positions max</th><th class="num">Par marché</th><th class="num">Trades / jour</th>
-        <th class="num">Refroidissement</th><th class="num">Heures</th><th class="num">Spread/stop max</th>
-        <th class="num">Marge max</th><th class="num">Volume max</th><th class="num">Capital de référence</th></tr>
+    <tr><th scope="col">Profil</th><th scope="col" class="num">Risque / trade</th><th scope="col" class="num">Perte jour</th>
+        <th scope="col" class="num">Perte semaine</th><th scope="col" class="num">Drawdown max</th>
+        <th scope="col" class="num">Positions max</th><th scope="col" class="num">Par marché</th><th scope="col" class="num">Trades / jour</th>
+        <th scope="col" class="num">Refroidissement</th><th scope="col" class="num">Heures</th><th scope="col" class="num">Spread/stop max</th>
+        <th scope="col" class="num">Marge max</th><th scope="col" class="num">Volume max</th><th scope="col" class="num">Capital de référence</th></tr>
   </thead>
   <tbody>
     {% for limits in data.limits %}
@@ -161,7 +161,7 @@
    compte entier : ils restent affichés quel que soit le marché choisi.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Le (UTC)</th><th>Marché</th><th>Gravité</th><th>Type</th><th>Détail</th></tr></thead>
+  <thead><tr><th scope="col">Le (UTC)</th><th scope="col">Marché</th><th scope="col">Gravité</th><th scope="col">Type</th><th scope="col">Détail</th></tr></thead>
   <tbody id="risk-events-body">
     {% for event in data.events.rows %}
       <tr>
@@ -184,8 +184,8 @@
    {{ data.history.showing }}.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Le (UTC)</th><th>Portée</th><th>Action</th><th>Source</th><th>Acteur</th>
-             <th>Fermeture</th><th>Motif</th></tr></thead>
+  <thead><tr><th scope="col">Le (UTC)</th><th scope="col">Portée</th><th scope="col">Action</th><th scope="col">Source</th><th scope="col">Acteur</th>
+             <th scope="col">Fermeture</th><th scope="col">Motif</th></tr></thead>
   <tbody id="halt-history-body">
     {% for command in data.history.rows %}
       <tr>

@@ -19,6 +19,14 @@
     <div class="value">{{ display.money(data.account.balance) }}</div>
     <div class="note">équité {{ display.money(data.account.equity) }} · pic {{ display.money(data.account.peak_equity) }}
       · instantané {{ display.moment(data.account.at) }}</div>
+    {% if watermark and watermark.equity_line %}
+      <svg class="spark" viewBox="0 0 {{ watermark.width }} {{ watermark.height }}"
+           preserveAspectRatio="none" role="img"
+           aria-label="Courbe d'équité enregistrée, du plus ancien au plus récent instantané">
+        <path class="area" d="{{ watermark.equity_area }}"/>
+        <path class="line" d="{{ watermark.equity_line }}"/>
+      </svg>
+    {% endif %}
   </div>
   <div class="card">
     <div class="label">Drawdown courant</div>
@@ -91,9 +99,9 @@
 <table>
   <thead>
     <tr>
-      <th>Marché</th><th class="num">Trades</th><th class="num">Gagnants</th><th class="num">Perdants</th>
-      <th class="num">Réussite</th><th class="num">Résultat net</th><th class="num">Facteur de profit</th>
-      <th class="num">Drawdown max</th><th class="num">Positions ouvertes</th><th class="num">Notionnel</th>
+      <th scope="col">Marché</th><th scope="col" class="num">Trades</th><th scope="col" class="num">Gagnants</th><th scope="col" class="num">Perdants</th>
+      <th scope="col" class="num">Réussite</th><th scope="col" class="num">Résultat net</th><th scope="col" class="num">Facteur de profit</th>
+      <th scope="col" class="num">Drawdown max</th><th scope="col" class="num">Positions ouvertes</th><th scope="col" class="num">Notionnel</th>
     </tr>
   </thead>
   <tbody>
@@ -135,8 +143,8 @@
 <div class="table-wrap">
 <table>
   <thead>
-    <tr><th>Marché</th><th>Sens</th><th class="num">Volume</th><th class="num">Prix d'entrée</th>
-        <th class="num">Notionnel</th><th>Mode</th><th>Ouverte le (UTC)</th><th>Âge</th></tr>
+    <tr><th scope="col">Marché</th><th scope="col">Sens</th><th scope="col" class="num">Volume</th><th scope="col" class="num">Prix d'entrée</th>
+        <th scope="col" class="num">Notionnel</th><th scope="col">Mode</th><th scope="col">Ouverte le (UTC)</th><th scope="col">Âge</th></tr>
   </thead>
   <tbody>
     {% for position in data.positions %}
@@ -161,9 +169,9 @@
 <div class="table-wrap">
 <table>
   <thead>
-    <tr><th>Référence</th><th>Marché</th><th>Statut</th><th>Origine</th>
-        <th class="num">Trades</th><th class="num">Résultat net</th><th class="num">Réussite</th>
-        <th class="num">Facteur de profit</th></tr>
+    <tr><th scope="col">Référence</th><th scope="col">Marché</th><th scope="col">Statut</th><th scope="col">Origine</th>
+        <th scope="col" class="num">Trades</th><th scope="col" class="num">Résultat net</th><th scope="col" class="num">Réussite</th>
+        <th scope="col" class="num">Facteur de profit</th></tr>
   </thead>
   <tbody>
     {% for view in data.strategies %}
@@ -201,9 +209,9 @@
    vaut « hors ligne ».</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Marché</th><th>État EA</th><th>Battement (UTC)</th><th>Âge</th>
-             <th>Connecté</th><th>Trading autorisé</th><th>Kill switch</th><th>Arrêt local</th>
-             <th>Révision appliquée</th></tr></thead>
+  <thead><tr><th scope="col">Marché</th><th scope="col">État EA</th><th scope="col">Battement (UTC)</th><th scope="col">Âge</th>
+             <th scope="col">Connecté</th><th scope="col">Trading autorisé</th><th scope="col">Kill switch</th><th scope="col">Arrêt local</th>
+             <th scope="col">Révision appliquée</th></tr></thead>
   <tbody>
     {% for guardian in data.ea %}
       <tr>
@@ -231,8 +239,8 @@
 <div class="table-wrap">
 <table>
   <thead>
-    <tr><th>Marché</th><th>Dernière bougie (UTC)</th><th>Âge</th>
-        <th>Dernier événement</th><th>Type</th><th>État</th></tr>
+    <tr><th scope="col">Marché</th><th scope="col">Dernière bougie (UTC)</th><th scope="col">Âge</th>
+        <th scope="col">Dernier événement</th><th scope="col">Type</th><th scope="col">État</th></tr>
   </thead>
   <tbody>
     {% for market in health %}
@@ -261,9 +269,9 @@
    dérive, il ne les reconstitue pas.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Jour (UTC)</th><th>Mode</th><th>Marché</th><th>Stratégie</th>
-             <th class="num">Trades</th><th class="num">Gagnants</th><th class="num">Réussite</th>
-             <th class="num">Résultat</th><th class="num">Risque engagé</th><th class="num">Multiple R</th></tr></thead>
+  <thead><tr><th scope="col">Jour (UTC)</th><th scope="col">Mode</th><th scope="col">Marché</th><th scope="col">Stratégie</th>
+             <th scope="col" class="num">Trades</th><th scope="col" class="num">Gagnants</th><th scope="col" class="num">Réussite</th>
+             <th scope="col" class="num">Résultat</th><th scope="col" class="num">Risque engagé</th><th scope="col" class="num">Multiple R</th></tr></thead>
   <tbody>
     {% for day in data.daily %}
       <tr>

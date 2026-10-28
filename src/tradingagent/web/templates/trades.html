@@ -46,8 +46,8 @@
 <div class="table-wrap">
 <table>
   <thead>
-    <tr><th>Clôturé le (UTC)</th><th>Marché</th><th>Stratégie</th><th>Sens</th><th>Unité de temps</th>
-        <th>Mode</th><th class="num">P&amp;L</th><th class="num">Risque</th><th>Durée</th><th>Détail</th></tr>
+    <tr><th scope="col">Clôturé le (UTC)</th><th scope="col">Marché</th><th scope="col">Stratégie</th><th scope="col">Sens</th><th scope="col">Unité de temps</th>
+        <th scope="col">Mode</th><th scope="col" class="num">P&amp;L</th><th scope="col" class="num">Risque</th><th scope="col">Durée</th><th scope="col">Détail</th></tr>
   </thead>
   <tbody id="trades-body">
     {% for entry in page.rows %}
@@ -84,9 +84,9 @@
     <div class="card"><div class="label">P&amp;L</div>
       <div class="value {{ display.ratio_class(detail.trade.pnl_eur) }}">{{ display.money(detail.trade.pnl_eur, signed=True) }}</div>
       <div class="note">risque {{ display.money(detail.trade.risk_eur) }}</div></div>
-    <div class="card"><div class="label">Ouverture</div><div class="value" style="font-size:15px">{{ display.precise(detail.trade.opened_at) }}</div>
+    <div class="card"><div class="label">Ouverture</div><div class="value sm">{{ display.precise(detail.trade.opened_at) }}</div>
       <div class="note">clôture {{ display.precise(detail.trade.closed_at) }}</div></div>
-    <div class="card"><div class="label">Sortie</div><div class="value" style="font-size:15px">{{ detail.exit_reason }}</div>
+    <div class="card"><div class="label">Sortie</div><div class="value sm">{{ detail.exit_reason }}</div>
       <div class="note">prix de clôture {{ display.number(detail.close_price, 5) }}</div></div>
   </div>
 
@@ -94,12 +94,12 @@
   <div class="table-wrap">
   <table>
     <tbody>
-      <tr><th>Identifiant</th><td>{{ detail.signal_id }}</td><th>État</th><td>{{ state_label(detail.signal_state) }}</td></tr>
-      <tr><th>Prix observé</th><td>{{ display.number(detail.observed_price, 5) }}</td>
-          <th>Zone d'entrée</th><td>{{ display.number(detail.entry_low, 5) }} – {{ display.number(detail.entry_high, 5) }}</td></tr>
-      <tr><th>Stop</th><td>{{ display.number(detail.stop_loss, 5) }}</td>
-          <th>Objectifs</th><td>{% for target in detail.take_profits %}{{ display.number(target, 5) }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
-      <tr><th>Motif</th><td colspan="3">{{ detail.signal_reason }}</td></tr>
+      <tr><th scope="row">Identifiant</th><td>{{ detail.signal_id }}</td><th scope="row">État</th><td>{{ state_label(detail.signal_state) }}</td></tr>
+      <tr><th scope="row">Prix observé</th><td>{{ display.number(detail.observed_price, 5) }}</td>
+          <th scope="row">Zone d'entrée</th><td>{{ display.number(detail.entry_low, 5) }} – {{ display.number(detail.entry_high, 5) }}</td></tr>
+      <tr><th scope="row">Stop</th><td>{{ display.number(detail.stop_loss, 5) }}</td>
+          <th scope="row">Objectifs</th><td>{% for target in detail.take_profits %}{{ display.number(target, 5) }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
+      <tr><th scope="row">Motif</th><td colspan="3">{{ detail.signal_reason }}</td></tr>
     </tbody>
   </table>
   </div>
@@ -107,7 +107,7 @@
   <h3>Indicateurs enregistrés au signal</h3>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Indicateur</th><th class="num">Valeur</th></tr></thead>
+    <thead><tr><th scope="col">Indicateur</th><th scope="col" class="num">Valeur</th></tr></thead>
     <tbody>
       {% for name, value in detail.indicators.items() %}
         <tr><td>{{ name }}</td><td class="num">{{ display.number(value, 5) }}</td></tr>
@@ -130,8 +130,8 @@
   <h3>Exécutions ({{ detail.executions | length }})</h3>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Ticket</th><th class="num">Prix</th><th class="num">Volume</th>
-               <th class="num">Glissement</th><th>Exécutée le (UTC)</th></tr></thead>
+    <thead><tr><th scope="col">Ticket</th><th scope="col" class="num">Prix</th><th scope="col" class="num">Volume</th>
+               <th scope="col" class="num">Glissement</th><th scope="col">Exécutée le (UTC)</th></tr></thead>
     <tbody>
       {% for execution in detail.executions %}
         <tr>
