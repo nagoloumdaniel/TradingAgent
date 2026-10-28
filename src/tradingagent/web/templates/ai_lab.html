@@ -82,8 +82,8 @@
 {% if ai_calls.failed %}
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Le (UTC)</th><th>Modèle</th><th>Mode</th><th class="num">Latence</th>
-             <th>Message du fournisseur</th></tr></thead>
+  <thead><tr><th scope="col">Le (UTC)</th><th scope="col">Modèle</th><th scope="col">Mode</th><th scope="col" class="num">Latence</th>
+             <th scope="col">Message du fournisseur</th></tr></thead>
   <tbody id="ai-failures-body">
     {% for failure in ai_calls.failures %}
       <tr>
@@ -106,8 +106,8 @@
    {{ lab.analyses.showing }}.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Le (UTC)</th><th>Type</th><th>Marché</th><th>Référence</th><th>Modèle</th>
-             <th class="num">Coût</th><th>Constats</th><th>Réponse</th></tr></thead>
+  <thead><tr><th scope="col">Le (UTC)</th><th scope="col">Type</th><th scope="col">Marché</th><th scope="col">Référence</th><th scope="col">Modèle</th>
+             <th scope="col" class="num">Coût</th><th scope="col">Constats</th><th scope="col">Réponse</th></tr></thead>
   <tbody id="analyses-body">
     {% for analysis in lab.analyses.rows %}
       <tr>
@@ -131,8 +131,8 @@
 <h2>Hypothèses et propositions</h2>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Le (UTC)</th><th>Marché</th><th>Référence</th><th>Hypothèse</th>
-             <th>Changement proposé</th><th>Statut</th><th>Décidé par</th><th>Motif</th><th>Décidé le</th></tr></thead>
+  <thead><tr><th scope="col">Le (UTC)</th><th scope="col">Marché</th><th scope="col">Référence</th><th scope="col">Hypothèse</th>
+             <th scope="col">Changement proposé</th><th scope="col">Statut</th><th scope="col">Décidé par</th><th scope="col">Motif</th><th scope="col">Décidé le</th></tr></thead>
   <tbody id="proposals-body">
     {% for proposal in lab.proposals.rows %}
       <tr>
@@ -157,7 +157,7 @@
 <h2>Validations</h2>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Le (UTC)</th><th>Référence</th><th>Marché</th><th>Portail</th><th>Verdict</th><th>Détail</th></tr></thead>
+  <thead><tr><th scope="col">Le (UTC)</th><th scope="col">Référence</th><th scope="col">Marché</th><th scope="col">Portail</th><th scope="col">Verdict</th><th scope="col">Détail</th></tr></thead>
   <tbody id="validations-body">
     {% for validation in lab.validations.rows %}
       <tr>
@@ -179,8 +179,8 @@
 <h2>Backtests enregistrés</h2>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Le (UTC)</th><th>Référence</th><th>Marché</th><th>Jeu de données</th>
-             <th>Fenêtre (UTC)</th><th>Empreinte</th><th>Métriques</th><th>Coûts</th><th>Rapport</th></tr></thead>
+  <thead><tr><th scope="col">Le (UTC)</th><th scope="col">Référence</th><th scope="col">Marché</th><th scope="col">Jeu de données</th>
+             <th scope="col">Fenêtre (UTC)</th><th scope="col">Empreinte</th><th scope="col">Métriques</th><th scope="col">Coûts</th><th scope="col">Rapport</th></tr></thead>
   <tbody id="backtests-body">
     {% for backtest in lab.backtests.rows %}
       <tr>

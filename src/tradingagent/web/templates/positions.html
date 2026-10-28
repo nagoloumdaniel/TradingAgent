@@ -35,7 +35,7 @@
 <div class="table-wrap">
 <table>
   <thead>
-    <tr>{% for column in columns %}<th{% if column in numeric %} class="num"{% endif %}>{{ column }}</th>{% endfor %}</tr>
+    <tr>{% for column in columns %}<th scope="col"{% if column in numeric %} class="num"{% endif %}>{{ column }}</th>{% endfor %}</tr>
   </thead>
   <tbody id="positions-body">
     {% for row in rows %}
@@ -55,7 +55,7 @@
 <div class="table-wrap">
   <table>
     <thead>
-      <tr>{% for column in alert_columns %}<th>{{ column }}</th>{% endfor %}</tr>
+      <tr>{% for column in alert_columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr>
     </thead>
     <tbody id="alerts-list">
       {% for alert in alerts %}

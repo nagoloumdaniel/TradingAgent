@@ -16,7 +16,7 @@
 
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Période</th><th>Fenêtre (UTC)</th><th>Généré le</th><th>Envoyé le</th><th>Actions</th></tr></thead>
+  <thead><tr><th scope="col">Période</th><th scope="col">Fenêtre (UTC)</th><th scope="col">Généré le</th><th scope="col">Envoyé le</th><th scope="col">Actions</th></tr></thead>
   <tbody id="reports-body">
     {% for report in reports.rows %}
       <tr>
@@ -45,7 +45,7 @@
   <a href="/export/performance.json">Performance — JSON</a>
   <a href="/export/equity.svg">Courbe d'équité — SVG</a>
 </div>
-<img src="/export/equity.svg" alt="Courbe d'équité et drawdown" style="max-width:100%;margin-top:12px;border:1px solid var(--line);border-radius:10px">
+<img src="/export/equity.svg" alt="Courbe d'équité et drawdown" class="equity-img">
 
 {% if opened %}
   <h2>Rapport {{ opened.period }} — {{ display.moment(opened.window_start) }}</h2>

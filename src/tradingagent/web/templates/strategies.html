@@ -32,10 +32,10 @@
 <div class="table-wrap">
 <table>
   <thead>
-    <tr><th>Référence</th><th>Marché</th><th>Stratégie</th><th>Version</th><th>Statut</th>
-        <th>Origine</th><th>Promue le (UTC)</th><th class="num">Trades</th>
-        <th class="num">Résultat net</th><th class="num">Réussite</th><th class="num">Facteur de profit</th>
-        <th class="num">Drawdown max</th></tr>
+    <tr><th scope="col">Référence</th><th scope="col">Marché</th><th scope="col">Stratégie</th><th scope="col">Version</th><th scope="col">Statut</th>
+        <th scope="col">Origine</th><th scope="col">Promue le (UTC)</th><th scope="col" class="num">Trades</th>
+        <th scope="col" class="num">Résultat net</th><th scope="col" class="num">Réussite</th><th scope="col" class="num">Facteur de profit</th>
+        <th scope="col" class="num">Drawdown max</th></tr>
   </thead>
   <tbody id="strategies-body">
     {% for view in listing_page.rows %}
@@ -81,7 +81,7 @@
 
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Portail de validation</th><th>Verdict</th><th>Détail enregistré</th><th>Le (UTC)</th></tr></thead>
+    <thead><tr><th scope="col">Portail de validation</th><th scope="col">Verdict</th><th scope="col">Détail enregistré</th><th scope="col">Le (UTC)</th></tr></thead>
     <tbody>
       {% for validation in view.validations %}
         <tr>
@@ -100,8 +100,8 @@
   {% set backtest = view.last_backtest %}
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Dernier backtest</th><th>Jeu de données</th><th>Fenêtre (UTC)</th>
-               <th>Empreinte</th><th>Métriques enregistrées</th><th>Coûts</th><th>Rapport</th></tr></thead>
+    <thead><tr><th scope="col">Dernier backtest</th><th scope="col">Jeu de données</th><th scope="col">Fenêtre (UTC)</th>
+               <th scope="col">Empreinte</th><th scope="col">Métriques enregistrées</th><th scope="col">Coûts</th><th scope="col">Rapport</th></tr></thead>
     <tbody>
       {% if backtest %}
         <tr>

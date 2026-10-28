@@ -163,11 +163,12 @@ def test_the_shell_switches_the_mark_with_the_theme(client: TestClient) -> None:
     # the only thing that decides which one is drawn, so there is no flash and no script.
     assert body.count('src="/static/nexagold.png"') == 1
     assert body.count('src="/static/nexagold-dark.png"') == 1
+    css = client.get("/static/css/app.css").text
     assert re.search(
         r':root\[data-theme="light"\]\s+\.brand \.brand-mark-dark\s*\{\s*display:\s*none',
-        body,
+        css,
     )
     assert re.search(
         r':root\[data-theme="light"\]\s+\.brand \.brand-mark-light\s*\{\s*display:\s*block',
-        body,
+        css,
     )

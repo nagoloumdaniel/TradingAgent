@@ -1,5 +1,10 @@
 # Design du dashboard — décisions et sources
 
+> **Mise à jour 2026-10-28** : la palette (désormais noir chaud et or NexaGold), la navigation
+> (barre du haut pleine largeur, rail, barre basse sur téléphone) et le comportement des tableaux
+> sont décrits dans [`RESPONSIVE.md`](RESPONSIVE.md) et remplacent les sections « pilule
+> flottante », « barre latérale figée / tiroir » et « Adaptatif » ci-dessous.
+
 > Installé le 2026-10-07 avec `npx skills add Leonxlnx/taste-skill` (12 skills) et
 > `npx skills add emilkowalski/skills` (12 skills), tous deux dans `~/.claude/skills/`.
 > Ce document dit ce qui a été retenu, ce qui a été écarté, et pourquoi. Les skills sont

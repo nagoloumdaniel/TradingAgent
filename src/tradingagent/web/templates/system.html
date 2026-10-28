@@ -44,9 +44,9 @@
    un rapport absent, tronqué ou illisible vaut <strong>hors ligne</strong>, jamais une exception.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Marché</th><th>État</th><th>Battement (UTC)</th><th>Âge</th><th>Version EA</th>
-             <th>Protocole</th><th>Révision appliquée</th><th>Connecté</th><th>Trading autorisé</th>
-             <th>Kill switch</th><th>Arrêt local</th><th>Motif</th><th class="num">Positions vues</th></tr></thead>
+  <thead><tr><th scope="col">Marché</th><th scope="col">État</th><th scope="col">Battement (UTC)</th><th scope="col">Âge</th><th scope="col">Version EA</th>
+             <th scope="col">Protocole</th><th scope="col">Révision appliquée</th><th scope="col">Connecté</th><th scope="col">Trading autorisé</th>
+             <th scope="col">Kill switch</th><th scope="col">Arrêt local</th><th scope="col">Motif</th><th scope="col" class="num">Positions vues</th></tr></thead>
   <tbody>
     {% for guardian in data.ea %}
       <tr>
@@ -83,7 +83,7 @@
 </p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Marché</th><th>Le (UTC)</th><th>Séquence</th><th>Gravité</th><th>Type</th><th>Message</th><th>Ticket</th></tr></thead>
+  <thead><tr><th scope="col">Marché</th><th scope="col">Le (UTC)</th><th scope="col">Séquence</th><th scope="col">Gravité</th><th scope="col">Type</th><th scope="col">Message</th><th scope="col">Ticket</th></tr></thead>
   <tbody id="ea-journal-body">
     {% for event in data.journal %}
       <tr>
@@ -107,8 +107,8 @@
    enregistre, pour recouper le battement de cœur de l'EA.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Marché</th><th>Dernière bougie (UTC)</th><th>Âge des données</th>
-             <th>Dernier événement d'exécution</th><th>Type</th><th>État</th></tr></thead>
+  <thead><tr><th scope="col">Marché</th><th scope="col">Dernière bougie (UTC)</th><th scope="col">Âge des données</th>
+             <th scope="col">Dernier événement d'exécution</th><th scope="col">Type</th><th scope="col">État</th></tr></thead>
   <tbody>
     {% for market in data.markets %}
       <tr>
@@ -135,7 +135,7 @@
    d'un même ordre, à partir des événements stockés.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Saut</th><th class="num">Échantillons</th><th class="num">Médiane (ms)</th><th class="num">Pire (ms)</th></tr></thead>
+  <thead><tr><th scope="col">Saut</th><th scope="col" class="num">Échantillons</th><th scope="col" class="num">Médiane (ms)</th><th scope="col" class="num">Pire (ms)</th></tr></thead>
   <tbody>
     {% for latency in data.latencies %}
       <tr>
@@ -157,7 +157,7 @@
    Les événements sans marché concernent le compte entier : ils restent affichés.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Le (UTC)</th><th>Marché</th><th>Gravité</th><th>Type</th><th>Détail</th></tr></thead>
+  <thead><tr><th scope="col">Le (UTC)</th><th scope="col">Marché</th><th scope="col">Gravité</th><th scope="col">Type</th><th scope="col">Détail</th></tr></thead>
   <tbody id="errors-body">
     {% for event in data.errors.rows %}
       <tr>
@@ -180,7 +180,7 @@
    {{ data.telemetry.total }} événement(s), {{ data.telemetry.showing }}.</p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Le (UTC)</th><th>Marché</th><th>Type</th><th>Détail</th></tr></thead>
+  <thead><tr><th scope="col">Le (UTC)</th><th scope="col">Marché</th><th scope="col">Type</th><th scope="col">Détail</th></tr></thead>
   <tbody id="telemetry-body">
     {% for event in data.telemetry.rows %}
       <tr>
