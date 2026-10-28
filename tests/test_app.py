@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import Engine, insert, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
+from telegram.error import TimedOut
 
 from tradingagent import app as app_module
 from tradingagent.ai.escalation import Escalation, FailurePattern
@@ -507,3 +509,155 @@ def test_a_reference_that_lives_nowhere_is_refused_by_name(
 
     with pytest.raises(ConfigError, match=r"witness@9\.9\.9"):
         app_module._build_version(MARKET, "witness@9.9.9", {})
+
+
+class _StubLoop:
+    """Just enough of AgentLoop for `run`: a start-up that can fail, then a loop that ends."""
+
+    restart_requested = False
+
+    def __init__(self, startup_failures: int = 0) -> None:
+        self.startup_failures = startup_failures
+        self.cycles = 0
+
+    async def startup(self) -> set[str]:
+        if self.startup_failures:
+            self.startup_failures -= 1
+            raise OperationalError("INSERT", {}, Exception("failed to resolve host"))
+        return {"XAUUSD"}
+
+    async def run_forever(self) -> None:
+        self.cycles += 1
+
+
+class _StubUpdater:
+    def __init__(self) -> None:
+        self.running = False
+
+    async def start_polling(self, **_: object) -> None:
+        self.running = True
+
+    async def stop(self) -> None:
+        if not self.running:
+            raise RuntimeError("This Updater is not running!")
+        self.running = False
+
+
+class _StubApplication:
+    """A Telegram application whose network is down for the first calls."""
+
+    def __init__(self, initialize_failures: int) -> None:
+        self.initialize_failures = initialize_failures
+        self.updater = _StubUpdater()
+        self.post_init = None
+        self.started = False
+
+    async def initialize(self) -> None:
+        if self.initialize_failures:
+            self.initialize_failures -= 1
+            raise TimedOut("Timed out")
+
+    async def start(self) -> None:
+        self.started = True
+
+    async def stop(self) -> None:
+        if not self.started:
+            raise RuntimeError("This Application is not running!")
+        self.started = False
+
+    async def shutdown(self) -> None:
+        return None
+
+
+class _StubMarket:
+    closed = False
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+class _StubEngine:
+    disposed = False
+
+    def dispose(self) -> None:
+        self.disposed = True
+
+
+def _components(loop: _StubLoop, application: _StubApplication | None) -> app_module.Components:
+    return app_module.Components(
+        engine=_StubEngine(),  # type: ignore[arg-type]
+        market=_StubMarket(),  # type: ignore[arg-type]
+        loop=loop,  # type: ignore[arg-type]
+        application=application,  # type: ignore[arg-type]
+        notifier=None,
+        metrics=None,  # type: ignore[arg-type]
+        resources=None,  # type: ignore[arg-type]
+        alerts=None,  # type: ignore[arg-type]
+    )
+
+
+def _run_with(
+    monkeypatch: pytest.MonkeyPatch,
+    components: app_module.Components,
+    build_failures: int = 0,
+    cycles: int | None = None,
+) -> int:
+    attempts = {"count": 0}
+
+    async def fake_build(settings: object, **_: object) -> app_module.Components:
+        attempts["count"] += 1
+        if attempts["count"] <= build_failures:
+            raise OperationalError("SELECT 1", {}, Exception("connection timeout expired"))
+        return components
+
+    async def no_wait(seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(app_module, "build", fake_build)
+    return asyncio.run(app_module.run(_settings(), cycles=cycles, sleep=no_wait))
+
+
+def test_a_database_that_is_down_at_start_is_waited_for_not_fatal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """2026-10-28: three restarts in two minutes, each a traceback, each exit code 1."""
+    loop = _StubLoop(startup_failures=2)
+    components = _components(loop, None)
+
+    assert _run_with(monkeypatch, components, build_failures=2) == 0
+
+    assert loop.cycles == 1
+    assert isinstance(components.engine, _StubEngine) and components.engine.disposed
+
+
+def test_a_telegram_that_cannot_start_does_not_end_the_agent_nor_mask_the_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`initialize` timed out, then `finally` called `Updater.stop()`: RuntimeError, exit 1."""
+    loop = _StubLoop()
+    application = _StubApplication(initialize_failures=10**6)  # never comes up
+
+    assert _run_with(monkeypatch, _components(loop, application)) == 0
+
+    assert loop.cycles == 1
+
+
+def test_a_bounded_run_makes_one_honest_telegram_attempt_and_still_exits_cleanly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    loop = _StubLoop()
+    application = _StubApplication(initialize_failures=1)
+
+    assert _run_with(monkeypatch, _components(loop, application), cycles=0) == 0
+
+
+def test_a_refusal_at_build_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def refusing(settings: object, **_: object) -> app_module.Components:
+        raise ConfigError("no enabled market in agent.yaml: nothing to watch")
+
+    async def never(seconds: float) -> None:
+        raise AssertionError("a refusal must not be waited on")
+
+    monkeypatch.setattr(app_module, "build", refusing)
+    with pytest.raises(ConfigError):
+        asyncio.run(app_module.run(_settings(), sleep=never))

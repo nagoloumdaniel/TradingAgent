@@ -14,10 +14,11 @@ Run it with:
 
 import argparse
 import asyncio
+import contextlib
 import logging
 import os
 import sys
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -109,12 +110,14 @@ from tradingagent.notify.telegram_app import (
     callback_handler,
     message_handler,
 )
+from tradingagent.notify.telegram_lifecycle import TelegramLifecycle
 from tradingagent.observability import Metrics, ResourceMonitor, configure_json_logging
 from tradingagent.registry.store import StrategyRegistry, UnknownStrategyRef
 from tradingagent.reporting.service import ReportService
 from tradingagent.research.campaign import CandidateReport, CandidateSpec, run_campaign
 from tradingagent.research.improvement import ImprovementOutcome, search_improvement
 from tradingagent.research.versioning import CandidateVersion, build_candidate, write_candidate
+from tradingagent.resilience import one_line, retry_transient
 from tradingagent.risk.model import AccountState, InstrumentSpec
 from tradingagent.runtime.loop import AgentLoop
 from tradingagent.runtime.pipeline import SignalPipeline
@@ -1054,30 +1057,37 @@ async def run(
     cycles: int | None = None,
     verbose: bool = False,
     json_logs: bool | None = None,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> int:
-    components = await build(settings, verbose=verbose, json_logs=json_logs)
+    # A database or a terminal that is unreachable at start-up is waited for, not fatal: the
+    # supervisor would restart a process that meets the same dead link, 40 s later, with a
+    # traceback each time (2026-10-23..28). Only a refusal (configuration, wrong account)
+    # stops the start-up, because waiting cannot cure it.
+    components = await retry_transient(
+        lambda: build(settings, verbose=verbose, json_logs=json_logs), "agent build", sleep=sleep
+    )
     loop = components.loop
     application = components.application
+    telegram = TelegramLifecycle(application, ALLOWED_UPDATES) if application is not None else None
+    telegram_start: asyncio.Task[None] | None = None
     try:
-        selected = await loop.startup()
+        selected = await retry_transient(loop.startup, "agent start-up", sleep=sleep)
         log.info(
             "agent started in %s mode on %s",
             settings.trading_mode,
             ", ".join(sorted(selected)),
         )
-        if application is not None:
-            await application.initialize()
-            # The menu Telegram shows is published here, between the two: python-telegram-bot
-            # only runs `post_init` from `run_polling`/`run_webhook`, and this loop starts the
-            # application by hand (`Application.initialize` and `.start` never call it — 22.8).
-            # Without this, the operator would get no autocompletion and no menu button, and
-            # nothing would say so. `publish_menu` logs a failure rather than raising: an
-            # agent that trades must not stop for a missing list of commands.
-            if application.post_init is not None:
-                await application.post_init(application)
-            await application.start()
-            if application.updater is not None:
-                await application.updater.start_polling(allowed_updates=list(ALLOWED_UPDATES))
+        if telegram is not None:
+            if cycles is None:
+                # In the background: the agent trades whether or not Telegram answers, and a
+                # network that is down at start must not hold the first cycle back.
+                telegram_start = asyncio.create_task(telegram.run(), name="telegram-start")
+            else:
+                # A bounded run is a diagnostic: one honest attempt, in order, no waiting.
+                try:
+                    await telegram.start_once()
+                except Exception as error:
+                    log.warning("Telegram not started: %s", one_line(error))
         if cycles is not None:
             for _ in range(cycles):
                 report = await loop.run_once()
@@ -1094,12 +1104,18 @@ async def run(
         # and this one makes the two cases readable in its journal.
         return RESTART_EXIT_CODE if loop.restart_requested else 0
     finally:
-        if application is not None:
-            if application.updater is not None:
-                await application.updater.stop()
-            await application.stop()
-            await application.shutdown()
-        await components.market.close()
+        # Every step is guarded: an exception raised from here would replace the one that is
+        # ending the run (2026-10-28: "This Updater is not running!" hid the real cause).
+        if telegram_start is not None:
+            telegram_start.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await telegram_start
+        if telegram is not None:
+            await telegram.stop()
+        try:
+            await components.market.close()
+        except Exception as error:
+            log.warning("market connection not closed cleanly: %s", one_line(error))
         components.engine.dispose()
 
 
