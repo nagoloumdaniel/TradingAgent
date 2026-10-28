@@ -3,9 +3,11 @@ import re
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import Engine, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from tradingagent.notify.health_alerts import HealthAlerter
@@ -340,3 +342,42 @@ def test_a_market_reopening_says_the_signals_resume(engine: Engine) -> None:
 
     assert sent.texts[1].splitlines()[0] == "☀️ Marché rouvert · XAUUSD"
     assert "reprennent" in sent.texts[1]
+
+
+class BrokenEvents:
+    """A ledger on a database that is down: the case the alert is most often about."""
+
+    def record(self, *args: object, **kwargs: object) -> None:
+        raise OperationalError("INSERT", {}, Exception("connection timeout expired"))
+
+
+class BrokenSender:
+    async def __call__(self, text: str) -> None:
+        raise RuntimeError("telegram is down")
+
+
+def test_an_alert_still_reaches_the_operator_when_the_ledger_is_down() -> None:
+    sent = Sent()
+    watcher = HealthAlerter(sent, cast(Any, BrokenEvents()), repeat_after=COOLDOWN)
+
+    asyncio.run(watcher.connection_lost("terminal", T0))
+
+    assert len(sent.texts) == 1
+
+
+def test_an_alert_that_cannot_be_sent_is_still_written_and_raises_nothing(engine: Engine) -> None:
+    watcher = HealthAlerter(BrokenSender(), SystemEventStore(engine), repeat_after=COOLDOWN)
+
+    asyncio.run(watcher.connection_lost("terminal", T0))
+
+    assert len(alert_rows(engine)) == 1
+
+
+def test_the_agent_loop_has_a_readable_name_in_an_alert(engine: Engine) -> None:
+    sent = Sent()
+    watcher = alerter(engine, sent)
+
+    for _ in range(3):
+        asyncio.run(watcher.component_failure("agent_loop", "OperationalError: timeout", T0))
+
+    assert "cycle de l'agent" in sent.texts[0]

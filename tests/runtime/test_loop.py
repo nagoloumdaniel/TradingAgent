@@ -10,6 +10,7 @@ from typing import Any, cast
 
 import pytest
 from sqlalchemy import Engine, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from tests.runtime.fakes import (
     BTC,
@@ -635,6 +636,103 @@ def test_a_close_lands_in_the_daily_bucket_and_the_telemetry(engine: Engine) -> 
     assert buckets[0].pnl == Decimal("47.60")
     events = ExecutionEventStore(engine).count_by_kind()
     assert events.get(ExecutionEventKind.POSITION_CLOSED.value) == 1
+
+
+class DroppingLinkMarket(FakeMarket):
+    """The database or the terminal link drops for a number of cycles, then comes back."""
+
+    def __init__(self, failures: int) -> None:
+        super().__init__()
+        self.failures = failures
+
+    async def ensure_connected(self, max_attempts: int | None = None) -> bool:
+        if self.failures > 0:
+            self.failures -= 1
+            raise OperationalError(
+                "INSERT INTO candles ...",
+                {"open": "bound-value-1"},
+                Exception("failed to resolve host"),
+            )
+        return True
+
+
+def run_forever_for(loop: AgentLoop, cycles: int) -> list[float]:
+    """Run the real `run_forever` for `cycles` sleeps; returns the delays it asked for."""
+    delays: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        delays.append(seconds)
+        if len(delays) >= cycles:
+            loop.stop()
+
+    loop._sleep = fake_sleep
+    asyncio.run(loop.run_forever())
+    return delays
+
+
+def test_a_dropped_link_never_ends_the_loop_and_the_wait_backs_off(engine: Engine) -> None:
+    """2026-10-20..28: one cycle that raised ended the process, and the supervisor restarted it."""
+    loop, _, _, _ = build_loop(engine, market=DroppingLinkMarket(failures=3))
+
+    delays = run_forever_for(loop, cycles=5)
+
+    assert delays == [20.0, 40.0, 80.0, 20.0, 20.0], (
+        "back off while failing, then go back to normal"
+    )
+
+
+def test_a_long_outage_is_one_line_per_doubling_and_no_traceback_flood(
+    engine: Engine, caplog: pytest.LogCaptureFixture
+) -> None:
+    loop, _, _, _ = build_loop(engine, market=DroppingLinkMarket(failures=60))
+
+    with caplog.at_level("WARNING", logger="tradingagent.runtime.loop"):
+        delays = run_forever_for(loop, cycles=61)
+
+    assert max(delays) == 300.0, "the wait is capped"
+    failures = [record for record in caplog.records if "cycle failed" in record.getMessage()]
+    assert 1 <= len(failures) <= 8, "an outage of 60 cycles must not write 60 lines"
+    assert all(record.exc_info is None for record in failures), "a network error needs no traceback"
+    assert "bound-value" not in caplog.text and "INSERT INTO" not in caplog.text
+
+
+def test_a_defect_in_a_cycle_is_logged_with_its_traceback_but_still_does_not_end_the_loop(
+    engine: Engine, caplog: pytest.LogCaptureFixture
+) -> None:
+    class Defective(FakeMarket):
+        async def ensure_connected(self, max_attempts: int | None = None) -> bool:
+            raise KeyError("a bug")
+
+    loop, _, _, _ = build_loop(engine, market=Defective())
+
+    with caplog.at_level("WARNING", logger="tradingagent.runtime.loop"):
+        run_forever_for(loop, cycles=3)
+
+    [first, *_] = [r for r in caplog.records if "cycle failed" in r.getMessage()]
+    assert first.exc_info is not None, "an unknown error keeps its traceback, once"
+
+
+def test_a_stop_notice_that_cannot_be_recorded_does_not_mask_the_exit(engine: Engine) -> None:
+    """The 2026-10-28 crash: `process_stopping` hit the dead database from `finally`."""
+    loop, _, _, _ = build_loop(engine)
+
+    async def boom(at: datetime) -> None:
+        raise OperationalError("INSERT", {}, Exception("connection timeout expired"))
+
+    cast(Any, loop._alerts).process_stopping = boom
+
+    run_forever_for(loop, cycles=1)  # returns, does not raise
+
+
+def test_a_start_notice_that_cannot_be_recorded_does_not_prevent_the_loop(engine: Engine) -> None:
+    loop, _, _, _ = build_loop(engine)
+
+    async def boom(at: datetime, mode: str) -> None:
+        raise OperationalError("INSERT", {}, Exception("connection timeout expired"))
+
+    cast(Any, loop._alerts).process_started = boom
+
+    assert run_forever_for(loop, cycles=1) == [20.0]
 
 
 def test_a_signal_the_broker_already_closed_is_not_closed_twice(

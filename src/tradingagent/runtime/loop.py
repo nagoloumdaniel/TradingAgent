@@ -37,6 +37,12 @@ from tradingagent.notify.health_alerts import HealthAlerter
 from tradingagent.notify.sensitive_commands import RESTART_EVENT
 from tradingagent.notify.trade_messages import PositionClosed, render_position_closed
 from tradingagent.reporting.service import ReportService
+from tradingagent.resilience import (
+    backoff_delay,
+    is_transient,
+    one_line,
+    should_log_attempt,
+)
 from tradingagent.risk.model import BrokerPosition, ClosedPosition, limits_for
 from tradingagent.runtime.pipeline import ProcessOutcome, SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
@@ -196,13 +202,57 @@ class AgentLoop:
         return selected
 
     async def run_forever(self) -> None:
-        await self._alerts.process_started(self._now(), str(self._mode))
+        """Run cycles until stopped. A cycle that fails never ends the loop.
+
+        `run_once` handles the failures it knows about; this is the net for the rest — the
+        database or the terminal link dropping in a place nobody wrapped. The process stays
+        up, waits longer after each consecutive failure (a dead link does not get better
+        by being asked every twenty seconds) and says it in one line, because the same
+        outage written as a traceback per cycle is what buried the journal on 2026-10-20.
+        """
+        await self._best_effort(self._alerts.process_started(self._now(), str(self._mode)))
+        failures = 0
         try:
             while not self._stop:
-                await self.run_once()
-                await self._sleep(self._poll_seconds)
+                try:
+                    await self.run_once()
+                except Exception as error:  # CancelledError is not an Exception: it passes
+                    failures += 1
+                    await self._cycle_failed(error, failures)
+                    delay = backoff_delay(failures, self._poll_seconds)
+                else:
+                    if failures:
+                        log.warning("cycles run again after %d failed attempt(s)", failures)
+                        await self._best_effort(
+                            self._alerts.component_recovered("agent_loop", self._now())
+                        )
+                        failures = 0
+                    delay = self._poll_seconds
+                await self._sleep(delay)
         finally:
-            await self._alerts.process_stopping(self._now())
+            await self._best_effort(self._alerts.process_stopping(self._now()))
+
+    async def _cycle_failed(self, error: Exception, failures: int) -> None:
+        if should_log_attempt(failures):
+            if is_transient(error):
+                log.warning("cycle failed (%d in a row): %s", failures, one_line(error))
+            else:
+                # Unknown: a defect, not a link. The traceback is the evidence, once.
+                log.warning(
+                    "cycle failed (%d in a row): %s", failures, one_line(error), exc_info=error
+                )
+        await self._best_effort(
+            self._alerts.component_failure("agent_loop", one_line(error), self._now())
+        )
+
+    @staticmethod
+    async def _best_effort(call: Awaitable[None]) -> None:
+        """Run a notification the loop must not depend on: the database it records in may be
+        the very thing that is down."""
+        try:
+            await call
+        except Exception as error:
+            log.warning("notice not recorded: %s", one_line(error))
 
     def stop(self) -> None:
         self._stop = True

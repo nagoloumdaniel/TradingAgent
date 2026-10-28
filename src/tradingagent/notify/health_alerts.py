@@ -14,13 +14,17 @@ The sender is injected: the Telegram adapter arrives with the loop wiring (TASK-
 """
 
 import asyncio
+import logging
 import re
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from tradingagent.core.states import Severity
+from tradingagent.resilience import one_line
 from tradingagent.storage.events import SystemEventStore
+
+log = logging.getLogger(__name__)
 
 Sender = Callable[[str], Awaitable[None]]
 
@@ -33,6 +37,7 @@ COMPONENT_LABELS = {
     "market_data": "données de marché",
     "server_clock": "horloge du serveur",
     "reconciliation": "réconciliation des positions",
+    "agent_loop": "cycle de l'agent",
 }
 DEFAULT_IMPACT = "L'agent continue de tourner et réessaie."
 COMPONENT_IMPACTS = {
@@ -234,7 +239,16 @@ class HealthAlerter:
         if last is not None and at - last < self._repeat_after:
             return
         self._last_sent[key] = at
-        await asyncio.to_thread(
-            self._events.record, "health_alert", severity, {"key": key, "text": text}, at
-        )
-        await self._send(text)
+        # The ledger and the message are two deliveries of the same alert, and neither may
+        # cost the other: the database is often the very thing the alert is about, and an
+        # outage that cannot be written down must still reach the operator's phone.
+        try:
+            await asyncio.to_thread(
+                self._events.record, "health_alert", severity, {"key": key, "text": text}, at
+            )
+        except Exception as error:
+            log.warning("health alert %s not recorded: %s", key, one_line(error))
+        try:
+            await self._send(text)
+        except Exception as error:
+            log.warning("health alert %s not sent: %s", key, one_line(error))
