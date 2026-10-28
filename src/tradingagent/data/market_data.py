@@ -145,12 +145,31 @@ class MarketDataClient:
         try:
             measured = measure_offset(tick.server_epoch, self._now())
         except StaleTickError as error:
-            raise ClockUnverifiableError(f"cannot measure the server clock: {error}") from error
+            # The probe can be quiet while another market is not, and every symbol shares the
+            # server's clock: look for a fresher tick before calling the clock unverifiable.
+            fresher = await self._fresher_tick(tick)
+            if fresher is None:
+                raise ClockUnverifiableError(f"cannot measure the server clock: {error}") from error
+            try:
+                measured = measure_offset(fresher.server_epoch, self._now())
+            except StaleTickError as fresher_error:
+                raise ClockUnverifiableError(
+                    f"cannot measure the server clock: {fresher_error}"
+                ) from fresher_error
         if measured != self._clock.offset:
             raise ClockMismatchError(
                 f"server offset is {measured}, expected {self._clock.offset}: "
                 "converting would shift every candle"
             )
+
+    async def _fresher_tick(self, probe_tick: RawTick) -> RawTick | None:
+        """The newest tick among the watched symbols, if it beats the probe's."""
+        freshest = probe_tick
+        for symbol in sorted(self._selected - {self._probe}):
+            tick = await self._call(self._terminal.last_tick, symbol)
+            if tick is not None and tick.server_epoch > freshest.server_epoch:
+                freshest = tick
+        return None if freshest is probe_tick else freshest
 
     async def _read_probe_tick(self) -> RawTick:
         """The probe's last tick, waiting for the terminal to serve one.

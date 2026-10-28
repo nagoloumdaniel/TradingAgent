@@ -45,3 +45,34 @@ def test_stale_tick_cannot_measure_the_offset() -> None:
     old_tick = epoch_of((NOON_UTC - timedelta(minutes=10)).replace(tzinfo=None))
     with pytest.raises(StaleTickError):
         measure_offset(old_tick, NOON_UTC)
+
+
+@pytest.mark.parametrize("age_seconds", [138, 250])
+def test_a_quiet_market_tick_still_measures_the_offset(age_seconds: int) -> None:
+    """Ticks 125-139 s old were rejected every evening at 21:07 UTC, when the probe goes quiet.
+
+    A tick is a point in the past by nature: how old it is says nothing about the offset.
+    """
+    for offset in (timedelta(0), timedelta(hours=3)):
+        tick_epoch = epoch_of(
+            (NOON_UTC + offset - timedelta(seconds=age_seconds)).replace(tzinfo=None)
+        )
+        assert measure_offset(tick_epoch, NOON_UTC) == offset
+
+
+def test_a_tick_from_the_future_is_not_a_measurement() -> None:
+    """A tick cannot be newer than now: the local clock is the one that is wrong."""
+    future_tick = epoch_of((NOON_UTC + timedelta(seconds=584)).replace(tzinfo=None))
+    with pytest.raises(StaleTickError, match="ahead"):
+        measure_offset(future_tick, NOON_UTC)
+
+
+def test_a_tick_a_few_seconds_ahead_is_clock_skew_and_is_tolerated() -> None:
+    tick_epoch = epoch_of((NOON_UTC + timedelta(seconds=5)).replace(tzinfo=None))
+    assert measure_offset(tick_epoch, NOON_UTC) == timedelta(0)
+
+
+def test_a_tick_older_than_the_limit_says_how_old_it_is() -> None:
+    old_tick = epoch_of((NOON_UTC - timedelta(seconds=584)).replace(tzinfo=None))
+    with pytest.raises(StaleTickError, match="584 s old"):
+        measure_offset(old_tick, NOON_UTC)

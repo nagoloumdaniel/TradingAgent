@@ -37,6 +37,12 @@ from tradingagent.notify.health_alerts import HealthAlerter
 from tradingagent.notify.sensitive_commands import RESTART_EVENT
 from tradingagent.notify.trade_messages import PositionClosed, render_position_closed
 from tradingagent.reporting.service import ReportService
+from tradingagent.resilience import (
+    backoff_delay,
+    is_transient,
+    one_line,
+    should_log_attempt,
+)
 from tradingagent.risk.model import BrokerPosition, ClosedPosition, limits_for
 from tradingagent.runtime.pipeline import ProcessOutcome, SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
@@ -49,7 +55,7 @@ from tradingagent.storage.daily import DailyPerformanceStore
 from tradingagent.storage.events import SystemEventStore
 from tradingagent.storage.halts import HaltStore
 from tradingagent.storage.risk_decisions import latest_risk_eur
-from tradingagent.storage.signals import get_signal, transition
+from tradingagent.storage.signals import get_signal, transition_once
 from tradingagent.storage.telemetry import ExecutionEventStore
 
 log = logging.getLogger(__name__)
@@ -63,6 +69,9 @@ EA_PUBLISH_INTERVAL = timedelta(seconds=20)
 # The AI Lab pass is idempotent per UTC day; checking hourly is enough and keeps the loop free.
 LAB_CHECK_INTERVAL = timedelta(hours=1)
 SNAPSHOT_EVERY_CYCLES = 15  # one account snapshot every five minutes at 20 s per cycle
+# Two cycles are seconds apart. A bigger gap, or a negative one, is the wall clock that moved
+# (a resync, a resume from sleep), not time that passed: durations measured across it are void.
+MAX_CYCLE_GAP = timedelta(hours=1)
 
 
 @dataclass
@@ -158,6 +167,7 @@ class AgentLoop:
         self._clock_verified = True
         self._clock_unverified_since: datetime | None = None
         self._clock_escalated = False
+        self._last_cycle_at: datetime | None = None
         # `/restart` writes a request; this is the run that may honour it, and only one whose
         # start is older than the request. `restart_requested` is read by `app.run`.
         self._started_at = now()
@@ -192,13 +202,57 @@ class AgentLoop:
         return selected
 
     async def run_forever(self) -> None:
-        await self._alerts.process_started(self._now(), str(self._mode))
+        """Run cycles until stopped. A cycle that fails never ends the loop.
+
+        `run_once` handles the failures it knows about; this is the net for the rest — the
+        database or the terminal link dropping in a place nobody wrapped. The process stays
+        up, waits longer after each consecutive failure (a dead link does not get better
+        by being asked every twenty seconds) and says it in one line, because the same
+        outage written as a traceback per cycle is what buried the journal on 2026-10-20.
+        """
+        await self._best_effort(self._alerts.process_started(self._now(), str(self._mode)))
+        failures = 0
         try:
             while not self._stop:
-                await self.run_once()
-                await self._sleep(self._poll_seconds)
+                try:
+                    await self.run_once()
+                except Exception as error:  # CancelledError is not an Exception: it passes
+                    failures += 1
+                    await self._cycle_failed(error, failures)
+                    delay = backoff_delay(failures, self._poll_seconds)
+                else:
+                    if failures:
+                        log.warning("cycles run again after %d failed attempt(s)", failures)
+                        await self._best_effort(
+                            self._alerts.component_recovered("agent_loop", self._now())
+                        )
+                        failures = 0
+                    delay = self._poll_seconds
+                await self._sleep(delay)
         finally:
-            await self._alerts.process_stopping(self._now())
+            await self._best_effort(self._alerts.process_stopping(self._now()))
+
+    async def _cycle_failed(self, error: Exception, failures: int) -> None:
+        if should_log_attempt(failures):
+            if is_transient(error):
+                log.warning("cycle failed (%d in a row): %s", failures, one_line(error))
+            else:
+                # Unknown: a defect, not a link. The traceback is the evidence, once.
+                log.warning(
+                    "cycle failed (%d in a row): %s", failures, one_line(error), exc_info=error
+                )
+        await self._best_effort(
+            self._alerts.component_failure("agent_loop", one_line(error), self._now())
+        )
+
+    @staticmethod
+    async def _best_effort(call: Awaitable[None]) -> None:
+        """Run a notification the loop must not depend on: the database it records in may be
+        the very thing that is down."""
+        try:
+            await call
+        except Exception as error:
+            log.warning("notice not recorded: %s", one_line(error))
 
     def stop(self) -> None:
         self._stop = True
@@ -237,6 +291,7 @@ class AgentLoop:
         report = CycleReport()
         now = self._now()
         self._cycles += 1
+        self._reanchor_after_clock_jump(now)
 
         # The operator's restart demand is read first, and before anything that can fail:
         # an agent stuck on a broken clock or a dead terminal is exactly when someone asks
@@ -297,6 +352,25 @@ class AgentLoop:
             await self._snapshot(now)
         await self._run_reports(now)
         return report
+
+    def _reanchor_after_clock_jump(self, now: datetime) -> None:
+        """Start the running episodes again when the wall clock moved between two cycles.
+
+        An episode's start is a wall-clock reading. If the clock jumps, "now - start" is not a
+        duration: on 2026-10-20 it read "175 days" and escalated a CRITICAL for nothing.
+        """
+        previous, self._last_cycle_at = self._last_cycle_at, now
+        if previous is None:
+            return
+        gap = now - previous
+        if timedelta(0) <= gap <= MAX_CYCLE_GAP:
+            return
+        log.warning("wall clock moved by %s between two cycles: running episodes restart", gap)
+        if self._clock_unverified_since is not None:
+            self._clock_unverified_since = None
+            self._clock_escalated = False
+        if self._connection_loss_since is not None:
+            self._connection_loss_since = now
 
     async def _clock_failed(
         self, error: ClockMismatchError, now: datetime, report: CycleReport
@@ -578,14 +652,16 @@ class AgentLoop:
         if closed.signal_id is None:
             return
         try:
-            transition(
+            # `transition_once`: the broker's journal already moved the signal when it recorded
+            # the closure, so "already CLOSED" is the normal case and not a violation.
+            transition_once(
                 self._engine,
                 closed.signal_id,
                 SignalState.CLOSED,
                 closed.closed_at,
                 closed.exit_reason,
             )
-        except Exception as error:  # already closed, or not in a closable state
+        except Exception as error:  # not in a closable state, or unknown
             log.warning("signal %d not moved to CLOSED: %s", closed.signal_id, error)
         self._record_close_telemetry(closed)
 

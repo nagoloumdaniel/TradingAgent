@@ -272,3 +272,129 @@ def test_the_cumulated_cost_is_consultable(engine: Engine) -> None:
         1_000_000
     )
     assert AiCallStore(engine).total_cost_eur() == 2 * tokens_cost
+
+
+# --- circuit breaker: a provider that refuses everything is asked once, not every time ---
+
+
+class ProviderError(Exception):
+    """What the SDK raises on a refused request: the HTTP status rides on the exception."""
+
+    def __init__(self, status_code: int, message: str) -> None:
+        super().__init__(f"Error code: {status_code} - {{'error': {{'message': '{message}'}}}}")
+        self.status_code = status_code
+
+
+def test_an_unpaid_account_is_asked_once_then_left_alone_for_an_hour(
+    engine: Engine, caplog: pytest.LogCaptureFixture
+) -> None:
+    """2026-10: "Insufficient Balance" (402) came back 26 times, each a WARNING and a round trip."""
+    client = FakeClient(ProviderError(402, "Insufficient Balance"))
+    layer = a_layer(engine, client)
+
+    with caplog.at_level("WARNING"):
+        outcomes = [
+            asyncio.run(layer.review(a_context(), T0 + timedelta(minutes=15 * n))) for n in range(4)
+        ]
+
+    assert client.calls == 1, "the provider was called again while its refusal still stood"
+    assert all(outcome.verdict == "unavailable" for outcome in outcomes)
+    assert all(outcome.blocks_signal is False for outcome in outcomes)  # shadow: the signal goes on
+    warnings = [r for r in caplog.records if r.name == "tradingagent.ai.layer"]
+    assert len(warnings) == 1, "one line when the circuit opens, none while it stays open"
+    assert "402" in warnings[0].getMessage()
+    assert "request_id" not in warnings[0].getMessage()
+
+
+def test_every_skipped_review_is_still_journalled(engine: Engine) -> None:
+    layer = a_layer(engine, FakeClient(ProviderError(402, "Insufficient Balance")))
+
+    for n in range(3):
+        asyncio.run(layer.review(a_context(), T0 + timedelta(minutes=15 * n)))
+
+    rows = outcome_rows(engine)
+    assert len(rows) == 3
+    assert all(row.verdict is None and row.error for row in rows)
+    assert "circuit" in (rows[-1].error or "")
+
+
+def test_the_circuit_closes_again_after_the_cooldown(engine: Engine) -> None:
+    client = FakeClient(ProviderError(401, "invalid api key"))
+    layer = a_layer(engine, client)
+    asyncio.run(layer.review(a_context(), T0))
+    client.reply = answer()  # the operator topped up / fixed the key
+
+    still_open = asyncio.run(layer.review(a_context(), T0 + timedelta(minutes=30)))
+    reopened = asyncio.run(layer.review(a_context(), T0 + timedelta(hours=1, seconds=1)))
+
+    assert still_open.verdict == "unavailable"
+    assert reopened.verdict == "approved"
+    assert client.calls == 2
+
+
+def test_a_refusal_after_the_cooldown_opens_the_circuit_again(engine: Engine) -> None:
+    client = FakeClient(ProviderError(402, "Insufficient Balance"))
+    layer = a_layer(engine, client)
+    asyncio.run(layer.review(a_context(), T0))
+    asyncio.run(layer.review(a_context(), T0 + timedelta(hours=1, seconds=1)))
+    asyncio.run(layer.review(a_context(), T0 + timedelta(hours=1, minutes=5)))
+
+    assert client.calls == 2
+
+
+def test_three_failures_in_a_row_open_a_short_circuit(engine: Engine) -> None:
+    client = FakeClient(RuntimeError("api down"))
+    layer = a_layer(engine, client)
+
+    for n in range(3):
+        asyncio.run(layer.review(a_context(), T0 + timedelta(seconds=n)))
+    asyncio.run(layer.review(a_context(), T0 + timedelta(minutes=5)))  # skipped
+    asyncio.run(layer.review(a_context(), T0 + timedelta(minutes=11)))  # asked again
+
+    assert client.calls == 4
+
+
+def test_a_success_resets_the_failure_count(engine: Engine) -> None:
+    client = FakeClient(RuntimeError("api down"))
+    layer = a_layer(engine, client)
+    asyncio.run(layer.review(a_context(), T0))
+    asyncio.run(layer.review(a_context(), T0 + timedelta(seconds=1)))
+    client.reply = answer()
+    asyncio.run(layer.review(a_context(), T0 + timedelta(seconds=2)))
+    client.reply = RuntimeError("api down")
+    asyncio.run(layer.review(a_context(), T0 + timedelta(seconds=3)))
+    asyncio.run(layer.review(a_context(), T0 + timedelta(seconds=4)))
+
+    assert client.calls == 5, "two failures, a success, two failures: the circuit never opened"
+
+
+def test_an_open_circuit_never_approves_and_a_required_filter_still_refuses(
+    engine: Engine,
+) -> None:
+    """C-002: the AI can only reject. Its absence cannot create, approve or loosen anything."""
+    layer = a_layer(
+        engine, FakeClient(ProviderError(402, "Insufficient Balance")), AiFilter.REQUIRED
+    )
+
+    first = asyncio.run(layer.review(a_context(), T0))
+    skipped = asyncio.run(layer.review(a_context(), T0 + timedelta(minutes=15)))
+
+    for outcome in (first, skipped):
+        assert outcome.verdict == "unavailable"
+        assert outcome.blocks_signal is True
+        assert outcome.applied is False
+
+
+def test_a_ledger_that_is_down_never_turns_a_review_into_an_error(engine: Engine) -> None:
+    from sqlalchemy.exc import OperationalError
+
+    layer = a_layer(engine, FakeClient(answer()))
+
+    def broken(*args: object, **kwargs: object) -> None:
+        raise OperationalError("INSERT", {}, Exception("connection timeout expired"))
+
+    layer._calls.record = broken  # type: ignore[method-assign]
+
+    outcome = asyncio.run(layer.review(a_context(), T0))
+
+    assert outcome.verdict == "approved"

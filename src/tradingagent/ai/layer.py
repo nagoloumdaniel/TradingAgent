@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -21,6 +21,7 @@ from tradingagent.core.market import Direction
 from tradingagent.core.mode import AiFilter
 from tradingagent.core.states import Severity
 from tradingagent.core.timeframe import Timeframe
+from tradingagent.resilience import one_line
 from tradingagent.storage.ai_calls import AiCall, AiCallStore, AiReply
 from tradingagent.storage.events import SystemEventStore
 
@@ -49,6 +50,17 @@ PRICES_EUR_PER_MTOK: dict[str, tuple[Decimal, Decimal]] = {
 }
 DEFAULT_INPUT_PRICE = Decimal("0.80")
 DEFAULT_OUTPUT_PRICE = Decimal("4.00")
+
+# A provider that refuses the request for a reason time does not cure (401 bad key, 402 no
+# balance, 403 forbidden) is asked again after an hour, not at every signal: 26 identical
+# "Insufficient Balance" refusals, each a paid round trip and a warning, were the record of
+# the loop asking a question it already had the answer to.
+REFUSAL_STATUS_CODES = frozenset({401, 402, 403})
+REFUSAL_COOLDOWN = timedelta(hours=1)
+# Any other failure (network, 5xx, timeout, malformed answer) opens a short circuit once it
+# repeats: three in a row is not bad luck.
+FAILURES_BEFORE_CIRCUIT = 3
+FAILURE_COOLDOWN = timedelta(minutes=10)
 
 CONFORM_SCHEMA = (
     '{"decision": "approve" | "reject", "reason": "<court motif>", '
@@ -166,6 +178,12 @@ class _LayerConfig:
     purpose: str = "signal_filter"
 
 
+def _short(error: str) -> str:
+    """The error for a log line: on one line and bounded, whatever the provider wrapped it in."""
+    text = " ".join(error.split())
+    return text if len(text) <= 160 else text[:159] + "…"
+
+
 def _fallback_reason(error: str) -> str:
     return f"Filtre IA indisponible ({error}) : décision prise par les règles déterministes."
 
@@ -191,6 +209,11 @@ class AiFilterLayer:
         self._config = _LayerConfig(**config)
         self.input_price = input_price
         self.output_price = output_price
+        # The circuit breaker. Time comes from the `at` of each review, like everything else.
+        self._open_until: datetime | None = None
+        self._open_reason = ""
+        self._consecutive_failures = 0
+        self._circuit_opened = False
 
     @property
     def ai_filter(self) -> AiFilter:
@@ -206,24 +229,51 @@ class AiFilterLayer:
         """`ai_filter` overrides the layer default for this call: the manifest of the
         strategy that produced the signal is the authority (RM-016, TASK-037)."""
         effective = ai_filter if ai_filter is not None else self._config.ai_filter
-        if self._calls.total_cost_eur() >= self._config.budget_eur:
-            return await self._unavailable(context, at, signal_id, "budget épuisé", effective)
+        if self._open_until is not None and at < self._open_until:
+            # Not even a call: nothing is asked of a provider that just refused. The review
+            # is still journalled, so the ledger says why the signal had no verdict.
+            return await self._unavailable(
+                context,
+                at,
+                signal_id,
+                f"circuit open until {self._open_until.isoformat()}: {self._open_reason}",
+                effective,
+                quiet=True,
+            )
+        if self._open_until is not None:
+            log.info("AI review: cooldown over, asking the provider again")
+            self._open_until = None
+        try:
+            spent = await asyncio.to_thread(self._calls.total_cost_eur)
+        except Exception as error:  # the ledger is down: spending is unknown, not exceeded
+            log.warning("AI budget not checked: %s", one_line(error))
+        else:
+            if spent >= self._config.budget_eur:
+                return await self._unavailable(context, at, signal_id, "budget épuisé", effective)
 
         request = _user_prompt(context)
         started = time.monotonic()
+        self._circuit_opened = False
         try:
             reply = await asyncio.wait_for(
                 self._client.complete(SYSTEM_PROMPT, request), self._config.timeout.total_seconds()
             )
         except Exception as error:  # timeout, network, provider
             elapsed = int((time.monotonic() - started) * 1000)
-            return await self._unavailable(context, at, signal_id, str(error), effective, elapsed)
+            self._note_failure(error, at)
+            return await self._unavailable(
+                context, at, signal_id, str(error), effective, elapsed, quiet=self._circuit_opened
+            )
 
         latency_ms = int((time.monotonic() - started) * 1000)
         decision, reason, text, overruns = _parse(reply.text)
         cost = _cost_eur(reply)
+        if decision is None:
+            self._note_failure(ValueError(reason), at)
+        else:
+            self._note_success()
         if overruns:
-            await asyncio.to_thread(
+            await self._persist(
                 self._events.record,
                 "ai_overrun",
                 Severity.WARNING,
@@ -233,7 +283,7 @@ class AiFilterLayer:
         outcome = self._outcome(
             decision, reason, text, overruns, latency_ms, cost, reply.model, effective
         )
-        await asyncio.to_thread(
+        await self._persist(
             self._calls.record,
             AiCall(
                 signal_id=signal_id,
@@ -251,6 +301,40 @@ class AiFilterLayer:
         )
         return outcome
 
+    def _note_success(self) -> None:
+        if self._consecutive_failures:
+            log.info("AI review: the provider answers again")
+        self._consecutive_failures = 0
+
+    def _note_failure(self, error: BaseException, at: datetime) -> None:
+        """Open the circuit on a refusal, or on a failure that repeats."""
+        status = getattr(error, "status_code", None)
+        if status in REFUSAL_STATUS_CODES:
+            self._open(at + REFUSAL_COOLDOWN, error, f"HTTP {status}")
+            return
+        self._consecutive_failures += 1
+        if self._consecutive_failures >= FAILURES_BEFORE_CIRCUIT:
+            self._open(at + FAILURE_COOLDOWN, error, f"{self._consecutive_failures} failures")
+
+    def _open(self, until: datetime, error: BaseException, label: str) -> None:
+        self._open_until = until
+        self._open_reason = label
+        self._consecutive_failures = 0
+        self._circuit_opened = True
+        log.warning(
+            "AI review disabled until %s (%s): %s",
+            until.strftime("%H:%M UTC"),
+            label,
+            _short(str(error)),
+        )
+
+    async def _persist(self, write: Callable[..., object], *args: object) -> None:
+        """Journal a call without letting a ledger failure take the review down with it."""
+        try:
+            await asyncio.to_thread(write, *args)
+        except Exception as error:
+            log.warning("AI call not journalled: %s", one_line(error))
+
     async def _unavailable(
         self,
         context: ReviewContext,
@@ -259,10 +343,14 @@ class AiFilterLayer:
         error: str,
         ai_filter: AiFilter,
         latency_ms: int | None = None,
+        *,
+        quiet: bool = False,
     ) -> ReviewOutcome:
+        """No verdict. `quiet` is for the cases the circuit already announced."""
         del context
-        log.warning("AI review unavailable (%s): %s", ai_filter, error)
-        await asyncio.to_thread(
+        if not quiet:
+            log.warning("AI review unavailable (%s): %s", ai_filter, _short(error))
+        await self._persist(
             self._calls.record,
             AiCall(
                 signal_id=signal_id,
