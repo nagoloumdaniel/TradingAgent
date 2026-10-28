@@ -1,0 +1,43 @@
+# vwap_pullback 1.4.0 -- BTCUSD, DEMO only. Successor of 1.2.0 (same rule, same exits 0.8R/1.5R,
+# same 1.5 ATR stop) with ONE addition: the entry must go WITH the named trend, read with
+# EMA 10/30 and a one-bar slope above 0.05 ATR (the defaults of `entry_features`, not tuned).
+#
+# Why (docs/research/2026-10-28-diagnostic-pertes-demo.md): the rule loses on every slice except
+# "with the trend". Measured on 59 999 frozen M15 bars, repository costs, exit at the first
+# target as production executes it, anchored 60/20 split, sealed set NOT opened:
+#   train       PF 0.7148 -> 0.8215   (709 -> 88 trades)
+#   validation  PF 0.6818 -> 1.3916   (205 -> 35 trades)
+#   train+valid PF 0.7073 -> 0.9441   (914 -> 123 trades), still below 1.00 and below the 1.20 bar.
+# The window after the frozen sets (live life of the agent) holds only 5 candidate trades: not
+# conclusive. The "with the trend" slice was found by looking at 164 slices on train+validation,
+# so those two windows are not independent of the discovery.
+#
+# max_mode SIGNAL: this version CANNOT execute on the demo account yet. Raising it to DEMO needs an
+# explicit operator derogation banner (RM-016: marker, date, missing validation figures); an agent
+# may not write one. To activate: add the derogation to this file and set BTCUSD to
+# vwap_pullback@1.4.0 in config/agent.yaml (BTCUSD currently stays on 1.2.0).
+# 1.2.0 stays published and unmodified.
+strategy_id: vwap_pullback
+version: 1.4.0
+max_mode: SIGNAL
+allowed_symbols: [BTCUSD]
+timeframes: [M15]
+history_bars: 400
+expiry_bars: 2
+ai_filter: shadow
+parameters:
+  ema_fast: 20
+  ema_slow: 50
+  vwap_period: 20
+  atr_period: 14
+  stop_atr_multiplier: 1.5
+  first_target_rr: 0.8
+  final_target_rr: 1.5
+  pullback_atr: 0.4
+  entry_zone_atr: 0.1
+  min_slope_atr: 0.005
+  slope_window: 10
+  trend_filter: true
+  trend_ema_fast: 10
+  trend_ema_slow: 30
+  trend_slope_atr: 0.05

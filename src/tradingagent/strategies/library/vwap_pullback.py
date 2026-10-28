@@ -118,6 +118,19 @@ class VwapPullbackParameters(BaseModel):
     #: filtre qui refuse tout n'est pas un filtre, c'est une suppression.
     trend_slope_atr: float = Field(default=DEFAULT_TREND_THRESHOLD, gt=0)
 
+    #: Les moyennes que le filtre de tendance lit, quand elles diffèrent de celles de la règle.
+    #:
+    #: **Pourquoi elles existent.** `ema_fast`/`ema_slow` (20/50) définissent le pullback : les
+    #: changer change la règle entière. Le filtre, lui, répond à une autre question -- « le marché
+    #: pousse-t-il encore, dans le sens du trade ? » -- et la mesure du 2026-10-11
+    #: (`docs/research/2026-10-11-ou-est-l-avantage.md`) a trouvé son avantage avec une lecture
+    #: 10/30, pas 20/50. Sans ces deux champs, les deux lectures ne se séparent pas.
+    #:
+    #: `None` (défaut) = le filtre lit `ema_fast`/`ema_slow`, comme tout manifeste publié avant
+    #: ce champ : aucune version existante ne change de sens. Les deux se déclarent ensemble.
+    trend_ema_fast: int | None = Field(default=None, ge=2)
+    trend_ema_slow: int | None = Field(default=None, ge=3)
+
     #: Volume de la barre de contact divisé par la moyenne des barres **précédentes**. `None`
     #: éteint le filtre ; un seuil nul ou négatif est refusé plus bas, parce qu'il aurait l'air
     #: de filtrer sans rien filtrer.
@@ -143,7 +156,22 @@ class VwapPullbackParameters(BaseModel):
             raise ValueError("entry_zone_atr must be narrower than stop_atr_multiplier")
         if self.pullback_atr >= self.stop_atr_multiplier:
             raise ValueError("pullback_atr must be narrower than stop_atr_multiplier")
+        if (self.trend_ema_fast is None) != (self.trend_ema_slow is None):
+            raise ValueError("trend_ema_fast and trend_ema_slow must be declared together")
+        if (
+            self.trend_ema_fast is not None
+            and self.trend_ema_slow is not None
+            and self.trend_ema_slow <= self.trend_ema_fast
+        ):
+            raise ValueError("trend_ema_slow must be longer than trend_ema_fast")
         return self
+
+    @property
+    def trend_averages(self) -> tuple[int, int]:
+        """The (fast, slow) pair the trend filter reads: its own when declared, else the rule's."""
+        if self.trend_ema_fast is not None and self.trend_ema_slow is not None:
+            return self.trend_ema_fast, self.trend_ema_slow
+        return self.ema_fast, self.ema_slow
 
 
 class VwapPullback(Strategy[VwapPullbackParameters]):
@@ -215,13 +243,14 @@ class VwapPullback(Strategy[VwapPullbackParameters]):
             return None
 
         side = Trend.UP if direction is Direction.BUY else Trend.DOWN
+        trend_fast, trend_slow = parameters.trend_averages
         trend = (
             trend_of(
                 highs,
                 lows,
                 closes,
-                fast=parameters.ema_fast,
-                slow=parameters.ema_slow,
+                fast=trend_fast,
+                slow=trend_slow,
                 atr_period=parameters.atr_period,
                 threshold=parameters.trend_slope_atr,
             )
