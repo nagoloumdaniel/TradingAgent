@@ -8,6 +8,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 from tests.runtime.fakes import (
@@ -480,6 +481,49 @@ def test_an_episode_is_reported_twice_at_most_however_long_it_lasts(engine: Engi
     assert 1 <= len(clock_alerts) <= 5
 
 
+def test_a_wall_clock_jump_restarts_the_episode_instead_of_counting_it(engine: Engine) -> None:
+    """2026-10-20: "still unverifiable after 175 days" came from a PC clock that jumped.
+
+    An episode is measured between two cycles that are seconds apart. When the clock moves
+    by hours between two cycles, the old start no longer measures anything: the episode
+    starts again, and no absurd duration is written in the ledger.
+    """
+    clock = MutableClock(NOW)
+    market = UnverifiableClockMarket()
+    market.clock_ok = False
+    loop, _, _, _ = build_loop(
+        engine, market=market, clock=clock, connection_threshold=timedelta(minutes=10)
+    )
+    asyncio.run(loop.run_once())
+    clock.now = NOW + timedelta(days=175, hours=14)
+
+    asyncio.run(loop.run_once())
+
+    details = [row.detail for row in events_of(engine, "clock_unverified")]
+    assert not any(detail.get("unverifiable_for_seconds", 0) > 24 * 3600 for detail in details), (
+        "an episode longer than a day was recorded across a clock jump"
+    )
+    assert [row.severity for row in events_of(engine, "clock_unverified")] == [
+        Severity.WARNING,
+        Severity.WARNING,
+    ]
+
+
+def test_a_clock_that_goes_back_restarts_the_episode(engine: Engine) -> None:
+    clock = MutableClock(NOW)
+    market = UnverifiableClockMarket()
+    market.clock_ok = False
+    loop, _, _, _ = build_loop(
+        engine, market=market, clock=clock, connection_threshold=timedelta(minutes=10)
+    )
+    asyncio.run(loop.run_once())
+    clock.now = NOW - timedelta(days=3)
+    asyncio.run(loop.run_once())
+
+    assert loop._clock_unverified_since == NOW - timedelta(days=3)
+    assert loop._clock_escalated is False
+
+
 def test_a_clock_that_comes_back_resumes_the_strategies(engine: Engine) -> None:
     """Recovery is automatic and it is announced — a recovery nobody hears is not one."""
     market = UnverifiableClockMarket()
@@ -591,6 +635,76 @@ def test_a_close_lands_in_the_daily_bucket_and_the_telemetry(engine: Engine) -> 
     assert buckets[0].pnl == Decimal("47.60")
     events = ExecutionEventStore(engine).count_by_kind()
     assert events.get(ExecutionEventKind.POSITION_CLOSED.value) == 1
+
+
+def test_a_signal_the_broker_already_closed_is_not_closed_twice(
+    engine: Engine, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Signals 63..80 logged "closed -> closed is not allowed (RM-018)" once each.
+
+    The broker's journal moves the signal to CLOSED when it records the closure; the loop
+    then recorded the same closure again. The second move is a no-op, not a violation:
+    RM-018 stays strict (no transition out of CLOSED), the loop just stops asking for one.
+    """
+    from tests.runtime.test_pipeline import record_signal
+
+    from tradingagent.core.states import SignalState
+    from tradingagent.storage.signals import history, transition
+
+    loop, _, _, _ = build_loop(engine)
+    signal_id = record_signal(engine)
+    for state in (
+        SignalState.VALIDATED,
+        SignalState.SENT,
+        SignalState.ACCEPTED,
+        SignalState.ORDER_SENT,
+        SignalState.ORDER_ACCEPTED,
+        SignalState.POSITION_OPEN,
+        SignalState.CLOSED,
+    ):
+        transition(engine, signal_id, state, NOW)
+    closed = ClosedPosition(
+        ticket=555003,
+        symbol="XAUUSD",
+        exit_price=Decimal("2424"),
+        pnl_eur=Decimal("47.60"),
+        exit_reason="take_profit",
+        closed_at=NOW,
+        signal_id=signal_id,
+    )
+
+    with caplog.at_level("WARNING"):
+        loop._record_close(closed)
+        loop._record_close(closed)
+
+    assert "not moved to CLOSED" not in caplog.text
+    states = [event.state for event in history(engine, signal_id)]
+    assert states.count(SignalState.CLOSED) == 1
+
+
+def test_a_signal_that_cannot_be_closed_is_still_reported(
+    engine: Engine, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The idempotence covers "already closed" only: a really illegal move stays visible."""
+    from tests.runtime.test_pipeline import record_signal
+
+    loop, _, _, _ = build_loop(engine)
+    signal_id = record_signal(engine)  # still a CANDIDATE: it was never open
+
+    with caplog.at_level("WARNING"):
+        loop._record_close(
+            ClosedPosition(
+                ticket=555004,
+                symbol="XAUUSD",
+                exit_price=Decimal("2424"),
+                pnl_eur=Decimal("1.00"),
+                exit_reason="take_profit",
+                closed_at=NOW,
+                signal_id=signal_id,
+            )
+        )
+
+    assert "not moved to CLOSED" in caplog.text
 
 
 def test_the_loop_publishes_the_ea_state_every_interval(engine: Engine, tmp_path: Path) -> None:

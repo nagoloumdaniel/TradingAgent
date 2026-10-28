@@ -49,7 +49,7 @@ from tradingagent.storage.daily import DailyPerformanceStore
 from tradingagent.storage.events import SystemEventStore
 from tradingagent.storage.halts import HaltStore
 from tradingagent.storage.risk_decisions import latest_risk_eur
-from tradingagent.storage.signals import get_signal, transition
+from tradingagent.storage.signals import get_signal, transition_once
 from tradingagent.storage.telemetry import ExecutionEventStore
 
 log = logging.getLogger(__name__)
@@ -63,6 +63,9 @@ EA_PUBLISH_INTERVAL = timedelta(seconds=20)
 # The AI Lab pass is idempotent per UTC day; checking hourly is enough and keeps the loop free.
 LAB_CHECK_INTERVAL = timedelta(hours=1)
 SNAPSHOT_EVERY_CYCLES = 15  # one account snapshot every five minutes at 20 s per cycle
+# Two cycles are seconds apart. A bigger gap, or a negative one, is the wall clock that moved
+# (a resync, a resume from sleep), not time that passed: durations measured across it are void.
+MAX_CYCLE_GAP = timedelta(hours=1)
 
 
 @dataclass
@@ -158,6 +161,7 @@ class AgentLoop:
         self._clock_verified = True
         self._clock_unverified_since: datetime | None = None
         self._clock_escalated = False
+        self._last_cycle_at: datetime | None = None
         # `/restart` writes a request; this is the run that may honour it, and only one whose
         # start is older than the request. `restart_requested` is read by `app.run`.
         self._started_at = now()
@@ -237,6 +241,7 @@ class AgentLoop:
         report = CycleReport()
         now = self._now()
         self._cycles += 1
+        self._reanchor_after_clock_jump(now)
 
         # The operator's restart demand is read first, and before anything that can fail:
         # an agent stuck on a broken clock or a dead terminal is exactly when someone asks
@@ -297,6 +302,25 @@ class AgentLoop:
             await self._snapshot(now)
         await self._run_reports(now)
         return report
+
+    def _reanchor_after_clock_jump(self, now: datetime) -> None:
+        """Start the running episodes again when the wall clock moved between two cycles.
+
+        An episode's start is a wall-clock reading. If the clock jumps, "now - start" is not a
+        duration: on 2026-10-20 it read "175 days" and escalated a CRITICAL for nothing.
+        """
+        previous, self._last_cycle_at = self._last_cycle_at, now
+        if previous is None:
+            return
+        gap = now - previous
+        if timedelta(0) <= gap <= MAX_CYCLE_GAP:
+            return
+        log.warning("wall clock moved by %s between two cycles: running episodes restart", gap)
+        if self._clock_unverified_since is not None:
+            self._clock_unverified_since = None
+            self._clock_escalated = False
+        if self._connection_loss_since is not None:
+            self._connection_loss_since = now
 
     async def _clock_failed(
         self, error: ClockMismatchError, now: datetime, report: CycleReport
@@ -578,14 +602,16 @@ class AgentLoop:
         if closed.signal_id is None:
             return
         try:
-            transition(
+            # `transition_once`: the broker's journal already moved the signal when it recorded
+            # the closure, so "already CLOSED" is the normal case and not a violation.
+            transition_once(
                 self._engine,
                 closed.signal_id,
                 SignalState.CLOSED,
                 closed.closed_at,
                 closed.exit_reason,
             )
-        except Exception as error:  # already closed, or not in a closable state
+        except Exception as error:  # not in a closable state, or unknown
             log.warning("signal %d not moved to CLOSED: %s", closed.signal_id, error)
         self._record_close_telemetry(closed)
 
