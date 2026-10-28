@@ -166,7 +166,10 @@ class MarketDataClient:
         """The newest tick among the watched symbols, if it beats the probe's."""
         freshest = probe_tick
         for symbol in sorted(self._selected - {self._probe}):
-            tick = await self._call(self._terminal.last_tick, symbol)
+            try:
+                tick = await self._call(self._terminal.last_tick, symbol)
+            except TerminalError:
+                continue
             if tick is not None and tick.server_epoch > freshest.server_epoch:
                 freshest = tick
         return None if freshest is probe_tick else freshest

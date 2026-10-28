@@ -273,6 +273,9 @@ body[data-drawer="open"] .drawer-scrim { opacity: 1; pointer-events: auto; }
 
 .tabbar { display: none; }
 
+/* Keyboard focus must never land under the fixed bars (WCAG 2.4.11). */
+html { scroll-padding: calc(var(--topbar-h) + 8px) 0 calc(var(--tabbar-h) + 8px); }
+
 main { min-width: 0; width: 100%; max-width: 1480px; padding: 22px var(--gutter) 64px; }
 @media (min-width: 1800px) { main { max-width: 1760px; } }
 
@@ -305,6 +308,9 @@ main { min-width: 0; width: 100%; max-width: 1480px; padding: 22px var(--gutter)
   main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 28px); }
   footer { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 12px) !important; }
 
+  /* .shell must not form a stacking context on a phone: the sheet (z 40) has to stack above
+     the scrim (z 30), which lives at the root. */
+  .shell { z-index: auto; }
   nav.side {
     position: fixed; left: 0; right: 0; z-index: 40;
     bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));

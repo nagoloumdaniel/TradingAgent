@@ -28,6 +28,8 @@ def is_transient(error: BaseException) -> bool:
     A constraint violation, a bad statement or a configuration error is not transient: the
     same call would fail the same way forever, and retrying would hide a defect.
     """
+    if isinstance(error, (FileNotFoundError, PermissionError, IsADirectoryError)):
+        return False
     return isinstance(
         error,
         (OperationalError, InterfaceError, PoolTimeoutError, TerminalError, OSError, TimeoutError),

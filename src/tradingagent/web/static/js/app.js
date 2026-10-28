@@ -36,17 +36,41 @@
     var nav = document.getElementById("side-nav");
     if (!button || !nav) { return; }
     function isOpen() { return document.body.dataset.drawer === "open"; }
+    var behind = document.querySelectorAll("header.topbar, main, footer");
+    function setBehind(inert) {
+      for (var i = 0; i < behind.length; i++) {
+        if (inert) { behind[i].setAttribute("inert", ""); } else { behind[i].removeAttribute("inert"); }
+      }
+    }
     function open() {
       document.body.dataset.drawer = "open";
       button.setAttribute("aria-expanded", "true");
-      var first = nav.querySelector("a");
-      if (first) { first.focus(); }
+      setBehind(true);
+      // The sheet is still visibility:hidden for the first frames of its transition.
+      window.setTimeout(function () {
+        var first = nav.querySelector("a");
+        if (first && isOpen()) { first.focus(); }
+      }, 60);
     }
     function close(restoreFocus) {
       delete document.body.dataset.drawer;
       button.setAttribute("aria-expanded", "false");
+      setBehind(false);
       if (restoreFocus) { button.focus(); }
     }
+    // Tab stays inside the sheet and the button that closes it.
+    document.addEventListener("keydown", function (event) {
+      if (event.key !== "Tab" || !isOpen()) { return; }
+      var stops = Array.prototype.slice.call(nav.querySelectorAll("a[href]"));
+      stops.push(button);
+      var index = stops.indexOf(document.activeElement);
+      var next = event.shiftKey ? index - 1 : index + 1;
+      if (index === -1) { next = 0; }
+      if (next < 0) { next = stops.length - 1; }
+      if (next >= stops.length) { next = 0; }
+      event.preventDefault();
+      stops[next].focus();
+    });
     button.addEventListener("click", function () { if (isOpen()) { close(true); } else { open(); } });
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape" && isOpen()) { close(true); }

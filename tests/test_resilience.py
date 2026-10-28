@@ -39,6 +39,13 @@ def test_a_defect_or_a_refusal_is_not_transient() -> None:
     assert not is_transient(ValueError("bad"))
 
 
+def test_a_missing_or_unreadable_file_is_not_transient() -> None:
+    """OSError is transient, but a missing config or terminal path never heals by waiting."""
+    assert not is_transient(FileNotFoundError("agent.yaml"))
+    assert not is_transient(PermissionError(".env"))
+    assert not is_transient(IsADirectoryError("config"))
+
+
 def test_the_delay_doubles_and_is_capped() -> None:
     delays = [backoff_delay(n, 20.0) for n in range(1, 9)]
     assert delays[:4] == [20.0, 40.0, 80.0, 160.0]

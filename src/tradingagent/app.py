@@ -775,7 +775,29 @@ def _write_version(candidate: object, directory: Path) -> Path:
 async def build(
     settings: Settings, *, verbose: bool = False, json_logs: bool | None = None
 ) -> Components:
-    """Construct every component and warm the agent up. Never trades before returning."""
+    """Construct every component and warm the agent up. Never trades before returning.
+
+    A failed attempt releases what it opened: a start-up retried every minute must not leak
+    one engine, one thread pool and one terminal session per attempt.
+    """
+    opened: list[Any] = []
+    try:
+        return await _build(settings, opened, verbose=verbose, json_logs=json_logs)
+    except BaseException:
+        for resource in reversed(opened):
+            try:
+                if isinstance(resource, MarketDataClient):
+                    await resource.close()
+                else:
+                    resource.dispose()
+            except Exception as error:
+                log.warning("resource not released after a failed build: %s", one_line(error))
+        raise
+
+
+async def _build(
+    settings: Settings, opened: list[Any], *, verbose: bool = False, json_logs: bool | None = None
+) -> Components:
     _configure_output(settings, verbose=verbose, json_logs=json_logs)
     metrics = Metrics()
     resources = ResourceMonitor(ROOT)
@@ -783,6 +805,7 @@ async def build(
     database_url = settings.database_url.get_secret_value()
     upgrade(database_url)
     engine = create_database_engine(database_url)
+    opened.append(engine)
     events = SystemEventStore(engine)
     halts = HaltStore(engine)
     candles = CandleStore(engine)
@@ -799,6 +822,7 @@ async def build(
         expected_server_offset=DEMO_SERVER_OFFSET,
         clock_probe_symbol="BTCUSD",
     )
+    opened.append(market)
     account_snapshot = await market.connect()
     if account_snapshot.currency != "EUR":
         raise ConfigError(f"the account is in {account_snapshot.currency}, every amount is in EUR")

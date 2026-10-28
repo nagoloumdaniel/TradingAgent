@@ -178,6 +178,33 @@ def test_when_every_watched_tick_is_old_the_clock_stays_unverifiable(
     run(scenario())
 
 
+def test_a_failing_secondary_symbol_does_not_end_the_clock_check_with_a_terminal_error(
+    terminal: Any, credentials: Credentials
+) -> None:
+    """The client stays usable: a secondary tick that cannot be read means "unverifiable"."""
+
+    async def scenario() -> None:
+        market = client(terminal, credentials)
+        await market.connect()
+        await market.select({"XAUUSD"})
+        terminal.ticks[PROBE] = RawTick(
+            server_epoch(NOW - timedelta(minutes=10), timedelta(0)), 1.0, 1.0
+        )
+        original = terminal.last_tick
+
+        def failing(symbol: str) -> Any:
+            if symbol == "XAUUSD":
+                raise TerminalError("symbol not available")
+            return original(symbol)
+
+        terminal.last_tick = failing
+        with pytest.raises(ClockUnverifiableError):
+            await market.verify_clock()
+        await market.close()
+
+    run(scenario())
+
+
 def test_a_fresher_tick_does_not_hide_a_real_offset_change(
     terminal: Any, credentials: Credentials
 ) -> None:
