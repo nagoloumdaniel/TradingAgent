@@ -110,7 +110,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--agent-config", type=Path, default=ROOT / "config" / "agent.yaml")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--actor", default=ACTOR, help="auteur ecrit dans la piste d'audit")
+    parser.add_argument("--reason", default=REASON, help="motif ecrit dans la piste d'audit")
     args = parser.parse_args(argv)
+    # The audit trail must carry THIS decision, not the first one.
+    globals().update(ACTOR=args.actor, REASON=args.reason)
 
     if args.from_agent_config:
         targets = _deployed(args.agent_config)
