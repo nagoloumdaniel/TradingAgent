@@ -72,7 +72,7 @@
   {% endif %}
 </form>
 
-{% call fold("h-ea", "shield", "Gardiens EA", (data.ea | length) ~ " EA", "", false, "") %}
+{% call fold("h-ea", "shield", "Gardiens EA", (data.ea | length) ~ " EA", "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Gardiens EA, lus dans les rapports JSON du pont : un rapport absent ou illisible vaut hors ligne</caption>
@@ -108,7 +108,7 @@
    compté et paginé en SQL. Il est borné — les lignes les plus récentes, et le total lu est
    écrit à côté, parce qu'une troncature silencieuse serait le défaut qu'on remplace. #}
 {% endcall %}
-{% call fold("h-journal", "list", "Journal des EA", data.journal | length, "", false, "") %}
+{% call fold("h-journal", "list", "Journal des EA", data.journal | length, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only"><span id="ea-journal-count">{{ data.journal | length }} sur {{ data.journal_total }}</span> événement(s) lu(s) dans les rapports, les plus récents d'abord</caption>
@@ -178,7 +178,7 @@
 </table>
 </div>
 {% endcall %}
-{% call fold("h-errors", "alert-triangle", "Dernières erreurs et avertissements", data.errors.total, "", false, "") %}
+{% call fold("h-errors", "alert-triangle", "Dernières erreurs et avertissements", data.errors.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Erreurs et avertissements, marché {{ data.errors.market or 'tous' }} : {{ data.errors.total }}, {{ data.errors.showing }}. Les événements sans marché concernent le compte entier et restent affichés.</caption>
@@ -200,7 +200,7 @@
 </div>
 {{ pager(data.errors, "Pagination des erreurs") }}
 {% endcall %}
-{% call fold("h-tele", "activity", "Télémétrie d'exécution récente", data.telemetry.total, "", false, "") %}
+{% call fold("h-tele", "activity", "Télémétrie d'exécution récente", data.telemetry.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Télémétrie d'exécution, marché {{ data.telemetry.market or 'tous' }} : {{ data.telemetry.total }} événement(s), {{ data.telemetry.showing }}</caption>

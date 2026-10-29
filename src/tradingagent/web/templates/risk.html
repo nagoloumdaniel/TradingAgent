@@ -120,9 +120,9 @@
 </table>
 </div>
 {% endcall %}
-{% call fold("h-limits", "gauge", "Limites configurées", (data.limits | length) ~ " profil(s)", "", false, "") %}
+{% call fold("h-limits", "gauge", "Limites configurées", (data.limits | length) ~ " profil(s)", "wide", false, "") %}
 <div class="table-wrap">
-<table>
+<table class="tight">
   <caption class="sr-only">Limites de risque lues dans config/agent.yaml</caption>
   <thead>
     <tr><th scope="col">Profil</th><th scope="col" class="num">Risque / trade</th><th scope="col" class="num">Perte jour</th>
@@ -156,7 +156,7 @@
 </table>
 </div>
 {% endcall %}
-{% call fold("h-events", "list", "Événements système", data.events.total, "", false, "") %}
+{% call fold("h-events", "list", "Événements système", data.events.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Événements système, marché {{ data.events.market or 'tous' }} : {{ data.events.total }} événement(s), {{ data.events.showing }}. Les événements sans marché concernent le compte entier et restent affichés.</caption>
@@ -178,7 +178,7 @@
 </div>
 {{ pager(data.events, "Pagination des événements système") }}
 {% endcall %}
-{% call fold("h-halts", "clock", "Historique des arrêts et reprises", data.history.total, "", false, "") %}
+{% call fold("h-halts", "clock", "Historique des arrêts et reprises", data.history.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Arrêts et reprises : {{ data.history.total }} commande(s), {{ data.history.showing }}</caption>

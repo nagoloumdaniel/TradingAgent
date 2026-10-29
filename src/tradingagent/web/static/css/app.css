@@ -1026,7 +1026,20 @@ main > details.fold, main > .mod { margin-bottom: 12px; }
   .icon-btn .btn-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .icon-btn { min-width: 36px; min-height: 36px; }
 }
-.row-toggle-cell, .show-all { display: none; }
+.row-toggle-cell { display: none; }
+.show-all { display: flex; width: 100%; justify-content: center; margin: 0; border-radius: 0 0 var(--radius) var(--radius); }
+.table-wrap tbody tr.beyond { display: none; }
+.table-wrap.expanded tbody tr.beyond { display: table-row; }
+/* desktop: modules sit side by side, rows stretch so no hole is left under the shorter one */
+.dash { align-items: stretch; }
+.dash > .mod { display: flex; flex-direction: column; }
+.dash > .mod > .chart { flex: 1 1 auto; }
+@media (min-width: 1100px) {
+  main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-content: start; grid-auto-flow: row dense; }
+  main > * { grid-column: 1 / -1; margin-bottom: 0; }
+  main > details.fold:not(.wide) { grid-column: auto; align-self: start; }
+  main > details.fold[open]:not(.wide) { align-self: stretch; }
+}
 @media (max-width: 767px) {
   .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cards > .card { padding: 9px 12px 10px; }
@@ -1084,7 +1097,7 @@ main > details.fold, main > .mod { margin-bottom: 12px; }
 .hb-val.pos { color: var(--up); }
 .hb-val.neg { color: var(--down); }
 .hb-note { margin: 6px 0 0; color: var(--muted); font-size: 12.5px; }
-.gauges { display: grid; gap: 10px 22px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); }
+.gauges { display: grid; gap: 10px 22px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); }
 .gauge { display: grid; gap: 4px; padding: 4px 2px; }
 .gauge-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
 .gauge-top strong { font-weight: 550; }
@@ -1118,3 +1131,11 @@ main > details.fold, main > .mod { margin-bottom: 12px; }
 .replay-legend i.close { border-color: var(--muted); border-top-style: dotted; }
 
 .mod .banner, .fold-body .banner { padding-left: 38px; }
+
+/* fill the module: gauges and charts spread over the height the row gives them */
+.dash > .mod > .chart { display: flex; flex-direction: column; justify-content: center; }
+.dash > .mod > .chart > .gauges { flex: 1 1 auto; align-content: space-evenly; row-gap: 18px; }
+.gauge-bar { height: 12px; }
+table.tight th, table.tight td { padding-left: 8px; padding-right: 8px; white-space: normal; }
+table.tight th:first-child, table.tight td:first-child { padding-left: 14px; }
+table.tight { font-size: 12.5px; } table.tight td.num, table.tight th.num { padding-left: 6px; padding-right: 10px; }

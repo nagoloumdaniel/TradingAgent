@@ -279,10 +279,10 @@
     var table = wrap.querySelector("table");
     if (!table || !table.tBodies.length || !table.tHead || wrap.hasAttribute("data-nolimit")) { return; }
     var columns = table.tHead.rows[table.tHead.rows.length - 1].cells.length;
-    var limit = parseInt(wrap.getAttribute("data-limit") || "4", 10);
+    var limit = parseInt(wrap.getAttribute("data-limit") || (wrap.classList.contains("is-stack") && window.innerWidth < 768 ? "4" : "6"), 10);
 
     /* tap for detail : keep the first four cells, the rest opens under a 44 px chevron */
-    if (columns > 5) {
+    if (columns > 5 && wrap.classList.contains("is-stack")) {
       dataRows(table).forEach(function (row) {
         var cells = Array.prototype.slice.call(row.cells);
         cells.slice(4).forEach(function (cell) { cell.classList.add("more"); });
@@ -324,7 +324,7 @@
     label();
     more.addEventListener("click", function () { wrap.classList.toggle("expanded"); label(); });
   }
-  Array.prototype.forEach.call(document.querySelectorAll(".table-wrap.is-stack"), phoneTable);
+  Array.prototype.forEach.call(document.querySelectorAll(".table-wrap"), phoneTable);
 
   /* a sort re-orders the rows: the cap follows the new order; a filter shows every match */
   document.addEventListener("click", function (event) {

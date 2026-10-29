@@ -181,6 +181,40 @@ def check_pages(page, label: str, path: str, failures: list[str]) -> None:
         failures.append(f"{label}: replay levels not drawn")
 
 
+LAYOUT_PROBE = """() => {
+  const holes = [];
+  document.querySelectorAll('.dash').forEach((row) => {
+    const mods = Array.from(row.children).filter((el) => el.offsetParent);
+    const tops = {};
+    mods.forEach((el) => { const t = Math.round(el.getBoundingClientRect().top);
+      (tops[t] = tops[t] || []).push(el); });
+    Object.values(tops).forEach((line) => {
+      const heights = line.map((el) => el.getBoundingClientRect().height);
+      if (line.length > 1 && Math.max(...heights) - Math.min(...heights) > 2) {
+        holes.push(line[0].className);
+      }
+    });
+  });
+  const long = [];
+  document.querySelectorAll('.table-wrap:not(.is-kv)').forEach((wrap) => {
+    if (!wrap.querySelector('thead th')) return;
+    const rows = Array.from(wrap.querySelectorAll('tbody tr'))
+      .filter((r) => r.offsetParent && !r.querySelector('td.empty'));
+    if (rows.length > 7) long.push(wrap.id || wrap.closest('.mod')?.id || 'table');
+  });
+  return { holes, long };
+}"""
+
+
+def check_layout(page, label: str, failures: list[str]) -> None:
+    """On desktop modules of one row share a height, and no table shows more than 7 rows."""
+    probe = page.evaluate(LAYOUT_PROBE)
+    if probe["holes"]:
+        failures.append(f"{label}: unequal module heights {probe['holes'][:3]}")
+    if probe["long"]:
+        failures.append(f"{label}: table not capped {probe['long'][:3]}")
+
+
 def check_folds(page, label: str, phone: bool, failures: list[str]) -> None:
     """Folds are closed on a phone, open elsewhere, and open on activation."""
     folds = page.locator("details.fold")
@@ -239,6 +273,8 @@ def main(argv: list[str]) -> int:
                 if real:
                     failures.append(f"{label}: console {real[:2]}")
                 check_pages(page, label, path, failures)
+                if width >= 1280:
+                    check_layout(page, label, failures)
                 if width in (390, 1280):
                     check_folds(page, label, width < 768, failures)
                 if width == 390 and path == "/":

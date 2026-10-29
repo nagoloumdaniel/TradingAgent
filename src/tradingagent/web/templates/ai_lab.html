@@ -103,7 +103,7 @@
 </div>
 {% endif %}
 
-{% call fold("h-an", "list", "Analyses", lab.analyses.total, "", false, "") %}
+{% call fold("h-an", "list", "Analyses", lab.analyses.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Analyses, marché {{ lab.analyses.market }} : {{ lab.analyses.showing }}</caption>
@@ -129,7 +129,7 @@
 </div>
 {{ pager(lab.analyses, "Pagination des analyses") }}
 {% endcall %}
-{% call fold("h-pr", "flask", "Hypothèses et propositions", lab.proposals.total, "", false, "") %}
+{% call fold("h-pr", "flask", "Hypothèses et propositions", lab.proposals.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Hypothèses et propositions</caption>
@@ -156,7 +156,7 @@
 </div>
 {{ pager(lab.proposals, "Pagination des propositions") }}
 {% endcall %}
-{% call fold("h-va", "check-circle", "Validations", lab.validations.total, "", false, "") %}
+{% call fold("h-va", "check-circle", "Validations", lab.validations.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Validations</caption>
@@ -179,7 +179,7 @@
 </div>
 {{ pager(lab.validations, "Pagination des validations") }}
 {% endcall %}
-{% call fold("h-bt", "activity", "Backtests enregistrés", lab.backtests.total, "", false, "") %}
+{% call fold("h-bt", "activity", "Backtests enregistrés", lab.backtests.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Backtests enregistrés</caption>
