@@ -70,7 +70,7 @@
 
 {{ pager(positions, "Pagination des positions") }}
 
-{% call fold("h-alerts", "alert-triangle", "Alertes", alerts | length, "", false, "") %}
+{% call fold("h-alerts", "alert-triangle", "Alertes", alerts | length, "wide", false, "") %}
 <div class="table-wrap" data-nolimit>
   <table>
     <caption class="sr-only">Alertes d'avertissement ou critiques, poussées par le flux</caption>
