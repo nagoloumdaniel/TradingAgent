@@ -809,6 +809,7 @@ h2 { margin: 20px 0 8px; }
 .bars .b { transition: opacity 120ms var(--ease-out); opacity: 0.82; }
 .bars .b.up { fill: var(--up); }
 .bars .b.down { fill: var(--down); }
+.bars .b.alt { fill: var(--muted); }
 .bars .b.nil { fill: var(--faint); opacity: 0.5; }
 .bars .b.hot { opacity: 1; stroke: var(--text); stroke-width: 1.5; }
 .chart-tip {
