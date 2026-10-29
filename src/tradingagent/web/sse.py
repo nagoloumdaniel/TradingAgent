@@ -10,15 +10,18 @@ already formatted by :mod:`tradingagent.web.views`, so the browser never formats
 computes, a figure.
 """
 
+import hashlib
 import json
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, func, select
 
 from tradingagent.core.states import Severity
+from tradingagent.storage import models
 from tradingagent.web import format as display
 from tradingagent.web import paging
 from tradingagent.web.queries import open_positions, recent_events
@@ -38,6 +41,40 @@ DEFAULT_ALERT_LIMIT = 30
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+# What the agent writes and the pages show. A table contributes its row count and its newest
+# id (an insert) and, when its rows are updated in place, its newest update stamp.
+_WATCHED: tuple[tuple[Any, Any], ...] = (
+    (models.SignalRow, None),
+    (models.RiskDecisionRow, None),
+    (models.OrderRow, None),
+    (models.PositionRow, models.PositionRow.updated_at),
+    (models.TradeRow, None),
+    (models.ReportRow, None),
+    (models.SystemEventRow, None),
+    (models.AccountSnapshotRow, None),
+    (models.AiCallRow, None),
+    (models.ExecutionEventRow, None),
+    (models.DailyPerformanceRow, None),
+    (models.CandleRow, models.CandleRow.ingested_at),
+)
+
+
+def fingerprint(engine: Engine) -> str:
+    """A short digest that changes whenever the agent has written something the pages show.
+
+    Twelve aggregate reads, no row transferred: cheap enough to run every few seconds for
+    every open tab. The browser compares digests and reloads only when one differs.
+    """
+    parts: list[str] = []
+    with engine.connect() as connection:
+        for model, stamp in _WATCHED:
+            columns = [func.count(), func.max(model.id)]
+            if stamp is not None:
+                columns.append(func.max(stamp))
+            parts.append(repr(tuple(connection.execute(select(*columns)).one())))
+    return hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
 
 
 @dataclass(frozen=True)
@@ -74,6 +111,13 @@ class EventStream:
         self._now = now if now is not None else _utc_now
         self._sleep = sleep if sleep is not None else time.sleep
         self._alert_limit = alert_limit
+
+    def tick(self, at: datetime) -> Frame:
+        """The change marker the pages without a live table listen to."""
+        return Frame(
+            "tick",
+            json.dumps({"at": display.precise(at), "version": fingerprint(self._engine)}),
+        )
 
     def poll(
         self, at: datetime, since: datetime | None, market: str = paging.ALL_MARKETS
@@ -123,15 +167,24 @@ class EventStream:
         ]
 
     def frames(
-        self, *, cycles: int | None = None, market: str = paging.ALL_MARKETS
+        self,
+        *,
+        cycles: int | None = None,
+        market: str = paging.ALL_MARKETS,
+        ticks_only: bool = False,
     ) -> Iterator[str]:
-        """The stream body. ``cycles`` bounds it; ``None`` streams until the client leaves."""
+        """The stream body. ``cycles`` bounds it; ``None`` streams until the client leaves.
+
+        ``ticks_only`` carries just the change marker: the pages that render server-side
+        and reload on a change have no use for the positions and alerts payloads.
+        """
         yield RETRY_HINT
         since: datetime | None = None
         produced = 0
         while cycles is None or produced < cycles:
             at = self._now()
-            for frame in self.poll(at, since, market=market):
+            batch = [self.tick(at)] if ticks_only else self.poll(at, since, market=market)
+            for frame in batch:
                 yield frame.render()
             since = at
             produced += 1
@@ -151,4 +204,11 @@ SSE_HEADERS = {
     "X-Accel-Buffering": "no",
 }
 
-__all__ = ["DEFAULT_INTERVAL_SECONDS", "RETRY_HINT", "SSE_HEADERS", "EventStream", "Frame"]
+__all__ = [
+    "DEFAULT_INTERVAL_SECONDS",
+    "RETRY_HINT",
+    "SSE_HEADERS",
+    "EventStream",
+    "Frame",
+    "fingerprint",
+]
