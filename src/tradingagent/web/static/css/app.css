@@ -816,6 +816,9 @@ h2 { margin: 20px 0 8px; }
 .bars .b.up { fill: var(--up); }
 .bars .b.down { fill: var(--down); }
 .bars .b.alt { fill: var(--muted); }
+.bars .b.ok { fill: var(--up); }
+.bars .b.warn { fill: var(--warn); }
+.bars .b.bad { fill: var(--down); }
 .bars .b.nil { fill: var(--faint); opacity: 0.5; }
 .bars .b.hot { opacity: 1; stroke: var(--text); stroke-width: 1.5; }
 .chart-tip {
@@ -837,7 +840,7 @@ h2 { margin: 20px 0 8px; }
 .donut-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
 .donut { display: block; width: 148px; height: 148px; flex: 0 0 auto; }
 .donut .ring-bg { fill: none; stroke: var(--line); stroke-width: 16; }
-.donut .arc { fill: none; stroke-width: 16; stroke: color-mix(in srgb, var(--text) var(--shade), transparent); transition: opacity 150ms var(--ease-out); }
+.donut .arc { fill: none; stroke-width: 16; stroke: var(--seg, color-mix(in srgb, var(--text) var(--shade), transparent)); transition: opacity 150ms var(--ease-out); }
 .donut .arc.dim { opacity: 0.35; }
 .donut .arc.hot { stroke-width: 19; }
 .donut .c-main { fill: var(--text); font: 600 21px var(--font-mono); }
@@ -850,7 +853,7 @@ h2 { margin: 20px 0 8px; }
 }
 .legend-row.hot, .legend-row:hover { background: var(--glass-hover); }
 .legend-row:focus-visible { outline: 2px solid var(--accent); }
-.swatch { width: 10px; height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--text) var(--shade), transparent); }
+.swatch { width: 10px; height: 10px; border-radius: 3px; background: var(--seg, color-mix(in srgb, var(--text) var(--shade), transparent)); }
 .legend-n { color: var(--muted); font-size: 12.5px; }
 .legend-net { grid-column: 2 / -1; font-size: 12.5px; color: var(--muted); }
 .legend-net.pos { color: var(--up); }
@@ -1098,6 +1101,9 @@ main > details.fold, main > .mod { margin-bottom: 12px; }
 .hb-fill.up { background: var(--up); opacity: 1; }
 .hb-fill.down { background: var(--down); opacity: 1; }
 .hb-fill.alt { background: var(--muted); opacity: 0.7; }
+.hb-fill.ok { background: var(--up); opacity: 1; }
+.hb-fill.warn { background: var(--warn); opacity: 1; }
+.hb-fill.bad { background: var(--down); opacity: 1; }
 .hb-zero { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-strong); }
 .hb-val { min-width: 5.5rem; text-align: right; font: 450 12.5px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); }
 .hb-val.pos { color: var(--up); }
@@ -1137,25 +1143,26 @@ main > details.fold, main > .mod { margin-bottom: 12px; }
 /* fill the module: gauges and charts spread over the height the row gives them */
 .dash > .mod > .chart { display: flex; flex-direction: column; justify-content: center; }
 .dash > .mod > .chart > .gauges { flex: 1 1 auto; align-content: space-evenly; row-gap: 18px; }
-.gauge-viz { display: grid; place-items: center; min-height: 64px; padding: 4px 0; }
+.gauge { grid-template-rows: auto minmax(0, 1fr) auto; }
+.gauge-viz { display: grid; place-items: center; min-height: 8.5rem; padding: 6px 0; }
 .gv { display: block; width: 100%; overflow: visible; }
-.gauge-viz.arc .gv { max-width: 9.5rem; }
-.gauge-viz.ring .gv { max-width: 6.5rem; }
-.gauge-viz.bullet .gv { height: 34px; }
-.gauge-viz.steps .gv { height: 40px; max-width: 12rem; }
+.gauge-viz.arc .gv { max-width: 17rem; }
+.gauge-viz.ring .gv { max-width: 11.5rem; }
+.gauge-viz.bullet .gv { height: 72px; }
+.gauge-viz.steps .gv { height: 112px; }
 .gv-track { fill: none; stroke: var(--line-strong); stroke-width: 9; stroke-linecap: round; }
 .gv-fill { fill: none; stroke: var(--text); stroke-width: 9; stroke-linecap: round; transition: stroke-dasharray 400ms var(--ease-out); }
 rect.gv-fill { fill: var(--text); stroke: none; }
 .gv-tick { stroke: var(--surface); stroke-width: 1.6; }
-.gv-num { fill: var(--text); font: 600 16px var(--font-mono); font-variant-numeric: tabular-nums; }
+.gv-num { fill: var(--text); font: 600 18px var(--font-mono); font-variant-numeric: tabular-nums; }
 .gv-zone { opacity: 0.22; fill: var(--text); }
 .gv-zone.warn { fill: var(--warn); opacity: 0.4; }
 .gv-zone.bad { fill: var(--down); opacity: 0.4; }
 .gv-mark { stroke: var(--text); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .gv-step { fill: var(--line-strong); transition: fill 200ms var(--ease-out); }
 .gv-step.on { fill: var(--text); }
-.pips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.pips i { width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box; border: 2px solid var(--line-strong); }
+.pips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.pips i { width: 26px; height: 26px; border-radius: 50%; box-sizing: border-box; border: 2px solid var(--line-strong); }
 .pips i.on { background: var(--text); border-color: var(--text); }
 .gauge.warn path.gv-fill, .gauge.warn .gv-mark { stroke: var(--warn); }
 .gauge.warn rect.gv-fill, .gauge.warn .gv-step.on, .gauge.warn .pips i.on { fill: var(--warn); background: var(--warn); border-color: var(--warn); }
