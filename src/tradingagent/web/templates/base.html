@@ -103,7 +103,7 @@
   <nav class="side" id="side-nav" aria-label="Navigation principale">
     {% for path, label in pages %}
       {% set active = request.url.path == path or (path != '/' and request.url.path.startswith(path + '/')) %}
-      <a href="{{ path }}" {% if active %}class="active" aria-current="page"{% endif %}>
+      <a href="{{ path }}" title="{{ label }}" {% if active %}class="active" aria-current="page"{% endif %}>
         {{ icons.icon(nav_icons.get(path, "activity")) }}<span>{{ label }}</span>
       </a>
     {% endfor %}
@@ -130,6 +130,9 @@
 
 <footer>{{ display.precise(render_at) }} UTC</footer>
 
+{% if charts is defined and charts %}<script type="application/json" id="ta-charts">{{ charts | tojson }}</script>{% endif %}
 <script src="/static/js/app.js" defer></script>
+<script src="/static/js/charts.js" defer></script>
+<script src="/static/js/ux.js" defer></script>
 </body>
 </html>

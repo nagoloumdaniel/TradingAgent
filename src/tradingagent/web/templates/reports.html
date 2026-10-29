@@ -1,30 +1,39 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon, head, fold, badge, nothing %}
 {% from "_macros.html" import pager, search_field %}
 {% block title %}Rapports{% endblock %}
 {% block content %}
 
-<h2>Rapports</h2>
+<h2 class="sr-only">Rapports</h2>
 
 <form class="filters" method="get" action="/reports" role="search">
   {{ search_field("reports-q", "Recherche", reports.query, "période ou contenu du rapport") }}
-  <div><button type="submit">Rechercher</button></div>
+  <div><button type="submit">{{ icon("search") }}Rechercher</button></div>
   {% if reports.query %}<div><a class="action" href="/reports">Réinitialiser</a></div>{% endif %}
+  <div class="export-group actions" role="group" aria-label="Exports">
+    <a href="/export/trades.csv">{{ icon("download") }}Trades CSV</a>
+    <a href="/export/trades.json">{{ icon("download") }}Trades JSON</a>
+    <a href="/export/performance.json">{{ icon("download") }}Performance JSON</a>
+  </div>
 </form>
 
-<div class="table-wrap">
+<div class="dash">
+<section class="mod wide" aria-labelledby="h-reports">
+{{ head("h-reports", "file-text", "Rapports enregistrés", reports.total) }}
+<div class="table-wrap" data-limit="5">
 <table>
   <caption class="sr-only">Rapports enregistrés : {{ reports.total }} rapport(s), affichage {{ reports.showing }}</caption>
-  <thead><tr><th scope="col">Période</th><th scope="col">Fenêtre (UTC)</th><th scope="col">Généré le</th><th scope="col">Envoyé le</th><th scope="col">Actions</th></tr></thead>
+  <thead><tr><th scope="col">Période</th><th scope="col">Fenêtre (UTC)</th><th scope="col" class="opt">Généré le</th><th scope="col">Envoyé le</th><th scope="col">Actions</th></tr></thead>
   <tbody id="reports-body">
     {% for report in reports.rows %}
       <tr>
-        <td>{{ report.period }}</td>
+        <td>{{ report.period }}<span class="preview" title="Aperçu du contenu">{{ report.content | replace("\n", " ") | truncate(110, True, "…") }}</span></td>
         <td>{{ display.moment(report.window_start) }} à {{ display.moment(report.window_end) }}</td>
-        <td>{{ display.precise(report.generated_at) }}</td>
-        <td>{% if report.sent_at %}{{ display.precise(report.sent_at) }}{% else %}<span class="badge warn">non envoyé</span>{% endif %}</td>
-        <td>
-          <a href="/reports?report_id={{ report.id }}">Ouvrir</a>
-          <a href="/export/reports/{{ report.id }}.txt">Télécharger</a>
+        <td class="opt">{{ display.precise(report.generated_at) }}</td>
+        <td>{% if report.sent_at %}{{ display.precise(report.sent_at) }}{% else %}{{ badge("warn", "non envoyé") }}{% endif %}</td>
+        <td class="row-actions">
+          <a class="icon-btn" href="/reports?report_id={{ report.id }}" title="Ouvrir" aria-label="Ouvrir le rapport {{ report.period }}">{{ icon("eye") }}<span class="btn-text">Ouvrir</span></a>
+          <a class="icon-btn" href="/export/reports/{{ report.id }}.txt" title="Télécharger" aria-label="Télécharger le rapport {{ report.period }}">{{ icon("file-down") }}<span class="btn-text">Télécharger</span></a>
         </td>
       </tr>
     {% else %}
@@ -33,21 +42,15 @@
   </tbody>
 </table>
 </div>
-
 {{ pager(reports, "Pagination des rapports") }}
+</section>
 
-<h2>Exports</h2>
-<div class="actions">
-  <a href="/export/trades.csv">Trades CSV</a>
-  <a href="/export/trades.json">Trades JSON</a>
-  <a href="/export/performance.json">Performance JSON</a>
-  <a href="/export/equity.svg">Équité SVG</a>
 </div>
-<img src="/export/equity.svg" alt="Courbe d'équité et drawdown" class="equity-img">
 
 {% if opened %}
-  <h2>Rapport {{ opened.period }}, {{ display.moment(opened.window_start) }}</h2>
+  {% call fold("h-opened", "file-text", "Rapport " ~ opened.period ~ ", " ~ display.moment(opened.window_start), "", "", true, "") %}
   <pre>{{ opened.content }}</pre>
+  {% endcall %}
 {% endif %}
 
 {% endblock %}

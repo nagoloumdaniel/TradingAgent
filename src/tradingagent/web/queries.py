@@ -225,6 +225,8 @@ class TradeListing:
     performance: Performance
     markets: tuple[str, ...]
     strategies: tuple[str, ...]
+    # (closed_at epoch s, pnl, symbol) of the whole selection, oldest first: the bars chart.
+    points: tuple[tuple[int, float, str], ...] = ()
 
 
 def _trade_statement(conditions: Sequence[Any]) -> Any:
@@ -346,6 +348,7 @@ def trade_page(
         # returned: a selector that narrowed to its own choice would trap the operator.
         markets=available_markets(engine),
         strategies=traded_strategies(engine),
+        points=trade_points([entry.trade for entry in every]),
     )
 
 
@@ -1187,6 +1190,26 @@ def equity_series(engine: Engine) -> list[tuple[datetime, Decimal]]:
     with Session(engine) as session:
         rows = session.execute(statement).all()
     return [(moment, Decimal(value)) for moment, value in rows]
+
+
+STRANDED_HEAD_GAP = timedelta(days=14)
+
+
+def without_stranded_head(
+    series: list[tuple[datetime, Decimal]],
+) -> list[tuple[datetime, Decimal]]:
+    """Drop leading points cut off from the rest of the curve by a gap of two weeks or more.
+
+    The first snapshot of this account is stamped 2026-04-27 while the next one is from
+    2026-10-08: the clock was wrong when it was written. Drawn as it is, it becomes a
+    straight line across five months that no equity ever followed. The rows stay in the
+    database; only the drawing ignores them.
+    """
+    start = 0
+    for index in range(len(series) - 1):
+        if series[index + 1][0] - series[index][0] >= STRANDED_HEAD_GAP:
+            start = index + 1
+    return series[start:]
 
 
 def account_figures(engine: Engine, at: datetime) -> AccountFigures:
@@ -3394,6 +3417,50 @@ def _candles(engine: Engine) -> tuple[str | None, tuple[CandleMark, ...]]:
     return str(symbol), marks
 
 
+EQUITY_POINTS_MAX = 400
+
+
+def trade_points(trades: Iterable[Trade]) -> tuple[tuple[int, float, str], ...]:
+    """Stored closed trades as ``(epoch seconds UTC, pnl, symbol)``, oldest first.
+
+    Display plumbing for the interactive charts: the values are the stored ones, only the
+    shape changes. Periods and per-day buckets are summed in the browser from these points.
+    """
+    ordered = sorted(trades, key=lambda trade: trade.closed_at)
+    return tuple(
+        (int(trade.closed_at.timestamp()), float(trade.pnl_eur), trade.symbol) for trade in ordered
+    )
+
+
+def chart_payload(engine: Engine, ov: Overview) -> dict[str, Any]:
+    """Everything the overview charts draw, read-only and UTC; embedded as JSON in the page."""
+    series = without_stranded_head(equity_series(engine))
+    if len(series) > EQUITY_POINTS_MAX:
+        stride = len(series) / EQUITY_POINTS_MAX
+        picked = [series[int(i * stride)] for i in range(EQUITY_POINTS_MAX)]
+        if picked[-1] != series[-1]:
+            picked.append(series[-1])
+        series = picked
+    return {
+        "now": int(ov.at.timestamp()),
+        "equity": [[int(moment.timestamp()), float(value)] for moment, value in series],
+        "trades": [list(point) for point in trade_points(all_trades(engine))],
+        "markets": [
+            {
+                "name": market.market,
+                "net": float(market.performance.net_profit),
+                "trades": market.performance.trades,
+            }
+            for market in ov.markets
+        ],
+        "drawdown": {
+            "current": None if ov.account.drawdown is None else float(ov.account.drawdown),
+            "peak": None if ov.account.peak_equity is None else float(ov.account.peak_equity),
+            "max": float(ov.total.max_drawdown),
+        },
+    }
+
+
 def watermark(engine: Engine) -> ChartWatermark:
     """The two background charts: the real equity curve and the real candles.
 
@@ -3403,7 +3470,7 @@ def watermark(engine: Engine) -> ChartWatermark:
     503, a 404 and a real answer.
     """
     try:
-        line, area = _equity_geometry(equity_series(engine))
+        line, area = _equity_geometry(without_stranded_head(equity_series(engine)))
         symbol, candles = _candles(engine)
     except SQLAlchemyError as error:
         log.warning("watermark unavailable: %s", error)
@@ -3416,6 +3483,239 @@ def watermark(engine: Engine) -> ChartWatermark:
         candles=candles,
         symbol=symbol,
     )
+
+
+# ---------------------------------------------------------------------------------------
+# Chart payloads of the other pages: read-only, UTC, built from rows the page already holds
+# (or one bounded SQL read). A chart is only offered when its payload has something to draw.
+# ---------------------------------------------------------------------------------------
+
+REFUSAL_DAYS = 30
+REASON_LABEL_MAX = 44
+
+
+def _f(value: Any) -> float | None:
+    return None if value is None else float(value)
+
+
+def refusal_history(engine: Engine, at: datetime, days: int = REFUSAL_DAYS) -> dict[str, Any]:
+    """Refused risk decisions per UTC day and per stored reason, over the last ``days`` days."""
+    since = day_start(at) - timedelta(days=days - 1)
+    with Session(engine) as session:
+        rows = session.execute(
+            select(RiskDecisionRow.decided_at, RiskDecisionRow.reason).where(
+                RiskDecisionRow.outcome == RiskOutcome.REFUSED,
+                RiskDecisionRow.decided_at >= since,
+            )
+        ).all()
+    per_day: dict[int, int] = defaultdict(int)
+    per_reason: dict[str, int] = defaultdict(int)
+    for decided_at, reason in rows:
+        stamp = decided_at if decided_at.tzinfo else decided_at.replace(tzinfo=UTC)
+        per_day[int(stamp.timestamp()) // 86400] += 1
+        label = (reason or "motif non enregistré").strip()
+        short = label[:REASON_LABEL_MAX] + ("…" if len(label) > REASON_LABEL_MAX else "")
+        per_reason[short] += 1
+    first = int(since.timestamp()) // 86400
+    last = int(at.timestamp()) // 86400
+    return {
+        "total": len(rows),
+        "days": [{"ts": d * 86400, "value": per_day.get(d, 0)} for d in range(first, last + 1)],
+        "reasons": [
+            {"name": name, "value": count}
+            for name, count in sorted(per_reason.items(), key=lambda kv: -kv[1])[:8]
+        ],
+    }
+
+
+def _gauge(
+    name: str, used: float | None, limit: float | None, kind: str, text: str
+) -> dict[str, Any]:
+    ratio = None if used is None or not limit else max(0.0, used) / limit
+    return {"name": name, "used": used, "limit": limit, "ratio": ratio, "kind": kind, "text": text}
+
+
+def risk_gauges(
+    engine: Engine, at: datetime, view: RiskView, account: AccountFigures
+) -> list[dict[str, Any]]:
+    """Risk used against each configured limit of the first profile, read-only.
+
+    Losses are the stored net results since 00:00 UTC (day) and Monday 00:00 UTC (week); the
+    limit is the profile's percentage of its reference capital (the balance when the profile
+    names none). Nothing is re-decided: this only puts two stored numbers side by side.
+    """
+    if not view.limits:
+        return []
+    limits = view.limits[0]
+    capital = limits.reference_capital or account.balance
+    day = compute_performance(trades_between(engine, day_start(at), at))
+    week = compute_performance(trades_between(engine, week_start(at), at))
+    gauges: list[dict[str, Any]] = []
+    if capital:
+        for name, perf, pct in (
+            ("Perte du jour", day, limits.daily_loss_pct),
+            ("Perte de la semaine", week, limits.weekly_loss_pct),
+        ):
+            limit = float(capital) * float(pct) / 100
+            loss = max(0.0, -float(perf.net_profit))
+            gauges.append(_gauge(name, loss, limit, "money", f"{loss:.2f} € sur {limit:.2f} €"))
+        if account.drawdown is not None and account.peak_equity:
+            used = abs(float(account.drawdown)) / float(account.peak_equity) * 100
+            cap = float(limits.max_drawdown_pct)
+            gauges.append(_gauge("Drawdown", used, cap, "pct", f"{used:.2f} % sur {cap:.2f} %"))
+    opened = sum(e.open_positions for e in view.exposures)
+    gauges.append(
+        _gauge(
+            "Positions ouvertes",
+            float(opened),
+            float(limits.max_open_positions),
+            "int",
+            f"{opened} sur {limits.max_open_positions}",
+        )
+    )
+    gauges.append(
+        _gauge(
+            "Trades du jour",
+            float(day.trades),
+            float(limits.max_trades_per_day),
+            "int",
+            f"{day.trades} sur {limits.max_trades_per_day}",
+        )
+    )
+    return gauges
+
+
+def positions_chart(positions: Sequence[OpenPositionView]) -> dict[str, Any]:
+    """Notional per market and side for the open positions (an order of magnitude)."""
+    per: dict[str, dict[str, float]] = defaultdict(lambda: {"long": 0.0, "short": 0.0})
+    for position in positions:
+        side = "long" if position.direction is Direction.BUY else "short"
+        per[position.symbol][side] += float(position.notional)
+    return {
+        "exposure": [
+            {"name": market, "long": sides["long"], "short": sides["short"]}
+            for market, sides in sorted(per.items())
+        ],
+        "open": [
+            {
+                "name": f"{p.symbol} {display.direction_label(p.direction)}",
+                "value": float(p.notional),
+                "sub": f"vol {float(p.volume):g} @ {p.open_price:g}",
+            }
+            for p in positions
+        ],
+    }
+
+
+def strategies_chart(rows: Sequence[StrategyView]) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": view.ref,
+            "net": float(view.performance.net_profit),
+            "pf": _f(view.performance.profit_factor),
+            "wr": _f(view.performance.win_rate),
+            "trades": view.performance.trades,
+        }
+        for view in rows
+        if view.performance.trades
+    ]
+
+
+def scalping_chart(view: ScalpingView) -> dict[str, list[dict[str, Any]]]:
+    def items(buckets: Iterable[Any]) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": b.key,
+                "value": float(b.net_profit),
+                "n": len(b.trades),
+                "wr": _f(b.win_rate),
+            }
+            for b in buckets
+        ]
+
+    sets = {
+        "Heure": items(view.hours.rows),
+        "Session": items(view.sessions),
+        "Jour": items(view.weekdays),
+        "Spread": items(view.spreads),
+        "Durée": items(view.durations),
+        "Taille": items(view.sizes),
+    }
+    return {name: values for name, values in sets.items() if values}
+
+
+def ai_chart(calls: AiCallHealth, lab: AiLabListing) -> dict[str, Any]:
+    def count(rows: Iterable[Any], key: Callable[[Any], str]) -> list[dict[str, Any]]:
+        tally: dict[str, int] = defaultdict(int)
+        for row in rows:
+            tally[key(row)] += 1
+        return [{"name": name, "value": n} for name, n in sorted(tally.items())]
+
+    return {
+        "calls": [
+            item
+            for item in (
+                {"name": "Approuvés", "value": calls.approved, "tone": "ok"},
+                {"name": "Refusés", "value": calls.rejected, "tone": "bad"},
+                {"name": "Sans réponse", "value": calls.failed, "tone": "warn"},
+            )
+            if item["value"]
+        ],
+        "proposals": count(lab.proposals.rows, lambda r: str(r.status)),
+        "validations": count(lab.validations.rows, lambda r: "réussi" if r.passed else "échoué"),
+        "cost": float(calls.cost_eur),
+    }
+
+
+def system_chart(view: SystemView) -> dict[str, Any]:
+    return {
+        "heartbeats": [
+            {"name": g.symbol, "value": g.heartbeat_age.total_seconds(), "ok": g.online}
+            for g in view.ea
+            if g.heartbeat_age is not None
+        ],
+        "latencies": [
+            {
+                "name": latency.label,
+                "median": latency.stats.median_ms,
+                "worst": latency.stats.worst_ms,
+                "n": latency.stats.sample,
+            }
+            for latency in view.latencies
+            if latency.stats.sample
+        ],
+    }
+
+
+def replay_chart(replay: TradeReplay, context: MarketContext) -> dict[str, Any] | None:
+    """Candles with entry, stop, targets and close, for the interactive replay chart."""
+    chart = context.chart
+    if chart is None:
+        return None
+    levels: list[dict[str, Any]] = []
+    position = replay.position
+    if position is not None:
+        levels += [
+            {"name": "Entrée", "price": position.open_price, "kind": "entry"},
+            {"name": "Stop", "price": position.stop_loss, "kind": "stop"},
+        ]
+        if position.take_profit is not None:
+            levels.append({"name": "Cible", "price": position.take_profit, "kind": "target"})
+    if replay.close_price is not None:
+        levels.append({"name": "Clôture", "price": replay.close_price, "kind": "close"})
+    return {
+        "high": chart.high,
+        "low": chart.low,
+        "top": chart.plot_top,
+        "bottom": chart.plot_bottom,
+        "width": chart.width,
+        "height": chart.height,
+        "signal": int(replay.signal.generated_at.timestamp()),
+        "candles": [
+            [int(c.open_time.timestamp()), c.open, c.high, c.low, c.close] for c in context.candles
+        ],
+        "levels": levels,
+    }
 
 
 # ``HaltView.scope`` is rendered as stored; ``halted_pairs`` already returns the parsed

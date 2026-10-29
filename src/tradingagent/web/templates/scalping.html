@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon, head, fold, badge, nothing %}
 {% from "_macros.html" import pager, market_select %}
 {% block title %}Scalping{% endblock %}
 {% block content %}
@@ -9,32 +10,32 @@
   {% else %}
     <p class="muted">Aucun marché en base.</p>
   {% endif %}
-  <div><button type="submit">Filtrer</button></div>
+  <div><button type="submit">{{ icon("filter") }}Filtrer</button></div>
 </form>
 
 {% if view.trades == 0 %}
-  <div class="empty">Aucun trade clôturé pour {{ view.market or 'cette base' }}.</div>
+  <div class="empty nothing">{{ icon("inbox") }}Aucun trade clôturé pour {{ view.market or 'cette base' }}.</div>
 {% else %}
   <div class="cards">
     <div class="card">
-      <div class="label">Trades analysés</div>
+      <div class="label">{{ icon("receipt") }}Trades analysés</div>
       <div class="value" id="scalping-trades">{{ view.trades }}</div>
     </div>
     <div class="card">
-      <div class="label">Latence médiane</div>
+      <div class="label">{{ icon("timer") }}Latence médiane</div>
       <div class="value sm">
         {{ display.number(view.execution.median_latency_ms, 0) if view.execution.median_latency_ms is not none else "n/a" }} ms
       </div>
       <div class="note" title="De order_sent à filled">{{ view.execution.sample }} mesure(s)</div>
     </div>
     <div class="card">
-      <div class="label">Pire latence</div>
+      <div class="label">{{ icon("alert-triangle") }}Pire latence</div>
       <div class="value sm">
         {{ display.number(view.execution.worst_latency_ms, 0) if view.execution.worst_latency_ms is not none else "n/a" }} ms
       </div>
     </div>
     <div class="card">
-      <div class="label">Slippage moyen / max</div>
+      <div class="label">{{ icon("trending-down") }}Slippage moyen / max</div>
       <div class="value sm">{{ display.number(view.costs.average_slippage, 4) }} / {{ display.number(view.costs.max_slippage, 4) }}</div>
       <div class="note">{{ view.costs.slippage_sample }} trade(s)</div>
     </div>
@@ -44,15 +45,15 @@
 {# Chaque découpe est un tableau borné : identifiant de corps stable pour la revue visuelle,
    et la couleur du résultat vient de `format.ratio_class` — vert au-dessus de zéro, rouge en
    dessous, aucune couleur à zéro. #}
-{% macro bucket_table(title, note, buckets, table_id) %}
-<h2 title="{{ note }}">{{ title }}</h2>
+{% macro bucket_table(title, note, buckets, table_id, cls="") %}
+{% call fold("h-" ~ table_id, "bar-chart", title, (buckets | length) ~ " tranche(s)", cls, false, note) %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">{{ title }}. {{ note }}</caption>
   <thead>
     <tr>
       <th scope="col">Découpe</th><th scope="col" class="num">Trades</th><th scope="col" class="num" title="Net : commission et swap du courtier déjà déduits, jamais recalculés ici">Résultat net</th>
-      <th scope="col" class="num">Réussite</th><th scope="col" class="num">Espérance</th>
+      <th scope="col" class="num">Réussite</th><th scope="col" class="num opt">Espérance</th>
     </tr>
   </thead>
   <tbody id="{{ table_id }}">
@@ -64,7 +65,7 @@
           {{ display.money(bucket.net_profit, signed=True) }}
         </td>
         <td class="num">{{ display.percent(bucket.win_rate) }}</td>
-        <td class="num">{{ display.number(bucket.expectancy) }}</td>
+        <td class="num opt">{{ display.number(bucket.expectancy) }}</td>
       </tr>
     {% else %}
       <tr><td colspan="5" class="empty">Aucune donnée pour cette découpe.</td></tr>
@@ -72,11 +73,21 @@
   </tbody>
 </table>
 </div>
+{% endcall %}
 {% endmacro %}
 
+{% if view.trades %}
+<div class="dash">
+  <section class="mod wide" aria-labelledby="h-explore">
+    {{ head("h-explore", "bar-chart", "Où le résultat se fait") }}
+    <div class="chart is-loading" data-chart="buckets" aria-busy="true"></div>
+  </section>
+</div>
+{% endif %}
+<div class="dash">
 {{ bucket_table("Par heure (UTC)",
                 "Où la stratégie gagne et où elle perd, heure par heure.",
-                view.hours.rows, "hours-body") }}
+                view.hours.rows, "hours-body", "span-2") }}
 {{ pager(view.hours, "Pagination des découpes horaires") }}
 {{ bucket_table("Par session", "Sessions conventionnelles déduites de l'heure UTC, pas les horaires du courtier.", view.sessions, "sessions-body") }}
 {{ bucket_table("Par jour de la semaine", "Un marché crypto ouvre aussi le week-end ; l'or non.", view.weekdays, "weekdays-body") }}
@@ -84,7 +95,7 @@
 {{ bucket_table("Par durée de position", "Bandes en secondes, du plus court au plus long (0 s, 15 min, 1 h, 4 h).", view.durations, "durations-body") }}
 {{ bucket_table("Par taille", "Volume de la position, lu depuis la base.", view.sizes, "sizes-body") }}
 
-<h2>Coûts</h2>
+{% call fold("h-costs", "euro", "Coûts", "", "", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Coûts d'exécution</caption>
@@ -98,5 +109,7 @@
 </table>
 </div>
 <p class="muted">n/a : donnée absente de la base, jamais zéro.</p>
+{% endcall %}
+</div>
 
 {% endblock %}

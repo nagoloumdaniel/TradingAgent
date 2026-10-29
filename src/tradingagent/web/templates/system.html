@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon, head, fold, badge, nothing %}
 {% from "_macros.html" import pager, search_field, market_select, dot %}
 {% block title %}Système{% endblock %}
 {% block content %}
@@ -6,37 +7,72 @@
 <div class="cards">
   <div class="card">
     {% if data.database.ok %}{{ dot("ok", "Base de données joignable") }}{% else %}{{ dot("bad", "Base de données injoignable") }}{% endif %}
-    <div class="label">Base de données</div>
+    <div class="label">{{ icon("database") }}Base de données</div>
     <div class="value sm">{% if data.database.ok %}joignable{% else %}injoignable{% endif %}</div>
     <div class="note">{{ data.database.dialect }}</div></div>
   <div class="card" title="Lecture pessimiste de halt_commands">
     {% if data.halt.halted %}{{ dot("bad", "Trading arrêté") }}{% else %}{{ dot("ok", "Aucun arrêt en cours") }}{% endif %}
-    <div class="label">Arrêt en cours</div>
+    <div class="label">{{ icon("ban") }}Arrêt en cours</div>
     <div class="value sm">{% if data.halt.halted %}oui{% else %}non{% endif %}</div></div>
-  <div class="card" title="Positions, bougies et télémétrie confondues"><div class="label">Marchés connus</div><div class="value">{{ data.markets | length }}</div></div>
-  <div class="card" title="Avertissements et critiques"><div class="label">Erreurs récentes</div><div class="value">{{ data.errors.total }}</div></div>
+  <div class="card" title="Positions, bougies et télémétrie confondues"><div class="label">{{ icon("layers") }}Marchés connus</div><div class="value">{{ data.markets | length }}</div></div>
+  <div class="card" title="Avertissements et critiques"><div class="label">{{ icon("alert-triangle") }}Erreurs récentes</div><div class="value">{{ data.errors.total }}</div></div>
 </div>
 
 {% if not data.database.ok %}
-  <div class="banner bad">Base injoignable : {{ data.database.error }}</div>
+  <div class="banner bad">{{ icon("x-circle") }}Base injoignable : {{ data.database.error }}</div>
 {% endif %}
 
 {# Une seule recherche et un seul marché pour les deux listes de cette page. Les sondes
    au-dessus décrivent tous les marchés — une page de santé qui en cacherait un cacherait la
    panne qu'elle existe pour montrer — tandis que la télémétrie et les erreurs répondent au
    marché choisi. #}
+{% set guardians = {} %}
+{% for guardian in data.ea %}{% set _ = guardians.update({guardian.symbol: guardian}) %}{% endfor %}
+<div class="dash">
+  <section class="mod" aria-labelledby="h-pills">
+    {{ head("h-pills", "radio", "Santé des marchés", (data.markets | length) ~ " marché(s)") }}
+    <ul class="health">
+      {% for market in data.markets %}
+        {% set guardian = guardians.get(market.symbol) %}
+        <li>
+          <span>{{ market.symbol }}</span>
+          <span class="dot-line">EA
+            {% if guardian is none %}{{ dot("idle", "EA : aucun rapport pour " ~ market.symbol) }}
+            {% elif guardian.online %}{{ dot("ok", "EA en ligne, battement il y a " ~ display.duration(guardian.heartbeat_age)) }}
+            {% else %}{{ dot("bad", "EA hors ligne") }}{% endif %}
+          </span>
+          <span class="dot-line">Données
+            {% if market.last_candle_at is none %}{{ dot("bad", "Aucune donnée") }}
+            {% elif market.candle_age is not none and market.candle_age.total_seconds() > 86400 %}{{ dot("warn", "Données anciennes : bougie il y a " ~ display.duration(market.candle_age)) }}
+            {% else %}{{ dot("ok", "Données récentes : bougie il y a " ~ display.duration(market.candle_age)) }}{% endif %}
+          </span>
+        </li>
+      {% else %}
+        <li class="empty">Aucun marché connu.</li>
+      {% endfor %}
+    </ul>
+  </section>
+  <section class="mod" aria-labelledby="h-hb">
+    {{ head("h-hb", "activity", "Battements des EA") }}
+    <div class="chart is-loading" data-chart="heartbeats" aria-busy="true"></div>
+  </section>
+  <section class="mod" aria-labelledby="h-lat">
+    {{ head("h-lat", "timer", "Latences (ms)") }}
+    <div class="chart is-loading" data-chart="latencies" aria-busy="true"></div>
+  </section>
+</div>
+
 <form class="filters" method="get" action="/system" role="search">
   {% if markets %}{{ market_select(data.telemetry, markets) }}{% endif %}
   {{ search_field("system-q", "Recherche", data.telemetry.query,
                   "type, marché, détail, gravité") }}
-  <div><button type="submit">Rechercher</button></div>
+  <div><button type="submit">{{ icon("search") }}Rechercher</button></div>
   {% if data.telemetry.query %}
     <div><a href="/system?market={{ data.telemetry.market }}">Réinitialiser</a></div>
   {% endif %}
 </form>
 
-<h2>Marché, données et EA</h2>
-<h3>Gardiens EA</h3>
+{% call fold("h-ea", "shield", "Gardiens EA", (data.ea | length) ~ " EA", "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Gardiens EA, lus dans les rapports JSON du pont : un rapport absent ou illisible vaut hors ligne</caption>
@@ -47,7 +83,7 @@
     {% for guardian in data.ea %}
       <tr>
         <td>{{ guardian.symbol }}</td>
-        <td>{% if guardian.online %}<span class="badge ok">EN LIGNE</span>{% else %}<span class="badge bad">HORS LIGNE</span>{% endif %}</td>
+        <td>{% if guardian.online %}{{ badge("ok", "EN LIGNE") }}{% else %}{{ badge("bad", "HORS LIGNE") }}{% endif %}</td>
         <td>{{ display.precise(guardian.heartbeat_at) }}</td>
         <td>{{ display.duration(guardian.heartbeat_age) }}</td>
         <td>{{ guardian.ea_version or '-' }}</td>
@@ -55,8 +91,8 @@
         <td>{{ guardian.applied_revision if guardian.readable else '-' }}</td>
         <td>{{ 'oui' if guardian.connected else 'non' }}</td>
         <td>{{ 'oui' if guardian.trade_allowed else 'non' }}</td>
-        <td>{% if guardian.kill_switch %}<span class="badge bad">actif</span>{% else %}non{% endif %}</td>
-        <td>{% if guardian.local_halt %}<span class="badge warn">actif</span>{% else %}non{% endif %}</td>
+        <td>{% if guardian.kill_switch %}{{ badge("bad", "actif") }}{% else %}non{% endif %}</td>
+        <td>{% if guardian.local_halt %}{{ badge("warn", "actif") }}{% else %}non{% endif %}</td>
         <td>{{ guardian.halt_reason or '-' }}</td>
         <td class="num">{{ guardian.remote_positions }}</td>
       </tr>
@@ -71,7 +107,8 @@
 {# Le journal ne vient pas de la base mais des rapports JSON : il ne peut donc pas être
    compté et paginé en SQL. Il est borné — les lignes les plus récentes, et le total lu est
    écrit à côté, parce qu'une troncature silencieuse serait le défaut qu'on remplace. #}
-<h3>Journal des EA (derniers événements)</h3>
+{% endcall %}
+{% call fold("h-journal", "list", "Journal des EA", data.journal | length, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only"><span id="ea-journal-count">{{ data.journal | length }} sur {{ data.journal_total }}</span> événement(s) lu(s) dans les rapports, les plus récents d'abord</caption>
@@ -93,8 +130,8 @@
   </tbody>
 </table>
 </div>
-
-<h3>Données de marché</h3>
+{% endcall %}
+{% call fold("h-data", "database", "Données de marché", (data.markets | length) ~ " marché(s)", "", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Dernière bougie stockée et dernier événement d'exécution par marché</caption>
@@ -109,9 +146,9 @@
         <td>{{ display.precise(market.last_event_at) }}</td>
         <td>{{ market.last_event_kind.value if market.last_event_kind else '-' }}</td>
         <td>
-          {% if market.last_candle_at is none %}<span class="badge bad">aucune donnée</span>
-          {% elif market.candle_age is not none and market.candle_age.total_seconds() > 86400 %}<span class="badge warn">données anciennes</span>
-          {% else %}<span class="badge ok">données récentes</span>{% endif %}
+          {% if market.last_candle_at is none %}{{ badge("bad", "aucune donnée") }}
+          {% elif market.candle_age is not none and market.candle_age.total_seconds() > 86400 %}{{ badge("warn", "données anciennes") }}
+          {% else %}{{ badge("ok", "données récentes") }}{% endif %}
         </td>
       </tr>
     {% else %}
@@ -120,8 +157,8 @@
   </tbody>
 </table>
 </div>
-
-<h2 title="Mesurées entre deux sauts consécutifs d'un même ordre, à partir des événements stockés">Latences d'exécution</h2>
+{% endcall %}
+{% call fold("h-latt", "timer", "Latences d'exécution", (data.latencies | length) ~ " saut(s)", "", false, "Mesurées entre deux sauts consécutifs d'un même ordre, à partir des événements stockés") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Latences d'exécution par saut</caption>
@@ -140,8 +177,8 @@
   </tbody>
 </table>
 </div>
-
-<h2>Dernières erreurs et avertissements</h2>
+{% endcall %}
+{% call fold("h-errors", "alert-triangle", "Dernières erreurs et avertissements", data.errors.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Erreurs et avertissements, marché {{ data.errors.market or 'tous' }} : {{ data.errors.total }}, {{ data.errors.showing }}. Les événements sans marché concernent le compte entier et restent affichés.</caption>
@@ -151,7 +188,7 @@
       <tr>
         <td>{{ display.precise(event.occurred_at) }}</td>
         <td>{{ event.symbol or 'tous marchés' }}</td>
-        <td><span class="badge {{ display.severity_class(event.severity) }}">{{ display.severity_label(event.severity) }}</span></td>
+        <td>{{ badge(display.severity_class(event.severity), display.severity_label(event.severity)) }}</td>
         <td>{{ event.kind }}</td>
         <td>{{ event.detail | describe }}</td>
       </tr>
@@ -162,8 +199,8 @@
 </table>
 </div>
 {{ pager(data.errors, "Pagination des erreurs") }}
-
-<h2>Télémétrie d'exécution récente</h2>
+{% endcall %}
+{% call fold("h-tele", "activity", "Télémétrie d'exécution récente", data.telemetry.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Télémétrie d'exécution, marché {{ data.telemetry.market or 'tous' }} : {{ data.telemetry.total }} événement(s), {{ data.telemetry.showing }}</caption>
@@ -183,5 +220,5 @@
 </table>
 </div>
 {{ pager(data.telemetry, "Pagination de la télémétrie") }}
-
+{% endcall %}
 {% endblock %}

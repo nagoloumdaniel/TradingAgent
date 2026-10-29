@@ -93,7 +93,7 @@ def test_overview_and_risk_raise_the_kill_switch(halted_ea_client: TestClient) -
     assert "Garde EA en arrêt" in overview
     assert "perte journalière dépassée" in overview
     risk = halted_ea_client.get("/risk").text
-    assert "Interrupteur d'urgence des EA" in risk
+    assert "Interrupteur d&#39;urgence des EA" in risk
     assert "perte journalière dépassée" in risk
 
 

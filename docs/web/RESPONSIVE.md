@@ -69,3 +69,7 @@ uv run --with playwright python tests/web/browser_audit.py http://127.0.0.1:8799
 `browser_audit.py` (Chromium headless, hors suite pytest) contrôle 11 pages à 360, 768, 1280 et
 1920 px (thème clair par défaut ; ajouter `?theme=dark` pour le sombre) : pas de défilement horizontal, cibles ≥ 44 px sous 1280 px, aucune erreur console,
 tableaux empilés sur téléphone ; il enregistre une capture par page.
+
+## Longueur sur téléphone (2026-10-29)
+
+Modules repliables (`details.fold`, fermés par défaut sous 768 px), cartes de tableau à 4 valeurs avec détail au toucher, « Voir tout (n) » au-delà de 4 lignes, bande KPI sur 2 colonnes, mini-résumé collant. `browser_audit.py` imprime la hauteur de la Vue d'ensemble à 390 px et échoue au-delà de 3 500 px.

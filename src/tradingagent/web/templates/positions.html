@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon, head, fold, badge, nothing %}
 {% from "_macros.html" import pager, market_select %}
 {% block title %}Positions{% endblock %}
 {% block content %}
@@ -10,14 +11,25 @@
       <span class="dot" data-state="idle" aria-hidden="true"></span>
       <span class="sr-only" id="stream-text">Flux : connexion…</span>
     </span>
-    <div class="label">Positions ouvertes</div>
+    <div class="label">{{ icon("layers") }}Positions ouvertes</div>
     <div class="value" id="open-count">{{ open_count }}</div>
     <div class="meta" title="Dernière mise à jour du flux (UTC)"><span id="positions-at">{{ display.precise(at) }}</span> UTC</div>
   </div>
   <div class="card" title="Positions de l'historique pour ce marché, ouvertes et clôturées">
-    <div class="label">Historique {{ positions.market }}</div>
+    <div class="label">{{ icon("clock") }}Historique {{ positions.market }}</div>
     <div class="value">{{ positions.total }}</div>
   </div>
+</div>
+
+<div class="dash">
+  <section class="mod" aria-labelledby="h-expo">
+    {{ head("h-expo", "pie", "Exposition par marché et sens") }}
+    <div class="chart is-loading" data-chart="exposure" aria-busy="true"></div>
+  </section>
+  <section class="mod span-2" aria-labelledby="h-open-n">
+    {{ head("h-open-n", "layers", "Notionnel par position ouverte") }}
+    <div class="chart is-loading" data-chart="hbars" data-key="open" data-fmt="money" aria-busy="true"></div>
+  </section>
 </div>
 
 {# Sans JavaScript, ce formulaire est le seul chemin vers le filtrage : pas de menu à
@@ -30,7 +42,7 @@
            placeholder="symbole, sens, mode, ticket"
            autocomplete="off" spellcheck="false">
   </div>
-  <div><button type="submit">Rechercher</button></div>
+  <div><button type="submit">{{ icon("search") }}Rechercher</button></div>
   {% if positions.query %}<div><a class="action" href="/positions?market={{ positions.market }}">Réinitialiser</a></div>{% endif %}
 </form>
 
@@ -58,8 +70,8 @@
 
 {{ pager(positions, "Pagination des positions") }}
 
-<h2>Alertes</h2>
-<div class="table-wrap">
+{% call fold("h-alerts", "alert-triangle", "Alertes", alerts | length, "", false, "") %}
+<div class="table-wrap" data-nolimit>
   <table>
     <caption class="sr-only">Alertes d'avertissement ou critiques, poussées par le flux</caption>
     <thead>
@@ -69,7 +81,7 @@
       {% for alert in alerts %}
         <tr>
           <td class="mono">{{ display.precise(alert.occurred_at) }}</td>
-          <td><span class="badge {{ display.severity_class(alert.severity) }}">{{ display.severity_label(alert.severity) }}</span></td>
+          <td>{{ badge(display.severity_class(alert.severity), display.severity_label(alert.severity)) }}</td>
           <td class="mono">{{ alert.kind }}</td>
           <td class="wrap">{{ alert.detail | describe }}</td>
         </tr>
@@ -79,7 +91,7 @@
     </tbody>
   </table>
 </div>
-
+{% endcall %}
 <script>
 (function () {
   "use strict";

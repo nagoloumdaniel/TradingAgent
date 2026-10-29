@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon, head, fold, badge, nothing %}
 {% block title %}{% if replay %}Replay du trade #{{ replay.signal_id }}{% else %}Trade inconnu{% endif %}{% endblock %}
 {% block heading %}{% if replay %}<h1 class="page-title">Replay du trade #{{ replay.signal_id }}</h1>{% endif %}{% endblock %}
 {% block content %}
@@ -33,7 +34,7 @@
 </p>
 
 <div class="cards">
-  <div class="card"><div class="label">Résultat</div>
+  <div class="card"><div class="label">{{ icon("euro") }}Résultat</div>
     {% if replay.trade %}
       <div class="value {% if replay.trade.pnl_eur < 0 %}neg{% elif replay.trade.pnl_eur > 0 %}pos{% endif %}">{{ display.money(replay.trade.pnl_eur, signed=True) }}</div>
       <div class="note">risque {{ display.money(replay.trade.risk_eur) }}</div>
@@ -64,7 +65,7 @@
   </div>
 </div>
 
-<h2>Pourquoi ce trade ?</h2>
+{% call fold("h-why", "target", "Pourquoi ce trade ?", "", "", true, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Signal, risque, ordre et sortie en une lecture</caption>
@@ -95,8 +96,8 @@
   </tbody>
 </table>
 </div>
-
-<h2>Version de la stratégie</h2>
+{% endcall %}
+{% call fold("h-version", "flask", "Version de la stratégie", replay.strategy.ref, "", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Version de la stratégie qui a exécuté (§27)</caption>
@@ -130,8 +131,8 @@
   <h3>Paramètres au registre</h3>
   <pre>{{ replay.strategy.parameters | describe }}</pre>
 {% endif %}
-
-<h2 title="Étapes enregistrées, ordonnées par horodatage UTC. Rien n'est déduit.">Chronologie</h2>
+{% endcall %}
+{% call fold("h-timeline", "clock", "Chronologie", (timeline | length) ~ " étape(s)", "", false, "Étapes enregistrées, ordonnées par horodatage UTC. Rien n'est déduit.") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Chronologie du trade</caption>
@@ -149,8 +150,8 @@
   </tbody>
 </table>
 </div>
-
-<h2>Signal d'origine</h2>
+{% endcall %}
+{% call fold("h-signal", "zap", "Signal d'origine", replay.signal.symbol, "", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Signal d'origine</caption>
@@ -173,8 +174,8 @@
   </tbody>
 </table>
 </div>
-
-<h2 title="Bougies stockées autour du signal, régime de volatilité déduit de l'ATR enregistré, session UTC. Ce que la base ne contient pas s'affiche {{ display.NA }}.">Conditions de marché</h2>
+{% endcall %}
+{% call fold("h-market", "bar-chart", "Conditions de marché", context.symbol, "", true, "") %}
 
 <div class="cards">
   <div class="card"><div class="label">Régime de volatilité</div>
@@ -272,8 +273,8 @@
   </tbody>
 </table>
 </div>
-
-<h2>Décision de risque</h2>
+{% endcall %}
+{% call fold("h-risk", "shield", "Décision de risque", (replay.risk.outcome.value if replay.risk else "n/a"), "", false, "") %}
 {% if replay.risk %}
   <p>
     <span class="badge {% if replay.risk.outcome.value == 'authorized' %}ok{% elif replay.risk.outcome.value == 'reduced' %}warn{% else %}bad{% endif %}">{{ display.risk_outcome_label(replay.risk.outcome) }}</span>
@@ -310,8 +311,8 @@
 {% else %}
   <p class="empty">Aucune décision de risque enregistrée.</p>
 {% endif %}
-
-<h2>Ordre</h2>
+{% endcall %}
+{% call fold("h-order", "receipt", "Ordre", "", "", false, "") %}
 {% if replay.order %}
   <div class="table-wrap">
   <table>
@@ -337,8 +338,8 @@
 {% else %}
   <p class="empty">Aucun ordre : le signal s'est arrêté avant l'envoi au courtier.</p>
 {% endif %}
-
-<h2>Exécutions</h2>
+{% endcall %}
+{% call fold("h-exec", "check-circle", "Exécutions", replay.executions | length, "", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Exécutions de l'ordre</caption>
@@ -360,8 +361,8 @@
   </tbody>
 </table>
 </div>
-
-<h2>Position</h2>
+{% endcall %}
+{% call fold("h-pos", "layers", "Position", "", "", false, "") %}
 {% if replay.position %}
   <div class="table-wrap">
   <table>
@@ -381,8 +382,8 @@
 {% else %}
   <p class="empty">Aucune position : le signal n'a pas été exécuté.</p>
 {% endif %}
-
-<h2>Clôture</h2>
+{% endcall %}
+{% call fold("h-close", "ban", "Clôture", "", "", false, "") %}
 {% if replay.trade %}
   <div class="table-wrap">
   <table>
@@ -402,8 +403,8 @@
 {% else %}
   <p class="empty">Aucune clôture : la position est ouverte ou n'a jamais existé.</p>
 {% endif %}
-
-<h2 title="Latences mesurées et enregistrées par le runtime (elapsed_ms)">Événements d'exécution</h2>
+{% endcall %}
+{% call fold("h-events", "activity", "Événements d'exécution", replay.events | length, "", false, "Latences mesurées et enregistrées par le runtime (elapsed_ms)") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Événements d'exécution</caption>
@@ -422,8 +423,8 @@
   </tbody>
 </table>
 </div>
-
-<h2>Analyse IA rattachée</h2>
+{% endcall %}
+{% call fold("h-ai", "bot", "Analyse IA rattachée", replay.analyses | length, "", false, "") %}
 {% for analysis in replay.analyses %}
   <div class="table-wrap">
   <table>
@@ -444,6 +445,6 @@
 {% if replay.analyses %}
   <p class="muted">L'IA ne peut ni créer un signal, ni augmenter une taille, ni desserrer un stop (C-002).</p>
 {% endif %}
-
+{% endcall %}
 {% endif %}
 {% endblock %}

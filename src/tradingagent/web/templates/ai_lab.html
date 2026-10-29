@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon, head, fold, badge, nothing %}
 {% from "_macros.html" import pager, market_select, search_field %}
 {% block title %}Labo IA{% endblock %}
 {% block content %}
 
-<p class="muted">L'IA observe et propose ; elle ne décide jamais.</p>
+<p class="muted lead">{{ icon("info") }}L'IA observe et propose ; elle ne décide jamais.</p>
 
 {# Un seul marché pour les quatre listes, et une seule recherche : quatre formulaires
    auraient demandé de comprendre lequel filtre quoi. #}
@@ -15,55 +16,70 @@
   {% endif %}
   {{ search_field("ai-lab-q", "Recherche", lab.analyses.query,
                   "type, marché, référence, modèle, hypothèse, portail") }}
-  <div><button type="submit">Rechercher</button></div>
+  <div><button type="submit">{{ icon("search") }}Rechercher</button></div>
   {% if lab.analyses.query %}
     <div><a href="/ai-lab?market={{ lab.analyses.market }}">Réinitialiser</a></div>
   {% endif %}
 </form>
 
 <div class="cards">
-  <div class="card" title="Observations enregistrées"><div class="label">Analyses</div><div class="value">{{ lab.analyses.total }}</div></div>
-  <div class="card" title="Hypothèses soumises"><div class="label">Propositions</div><div class="value">{{ lab.proposals.total }}</div></div>
-  <div class="card" title="Portails évalués"><div class="label">Validations</div><div class="value">{{ lab.validations.total }}</div></div>
-  <div class="card" title="Exécutions enregistrées"><div class="label">Backtests</div><div class="value">{{ lab.backtests.total }}</div></div>
+  <div class="card" title="Observations enregistrées"><div class="label">{{ icon("list") }}Analyses</div><div class="value">{{ lab.analyses.total }}</div></div>
+  <div class="card" title="Hypothèses soumises"><div class="label">{{ icon("flask") }}Propositions</div><div class="value">{{ lab.proposals.total }}</div></div>
+  <div class="card" title="Portails évalués"><div class="label">{{ icon("check-circle") }}Validations</div><div class="value">{{ lab.validations.total }}</div></div>
+  <div class="card" title="Exécutions enregistrées"><div class="label">{{ icon("activity") }}Backtests</div><div class="value">{{ lab.backtests.total }}</div></div>
 </div>
 
 {# Ce que l'IA a produit ne dit pas si elle a répondu. Le 2026-10-10, les quatre compteurs
    ci-dessus étaient à zéro pendant que `ai_calls` portait 22 appels, tous refusés par le
    fournisseur (« 402 Insufficient Balance ») : une table vide se lisait comme une semaine
    calme. Cette section lit le journal des appels, et rien d'autre. #}
-<h2 title="Lu dans ai_calls, la table que la couche IA écrit à chaque appel">Appels au modèle</h2>
+{{ head("h-calls", "cpu", "Appels au modèle", ai_calls.calls) }}
 <p class="muted">Tous marchés confondus.</p>
 
 {% if ai_calls.never_called %}
-  <div class="banner warn">Aucun appel au modèle n'a été enregistré : la couche IA n'a rien évalué.</div>
+  <div class="banner warn">{{ icon("alert-triangle") }}Aucun appel au modèle n'a été enregistré : la couche IA n'a rien évalué.</div>
 {% elif ai_calls.failed %}
-  <div class="banner bad">
+  <div class="banner bad">{{ icon("x-circle") }}
     {{ ai_calls.failed }} appel(s) sur {{ ai_calls.calls }} n'ont pas abouti : la décision est restée aux règles déterministes.
     {% if 'shadow' in ai_calls.filters %}En mode <code>shadow</code>, un verdict ne bloque jamais le signal.{% endif %}
     Dernier message du fournisseur : <code>{{ ai_calls.failures[0].error }}</code>
   </div>
 {% else %}
-  <div class="banner ok">{{ ai_calls.calls }} appel(s), toutes les réponses exploitables.</div>
+  <div class="banner ok">{{ icon("check-circle") }}{{ ai_calls.calls }} appel(s), toutes les réponses exploitables.</div>
 {% endif %}
 
 <div class="cards">
-  <div class="card"><div class="label">Appels</div><div class="value">{{ ai_calls.calls }}</div>
+  <div class="card"><div class="label">{{ icon("cpu") }}Appels</div><div class="value">{{ ai_calls.calls }}</div>
 </div>
-  <div class="card"><div class="label">Réponses exploitables</div><div class="value">{{ ai_calls.answered }}</div>
+  <div class="card"><div class="label">{{ icon("check-circle") }}Réponses exploitables</div><div class="value">{{ ai_calls.answered }}</div>
     {% if ai_calls.calls and not ai_calls.answered %}<div class="note">Aucune réponse exploitable</div>{% endif %}</div>
-  <div class="card"><div class="label">Sans réponse</div><div class="value">{{ ai_calls.failed }}</div>
+  <div class="card"><div class="label">{{ icon("alert-triangle") }}Sans réponse</div><div class="value">{{ ai_calls.failed }}</div>
 </div>
-  <div class="card"><div class="label">Verdicts</div><div class="value sm">{{ ai_calls.approved }} approuvé(s) · {{ ai_calls.rejected }} refusé(s)</div>
+  <div class="card"><div class="label">{{ icon("shield") }}Verdicts</div><div class="value sm">{{ ai_calls.approved }} approuvé(s) · {{ ai_calls.rejected }} refusé(s)</div>
 </div>
-  <div class="card" title="Somme de cost_eur, appels facturés seulement"><div class="label">Coût cumulé</div><div class="value sm">{{ display.money(ai_calls.cost_eur) }}</div>
+  <div class="card" title="Somme de cost_eur, appels facturés seulement"><div class="label">{{ icon("euro") }}Coût cumulé</div><div class="value sm">{{ display.money(ai_calls.cost_eur) }}</div>
 </div>
-  <div class="card"><div class="label">Dernier appel</div><div class="value sm">{{ display.precise(ai_calls.last_called_at) if ai_calls.last_called_at else "jamais" }}</div>
+  <div class="card"><div class="label">{{ icon("clock") }}Dernier appel</div><div class="value sm">{{ display.precise(ai_calls.last_called_at) if ai_calls.last_called_at else "jamais" }}</div>
 </div>
-  <div class="card" title="Lu dans ai_calls, pas dans la configuration"><div class="label">Mode effectif</div><div class="value sm">{{ ai_calls.filters | join(', ') or "-" }}</div>
+  <div class="card" title="Lu dans ai_calls, pas dans la configuration"><div class="label">{{ icon("eye") }}Mode effectif</div><div class="value sm">{{ ai_calls.filters | join(', ') or "-" }}</div>
 </div>
-  <div class="card"><div class="label">Modèles</div><div class="value sm">{{ ai_calls.models | join(', ') or "-" }}</div>
+  <div class="card"><div class="label">{{ icon("bot") }}Modèles</div><div class="value sm">{{ ai_calls.models | join(', ') or "-" }}</div>
 </div>
+</div>
+
+<div class="dash">
+  <section class="mod" aria-labelledby="h-d-calls">
+    {{ head("h-d-calls", "pie", "Verdicts des appels") }}
+    <div class="chart is-loading" data-chart="donut" data-key="calls" data-unit="appel(s)" aria-busy="true"></div>
+  </section>
+  <section class="mod" aria-labelledby="h-d-val">
+    {{ head("h-d-val", "check-circle", "Validations (page)") }}
+    <div class="chart is-loading" data-chart="donut" data-key="validations" data-unit="validation(s)" aria-busy="true"></div>
+  </section>
+  <section class="mod" aria-labelledby="h-d-prop">
+    {{ head("h-d-prop", "flask", "Propositions par statut") }}
+    <div class="chart is-loading" data-chart="donut" data-key="proposals" data-unit="proposition(s)" aria-busy="true"></div>
+  </section>
 </div>
 
 {% if ai_calls.failed %}
@@ -87,7 +103,7 @@
 </div>
 {% endif %}
 
-<h2>Analyses</h2>
+{% call fold("h-an", "list", "Analyses", lab.analyses.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Analyses, marché {{ lab.analyses.market }} : {{ lab.analyses.showing }}</caption>
@@ -112,8 +128,8 @@
 </table>
 </div>
 {{ pager(lab.analyses, "Pagination des analyses") }}
-
-<h2>Hypothèses et propositions</h2>
+{% endcall %}
+{% call fold("h-pr", "flask", "Hypothèses et propositions", lab.proposals.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Hypothèses et propositions</caption>
@@ -127,7 +143,7 @@
         <td>{{ proposal.ref or '-' }}</td>
         <td>{{ proposal.hypothesis }}</td>
         <td>{{ proposal.proposed_change | describe }}</td>
-        <td><span class="badge {% if proposal.status == 'promoted' %}ok{% elif proposal.status == 'rejected' %}bad{% else %}warn{% endif %}">{{ proposal.status }}</span></td>
+        <td>{{ badge("ok" if proposal.status == "promoted" else ("bad" if proposal.status == "rejected" else "warn"), proposal.status) }}</td>
         <td>{{ proposal.decided_by or '-' }}</td>
         <td>{{ proposal.decision_reason or '-' }}</td>
         <td>{{ display.precise(proposal.decided_at) }}</td>
@@ -139,8 +155,8 @@
 </table>
 </div>
 {{ pager(lab.proposals, "Pagination des propositions") }}
-
-<h2>Validations</h2>
+{% endcall %}
+{% call fold("h-va", "check-circle", "Validations", lab.validations.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Validations</caption>
@@ -152,7 +168,7 @@
         <td>{{ validation.ref }}</td>
         <td>{{ validation.market }}</td>
         <td>{{ validation.stage.value }}</td>
-        <td>{% if validation.passed %}<span class="badge ok">réussi</span>{% else %}<span class="badge bad">échoué</span>{% endif %}</td>
+        <td>{% if validation.passed %}{{ badge("ok", "réussi") }}{% else %}{{ badge("bad", "échoué") }}{% endif %}</td>
         <td>{{ validation.detail | describe }}</td>
       </tr>
     {% else %}
@@ -162,8 +178,8 @@
 </table>
 </div>
 {{ pager(lab.validations, "Pagination des validations") }}
-
-<h2>Backtests enregistrés</h2>
+{% endcall %}
+{% call fold("h-bt", "activity", "Backtests enregistrés", lab.backtests.total, "wide", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Backtests enregistrés</caption>
@@ -189,5 +205,5 @@
 </table>
 </div>
 {{ pager(lab.backtests, "Pagination des backtests") }}
-
+{% endcall %}
 {% endblock %}
