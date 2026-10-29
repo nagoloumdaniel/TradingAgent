@@ -1,6 +1,15 @@
 # TradingAgent
 
-Agent autonome 24/7 de signaux de trading sur Deriv (or `frxXAUUSD` + 2 à 4 cryptos en CFD), notifiés via Telegram.
+> **Fichier de contexte pour l'assistant de code, partiellement obsolète.** Il décrivait la
+> première version du projet (signaux Deriv sans interface). Le projet a évolué : plateforme
+> XAUUSD + BTCUSD exécutée via MetaTrader 5 (compte démo), moteur de risque, registre de
+> stratégies, deux EA MQL5 et tableau de bord web. Pour l'état réel, la source de vérité est le
+> [`README.md`](README.md), puis `docs/v3/ARCHITECTURE.md` et `docs/v3/STATUS.md`. Les invariants
+> et commandes ci-dessous restent valides ; la description du périmètre (Deriv, Telegram seul)
+> ne l'est plus.
+
+Plateforme de trading algorithmique XAUUSD et BTCUSD (MetaTrader 5, Windows), en pré-production
+sur compte de démonstration. À l'origine : agent de signaux Deriv notifiés via Telegram.
 
 ## Documents de référence
 
