@@ -10,6 +10,11 @@
   {{ search_field("reports-q", "Recherche", reports.query, "période ou contenu du rapport") }}
   <div><button type="submit">{{ icon("search") }}Rechercher</button></div>
   {% if reports.query %}<div><a class="action" href="/reports">Réinitialiser</a></div>{% endif %}
+  <div class="export-group actions" role="group" aria-label="Exports">
+    <a href="/export/trades.csv">{{ icon("download") }}Trades CSV</a>
+    <a href="/export/trades.json">{{ icon("download") }}Trades JSON</a>
+    <a href="/export/performance.json">{{ icon("download") }}Performance JSON</a>
+  </div>
 </form>
 
 <div class="dash">
@@ -40,14 +45,6 @@
 {{ pager(reports, "Pagination des rapports") }}
 </section>
 
-<section class="mod" aria-labelledby="h-exports">
-{{ head("h-exports", "download", "Exports") }}
-<div class="actions">
-  <a href="/export/trades.csv">{{ icon("download") }}Trades CSV</a>
-  <a href="/export/trades.json">{{ icon("download") }}Trades JSON</a>
-  <a href="/export/performance.json">{{ icon("download") }}Performance JSON</a>
-</div>
-</section>
 </div>
 
 {% if opened %}

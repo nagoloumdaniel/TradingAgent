@@ -643,7 +643,54 @@
     draw();
   }
 
-  /* Risk gauges: used against limit, with the state said in words and a shape. */
+  /* Risk gauges: used against limit. Each kind of limit gets its own shape (arc, ring, bullet,
+     pips, steps); the state is also said in words and by an icon, never by colour alone. */
+  function gaugeVisual(g, shape, ratio, el) {
+    var pct = Math.min(100, ratio * 100);
+    var box = html("div", "gauge-viz " + shape, null, el);
+    var svg;
+    if (shape === "arc" || shape === "ring") {
+      var arc = shape === "arc";
+      svg = svgEl("svg", { viewBox: arc ? "0 0 100 58" : "0 0 100 100", "class": "gv", "aria-hidden": "true" }, box);
+      var d = arc ? "M 10 50 A 40 40 0 0 1 90 50" : "M 50 10 A 40 40 0 1 1 49.99 10";
+      svgEl("path", { d: d, "class": "gv-track", pathLength: 100 }, svg);
+      svgEl("path", { d: d, "class": "gv-fill", pathLength: 100, "stroke-dasharray": pct.toFixed(1) + " 100" }, svg);
+      [0.5, 0.8].forEach(function (t) {
+        var ang = arc ? Math.PI * (1 - t) : Math.PI * 2 * t - Math.PI / 2;
+        var dy = arc ? -Math.sin(ang) : Math.sin(ang);
+        svgEl("line", {
+          x1: (50 + Math.cos(ang) * 35).toFixed(1), y1: (50 + dy * 35).toFixed(1),
+          x2: (50 + Math.cos(ang) * 45).toFixed(1), y2: (50 + dy * 45).toFixed(1), "class": "gv-tick"
+        }, svg);
+      });
+      svgEl("text", { x: 50, y: arc ? 49 : 56, "text-anchor": "middle", "class": "gv-num" }, svg).textContent = Math.round(ratio * 100) + " %";
+    } else if (shape === "bullet") {
+      svg = svgEl("svg", { viewBox: "0 0 200 30", "class": "gv", preserveAspectRatio: "none", "aria-hidden": "true" }, box);
+      svgEl("rect", { x: 0, y: 8, width: 100, height: 14, rx: 3, "class": "gv-zone ok" }, svg);
+      svgEl("rect", { x: 100, y: 8, width: 60, height: 14, "class": "gv-zone warn" }, svg);
+      svgEl("rect", { x: 160, y: 8, width: 40, height: 14, rx: 3, "class": "gv-zone bad" }, svg);
+      svgEl("rect", { x: 0, y: 12, width: (pct * 2).toFixed(1), height: 6, rx: 3, "class": "gv-fill" }, svg);
+      var mx = clamp(pct * 2, 2, 198);
+      svgEl("path", { d: "M " + mx + " 4 L " + mx + " 26", "class": "gv-mark" }, svg);
+    } else {
+      var limit = Math.max(1, Math.round(g.limit));
+      var n = Math.min(limit, 20);
+      var filled = limit > 20 ? Math.round(Math.min(1, ratio) * n) : Math.min(n, Math.round(g.used || 0));
+      if (g.used > 0 && filled === 0) { filled = 1; }
+      if (shape === "pips") {
+        var row = html("div", "pips", null, box);
+        for (var i = 0; i < n; i++) { html("i", i < filled ? "on" : "", null, row); }
+      } else {
+        svg = svgEl("svg", { viewBox: "0 0 " + (n * 12) + " 34", "class": "gv", preserveAspectRatio: "none", "aria-hidden": "true" }, box);
+        for (var k = 0; k < n; k++) {
+          var h = 8 + (k + 1) / n * 24;
+          svgEl("rect", { x: k * 12 + 1, y: 34 - h, width: 9, height: h, rx: 2, "class": "gv-step" + (k < filled ? " on" : "") }, svg);
+        }
+      }
+    }
+    return box;
+  }
+
   function gaugesChart(box) {
     var items = (DATA.gauges || []).filter(function (g) { return g.limit; });
     if (!items.length) {
@@ -653,20 +700,24 @@
     ready(box);
     var wrap = html("div", "gauges", null, box);
     wrap.setAttribute("role", "list");
+    var seen = { money: 0, pct: 0, int: 0 };
+    var kinds = { money: ["arc", "ring"], pct: ["bullet"], int: ["pips", "steps"] };
     items.forEach(function (g) {
       var ratio = g.ratio == null ? 0 : g.ratio;
       var state = ratio >= 0.8 ? "bad" : (ratio >= 0.5 ? "warn" : "ok");
       var el = html("div", "gauge " + state, null, wrap);
       el.setAttribute("role", "listitem");
+      var list = kinds[g.kind] || kinds.int;
+      var shape = list[(seen[g.kind] || 0) % list.length];
+      seen[g.kind] = (seen[g.kind] || 0) + 1;
       var top = html("div", "gauge-top", null, el);
       html("strong", null, g.name, top);
       html("span", null, g.text, top);
-      var bar = html("div", "gauge-bar", null, el);
-      bar.setAttribute("role", "meter");
-      bar.setAttribute("aria-label", g.name + " : " + g.text);
-      bar.setAttribute("aria-valuemin", "0"); bar.setAttribute("aria-valuemax", "100");
-      bar.setAttribute("aria-valuenow", String(Math.min(100, Math.round(ratio * 100))));
-      html("i", null, null, bar).style.width = Math.min(100, ratio * 100) + "%";
+      var viz = gaugeVisual(g, shape, ratio, el);
+      viz.setAttribute("role", "meter");
+      viz.setAttribute("aria-label", g.name + " : " + g.text);
+      viz.setAttribute("aria-valuemin", "0"); viz.setAttribute("aria-valuemax", "100");
+      viz.setAttribute("aria-valuenow", String(Math.min(100, Math.round(ratio * 100))));
       var st = html("div", "gauge-state", null, el);
       var glyph = state === "bad" ? "x-circle" : (state === "warn" ? "alert-triangle" : "check-circle");
       var svg = svgEl("svg", { "class": "icon", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "1.75", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" }, st);

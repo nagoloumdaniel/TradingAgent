@@ -615,10 +615,14 @@ button[type="submit"]:hover { background: var(--accent); filter: brightness(0.92
 }
 .filters input[type="search"]::placeholder { color: var(--faint); }
 .filters input[type="search"]:hover { border-color: var(--accent-line); }
+.filters .export-group { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.filters .export-group a { display: inline-flex; align-items: center; gap: 7px; }
 .filters a { display: inline-flex; align-items: center; min-height: var(--touch); }
 @media (max-width: 559px) {
   .filters .field, .filters > div:has(button), .filters .custom-select { width: 100%; flex: 1 1 100%; }
   .filters button[type="submit"] { width: 100%; }
+  .filters .export-group { width: 100%; margin-left: 0; }
+  .filters .export-group a { flex: 1 1 auto; justify-content: center; }
 }
 
 .pager { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 8px; }
@@ -750,7 +754,9 @@ h2 { margin: 20px 0 8px; }
   background: none; border: 0; border-radius: 0; box-shadow: none; margin: 0;
   -webkit-backdrop-filter: none; backdrop-filter: none;
 }
-.mod .table-wrap { margin: 0 -14px -14px; }
+.mod .table-wrap { margin: 0 -14px; }
+.mod .table-wrap + .pager, .mod .table-wrap + .show-all { margin-top: 12px; }
+.mod .pager, .fold-body .pager { padding-top: 2px; }
 .mod thead th { background: none; }
 .mod thead th:first-child, .mod tbody td:first-child { padding-left: 14px; }
 .mod tbody td, .mod thead th { padding-top: 7px; padding-bottom: 7px; }
@@ -913,7 +919,7 @@ footer { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; }
   .is-stack tbody td.num { align-items: flex-start; }
   .is-stack tbody td .copy { margin-left: 0; }
   .mod { padding: 10px 12px 12px; }
-  .mod .table-wrap { margin: 0 -12px -12px; }
+  .mod .table-wrap { margin: 0 -12px; }
   .mod .table-wrap.is-stack tbody tr { margin: 0 12px 8px; }
   .chart-host svg { cursor: default; }
 }
@@ -1008,13 +1014,13 @@ details.fold[open] > summary > .icon:last-child { transform: rotate(180deg); }
 details.fold > summary:hover { background: var(--glass-hover); }
 details.fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .fold-body { padding: 2px 14px 14px; }
-.fold-body > .table-wrap { margin: 0 -14px -14px; }
+.fold-body > .table-wrap { margin: 0 -14px; }
 .fold-body .pager { margin: 12px 0 0; }
 main > details.fold, main > .mod { margin-bottom: 12px; }
 @media (max-width: 767px) {
   details.fold > summary { padding: 0 12px; }
   .fold-body { padding: 2px 12px 12px; }
-  .fold-body > .table-wrap { margin: 0 -12px -12px; }
+  .fold-body > .table-wrap { margin: 0 -12px; }
 }
 
 /* compact tables on phones : first columns visible, the rest on tap, long lists capped */
@@ -1102,10 +1108,6 @@ main > details.fold, main > .mod { margin-bottom: 12px; }
 .gauge-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
 .gauge-top strong { font-weight: 550; }
 .gauge-top span { color: var(--muted); font: 450 12.5px var(--font-mono); }
-.gauge-bar { position: relative; height: 10px; border-radius: 999px; background: var(--line-strong); overflow: hidden; }
-.gauge-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--text); opacity: 0.85; transition: width 300ms var(--ease-out); }
-.gauge.warn .gauge-bar i { background: var(--warn); opacity: 1; }
-.gauge.bad .gauge-bar i { background: var(--down); opacity: 1; }
 .gauge-state { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12.5px; }
 .gauge-state .icon { width: 14px; height: 14px; }
 .gauge.warn .gauge-state { color: var(--warn); }
@@ -1135,7 +1137,33 @@ main > details.fold, main > .mod { margin-bottom: 12px; }
 /* fill the module: gauges and charts spread over the height the row gives them */
 .dash > .mod > .chart { display: flex; flex-direction: column; justify-content: center; }
 .dash > .mod > .chart > .gauges { flex: 1 1 auto; align-content: space-evenly; row-gap: 18px; }
-.gauge-bar { height: 12px; }
+.gauge-viz { display: grid; place-items: center; min-height: 64px; padding: 4px 0; }
+.gv { display: block; width: 100%; overflow: visible; }
+.gauge-viz.arc .gv { max-width: 9.5rem; }
+.gauge-viz.ring .gv { max-width: 6.5rem; }
+.gauge-viz.bullet .gv { height: 34px; }
+.gauge-viz.steps .gv { height: 40px; max-width: 12rem; }
+.gv-track { fill: none; stroke: var(--line-strong); stroke-width: 9; stroke-linecap: round; }
+.gv-fill { fill: none; stroke: var(--text); stroke-width: 9; stroke-linecap: round; transition: stroke-dasharray 400ms var(--ease-out); }
+rect.gv-fill { fill: var(--text); stroke: none; }
+.gv-tick { stroke: var(--surface); stroke-width: 1.6; }
+.gv-num { fill: var(--text); font: 600 16px var(--font-mono); font-variant-numeric: tabular-nums; }
+.gv-zone { opacity: 0.22; fill: var(--text); }
+.gv-zone.warn { fill: var(--warn); opacity: 0.4; }
+.gv-zone.bad { fill: var(--down); opacity: 0.4; }
+.gv-mark { stroke: var(--text); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.gv-step { fill: var(--line-strong); transition: fill 200ms var(--ease-out); }
+.gv-step.on { fill: var(--text); }
+.pips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.pips i { width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box; border: 2px solid var(--line-strong); }
+.pips i.on { background: var(--text); border-color: var(--text); }
+.gauge.warn path.gv-fill, .gauge.warn .gv-mark { stroke: var(--warn); }
+.gauge.warn rect.gv-fill, .gauge.warn .gv-step.on, .gauge.warn .pips i.on { fill: var(--warn); background: var(--warn); border-color: var(--warn); }
+.gauge.bad path.gv-fill, .gauge.bad .gv-mark { stroke: var(--down); }
+.gauge.bad rect.gv-fill, .gauge.bad .gv-step.on, .gauge.bad .pips i.on { fill: var(--down); background: var(--down); border-color: var(--down); }
+.gauge.warn .gv-num { fill: var(--warn); }
+.gauge.bad .gv-num { fill: var(--down); }
+@media (prefers-reduced-motion: reduce) { .gv-fill, .gv-step { transition: none; } }
 table.tight th, table.tight td { padding-left: 8px; padding-right: 8px; white-space: normal; }
 table.tight th:first-child, table.tight td:first-child { padding-left: 14px; }
 table.tight { font-size: 12.5px; } table.tight td.num, table.tight th.num { padding-left: 6px; padding-right: 10px; }
