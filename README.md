@@ -7,7 +7,7 @@
 [![CI](https://github.com/nagoloumdaniel/TradingAgent/actions/workflows/ci.yml/badge.svg)](https://github.com/nagoloumdaniel/TradingAgent/actions/workflows/ci.yml)
 [![Licence MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB.svg)
-[![Site](https://img.shields.io/badge/site-GitHub%20Pages-222.svg)](https://nagoloumdaniel.github.io/TradingAgent/)
+[![Site](https://img.shields.io/badge/site-GitHub%20Pages-222.svg)](https://nexagold.vercel.app/)
 
 ![Tableau de bord TradingAgent : solde, courbe d'équité, positions ouvertes et résultat des trades](docs/assets/dashboard.png)
 

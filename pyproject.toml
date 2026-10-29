@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://nagoloumdaniel.github.io/TradingAgent/"
+Homepage = "https://nexagold.vercel.app/"
 Repository = "https://github.com/nagoloumdaniel/TradingAgent"
 Issues = "https://github.com/nagoloumdaniel/TradingAgent/issues"
 

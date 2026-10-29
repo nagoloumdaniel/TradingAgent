@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://nagoloumdaniel.github.io/TradingAgent/sitemap.xml
+Sitemap: https://nexagold.vercel.app/sitemap.xml
