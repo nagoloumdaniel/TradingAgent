@@ -1,0 +1,14 @@
+name: Idée ou fonctionnalité
+description: Proposer une amélioration
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Besoin (quel problème cela résout)
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Proposition

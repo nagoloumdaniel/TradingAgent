@@ -654,7 +654,7 @@
       svg = svgEl("svg", { viewBox: arc ? "0 0 100 58" : "0 0 100 100", "class": "gv", "aria-hidden": "true" }, box);
       var d = arc ? "M 10 50 A 40 40 0 0 1 90 50" : "M 50 10 A 40 40 0 1 1 49.99 10";
       svgEl("path", { d: d, "class": "gv-track", pathLength: 100 }, svg);
-      svgEl("path", { d: d, "class": "gv-fill", pathLength: 100, "stroke-dasharray": pct.toFixed(1) + " 100" }, svg);
+      if (pct > 0) { svgEl("path", { d: d, "class": "gv-fill", pathLength: 100, "stroke-dasharray": pct.toFixed(1) + " 100" }, svg); }
       [0.5, 0.8].forEach(function (t) {
         var ang = arc ? Math.PI * (1 - t) : Math.PI * 2 * t - Math.PI / 2;
         var dy = arc ? -Math.sin(ang) : Math.sin(ang);

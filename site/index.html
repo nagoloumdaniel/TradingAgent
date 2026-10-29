@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0a0a0b">
+<title>TradingAgent – trading algorithmique XAUUSD et BTCUSD, open source</title>
+<meta name="description" content="Plateforme open source de trading algorithmique XAUUSD et BTCUSD : recherche de stratégies assistée par IA, backtest réaliste, validation anti-surapprentissage, exécution MetaTrader 5 protégée et dashboard de monitoring.">
+<link rel="canonical" href="https://nagoloumdaniel.github.io/TradingAgent/">
+<link rel="icon" type="image/png" href="nexagold.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TradingAgent">
+<meta property="og:title" content="TradingAgent – trading algorithmique XAUUSD et BTCUSD">
+<meta property="og:description" content="Recherche de stratégies assistée par IA, backtest, validation anti-surapprentissage, exécution MT5 protégée et monitoring web. Open source (MIT).">
+<meta property="og:url" content="https://nagoloumdaniel.github.io/TradingAgent/">
+<meta property="og:image" content="https://nagoloumdaniel.github.io/TradingAgent/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Tableau de bord TradingAgent : courbe d'équité, positions et risque">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TradingAgent – trading algorithmique XAUUSD et BTCUSD">
+<meta name="twitter:description" content="Stratégies assistées par IA, backtest, exécution MT5 protégée, monitoring web. Open source.">
+<meta name="twitter:image" content="https://nagoloumdaniel.github.io/TradingAgent/og-image.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"TradingAgent","description":"Plateforme open source de trading algorithmique XAUUSD et BTCUSD : recherche de stratégies assistée par IA, backtest, exécution MetaTrader 5 et monitoring web.","codeRepository":"https://github.com/nagoloumdaniel/TradingAgent","programmingLanguage":"Python","license":"https://opensource.org/licenses/MIT","author":{"@type":"Person","name":"Daniel Nagoloum Talla"},"inLanguage":"fr"}
+</script>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#0a0a0b;color:#f4f4f5;font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:#f4f4f5}
+main{max-width:64rem;margin:0 auto;padding:clamp(24px,6vw,64px) 20px}
+.logo{display:flex;align-items:center;gap:12px;font-weight:600}
+.logo img{width:40px;height:40px}
+h1{margin:28px 0 12px;font-size:clamp(30px,6vw,52px);line-height:1.08;letter-spacing:-.03em}
+.lead{max-width:44rem;color:#a9a9b1;font-size:1.125rem}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin:26px 0 36px}
+.cta a{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border:1px solid rgba(255,255,255,.24);border-radius:12px;text-decoration:none}
+.cta a:first-child{background:#f4f4f5;color:#0a0a0b;font-weight:600}
+.cta a:focus-visible{outline:2px solid #f4f4f5;outline-offset:2px}
+.shot{display:block;width:100%;height:auto;border:1px solid rgba(255,255,255,.09);border-radius:16px}
+ul.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));margin:36px 0;padding:0;list-style:none}
+ul.grid li{padding:16px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.03)}
+ul.grid strong{display:block;margin-bottom:4px}
+footer{margin-top:40px;color:#a9a9b1;font-size:14px}
+</style>
+</head>
+<body>
+<main>
+  <div class="logo"><img src="nexagold.png" alt="" width="40" height="40">NexaGold TradingAgent</div>
+  <h1>Trading algorithmique XAUUSD et BTCUSD, avec garde-fous.</h1>
+  <p class="lead">L'IA recherche et améliore les stratégies ; elle ne décide pas de chaque trade. Backtest réaliste, validation anti-surapprentissage, exécution MetaTrader 5 protégée par deux Expert Advisors et dashboard de monitoring en lecture seule.</p>
+  <nav class="cta" aria-label="Liens principaux">
+    <a href="https://github.com/nagoloumdaniel/TradingAgent">Voir le code sur GitHub</a>
+    <a href="https://github.com/nagoloumdaniel/TradingAgent#readme">Documentation</a>
+    <a href="https://github.com/nagoloumdaniel/TradingAgent/blob/main/DISCLAIMER.md">Avertissement sur les risques</a>
+  </nav>
+  <img class="shot" src="dashboard.png" width="1440" height="900" alt="Tableau de bord TradingAgent : solde, courbe d'équité, positions ouvertes et résultat des trades" fetchpriority="high">
+  <h2>Ce que fait le projet</h2>
+  <ul class="grid">
+    <li><strong>Recherche assistée par IA</strong>Génération et amélioration quotidienne de stratégies, jamais d'ordre direct.</li>
+    <li><strong>Backtest et validation</strong>Coûts réalistes, tests anti-surapprentissage, échelle de promotion par stratégie.</li>
+    <li><strong>Exécution MT5 protégée</strong>Deux EA MQL5, arrêt local si le backend se tait, arrêt d'urgence côté serveur.</li>
+    <li><strong>Risque en premier</strong>Limites de perte jour/semaine, drawdown, positions, chaque refus persisté avec son motif.</li>
+    <li><strong>Monitoring web</strong>Dashboard dense et interactif, en lecture seule, thème sombre et clair.</li>
+    <li><strong>Open source</strong>Licence MIT, tests, CI, aucun secret dans le dépôt.</li>
+  </ul>
+  <footer>Projet logiciel, pas un conseil en investissement : le trading à effet de levier comporte un risque élevé de perte. © 2026 Daniel Nagoloum Talla, licence MIT.</footer>
+</main>
+</body>
+</html>

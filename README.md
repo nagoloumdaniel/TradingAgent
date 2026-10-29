@@ -4,6 +4,21 @@
 
 # TradingAgent
 
+[![CI](https://github.com/nagoloumdaniel/TradingAgent/actions/workflows/ci.yml/badge.svg)](https://github.com/nagoloumdaniel/TradingAgent/actions/workflows/ci.yml)
+[![Licence MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB.svg)
+[![Site](https://img.shields.io/badge/site-GitHub%20Pages-222.svg)](https://nagoloumdaniel.github.io/TradingAgent/)
+
+![Tableau de bord TradingAgent : solde, courbe d'équité, positions ouvertes et résultat des trades](docs/assets/dashboard.png)
+
+<details>
+<summary>Autres captures : thème clair et page Risque</summary>
+
+![Vue d'ensemble, thème clair](docs/assets/dashboard-light.png)
+![Page Risque : jauges de risque utilisé et limites](docs/assets/risk.png)
+
+</details>
+
 Plateforme de trading algorithmique **BTCUSD + XAUUSD** : recherche de stratégies assistée
 par IA, backtest réaliste, validation anti-surapprentissage, exécution MT5 protégée par deux
 Expert Advisors, monitoring web et amélioration continue.
@@ -116,3 +131,10 @@ l'agent tourne sans EA — c'est un état valide.
 - Toute décision est persistée avec son motif, refus compris.
 - Le dashboard ne calcule aucun indicateur et ne peut pas écrire en base.
 - Aucun secret dans le dépôt, seulement le gabarit [`.env.example`](.env.example).
+
+## Licence et avertissement
+
+Code sous licence [MIT](LICENSE), © 2026 Daniel Nagoloum Talla. Le trading à effet de levier
+comporte un risque élevé de perte : lisez [`DISCLAIMER.md`](DISCLAIMER.md). Contribuer :
+[`CONTRIBUTING.md`](CONTRIBUTING.md) · Sécurité : [`SECURITY.md`](SECURITY.md) ·
+[Code de conduite](CODE_OF_CONDUCT.md).
