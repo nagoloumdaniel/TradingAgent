@@ -47,6 +47,15 @@
   function tone(value) { return value > 0 ? "pos" : (value < 0 ? "neg" : ""); }
   function arrow(value) { return value > 0 ? "▲" : (value < 0 ? "▼" : "▬"); }
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  /* Green / orange / red for charts that carry no sign of their own. `ratio` is the share of
+     the largest value (0..1); by default more is worse, `goodHigh` flips it. The number is
+     always printed next to the colour, so the colour never carries the meaning alone. */
+  function tier(ratio, goodHigh) {
+    var r = goodHigh ? 1 - ratio : ratio;
+    return r >= 0.8 ? "bad" : (r >= 0.5 ? "warn" : "ok");
+  }
+  var SEGMENTS = ["var(--up)", "var(--warn)", "var(--down)",
+    "color-mix(in srgb, var(--up) 55%, transparent)", "color-mix(in srgb, var(--warn) 55%, transparent)", "color-mix(in srgb, var(--down) 55%, transparent)"];
   function nice(v) { return Math.abs(v) >= 1000 ? v.toFixed(0) : (Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(2)); }
 
   function empty(box, message, href, action) {
@@ -445,12 +454,14 @@
         "stroke-dashoffset": (-acc).toFixed(2), transform: "rotate(-90 " + size / 2 + " " + size / 2 + ")"
       }, svg);
       arc.style.setProperty("--shade", shades[Math.min(i, shades.length - 1)] + "%");
+      arc.style.setProperty("--seg", SEGMENTS[i % SEGMENTS.length]);
       acc += len;
       arcs.push(arc);
       var li = html("li", "legend-row", null, list);
       li.setAttribute("tabindex", "0");
       var sw = html("span", "swatch", null, li);
       sw.style.setProperty("--shade", shades[Math.min(i, shades.length - 1)] + "%");
+      sw.style.setProperty("--seg", SEGMENTS[i % SEGMENTS.length]);
       html("span", "legend-name", m.name, li);
       html("span", "legend-n num", m.trades + " · " + Math.round(m.trades / total * 100) + " %", li);
       html("span", "legend-net num " + tone(m.net), arrow(m.net) + " " + money(m.net, true), li);
@@ -537,6 +548,7 @@
     });
     var span = (hi - lo) || 1;
     var zero = (0 - lo) / span * 100;
+    var peak = Math.max(Math.abs(lo), Math.abs(hi)) || 1;
     var list = html("div", "hb", null, host);
     list.setAttribute("role", "list");
     var note = html("p", "hb-note", opts.hint || "Survolez ou parcourez une ligne pour le détail.", host);
@@ -555,7 +567,7 @@
         var a0 = Math.min(zero, (it.alt - lo) / span * 100), a1 = Math.max(zero, (it.alt - lo) / span * 100);
         back.style.left = a0 + "%"; back.style.width = Math.max(1.5, a1 - a0) + "%"; back.style.opacity = "0.35";
       }
-      var fill = html("span", "hb-fill" + (it.cls ? " " + it.cls : (signed ? (it.value > 0 ? " up" : (it.value < 0 ? " down" : "")) : "")), null, track);
+      var fill = html("span", "hb-fill" + (it.cls ? " " + it.cls : (signed ? (it.value > 0 ? " up" : (it.value < 0 ? " down" : "")) : " " + tier(items.length > 1 ? Math.abs(it.value) / peak : 0, opts.goodHigh))), null, track);
       var p0 = Math.min(zero, (it.value - lo) / span * 100), p1 = Math.max(zero, (it.value - lo) / span * 100);
       fill.style.left = p0 + "%"; fill.style.width = Math.max(it.value === 0 ? 0 : 1.5, p1 - p0) + "%";
       if (lo < 0) { html("span", "hb-zero", null, track).style.left = zero + "%"; }
@@ -605,13 +617,13 @@
       row.setAttribute("aria-label", text); row.title = text;
       html("span", "hb-name", r.name, row);
       var track = html("span", "hb-track", null, row);
-      var a = html("span", "hb-fill", null, track);
+      var a = html("span", "hb-fill up", null, track);
       a.style.left = "0"; a.style.width = (r.long / max * 100) + "%";
-      var b = html("span", "hb-fill alt", null, track);
-      b.style.left = (r.long / max * 100) + "%"; b.style.width = (r.short / max * 100) + "%"; b.style.opacity = "0.5";
+      var b = html("span", "hb-fill down", null, track);
+      b.style.left = (r.long / max * 100) + "%"; b.style.width = (r.short / max * 100) + "%";
       html("span", "hb-val", money(r.long + r.short), row);
     });
-    html("p", "hb-note", "Plein : achat. Estompé : vente. Notionnel = volume × prix d'entrée.", box);
+    html("p", "hb-note", "Vert : achat. Rouge : vente. Notionnel = volume × prix d'entrée.", box);
   }
 
   function strategiesChart(box) {
@@ -638,7 +650,7 @@
       var items = rows.filter(function (r) { return r[current[0]] != null; }).map(function (r) {
         return { name: r.name, value: r[current[0]], sub: r.trades + " trade(s)" };
       }).sort(function (a, b) { return b.value - a.value; });
-      renderBars(host, items, current[2], { signed: current[3] });
+      renderBars(host, items, current[2], { signed: current[3], goodHigh: !current[3] });
     }
     draw();
   }
@@ -740,7 +752,7 @@
     var svg = svgEl("svg", { "class": "bars", viewBox: "0 0 " + width + " " + height, width: "100%", height: height }, host);
     svgEl("line", { "class": "grid", x1: 0, x2: width, y1: y0, y2: y0 }, svg);
     var rects = items.map(function (it, i) {
-      var cls = kind === "money" ? (it.value > 0 ? "up" : (it.value < 0 ? "down" : "nil")) : (it.value > 0 ? "alt" : "nil");
+      var cls = kind === "money" ? (it.value > 0 ? "up" : (it.value < 0 ? "down" : "nil")) : (it.value > 0 ? tier(it.value / (hi || 1)) : "nil");
       return svgEl("rect", {
         "class": "b " + cls, x: (i * slot + pad0).toFixed(1), y: Math.min(y(it.value), y0).toFixed(1),
         width: bw.toFixed(1), height: Math.max(it.value === 0 ? 1 : 2, Math.abs(y(it.value) - y0)).toFixed(1), rx: 2
@@ -848,12 +860,14 @@
       var arc = svgEl("circle", { "class": "arc", cx: size / 2, cy: size / 2, r: r, "stroke-width": 14, "stroke-dasharray": Math.max(0.5, len - gap).toFixed(2) + " " + circ.toFixed(2), "stroke-dashoffset": (-acc).toFixed(2), transform: "rotate(-90 " + size / 2 + " " + size / 2 + ")" }, svg);
       var shade = shades[Math.min(i, shades.length - 1)] + "%";
       arc.style.setProperty("--shade", shade);
+      if (!row.tone) { arc.style.setProperty("--seg", SEGMENTS[i % SEGMENTS.length]); }
       if (row.tone) { arc.style.stroke = toneVar[row.tone]; }
       acc += len; arcs.push(arc);
       var li = html("li", "legend-row", null, list);
       li.tabIndex = 0;
       var sw = html("span", "swatch", null, li);
       sw.style.setProperty("--shade", shade);
+      if (!row.tone) { sw.style.setProperty("--seg", SEGMENTS[i % SEGMENTS.length]); }
       if (row.tone) { sw.style.background = toneVar[row.tone]; }
       html("span", "legend-name", row.name, li);
       html("span", "legend-n num", row.value + " · " + Math.round(row.value / total * 100) + " %", li);
