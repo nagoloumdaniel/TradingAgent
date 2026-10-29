@@ -11,7 +11,7 @@ from tests.web import seed
 from tradingagent.core.states import Severity
 from tradingagent.storage.models import SystemEventRow
 from tradingagent.web import format as display
-from tradingagent.web.sse import RETRY_HINT, EventStream, Frame
+from tradingagent.web.sse import RETRY_HINT, EventStream, Frame, fingerprint
 
 
 def test_a_frame_is_rendered_in_the_wire_format() -> None:
@@ -137,3 +137,42 @@ def test_the_events_endpoint_works_on_an_empty_database(client: TestClient) -> N
 @pytest.mark.parametrize("cycles", [0, -1, 101])
 def test_an_out_of_range_cycle_count_is_refused(seeded_client: TestClient, cycles: int) -> None:
     assert seeded_client.get("/events", params={"cycles": cycles}).status_code == 422
+
+
+def test_ticks_only_streams_just_the_change_marker(populated: seed.Seeded, engine: Engine) -> None:
+    stream = EventStream(engine, now=lambda: seed.NOW, sleep=lambda _: None)
+    body = list(stream.frames(cycles=1, ticks_only=True))
+    assert len(body) == 2  # retry hint + tick
+    assert body[1].startswith("event: tick")
+    payload = json.loads(body[1].split("data: ", 1)[1])
+    assert len(payload["version"]) == 16
+
+
+def test_the_version_changes_only_when_the_agent_writes(
+    populated: seed.Seeded, engine: Engine
+) -> None:
+    before = fingerprint(engine)
+    assert fingerprint(engine) == before
+    with engine.begin() as connection:
+        connection.execute(
+            insert(SystemEventRow).values(
+                kind="halted",
+                severity=Severity.CRITICAL,
+                detail={"scope": "global"},
+                occurred_at=seed.NOW + timedelta(seconds=5),
+            )
+        )
+    assert fingerprint(engine) != before
+
+
+def test_the_events_endpoint_accepts_ticks_only(seeded_client: TestClient) -> None:
+    response = seeded_client.get("/events", params={"cycles": 1, "ticks": "true"})
+    assert response.status_code == 200
+    assert "event: tick" in response.text
+    assert "event: positions" not in response.text
+
+
+def test_every_page_loads_the_live_script(seeded_client: TestClient) -> None:
+    html = seeded_client.get("/").text
+    assert "/static/js/live.js" in html
+    assert 'id="live-toggle"' in html

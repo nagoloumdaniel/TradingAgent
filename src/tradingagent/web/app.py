@@ -647,6 +647,10 @@ def create_app(
             le=100,
             description="Borne le flux à N cycles puis ferme ; absent, il reste ouvert.",
         ),
+        ticks: bool = Query(
+            default=False,
+            description="Ne transporte que le marqueur de changement (pages rechargées).",
+        ),
     ) -> StreamingResponse:
         """The live feed: the open positions of one market, and warnings, polled from the DB.
 
@@ -656,7 +660,11 @@ def create_app(
         """
         selected = paging.resolve_market(market, queries.available_markets(engine))
         return StreamingResponse(
-            stream.frames(cycles=stream_cycles if cycles is None else cycles, market=selected),
+            stream.frames(
+                cycles=stream_cycles if cycles is None else cycles,
+                market=selected,
+                ticks_only=ticks,
+            ),
             media_type="text/event-stream",
             headers=dict(SSE_HEADERS),
         )

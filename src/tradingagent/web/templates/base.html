@@ -89,6 +89,12 @@
     <span class="name">NexaGold <span class="sub">TradingAgent</span></span>
   </a>
   <div class="topbar-end">
+    {# Direct : le serveur pousse un marqueur de changement, la page se recharge d'elle-même.
+       Sans JavaScript le bouton n'a aucun effet, il est donc masqué par défaut (app.css). #}
+    <button type="button" class="live-toggle" id="live-toggle" data-state="wait"
+            aria-pressed="true" title="Mise à jour en direct">
+      <span class="live-dot" aria-hidden="true"></span><span class="live-label">…</span>
+    </button>
     {# Un seul bouton, deux icônes, et un état annoncé. aria-pressed vaut vrai quand le
        thème clair est actif ; le nom accessible dit ce que le clic fera. #}
     <button type="button" class="theme-toggle" id="theme-toggle"
@@ -136,5 +142,6 @@
 <script src="/static/js/app.js" defer></script>
 <script src="/static/js/charts.js" defer></script>
 <script src="/static/js/ux.js" defer></script>
+<script src="/static/js/live.js" defer></script>
 </body>
 </html>
