@@ -585,7 +585,6 @@ tr.total td { font-weight: 600; border-top: 1px solid var(--line-strong); backgr
 .replay-chart .chart-label { fill: var(--faint); font-family: var(--font-mono); font-size: 11px; font-variant-numeric: tabular-nums; }
 .replay-chart .signal-label { fill: var(--text); font-family: var(--font-mono); font-size: 10px; }
 .chart-figure figcaption { margin-top: 8px; font-size: 12.5px; line-height: 1.55; }
-.equity-img { display: block; max-width: 100%; height: auto; margin-top: 12px; border: 1px solid var(--glass-line); border-radius: var(--radius-sm); background: var(--surface); }
 
 /* -- controls -------------------------------------------------------------------------- */
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
@@ -968,3 +967,153 @@ footer { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; }
   body { background: #fff; color: #000; }
   .card, .table-wrap { box-shadow: none; }
 }
+
+/* =======================================================================================
+   Icons everywhere, folded modules, phone length, charts of the other pages.
+   Icons are decorative (aria-hidden) unless they carry the only name of a control.
+   ======================================================================================= */
+.actions a, .filters a.action, button, .pager-link { gap: 7px; }
+.actions a .icon, button .icon, .badge .icon { width: 16px; height: 16px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; }
+.badge .icon { width: 13px; height: 13px; stroke-width: 2; }
+.card .label { display: flex; align-items: center; gap: 6px; }
+.card .label .icon { width: 15px; height: 15px; color: var(--faint); }
+.banner { position: relative; padding-left: 40px; }
+.banner > .icon { position: absolute; left: 13px; top: 13px; width: 18px; height: 18px; }
+.mod .banner > .icon { top: 9px; }
+.lead { display: flex; align-items: center; gap: 8px; }
+.lead .icon { width: 16px; height: 16px; color: var(--faint); }
+.mod-head { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; }
+.mod-head .icon, .fold > summary > .icon:first-child { width: 17px; height: 17px; color: var(--muted); }
+.fold-val {
+  margin-left: auto; padding-left: 10px; color: var(--muted); font: 450 13px var(--font-mono);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.mod-head .fold-val { font-size: 12.5px; }
+.nothing { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 14px; text-align: center; color: var(--muted); }
+.nothing .icon { width: 26px; height: 26px; color: var(--faint); }
+.nothing p { margin: 0; }
+
+/* foldable module: a native <details>, the summary is the compact header */
+details.fold { padding: 0; }
+details.fold > summary {
+  display: flex; align-items: center; gap: 9px; min-height: var(--touch); padding: 0 14px;
+  list-style: none; cursor: pointer; border-radius: var(--radius);
+}
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary h2 { margin: 0; font-size: 14px; min-width: 0; }
+details.fold > summary > .icon:last-child { width: 16px; height: 16px; color: var(--faint); transition: transform 200ms var(--ease-out); }
+details.fold[open] > summary > .icon:last-child { transform: rotate(180deg); }
+details.fold > summary:hover { background: var(--glass-hover); }
+details.fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.fold-body { padding: 2px 14px 14px; }
+.fold-body > .table-wrap { margin: 0 -14px -14px; }
+.fold-body .pager { margin: 12px 0 0; }
+main > details.fold, main > .mod { margin-bottom: 12px; }
+@media (max-width: 767px) {
+  details.fold > summary { padding: 0 12px; }
+  .fold-body { padding: 2px 12px 12px; }
+  .fold-body > .table-wrap { margin: 0 -12px -12px; }
+}
+
+/* compact tables on phones : first columns visible, the rest on tap, long lists capped */
+.preview { display: block; max-width: 24ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); font-size: 12px; }
+.row-actions { white-space: nowrap; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: var(--touch); min-height: var(--touch); padding: 0 8px; }
+.icon-btn .icon { width: 17px; height: 17px; }
+@media (min-width: 768px) {
+  .icon-btn .btn-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .icon-btn { min-width: 36px; min-height: 36px; }
+}
+.row-toggle-cell, .show-all { display: none; }
+@media (max-width: 767px) {
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards > .card { padding: 9px 12px 10px; }
+  .cards > .card.hero, .cards.kpis > .card:last-child { grid-column: 1 / -1; }
+  .card .value { font-size: 19px; }
+  .card.hero .value { font-size: 28px; }
+  .card .note { margin-top: 3px; }
+  .is-stack tbody tr { position: relative; }
+  .is-stack tbody tr.has-more { padding-right: 48px; }
+  .is-stack tbody tr.has-more > td.more { display: none; }
+  .is-stack tbody tr.has-more.open > td.more { display: flex; }
+  .is-stack tbody tr.beyond { display: none; }
+  .is-stack.expanded tbody tr.beyond { display: grid; }
+  .is-stack tbody td.row-toggle-cell { display: block; position: absolute; top: 2px; right: 2px; padding: 0; border: 0; }
+  .is-stack tbody td.row-toggle-cell::before { content: none; }
+  .row-toggle {
+    width: var(--touch); height: var(--touch); min-height: var(--touch); padding: 0; border: 0;
+    background: none; color: var(--muted); -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  .row-toggle .icon { width: 18px; height: 18px; transition: transform 200ms var(--ease-out); }
+  .row-toggle[aria-expanded="true"] .icon { transform: rotate(180deg); }
+  .show-all { display: flex; width: 100%; margin: 2px 0 8px; justify-content: center; }
+  .mod .show-all { width: calc(100% - 24px); margin: 0 12px 10px; }
+  .mini-sum {
+    position: sticky; top: var(--topbar-h); z-index: 15; display: none; align-items: center; gap: 4px 14px;
+    margin: -4px calc(var(--gutter) * -1) 8px; padding: 6px var(--gutter); overflow: hidden;
+    background: var(--glass); border-bottom: 1px solid var(--glass-line);
+    -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); font: 500 13px var(--font-mono);
+  }
+  .mini-sum.on { display: flex; }
+  .mini-sum span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .mini-sum .icon { width: 14px; height: 14px; color: var(--faint); }
+  .mini-sum .pos { color: var(--up); }
+  .mini-sum .neg { color: var(--down); }
+}
+@media (min-width: 768px) { .mini-sum { display: none !important; } }
+
+/* horizontal bars, gauges, stacked exposure */
+.hb { display: grid; gap: 4px; }
+.hb-row {
+  display: grid; grid-template-columns: minmax(5rem, 34%) minmax(0, 1fr) auto; align-items: center; gap: 0 10px;
+  min-height: 34px; padding: 2px 6px; border-radius: 9px; cursor: default;
+  transition: background-color 150ms var(--ease-out);
+}
+.hb-row:hover, .hb-row:focus-visible, .hb-row.hot { background: var(--glass-hover); outline: none; }
+.hb-row:focus-visible { outline: 2px solid var(--accent); }
+.hb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.hb-track { position: relative; height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.hb-fill { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--text); opacity: 0.8; transition: width 250ms var(--ease-out); }
+.hb-fill.up { background: var(--up); opacity: 1; }
+.hb-fill.down { background: var(--down); opacity: 1; }
+.hb-fill.alt { background: var(--muted); opacity: 0.7; }
+.hb-zero { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-strong); }
+.hb-val { min-width: 5.5rem; text-align: right; font: 450 12.5px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+.hb-val.pos { color: var(--up); }
+.hb-val.neg { color: var(--down); }
+.hb-note { margin: 6px 0 0; color: var(--muted); font-size: 12.5px; }
+.gauges { display: grid; gap: 10px 22px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); }
+.gauge { display: grid; gap: 4px; padding: 4px 2px; }
+.gauge-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
+.gauge-top strong { font-weight: 550; }
+.gauge-top span { color: var(--muted); font: 450 12.5px var(--font-mono); }
+.gauge-bar { position: relative; height: 10px; border-radius: 999px; background: var(--line-strong); overflow: hidden; }
+.gauge-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--text); opacity: 0.85; transition: width 300ms var(--ease-out); }
+.gauge.warn .gauge-bar i { background: var(--warn); opacity: 1; }
+.gauge.bad .gauge-bar i { background: var(--down); opacity: 1; }
+.gauge-state { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12.5px; }
+.gauge-state .icon { width: 14px; height: 14px; }
+.gauge.warn .gauge-state { color: var(--warn); }
+.gauge.bad .gauge-state { color: var(--down); }
+.chart-tabs { margin-bottom: 8px; }
+.chart-tabs .seg { flex-wrap: wrap; }
+.sub-title { margin: 12px 0 4px; color: var(--muted); font-size: 12.5px; font-weight: 550; }
+
+/* replay chart enhanced by charts.js */
+.replay-chart .lvl { stroke-width: 1.2; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.replay-chart .lvl.entry { stroke: var(--text); }
+.replay-chart .lvl.stop { stroke: var(--down); }
+.replay-chart .lvl.target { stroke: var(--up); }
+.replay-chart .lvl.close { stroke: var(--muted); stroke-dasharray: 2 3; }
+.replay-chart .lvl-label { font: 11.5px var(--font-mono); fill: var(--muted); }
+.replay-chart .xh { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+.replay-wrap { position: relative; }
+.replay-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--muted); }
+.replay-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.replay-legend i { width: 16px; height: 0; border-top: 2px dashed var(--text); }
+.replay-legend i.stop { border-color: var(--down); }
+.replay-legend i.target { border-color: var(--up); }
+.replay-legend i.close { border-color: var(--muted); border-top-style: dotted; }
+
+.mod .banner, .fold-body .banner { padding-left: 38px; }

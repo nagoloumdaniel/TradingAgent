@@ -50,3 +50,39 @@ def test_a_snapshot_stranded_months_before_the_rest_is_not_drawn() -> None:
     assert without_stranded_head(series) == series[1:]
     assert without_stranded_head(series[1:]) == series[1:]
     assert without_stranded_head([]) == []
+
+
+def test_every_page_with_charts_embeds_its_payload_and_icons(seeded_client: TestClient) -> None:
+    expected = {
+        "/positions": {"exposure", "open"},
+        "/risk": {"gauges", "refusals"},
+        "/strategies": {"strategies"},
+        "/scalping": {"buckets"},
+        "/ai-lab": {"calls", "proposals", "validations", "cost"},
+        "/system": {"heartbeats", "latencies"},
+    }
+    for path, keys in expected.items():
+        body = seeded_client.get(path).text
+        assert keys <= set(_payload(body)), path
+        assert '<use href="#i-' in body, path
+        assert not re.search(r'(?:src|href)="https?://', body), path
+
+
+def test_replay_embeds_levels_for_the_interactive_chart(seeded_client: TestClient) -> None:
+    body = seeded_client.get("/trades/1").text
+    replay = _payload(body)["replay"]
+    assert replay is None or {"candles", "levels", "signal"} <= set(replay)
+
+
+def test_heavy_modules_are_native_folds_with_a_key_value(seeded_client: TestClient) -> None:
+    body = seeded_client.get("/").text
+    assert body.count('<details class="mod fold') >= 4
+    assert 'class="fold-val"' in body
+
+
+def test_sprite_symbols_cover_every_icon_used(seeded_client: TestClient) -> None:
+    for path in ("/", "/risk", "/system", "/ai-lab", "/reports", "/strategies", "/trades/1"):
+        body = seeded_client.get(path).text
+        used = set(re.findall(r'<use href="#(i-[a-z-]+)"', body))
+        defined = set(re.findall(r'<symbol id="(i-[a-z-]+)"', body))
+        assert used <= defined, (path, used - defined)

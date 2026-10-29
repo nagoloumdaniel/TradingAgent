@@ -36,7 +36,7 @@ def test_the_form_still_filters_without_javascript(seeded_client: TestClient) ->
     body = seeded_client.get("/trades").text
 
     assert '<form class="filters" method="get" action="/trades">' in body
-    assert '<button type="submit">Filtrer</button>' in body
+    assert '<button type="submit">' in body and "Filtrer</button>" in body
 
 
 @pytest.mark.parametrize(

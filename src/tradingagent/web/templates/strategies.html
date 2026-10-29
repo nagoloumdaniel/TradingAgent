@@ -1,10 +1,17 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon, head, fold, badge, nothing %}
 {% from "_macros.html" import pager, market_select, search_field %}
 {% block title %}Stratégies{% endblock %}
 {% block content %}
 {% set listing_page = listing.page %}
 
-<h2>Registre des stratégies</h2>
+<h2 class="sr-only">Registre des stratégies</h2>
+<div class="dash">
+  <section class="mod wide" aria-labelledby="h-cmp">
+    {{ head("h-cmp", "bar-chart", "Comparaison des stratégies") }}
+    <div class="chart is-loading" data-chart="strategies" aria-busy="true"></div>
+  </section>
+</div>
 
 <form class="filters" method="get" action="/strategies" role="search">
   {% if listing.markets %}
@@ -14,7 +21,7 @@
   {% endif %}
   {{ search_field("strategies-q", "Recherche", listing_page.query,
                   "référence, stratégie, version") }}
-  <div><button type="submit">Rechercher</button></div>
+  <div><button type="submit">{{ icon("search") }}Rechercher</button></div>
   {% if listing_page.query %}
     <div><a href="/strategies?market={{ listing_page.market }}">Réinitialiser</a></div>
   {% endif %}
@@ -41,8 +48,8 @@
         <td>{{ view.strategy_id }}</td>
         <td>{{ view.version }}</td>
         <td>
-          {% if view.status %}<span class="badge {% if view.status.value == 'live' %}ok{% elif view.status.value == 'deprecated' %}bad{% else %}warn{% endif %}">{{ view.status.value }}</span>
-          {% else %}<span class="badge warn">hors registre</span>{% endif %}
+          {% if view.status %}{{ badge("ok" if view.status.value == "live" else ("bad" if view.status.value == "deprecated" else "warn"), view.status.value) }}
+          {% else %}{{ badge("warn", "hors registre") }}{% endif %}
         </td>
         <td>{{ view.origin or '-' }}</td>
         <td>{{ display.moment(view.promoted_at) }}</td>
@@ -63,9 +70,9 @@
 
 {{ pager(listing_page, "Pagination des stratégies") }}
 
-<h2>Validation et backtests</h2>
+{{ head("h-vb", "shield", "Validation et backtests", listing_page.rows | length) }}
 {% for view in listing_page.rows %}
-  <h3>{{ view.ref }} <span class="muted">{{ view.market }}</span></h3>
+{% call fold("h-v" ~ loop.index, "flask", view.ref, view.market ~ (" · " ~ view.status.value if view.status else "")) %}
   {% if view.promotion_reason %}<p class="muted">Motif de promotion : {{ view.promotion_reason }}</p>{% endif %}
 
   <div class="table-wrap">
@@ -76,7 +83,7 @@
       {% for validation in view.validations %}
         <tr>
           <td>{{ validation.stage.value }}</td>
-          <td>{% if validation.passed %}<span class="badge ok">réussi</span>{% else %}<span class="badge bad">échoué</span>{% endif %}</td>
+          <td>{% if validation.passed %}{{ badge("ok", "réussi") }}{% else %}{{ badge("bad", "échoué") }}{% endif %}</td>
           <td>{{ validation.detail | describe }}</td>
           <td>{{ display.precise(validation.created_at) }}</td>
         </tr>
@@ -110,6 +117,7 @@
     </tbody>
   </table>
   </div>
+{% endcall %}
 {% else %}
   <p class="empty">{{ listing_page.empty_message }}</p>
 {% endfor %}

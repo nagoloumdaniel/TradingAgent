@@ -364,13 +364,15 @@ def create_app(
             market=paging.resolve_market(market, markets),
             page=paging.page_number(page_number),
         )
+        opened = queries.open_positions(engine, at, market=positions.market)
         return page(
             request,
             "positions",
             at=at,
             positions=positions,
             markets=markets,
-            open_count=len(queries.open_positions(engine, at, market=positions.market)),
+            open_count=len(opened),
+            charts=queries.positions_chart(opened),
             rows=[position_list_cells(position) for position in positions.rows],
             columns=POSITION_TABLE_COLUMNS,
             numeric=POSITION_NUMERIC_COLUMNS,
@@ -437,6 +439,7 @@ def create_app(
                 },
                 status_code=404,
             )
+        replay_context = queries.market_context(engine, replay)
         return page(
             request,
             "trade_replay",
@@ -444,7 +447,8 @@ def create_app(
             replay=replay,
             # The market conditions at the signal's own moment: read-only, and every missing
             # value stays missing so the page can write `n/a` instead of inventing one (§28).
-            context=queries.market_context(engine, replay),
+            context=replay_context,
+            charts={"replay": queries.replay_chart(replay, replay_context)},
             min_candles=queries.REPLAY_MIN_CANDLES,
             timeline=replay_timeline(replay),
             checks=replay_checks(replay),
@@ -464,15 +468,17 @@ def create_app(
         its page in the URL.
         """
         markets = queries.available_markets(engine)
+        scalping = queries.scalping_view(
+            engine,
+            market=paging.resolve_market(market, markets),
+            page=paging.page_number(page_number),
+        )
         return page(
             request,
             "scalping",
-            view=queries.scalping_view(
-                engine,
-                market=paging.resolve_market(market, markets),
-                page=paging.page_number(page_number),
-            ),
+            view=scalping,
             markets=markets,
+            charts={"buckets": queries.scalping_chart(scalping)},
         )
 
     @app.get("/strategies", response_class=HTMLResponse)
@@ -488,15 +494,17 @@ def create_app(
         the search and the page all happen in SQL.
         """
         markets = queries.strategy_markets(engine)
+        registry = queries.strategy_page(
+            engine,
+            market=paging.resolve_market(market, markets),
+            query=q or "",
+            page=paging.page_number(page_number),
+        )
         return page(
             request,
             "strategies",
-            listing=queries.strategy_page(
-                engine,
-                market=paging.resolve_market(market, markets),
-                query=q or "",
-                page=paging.page_number(page_number),
-            ),
+            listing=registry,
+            charts={"strategies": queries.strategies_chart(registry.page.rows)},
         )
 
     @app.get("/ai-lab", response_class=HTMLResponse)
@@ -515,22 +523,25 @@ def create_app(
         and bounded on its own, and its own query parameter keeps the other three still.
         """
         markets = queries.ai_markets(engine)
+        lab = queries.ai_lab_pages(
+            engine,
+            market=paging.resolve_market(market, markets),
+            query=q or "",
+            analyses_page=paging.page_number(page_number),
+            proposals_page=paging.page_number(proposals),
+            validations_page=paging.page_number(validations),
+            backtests_page=paging.page_number(backtests),
+        )
+        calls = queries.ai_call_health(engine)
         return page(
             request,
             "ai_lab",
-            lab=queries.ai_lab_pages(
-                engine,
-                market=paging.resolve_market(market, markets),
-                query=q or "",
-                analyses_page=paging.page_number(page_number),
-                proposals_page=paging.page_number(proposals),
-                validations_page=paging.page_number(validations),
-                backtests_page=paging.page_number(backtests),
-            ),
+            lab=lab,
+            charts=queries.ai_chart(calls, lab),
             # The journal of the model calls, read from `ai_calls`: without it an empty
             # laboratory and a filter that never answered look exactly the same. Deliberately
             # not scoped by market — a refused key or an empty balance is not an instrument.
-            ai_calls=queries.ai_call_health(engine),
+            ai_calls=calls,
         )
 
     @app.get("/risk", response_class=HTMLResponse)
@@ -548,9 +559,10 @@ def create_app(
         and never another instrument's. ``halt_commands`` has no market column, so its
         history is paged and searched only.
         """
+        at = clock()
         data = queries.risk_view(
             engine,
-            clock(),
+            at,
             limits_path,
             reports_dir,
             market=paging.resolve_market(market, queries.event_markets(engine)),
@@ -562,6 +574,12 @@ def create_app(
             request,
             "risk",
             data=data,
+            charts={
+                "gauges": queries.risk_gauges(
+                    engine, at, data, queries.account_figures(engine, at)
+                ),
+                "refusals": queries.refusal_history(engine, at),
+            },
             markets=queries.event_markets(engine),
             ea_halted=queries.ea_halted(data.ea),
         )
@@ -596,6 +614,7 @@ def create_app(
             request,
             "system",
             data=data,
+            charts=queries.system_chart(data),
             markets=queries.event_markets(engine),
             ea_halted=queries.ea_halted(data.ea),
         )

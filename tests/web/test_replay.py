@@ -173,7 +173,7 @@ def test_a_trade_never_closed_still_replays_its_chain(
     assert response.status_code == 200
     assert "Aucune clôture : la position est ouverte ou n'a jamais existé." in (response.text)
     assert "Position ouverte" in response.text
-    assert "take_profit" not in response.text.split("<h2>Clôture</h2>", 1)[1].split("<h2>", 1)[0]
+    assert "take_profit" not in response.text.split(">Clôture</h2>", 1)[1].split("<h2", 1)[0]
 
 
 def test_a_signal_refused_by_risk_replays_without_order_or_position(

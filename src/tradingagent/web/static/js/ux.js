@@ -236,4 +236,132 @@
     hint.setAttribute("aria-label", "Afficher les raccourcis clavier");
     hint.addEventListener("click", help);
   }
+
+  /* -- phone length : folded modules, capped lists, tap-for-detail rows, sticky summary ----
+     Everything here only changes what is shown at first sight; no figure is dropped and the
+     desktop layout is untouched. Folds are native <details>: keyboard and screen readers work
+     without this script, which only chooses the default (closed on a phone, open elsewhere). */
+  var phone = window.matchMedia("(max-width: 767px)");
+
+  var folds = Array.prototype.slice.call(document.querySelectorAll("details.fold"));
+  var paged = /[?&](q|page|hpage|epage|proposals|validations|backtests)=/.test(window.location.search);
+  function syncFold(d) {
+    var summary = d.querySelector("summary");
+    if (summary) { summary.setAttribute("aria-expanded", String(d.open)); }
+  }
+  folds.forEach(function (d) {
+    var summary = d.querySelector("summary");
+    if (summary) { summary.addEventListener("click", function () { d.setAttribute("data-user", "1"); }); }
+    d.addEventListener("toggle", function () { syncFold(d); });
+  });
+  function foldForViewport() {
+    folds.forEach(function (d) {
+      if (d.hasAttribute("data-user")) { return; }
+      var wanted = !phone.matches || d.hasAttribute("data-keep") || (paged && !!d.querySelector(".pager"));
+      if (d.open !== wanted) { d.open = wanted; }
+      syncFold(d);
+    });
+  }
+  foldForViewport();
+  if (phone.addEventListener) { phone.addEventListener("change", foldForViewport); }
+
+  var CHEVRON = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-chevron-down"/></svg>';
+  var wrapId = 0;
+
+  function dataRows(table) {
+    return Array.prototype.filter.call(table.tBodies[0].rows, function (row) {
+      return !row.classList.contains("total") && !row.querySelector("td.empty");
+    });
+  }
+
+  function phoneTable(wrap) {
+    var table = wrap.querySelector("table");
+    if (!table || !table.tBodies.length || !table.tHead || wrap.hasAttribute("data-nolimit")) { return; }
+    var columns = table.tHead.rows[table.tHead.rows.length - 1].cells.length;
+    var limit = parseInt(wrap.getAttribute("data-limit") || "4", 10);
+
+    /* tap for detail : keep the first four cells, the rest opens under a 44 px chevron */
+    if (columns > 5) {
+      dataRows(table).forEach(function (row) {
+        var cells = Array.prototype.slice.call(row.cells);
+        cells.slice(4).forEach(function (cell) { cell.classList.add("more"); });
+        row.classList.add("has-more");
+        var cell = el("td", "row-toggle-cell", null, row);
+        var button = el("button", "row-toggle", null, cell);
+        button.type = "button";
+        button.setAttribute("aria-expanded", "false");
+        button.setAttribute("aria-label", "Afficher les détails de la ligne");
+        button.innerHTML = CHEVRON;
+        button.addEventListener("click", function () {
+          var open = row.classList.toggle("open");
+          button.setAttribute("aria-expanded", String(open));
+          button.setAttribute("aria-label", open ? "Masquer les détails de la ligne" : "Afficher les détails de la ligne");
+        });
+      });
+    }
+
+    /* long lists : the first rows, then one honest "see all" with the count */
+    var all = function () { return dataRows(table); };
+    if (all().length <= limit + 1) { return; }
+    wrap.id = wrap.id || "tw-" + (++wrapId);
+    var more = el("button", "show-all", null, wrap.parentNode);
+    wrap.parentNode.insertBefore(more, wrap.nextSibling);
+    more.type = "button";
+    more.setAttribute("aria-expanded", "false");
+    more.setAttribute("aria-controls", wrap.id);
+    function label() {
+      var expanded = wrap.classList.contains("expanded");
+      more.innerHTML = (expanded ? "Réduire" : "Voir tout (" + all().length + ")") + CHEVRON;
+      more.setAttribute("aria-expanded", String(expanded));
+      more.querySelector(".icon").style.transform = expanded ? "rotate(180deg)" : "";
+    }
+    function relimit() {
+      all().forEach(function (row, index) { row.classList.toggle("beyond", index >= limit); });
+    }
+    wrap._relimit = relimit;
+    relimit();
+    label();
+    more.addEventListener("click", function () { wrap.classList.toggle("expanded"); label(); });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".table-wrap.is-stack"), phoneTable);
+
+  /* a sort re-orders the rows: the cap follows the new order; a filter shows every match */
+  document.addEventListener("click", function (event) {
+    var th = event.target.closest && event.target.closest(".th-sort");
+    if (!th) { return; }
+    var wrap = th.closest(".table-wrap");
+    if (wrap && wrap._relimit) { window.setTimeout(wrap._relimit, 0); }
+  });
+  document.addEventListener("input", function (event) {
+    var tools = event.target.closest && event.target.closest(".tbl-tools");
+    if (!tools) { return; }
+    var wrap = tools.nextElementSibling;
+    if (wrap && wrap.classList && wrap.classList.contains("table-wrap")) {
+      wrap.classList.toggle("expanded", !!event.target.value.trim());
+    }
+  });
+
+  /* sticky mini summary : the three headline figures once the KPI band has scrolled away */
+  (function miniSummary() {
+    var strip = document.querySelector(".cards.kpis");
+    var main = document.getElementById("main");
+    if (!strip || !main || !window.IntersectionObserver) { return; }
+    var bar = el("div", "mini-sum");
+    bar.setAttribute("aria-hidden", "true");
+    Array.prototype.slice.call(strip.querySelectorAll(".card")).slice(0, 3).forEach(function (card) {
+      var value = card.querySelector(".value");
+      var icon = card.querySelector(".label .icon");
+      if (!value) { return; }
+      var item = el("span", null, null, bar);
+      if (icon) { item.appendChild(icon.cloneNode(true)); }
+      var text = el("span", value.className.replace("value", "").trim(), value.textContent.trim(), item);
+      void text;
+    });
+    main.insertBefore(bar, main.firstChild);
+    new IntersectionObserver(function (entries) {
+      var gone = !entries[0].isIntersecting && entries[0].boundingClientRect.top < 0;
+      bar.classList.toggle("on", gone);
+    }, { rootMargin: "-56px 0px 0px 0px" }).observe(strip);
+  })();
 })();

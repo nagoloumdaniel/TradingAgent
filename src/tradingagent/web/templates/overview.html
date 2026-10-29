@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import dot %}
+{% from "_icons.html" import icon, head, fold, badge %}
 {% block title %}Vue d'ensemble{% endblock %}
 {% block content %}
 {% set t = data.total %}
@@ -24,14 +25,14 @@
 {% endif %}
 
 {% if data.halt.halted %}
-  <div class="banner bad">
+  <div class="banner bad">{{ icon("x-circle") }}
     <strong>Trading arrêté.</strong>
     {% for reason in data.halt.reasons %}<div>{{ reason }}</div>{% endfor %}
     {% if data.halt.close_positions %}<div>Fermeture des positions demandée.</div>{% endif %}
   </div>
 {% endif %}
 {% if ea_halted %}
-  <div class="banner bad">
+  <div class="banner bad">{{ icon("x-circle") }}
     <strong>Garde EA en arrêt.</strong>
     {% for guardian in ea_halted %}
       <div>{{ guardian.symbol }} : kill switch {{ 'actif' if guardian.kill_switch else 'inactif' }},
@@ -47,7 +48,7 @@
 <div class="cards kpis strip">
   <div class="card hero">
     {{ dot(state, state_label) }}
-    <div class="label">Solde</div>
+    <div class="label">{{ icon("wallet") }}Solde</div>
     <div class="value">{{ display.money(data.account.balance) }}</div>
     <dl class="facts">
       <div><dt>Équité</dt><dd>{{ display.money(data.account.equity) }}</dd></div>
@@ -64,7 +65,7 @@
     <div class="meta" title="Dernier instantané du compte">{{ display.moment(data.account.at) }}</div>
   </div>
   <div class="card" title="Trades clôturés depuis 00:00 UTC">
-    <div class="label">P&amp;L du jour</div>
+    <div class="label">{{ icon("trending-up") }}P&amp;L du jour</div>
     <div class="value {{ display.ratio_class(data.pnl_day) }}">{{ display.money(data.pnl_day, signed=True) }}</div>
     <dl class="facts">
       <div title="Depuis lundi 00:00 UTC"><dt>Semaine</dt><dd class="{{ display.ratio_class(data.pnl_week) }}">{{ display.money(data.pnl_week, signed=True) }}</dd></div>
@@ -73,14 +74,14 @@
     <svg data-spark="pnl" width="100%" height="34"></svg>
   </div>
   <div class="card">
-    <div class="label">Positions ouvertes</div>
+    <div class="label">{{ icon("layers") }}Positions ouvertes</div>
     <div class="value">{{ data.positions | length }}</div>
     <dl class="facts" title="Volume × prix d'entrée : un ordre de grandeur, pas une exposition de compte">
       <div><dt>Notionnel</dt><dd>{{ display.money(data.markets | sum(attribute='notional')) }}</dd></div>
     </dl>
   </div>
   <div class="card" title="Écart au pic d'équité enregistré">
-    <div class="label">Drawdown courant</div>
+    <div class="label">{{ icon("trending-down") }}Drawdown courant</div>
     <div class="value neg">{{ display.money(data.account.drawdown) }}</div>
     {% if dd_ratio is not none %}
       {% set pct = [dd_ratio * 100, 100] | min %}
@@ -97,12 +98,12 @@
 
 <div class="dash">
   <section class="mod span-2" aria-labelledby="h-equity">
-    <h2 id="h-equity">Équité</h2>
+    {{ head("h-equity", "trending-up", "Équité") }}
     <div class="chart is-loading" data-chart="equity" aria-busy="true"></div>
   </section>
 
   <section class="mod" aria-labelledby="h-open">
-    <h2 id="h-open">Positions ouvertes ({{ data.positions | length }})</h2>
+    {{ head("h-open", "layers", "Positions ouvertes", data.positions | length) }}
     <div class="table-wrap flat">
     <table>
       <caption class="sr-only">Positions ouvertes</caption>
@@ -131,19 +132,19 @@
   </section>
 
   <section class="mod span-2" aria-labelledby="h-pnl">
-    <h2 id="h-pnl">Résultat des trades</h2>
+    {{ head("h-pnl", "bar-chart", "Résultat des trades") }}
     <div class="chart is-loading" data-chart="pnl-bars" aria-busy="true"></div>
   </section>
 
   <section class="mod" aria-labelledby="h-split">
-    <h2 id="h-split">Répartition par marché</h2>
+    {{ head("h-split", "pie", "Répartition par marché") }}
     <div class="chart is-loading" data-chart="markets" aria-busy="true"></div>
   </section>
 
   <section class="mod wide" aria-labelledby="h-stats">
-    <h2 id="h-stats">Performance</h2>
+    {{ head("h-stats", "gauge", "Performance", display.percent(t.win_rate) ~ " réussite") }}
     {% if t.insufficient_sample %}
-      <div class="banner warn">Échantillon insuffisant ({{ t.trades }} trades) : Sharpe et Sortino sont masqués.</div>
+      <div class="banner warn">{{ icon("alert-triangle") }}Échantillon insuffisant ({{ t.trades }} trades) : Sharpe et Sortino sont masqués.</div>
     {% endif %}
     <dl class="stats dense">
       <div class="stat" title="Depuis lundi 00:00 UTC"><dt>P&amp;L de la semaine</dt>
@@ -168,8 +169,8 @@
 </div>
 
 <div class="dash">
-<section class="mod span-2" aria-labelledby="h-markets">
-<h2 id="h-markets">Par marché</h2>
+{% call fold("h-markets", "layers", "Par marché", (data.markets | length) ~ " marché(s)", "span-2") %}
+
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Performance par marché</caption>
@@ -213,14 +214,13 @@
 </table>
 </div>
 
-</section>
+{% endcall %}
 
-<section class="mod" aria-labelledby="h-health">
+{% call fold("h-health", "activity", "Santé des marchés", (health | length) ~ " marché(s)", "") %}
 {# Santé par marché : deux pastilles. Le détail (battements, journal, protocole) vit sur
    la page Système ; on ne le recopie pas ici. #}
 {% set guardians = {} %}
 {% for guardian in data.ea %}{% set _ = guardians.update({guardian.symbol: guardian}) %}{% endfor %}
-<h2 id="h-health">Santé des marchés</h2>
 <ul class="health">
   {% for market in health %}
     {% set guardian = guardians.get(market.symbol) %}
@@ -242,10 +242,10 @@
   {% endfor %}
 </ul>
 
-</section>
+{% endcall %}
 
-<section class="mod wide" aria-labelledby="h-strat">
-<h2 id="h-strat">Stratégies</h2>
+{% call fold("h-strat", "flask", "Stratégies", (data.strategies | length) ~ " au registre", "wide") %}
+
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Stratégies du registre</caption>
@@ -259,7 +259,7 @@
       <tr>
         <td>{{ view.ref }}</td>
         <td>{{ view.market }}</td>
-        <td>{% if view.status %}<span class="badge">{{ view.status }}</span>{% else %}<span class="badge warn">hors registre</span>{% endif %}</td>
+        <td>{% if view.status %}{{ badge("ok" if view.status.value == "live" else ("bad" if view.status.value == "deprecated" else "warn"), view.status.value) }}{% else %}{{ badge("warn", "hors registre") }}{% endif %}</td>
         <td>{{ view.origin or '-' }}</td>
         <td class="num">{{ view.performance.trades }}</td>
         <td class="num {{ display.ratio_class(view.performance.net_profit) }}">{{ display.money(view.performance.net_profit, signed=True) }}</td>
@@ -273,10 +273,10 @@
 </table>
 </div>
 
-</section>
+{% endcall %}
 
-<section class="mod wide" aria-labelledby="h-daily">
-<h2 id="h-daily">Par jour (agrégats enregistrés)</h2>
+{% call fold("h-daily", "calendar", "Par jour (agrégats enregistrés)", (data.daily | length) ~ " ligne(s)", "wide") %}
+
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Agrégats journaliers enregistrés dans daily_performance</caption>
@@ -305,7 +305,7 @@
 </div>
 <p class="muted" title="Table daily_performance, lue telle qu'écrite par l'agent : rien n'est reconstitué.">Source <code>daily_performance</code></p>
 
-</section>
+{% endcall %}
 </div>
 
 {% endblock %}

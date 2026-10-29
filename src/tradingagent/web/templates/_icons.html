@@ -12,13 +12,38 @@
    something takes a `label` and becomes `role="img"` with an `aria-label`, so the meaning is
    never carried by the picture alone. #}
 
-{% macro icon(name, label="") %}
-<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+{% macro icon(name, label="") -%}
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
      stroke-linecap="round" stroke-linejoin="round"
      {% if label %}role="img" aria-label="{{ label }}"{% else %}aria-hidden="true"{% endif %}><use href="#i-{{ name }}"/></svg>
-{% endmacro %}
+{%- endmacro %}
 
 {# The off-screen name of a control that shows only an icon. #}
 {% macro icon_label(name, text) %}
 {{ icon(name) }}<span class="sr-only">{{ text }}</span>
+{%- endmacro %}
+
+{# Un module repliable : <details> natif (clavier et lecteur d'écran gratuits). Ouvert sur
+   grand écran ; ux.js le referme sur téléphone, où l'en-tête (icône, titre, valeur clé)
+   suffit à lire la page. `value` est la donnée clé gardée visible quand il est fermé. #}
+{% macro fold(id, glyph, title, value="", cls="", keep=false, hint="") %}
+<details class="mod fold {{ cls }}" data-fold {% if keep %}data-keep{% endif %} open>
+  <summary>{{ icon(glyph) }}<h2 id="{{ id }}"{% if hint %} title="{{ hint }}"{% endif %}>{{ title }}</h2>{% if value %}<span class="fold-val">{{ value }}</span>{% endif %}{{ icon("chevron-down") }}</summary>
+  <div class="fold-body">{{ caller() }}</div>
+</details>
+{% endmacro %}
+
+{# Titre de module avec icône décorative et valeur clé facultative. #}
+{% macro head(id, glyph, title, value="") %}
+<h2 id="{{ id }}" class="mod-head">{{ icon(glyph) }}<span>{{ title }}</span>{% if value %}<span class="fold-val">{{ value }}</span>{% endif %}</h2>
+{% endmacro %}
+
+{# Badge d'état : forme + couleur + texte (disque coché, triangle, croix). #}
+{% macro badge(kind, text) -%}
+<span class="badge {{ kind }}">{{ icon({"ok": "check-circle", "warn": "alert-triangle", "bad": "x-circle", "error": "x-circle"}.get(kind, "info")) }}{{ text }}</span>
+{%- endmacro %}
+
+{# État vide utile : icône, phrase, une action. #}
+{% macro nothing(message, href="", action="") %}
+<div class="nothing">{{ icon("inbox") }}<p>{{ message }}</p>{% if href %}<a href="{{ href }}">{{ action }}</a>{% endif %}</div>
 {% endmacro %}

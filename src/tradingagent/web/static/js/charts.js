@@ -500,11 +500,389 @@
     });
   }
 
+  /* ===================================================================================
+     Charts of the other pages. Same rules: the numbers come from the server (#ta-charts),
+     this file draws them; each chart has a text summary, a focusable cursor or rows, an
+     empty state with one action, and never relies on colour alone.
+     =================================================================================== */
+  function ready(box) {
+    box.innerHTML = "";
+    box.removeAttribute("aria-busy");
+    box.classList.remove("is-loading");
+  }
+  function fmtValue(kind, v, signed) {
+    if (v == null || !isFinite(v)) { return "n/a"; }
+    if (kind === "money") { return money(v, signed); }
+    if (kind === "sec") {
+      if (v < 90) { return Math.round(v) + " s"; }
+      if (v < 5400) { return Math.round(v / 60) + " min"; }
+      return (v / 3600).toFixed(1) + " h";
+    }
+    if (kind === "ms") { return Math.round(v) + " ms"; }
+    if (kind === "pct") { return (v * 100).toFixed(0) + " %"; }
+    if (kind === "int") { return String(Math.round(v)); }
+    return Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2);
+  }
+
+  /* Horizontal bars as focusable rows. items: {name, value, alt?, sub?, label?, cls?}.
+     `alt` is a second, fainter bar drawn behind (worst case behind the median). */
+  function renderBars(host, items, kind, opts) {
+    opts = opts || {};
+    host.innerHTML = "";
+    var signed = !!opts.signed;
+    var lo = 0, hi = 0;
+    items.forEach(function (it) {
+      lo = Math.min(lo, it.value, it.alt == null ? 0 : it.alt);
+      hi = Math.max(hi, it.value, it.alt == null ? 0 : it.alt);
+    });
+    var span = (hi - lo) || 1;
+    var zero = (0 - lo) / span * 100;
+    var list = html("div", "hb", null, host);
+    list.setAttribute("role", "list");
+    var note = html("p", "hb-note", opts.hint || "Survolez ou parcourez une ligne pour le détail.", host);
+    note.setAttribute("aria-live", "polite");
+    var rows = items.map(function (it) {
+      var row = html("div", "hb-row", null, list);
+      row.setAttribute("role", "listitem");
+      row.tabIndex = 0;
+      var valueText = it.label || fmtValue(kind, it.value, signed);
+      var full = it.name + " : " + valueText + (it.sub ? " (" + it.sub + ")" : "");
+      row.setAttribute("aria-label", full);
+      html("span", "hb-name", it.name, row).title = it.name;
+      var track = html("span", "hb-track", null, row);
+      if (it.alt != null) {
+        var back = html("span", "hb-fill alt", null, track);
+        var a0 = Math.min(zero, (it.alt - lo) / span * 100), a1 = Math.max(zero, (it.alt - lo) / span * 100);
+        back.style.left = a0 + "%"; back.style.width = Math.max(1.5, a1 - a0) + "%"; back.style.opacity = "0.35";
+      }
+      var fill = html("span", "hb-fill" + (it.cls ? " " + it.cls : (signed ? (it.value > 0 ? " up" : (it.value < 0 ? " down" : "")) : "")), null, track);
+      var p0 = Math.min(zero, (it.value - lo) / span * 100), p1 = Math.max(zero, (it.value - lo) / span * 100);
+      fill.style.left = p0 + "%"; fill.style.width = Math.max(it.value === 0 ? 0 : 1.5, p1 - p0) + "%";
+      if (lo < 0) { html("span", "hb-zero", null, track).style.left = zero + "%"; }
+      var val = html("span", "hb-val " + (signed ? tone(it.value) : ""), (signed ? arrow(it.value) + " " : "") + valueText, row);
+      void val;
+      function on() {
+        rows.forEach(function (r) { r.classList.remove("hot"); });
+        row.classList.add("hot");
+        note.textContent = full;
+      }
+      function off() { row.classList.remove("hot"); note.textContent = opts.hint || "Survolez ou parcourez une ligne pour le détail."; }
+      row.addEventListener("pointerenter", on);
+      row.addEventListener("pointerleave", off);
+      row.addEventListener("focus", on);
+      row.addEventListener("blur", off);
+      return row;
+    });
+  }
+
+  function hbarsChart(box) {
+    var items = (DATA[box.getAttribute("data-key")] || []).map(function (it) {
+      return { name: it.name, value: it.value, sub: it.sub };
+    });
+    if (!items.length) {
+      empty(box, box.getAttribute("data-empty") || "Rien à tracer pour le moment.", "/trades", "Voir les trades");
+      return;
+    }
+    ready(box);
+    renderBars(box, items, box.getAttribute("data-fmt") || "money", { signed: false });
+  }
+
+  /* Exposure: buy and sell notional stacked per market. */
+  function exposureChart(box) {
+    var rows = (DATA.exposure || []).filter(function (r) { return r.long || r.short; });
+    if (!rows.length) {
+      empty(box, "Aucune position ouverte : exposition nulle.", "/trades", "Voir les derniers trades");
+      return;
+    }
+    ready(box);
+    var max = Math.max.apply(null, rows.map(function (r) { return r.long + r.short; })) || 1;
+    var list = html("div", "hb", null, box);
+    list.setAttribute("role", "list");
+    rows.forEach(function (r) {
+      var row = html("div", "hb-row", null, list);
+      row.setAttribute("role", "listitem"); row.tabIndex = 0;
+      var text = r.name + " : achat " + money(r.long) + ", vente " + money(r.short);
+      row.setAttribute("aria-label", text); row.title = text;
+      html("span", "hb-name", r.name, row);
+      var track = html("span", "hb-track", null, row);
+      var a = html("span", "hb-fill", null, track);
+      a.style.left = "0"; a.style.width = (r.long / max * 100) + "%";
+      var b = html("span", "hb-fill alt", null, track);
+      b.style.left = (r.long / max * 100) + "%"; b.style.width = (r.short / max * 100) + "%"; b.style.opacity = "0.5";
+      html("span", "hb-val", money(r.long + r.short), row);
+    });
+    html("p", "hb-note", "Plein : achat. Estompé : vente. Notionnel = volume × prix d'entrée.", box);
+  }
+
+  function strategiesChart(box) {
+    var rows = DATA.strategies || [];
+    if (!rows.length) {
+      empty(box, "Aucune stratégie n'a encore de trade clôturé : la comparaison apparaît après la première clôture.", "/trades", "Ouvrir les trades");
+      return;
+    }
+    ready(box);
+    var metrics = [["net", "Résultat", "money", true], ["pf", "Facteur de profit", "num", false], ["wr", "Réussite", "pct", false]];
+    var current = metrics[0];
+    var bar = html("div", "chart-bar", null, box);
+    html("span", "chart-delta", rows.length + " stratégie(s) avec trades", bar);
+    var group = html("div", "seg", null, bar);
+    group.setAttribute("role", "group"); group.setAttribute("aria-label", "Mesure comparée");
+    var buttons = metrics.map(function (m) {
+      var b = html("button", "seg-btn", m[1], group);
+      b.type = "button"; b.setAttribute("aria-pressed", String(m === current));
+      b.addEventListener("click", function () { current = m; buttons.forEach(function (x, i) { x.setAttribute("aria-pressed", String(metrics[i] === current)); }); draw(); });
+      return b;
+    });
+    var host = html("div", "chart-host", null, box);
+    function draw() {
+      var items = rows.filter(function (r) { return r[current[0]] != null; }).map(function (r) {
+        return { name: r.name, value: r[current[0]], sub: r.trades + " trade(s)" };
+      }).sort(function (a, b) { return b.value - a.value; });
+      renderBars(host, items, current[2], { signed: current[3] });
+    }
+    draw();
+  }
+
+  /* Risk gauges: used against limit, with the state said in words and a shape. */
+  function gaugesChart(box) {
+    var items = (DATA.gauges || []).filter(function (g) { return g.limit; });
+    if (!items.length) {
+      empty(box, "Configuration de risque illisible ou absente : aucune limite à comparer.", "/system", "Voir le système");
+      return;
+    }
+    ready(box);
+    var wrap = html("div", "gauges", null, box);
+    wrap.setAttribute("role", "list");
+    items.forEach(function (g) {
+      var ratio = g.ratio == null ? 0 : g.ratio;
+      var state = ratio >= 0.8 ? "bad" : (ratio >= 0.5 ? "warn" : "ok");
+      var el = html("div", "gauge " + state, null, wrap);
+      el.setAttribute("role", "listitem");
+      var top = html("div", "gauge-top", null, el);
+      html("strong", null, g.name, top);
+      html("span", null, g.text, top);
+      var bar = html("div", "gauge-bar", null, el);
+      bar.setAttribute("role", "meter");
+      bar.setAttribute("aria-label", g.name + " : " + g.text);
+      bar.setAttribute("aria-valuemin", "0"); bar.setAttribute("aria-valuemax", "100");
+      bar.setAttribute("aria-valuenow", String(Math.min(100, Math.round(ratio * 100))));
+      html("i", null, null, bar).style.width = Math.min(100, ratio * 100) + "%";
+      var st = html("div", "gauge-state", null, el);
+      var glyph = state === "bad" ? "x-circle" : (state === "warn" ? "alert-triangle" : "check-circle");
+      var svg = svgEl("svg", { "class": "icon", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "1.75", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" }, st);
+      svgEl("use", { href: "#i-" + glyph }, svg);
+      html("span", null, Math.round(ratio * 100) + " % de la limite" + (state === "bad" ? " · élevé" : (state === "warn" ? " · à surveiller" : "")), st);
+    });
+  }
+
+  /* Signed columns with the shared cursor: items {title, value, label?, lines?[]}. */
+  function renderCols(host, items, kind, summaryLabel) {
+    host.innerHTML = "";
+    var width = Math.round(host.clientWidth) || 300;
+    var height = width < 520 ? 150 : 190;
+    var m = { t: 12, b: 22 };
+    var lo = 0, hi = 0, total = 0;
+    items.forEach(function (it) { lo = Math.min(lo, it.value); hi = Math.max(hi, it.value); total += it.value; });
+    var span = (hi - lo) || 1;
+    function y(v) { return m.t + (1 - (v - lo) / span) * (height - m.t - m.b); }
+    var y0 = y(0), slot = width / items.length, gap = slot > 6 ? 2 : 1, bw = Math.min(44, Math.max(2, slot - gap)), pad0 = (slot - bw) / 2;
+    var svg = svgEl("svg", { "class": "bars", viewBox: "0 0 " + width + " " + height, width: "100%", height: height }, host);
+    svgEl("line", { "class": "grid", x1: 0, x2: width, y1: y0, y2: y0 }, svg);
+    var rects = items.map(function (it, i) {
+      var cls = kind === "money" ? (it.value > 0 ? "up" : (it.value < 0 ? "down" : "nil")) : (it.value > 0 ? "alt" : "nil");
+      return svgEl("rect", {
+        "class": "b " + cls, x: (i * slot + pad0).toFixed(1), y: Math.min(y(it.value), y0).toFixed(1),
+        width: bw.toFixed(1), height: Math.max(it.value === 0 ? 1 : 2, Math.abs(y(it.value) - y0)).toFixed(1), rx: 2
+      }, svg);
+    });
+    [0, items.length - 1].forEach(function (i, k) {
+      if (k && items.length < 2) { return; }
+      var t = svgEl("text", { "class": "ax", x: k ? width - 4 : 4, y: height - 6, "text-anchor": k ? "end" : "start" }, svg);
+      t.textContent = items[i].label || items[i].title;
+    });
+    var summary = summaryLabel + " : total " + fmtValue(kind, total, kind === "money") + ", de " + items[0].title + " à " + items[items.length - 1].title + ".";
+    host.setAttribute("data-summary", summary);
+    var prev = -1;
+    interact(host, svg, items.length, function (px) { return clamp(Math.floor(px / slot), 0, items.length - 1); }, function (i) {
+      if (prev >= 0) { rects[prev].classList.remove("hot"); }
+      rects[i].classList.add("hot"); prev = i;
+      var it = items[i];
+      var lines = [{ text: arrow(it.value) + " " + fmtValue(kind, it.value, kind === "money"), tone: kind === "money" ? tone(it.value) : "" }];
+      (it.lines || []).forEach(function (l) { lines.push({ text: l }); });
+      return { x: i * slot + slot / 2, title: it.title, lines: lines };
+    }, function () { if (prev >= 0) { rects[prev].classList.remove("hot"); prev = -1; } }, summary + " Utilisez les flèches pour parcourir les colonnes.");
+  }
+
+  function refusalsChart(box) {
+    var data = DATA.refusals;
+    if (!data || !data.total) {
+      empty(box, "Aucun refus du risque sur 30 jours : tous les signaux évalués sont passés.", "/system", "Voir la santé du système");
+      return;
+    }
+    ready(box);
+    var head = html("div", "chart-bar", null, box);
+    html("span", "chart-big", String(data.total), html("div", "chart-headline", null, head));
+    html("span", "chart-delta", "refus sur 30 jours UTC", head);
+    var host = html("div", "chart-host", null, box);
+    var items = data.days.map(function (d) { return { title: utcDay(d.ts), label: utcDay(d.ts).slice(5), value: d.value, lines: [d.value ? "refus du jour" : "aucun refus"] }; });
+    observe(host, function () { renderCols(host, items, "int", "Refus du risque par jour UTC"); });
+    if (data.reasons && data.reasons.length) {
+      html("div", "sub-title", "Motifs les plus fréquents", box);
+      var rh = html("div", "chart-host", null, box);
+      renderBars(rh, data.reasons.map(function (r) { return { name: r.name, value: r.value }; }), "int", {});
+    }
+  }
+
+  function bucketsChart(box) {
+    var sets = DATA.buckets || {};
+    var names = Object.keys(sets);
+    if (!names.length) {
+      empty(box, "Aucune découpe disponible : il faut au moins un trade clôturé.", "/trades", "Ouvrir les trades");
+      return;
+    }
+    ready(box);
+    var current = names[0];
+    var tabs = html("div", "chart-tabs", null, box);
+    var group = html("div", "seg", null, tabs);
+    group.setAttribute("role", "group"); group.setAttribute("aria-label", "Découpe affichée");
+    var buttons = names.map(function (n) {
+      var b = html("button", "seg-btn", n, group);
+      b.type = "button"; b.setAttribute("aria-pressed", String(n === current));
+      b.addEventListener("click", function () { current = n; buttons.forEach(function (x, i) { x.setAttribute("aria-pressed", String(names[i] === current)); }); force(); });
+      return b;
+    });
+    var host = html("div", "chart-host", null, box);
+    var alt = html("div", "chart-alt", null, box);
+    function draw() {
+      var items = sets[current].map(function (b) {
+        return { title: b.name, label: b.name, value: b.value, lines: [b.n + " trade(s)", b.wr == null ? "réussite n/a" : "réussite " + Math.round(b.wr * 100) + " %"] };
+      });
+      renderCols(host, items, "money", "Résultat net par " + current.toLowerCase());
+      alt.innerHTML = "";
+      tableAlt(alt, "Résultat net par " + current.toLowerCase(), [current, "Résultat net", "Trades"], items.map(function (it) { return [it.title, money(it.value, true), String(sets[current][items.indexOf(it)].n)]; }));
+    }
+    var force = observe(host, draw);
+  }
+
+  /* Donut for any {name, value, tone?} list. */
+  function donutGeneric(box) {
+    var key = box.getAttribute("data-key");
+    var unit = box.getAttribute("data-unit") || "";
+    var rows = (DATA[key] || []).filter(function (r) { return r.value > 0; });
+    if (!rows.length) {
+      empty(box, box.getAttribute("data-empty") || "Rien à répartir pour le moment.", "/system", "Voir le système");
+      return;
+    }
+    ready(box);
+    var total = rows.reduce(function (s, r) { return s + r.value; }, 0);
+    var shades = [96, 64, 44, 32, 26];
+    var toneVar = { ok: "var(--up)", bad: "var(--down)", warn: "var(--warn)" };
+    var wrap = html("div", "donut-wrap", null, box);
+    var size = 120, r = 44, circ = 2 * Math.PI * r;
+    var svg = svgEl("svg", { "class": "donut", viewBox: "0 0 " + size + " " + size, role: "img", style: "width:120px;height:120px" }, html("div", "donut-host", null, wrap));
+    svg.setAttribute("aria-label", "Répartition de " + total + " " + unit + " : " + rows.map(function (x) { return x.name + " " + x.value; }).join(", ") + ".");
+    svgEl("circle", { "class": "ring-bg", cx: size / 2, cy: size / 2, r: r, "stroke-width": 14 }, svg);
+    var cA = svgEl("text", { "class": "c-main", x: size / 2, y: size / 2 + 2, "text-anchor": "middle" }, svg);
+    var cB = svgEl("text", { "class": "c-sub", x: size / 2, y: size / 2 + 16, "text-anchor": "middle" }, svg);
+    var list = html("ul", "legend", null, wrap);
+    var arcs = [], lis = [], acc = 0;
+    function idle() { cA.textContent = String(total); cB.textContent = "total"; arcs.forEach(function (a) { a.classList.remove("hot", "dim"); }); lis.forEach(function (x) { x.classList.remove("hot"); }); }
+    function focusOn(i) {
+      arcs.forEach(function (a, k) { a.classList.toggle("hot", k === i); a.classList.toggle("dim", k !== i); });
+      lis.forEach(function (x, k) { x.classList.toggle("hot", k === i); });
+      cA.textContent = Math.round(rows[i].value / total * 100) + " %"; cB.textContent = rows[i].name.slice(0, 9);
+    }
+    rows.forEach(function (row, i) {
+      var len = row.value / total * circ, gap = rows.length > 1 ? 2.5 : 0;
+      var arc = svgEl("circle", { "class": "arc", cx: size / 2, cy: size / 2, r: r, "stroke-width": 14, "stroke-dasharray": Math.max(0.5, len - gap).toFixed(2) + " " + circ.toFixed(2), "stroke-dashoffset": (-acc).toFixed(2), transform: "rotate(-90 " + size / 2 + " " + size / 2 + ")" }, svg);
+      var shade = shades[Math.min(i, shades.length - 1)] + "%";
+      arc.style.setProperty("--shade", shade);
+      if (row.tone) { arc.style.stroke = toneVar[row.tone]; }
+      acc += len; arcs.push(arc);
+      var li = html("li", "legend-row", null, list);
+      li.tabIndex = 0;
+      var sw = html("span", "swatch", null, li);
+      sw.style.setProperty("--shade", shade);
+      if (row.tone) { sw.style.background = toneVar[row.tone]; }
+      html("span", "legend-name", row.name, li);
+      html("span", "legend-n num", row.value + " · " + Math.round(row.value / total * 100) + " %", li);
+      lis.push(li);
+      [arc, li].forEach(function (n) { n.addEventListener("pointerenter", function () { focusOn(i); }); n.addEventListener("pointerleave", idle); });
+      li.addEventListener("focus", function () { focusOn(i); });
+      li.addEventListener("blur", idle);
+    });
+    idle();
+  }
+
+  function heartbeatsChart(box) {
+    var rows = (DATA.heartbeats || []);
+    if (!rows.length) { empty(box, "Aucun battement d'EA lisible : le pont n'est pas configuré.", "/risk", "Voir le risque"); return; }
+    ready(box);
+    renderBars(box, rows.map(function (r) { return { name: r.name, value: r.value, sub: r.ok ? "EA en ligne" : "EA hors ligne", cls: r.ok ? "" : "down" }; }), "sec", { hint: "Âge du dernier battement : plus c'est court, mieux c'est." });
+  }
+  function latenciesChart(box) {
+    var rows = (DATA.latencies || []);
+    if (!rows.length) { empty(box, "Aucune latence mesurée : il faut au moins un ordre exécuté.", "/trades", "Voir les trades"); return; }
+    ready(box);
+    renderBars(box, rows.map(function (r) {
+      return { name: r.name, value: r.median == null ? 0 : r.median, alt: r.worst, sub: r.n + " mesure(s)", label: "méd " + fmtValue("num", r.median) + " · pire " + fmtValue("num", r.worst) + " ms" };
+    }), "ms", { hint: "Barre pleine : médiane. Estompée : pire cas." });
+  }
+
+  /* Replay: entry, stop, targets and close drawn on the server's candles, with a crosshair. */
+  function replayChart() {
+    var data = DATA.replay;
+    var svg = document.querySelector("svg.replay-chart");
+    if (!data || !svg || !data.candles || data.candles.length < 2) { return; }
+    var host = svg.closest("figure") || svg.parentNode;
+    host.style.position = "relative";
+    var top = data.top, bottom = data.bottom, span = (data.high - data.low) || 1;
+    function y(price) { return bottom - (price - data.low) / span * (bottom - top); }
+    var legend = html("ul", "replay-legend", null, host);
+    var figcap = host.querySelector("figcaption");
+    if (figcap) { host.insertBefore(legend, figcap); }
+    (data.levels || []).forEach(function (lv) {
+      var py = clamp(y(lv.price), top - 8, bottom + 8);
+      var out = lv.price > data.high ? " ↑" : (lv.price < data.low ? " ↓" : "");
+      svgEl("line", { "class": "lvl " + lv.kind, x1: 0, x2: data.width, y1: py, y2: py }, svg);
+      var tx = svgEl("text", { "class": "lvl-label", x: 4, y: py - 4 }, svg);
+      tx.textContent = lv.name + " " + lv.price + out;
+      var li = html("li", null, null, legend);
+      html("i", lv.kind, null, li);
+      html("span", null, lv.name + " " + lv.price + (out ? " (hors cadre)" : ""), li);
+    });
+    var n = data.candles.length, slot = data.width / n;
+    var xh = svgEl("line", { "class": "xh", y1: top, y2: bottom, visibility: "hidden" }, svg);
+    var summary = "Bougies et niveaux du trade : " + n + " bougies" + ((data.levels || []).length ? ", " + data.levels.map(function (l) { return l.name + " " + l.price; }).join(", ") : "") + ".";
+    interact(host, svg, n, function (px) { return clamp(Math.floor(px / slot), 0, n - 1); }, function (i) {
+      var c = data.candles[i], cx = i * slot + slot / 2;
+      xh.setAttribute("visibility", "visible"); xh.setAttribute("x1", cx); xh.setAttribute("x2", cx);
+      var d = c[4] - c[1];
+      return { x: cx, title: utcTime(c[0]), lines: [
+        { text: "O " + c[1] + "  H " + c[2] },
+        { text: "L " + c[3] + "  C " + c[4] },
+        { text: arrow(d) + " " + (d > 0 ? "haussière" : (d < 0 ? "baissière" : "neutre")), tone: tone(d) }
+      ] };
+    }, function () { xh.setAttribute("visibility", "hidden"); }, summary + " Utilisez les flèches pour parcourir les bougies.");
+    svg.removeAttribute("role");
+    svg.setAttribute("role", "slider");
+  }
+
   Array.prototype.forEach.call(document.querySelectorAll("[data-chart]"), function (box) {
     var kind = box.getAttribute("data-chart");
     if (kind === "equity") { equityChart(box); }
     else if (kind === "pnl-bars") { barsChart(box); }
     else if (kind === "markets") { donutChart(box); }
+    else if (kind === "hbars") { hbarsChart(box); }
+    else if (kind === "exposure") { exposureChart(box); }
+    else if (kind === "strategies") { strategiesChart(box); }
+    else if (kind === "gauges") { gaugesChart(box); }
+    else if (kind === "refusals") { refusalsChart(box); }
+    else if (kind === "buckets") { bucketsChart(box); }
+    else if (kind === "donut") { donutGeneric(box); }
+    else if (kind === "heartbeats") { heartbeatsChart(box); }
+    else if (kind === "latencies") { latenciesChart(box); }
   });
   sparks();
+  replayChart();
 })();

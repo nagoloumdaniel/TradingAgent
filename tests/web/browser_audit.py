@@ -14,6 +14,8 @@ For every page at 360, 768, 1280 and 1920 px it checks, in a headless Chromium, 
 * on the phone, wide tables really are stacked cards (``.is-stack``);
 * on the phone, the "Plus" sheet opens above the scrim, traps focus, makes the page inert and
   closes on Escape with the focus back on its button;
+* new charts are drawn, hover gives a tooltip, folds are closed on phone / open on desktop,
+  and the overview height at 390 px is printed and capped at 3500 px;
 * the overview's state dot is exposed to assistive technology (role and accessible name).
 
 It saves a full-page screenshot per page and size, then exits non-zero on any failure.
@@ -148,6 +150,59 @@ def check_charts(page, label: str, failures: list[str]) -> None:
         failures.append(f"{label}: trades bars not drawn")
 
 
+PAGE_CHARTS = {
+    "/positions": ("exposure", "hbars"),
+    "/risk": ("gauges", "refusals"),
+    "/strategies": ("strategies",),
+    "/scalping": ("buckets",),
+    "/ai-lab": ("donut",),
+    "/system": ("heartbeats", "latencies"),
+}
+
+
+def check_pages(page, label: str, path: str, failures: list[str]) -> None:
+    """Every new chart is drawn (or says why not); one hover gives a tooltip or a note."""
+    for kind in PAGE_CHARTS.get(path, ()):
+        box = page.locator(f"[data-chart={kind}]").first
+        if box.count() == 0:
+            failures.append(f"{label}: {kind} container missing")
+            continue
+        if box.get_attribute("aria-busy") == "true":
+            failures.append(f"{label}: {kind} still loading")
+    if path == "/scalping":
+        svg = page.locator("[data-chart=buckets] svg.bars")
+        if svg.count():
+            box = svg.bounding_box()
+            page.mouse.move(box["x"] + box["width"] * 0.3, box["y"] + box["height"] / 2)
+            page.wait_for_timeout(150)
+            if page.locator("[data-chart=buckets] .chart-tip.on").count() != 1:
+                failures.append(f"{label}: no tooltip on the bucket chart")
+    if path == "/trades/1" and page.locator("svg.replay-chart .lvl").count() == 0:
+        failures.append(f"{label}: replay levels not drawn")
+
+
+def check_folds(page, label: str, phone: bool, failures: list[str]) -> None:
+    """Folds are closed on a phone, open elsewhere, and open on activation."""
+    folds = page.locator("details.fold")
+    total = folds.count()
+    if not total:
+        return
+    opened = page.locator("details.fold[open]").count()
+    keep = page.locator("details.fold[data-keep]").count()
+    if phone and opened > keep:
+        failures.append(f"{label}: {opened - keep} fold(s) open by default on a phone")
+    if not phone and opened != total:
+        failures.append(f"{label}: folds closed on desktop ({opened}/{total})")
+    if phone:
+        first = page.locator("details.fold:not([data-keep]) > summary").first
+        if first.count():
+            first.scroll_into_view_if_needed()
+            first.click()
+            page.wait_for_timeout(120)
+            if first.get_attribute("aria-expanded") != "true":
+                failures.append(f"{label}: fold did not open (aria-expanded)")
+
+
 def main(argv: list[str]) -> int:
     base = argv[1] if len(argv) > 1 else "http://127.0.0.1:8799"
     out = Path(argv[2] if len(argv) > 2 else "browser-audit")
@@ -183,6 +238,16 @@ def main(argv: list[str]) -> int:
                 real = [e for e in errors if not (expected == 404 and "404" in e)]
                 if real:
                     failures.append(f"{label}: console {real[:2]}")
+                check_pages(page, label, path, failures)
+                if width in (390, 1280):
+                    check_folds(page, label, width < 768, failures)
+                if width == 390 and path == "/":
+                    page.goto(base + path, wait_until="load")
+                    page.wait_for_timeout(300)
+                    height = page.evaluate("document.documentElement.scrollHeight")
+                    print(f"overview page height at 390px: {height}px")
+                    if height > 3500:
+                        failures.append(f"{label}: overview too long on phone ({height}px)")
                 if width == 360 and path == "/trades" and probe["stacked"] == 0:
                     failures.append(f"{label}: wide table not stacked")
                 if width in (390, 1280) and path == "/":

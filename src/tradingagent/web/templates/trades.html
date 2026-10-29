@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon, head, fold, badge, nothing %}
 {% from "_macros.html" import pager, market_select, option_select, search_field %}
 {% block title %}Trades{% endblock %}
 {% block content %}
@@ -17,31 +18,31 @@
                    page.filter_value("mode"), "Tous", mode_labels) }}
   {{ search_field("trades-q", "Recherche", page.query,
                   "symbole, stratégie, ticket") }}
-  <div><button type="submit">Filtrer</button></div>
+  <div><button type="submit">{{ icon("filter") }}Filtrer</button></div>
 </form>
 
 <div class="cards" title="Chiffres calculés sur la sélection courante">
-  <div class="card"><div class="label">Résultat net</div>
+  <div class="card"><div class="label">{{ icon("euro") }}Résultat net</div>
     <div class="value {{ display.ratio_class(listing.performance.net_profit) }}">{{ display.money(listing.performance.net_profit, signed=True) }}</div></div>
-  <div class="card"><div class="label">Trades</div><div class="value">{{ listing.performance.trades }}</div>
+  <div class="card"><div class="label">{{ icon("receipt") }}Trades</div><div class="value">{{ listing.performance.trades }}</div>
     <dl class="facts"><div><dt>Gagnants</dt><dd>{{ listing.performance.wins }}</dd></div><div><dt>Perdants</dt><dd>{{ listing.performance.losses }}</dd></div></dl></div>
-  <div class="card"><div class="label">Taux de réussite</div><div class="value">{{ display.percent(listing.performance.win_rate) }}</div></div>
-  <div class="card"><div class="label">Facteur de profit</div><div class="value">{{ display.ratio(listing.performance.profit_factor) }}</div></div>
+  <div class="card"><div class="label">{{ icon("percent") }}Taux de réussite</div><div class="value">{{ display.percent(listing.performance.win_rate) }}</div></div>
+  <div class="card"><div class="label">{{ icon("gauge") }}Facteur de profit</div><div class="value">{{ display.ratio(listing.performance.profit_factor) }}</div></div>
 </div>
 
 <div class="dash">
   <section class="mod wide" aria-labelledby="h-trade-bars">
-    <h2 id="h-trade-bars">Résultat par trade (sélection courante)</h2>
+    {{ head("h-trade-bars", "bar-chart", "Résultat par trade (sélection courante)") }}
     <div class="chart is-loading" data-chart="pnl-bars" data-mode="trade" aria-busy="true"></div>
   </section>
 </div>
 
 <div class="actions">
-  <a href="/export/trades.csv?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}" title="Exporter la sélection">CSV</a>
-  <a href="/export/trades.json?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}" title="Exporter la sélection">JSON</a>
+  <a href="/export/trades.csv?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}" title="Exporter la sélection">{{ icon("download") }}CSV</a>
+  <a href="/export/trades.json?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}" title="Exporter la sélection">{{ icon("download") }}JSON</a>
 </div>
 
-<div class="table-wrap">
+<div class="table-wrap" data-limit="5">
 <table>
   <caption class="sr-only">Trades clôturés, marché {{ page.market }} : {{ page.total }} trade(s) clôturé(s) pour cette sélection, affichage {{ page.showing }}</caption>
   <thead>
@@ -61,7 +62,7 @@
         <td class="num {{ display.ratio_class(trade.pnl_eur) }}">{{ display.money(trade.pnl_eur, signed=True) }}</td>
         <td class="num">{{ display.money(trade.risk_eur) }}</td>
         <td>{{ display.duration(trade.closed_at - trade.opened_at) }}</td>
-        <td><a href="/trades/{{ entry.signal_id }}" aria-label="Rejouer le trade {{ entry.signal_id }}">Rejouer</a></td>
+        <td><a href="/trades/{{ entry.signal_id }}" aria-label="Rejouer le trade {{ entry.signal_id }}">{{ icon("arrow-up-right") }}Rejouer</a></td>
       </tr>
     {% else %}
       <tr><td colspan="10" class="empty">{{ page.empty_message }}</td></tr>

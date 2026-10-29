@@ -79,8 +79,8 @@ def test_overview_shows_the_strategy_status(seeded_client: TestClient) -> None:
     body = seeded_client.get("/").text
     assert seed.WITNESS in body
     assert seed.BREAKOUT in body
-    assert ">live<" in body
-    assert ">paper<" in body
+    assert "live</span>" in body
+    assert "paper</span>" in body
 
 
 def test_overview_warns_when_a_global_halt_is_active(
@@ -331,3 +331,11 @@ def test_positions_page_carries_the_live_wiring(seeded_client: TestClient) -> No
     # placeholder the stream fills in later.
     assert 'id="open-count">1</div>' in body
     assert 'role="status"' in body and 'aria-live="polite"' in body  # the stream state
+
+
+def test_reports_page_has_no_equity_or_drawdown_chart(seeded_client: TestClient) -> None:
+    """The equity curve belongs to the overview; Rapports lists reports and exports only."""
+    body = seeded_client.get("/reports").text
+    assert "équité et drawdown" not in body
+    assert "equity.svg" not in body
+    assert 'data-chart="equity"' not in body
