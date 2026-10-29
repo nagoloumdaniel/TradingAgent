@@ -29,7 +29,7 @@ markets:
     strategy: vwap_pullback@1.1.0
   - symbol: BTCUSD
     enabled: true
-    strategy: vwap_pullback@1.2.0
+    strategy: vwap_pullback@1.4.0
 risk:
   simulated:
     risk_per_trade_pct: 0.5

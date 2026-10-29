@@ -1,4 +1,4 @@
-# vwap_pullback 1.4.0 -- BTCUSD, DEMO only. Successor of 1.2.0 (same rule, same exits 0.8R/1.5R,
+# vwap_pullback 1.4.0 -- BTCUSD, DEMO only (derogation below). Successor of 1.2.0 (same rule, same exits 0.8R/1.5R,
 # same 1.5 ATR stop) with ONE addition: the entry must go WITH the named trend, read with
 # EMA 10/30 and a one-bar slope above 0.05 ATR (the defaults of `entry_features`, not tuned).
 #
@@ -12,14 +12,24 @@
 # conclusive. The "with the trend" slice was found by looking at 164 slices on train+validation,
 # so those two windows are not independent of the discovery.
 #
-# max_mode SIGNAL: this version CANNOT execute on the demo account yet. Raising it to DEMO needs an
-# explicit operator derogation banner (RM-016: marker, date, missing validation figures); an agent
-# may not write one. To activate: add the derogation to this file and set BTCUSD to
-# vwap_pullback@1.4.0 in config/agent.yaml (BTCUSD currently stays on 1.2.0).
-# 1.2.0 stays published and unmodified.
+# DEROGATION OPERATEUR du 2026-10-29 : plafond releve de SIGNAL a DEMO, sans validation.
+#
+# Decision de l'operateur, prise en connaissance des chiffres ci-dessous, pour faire tourner ce
+# candidat sur le COMPTE DE DEMONSTRATION uniquement, ou aucun argent reel n'est en jeu.
+# `max_mode: DEMO` est un plafond borne : il n'atteint pas le compte reel (RM-016, RM-017).
+# Chiffres de validation qui manquent :
+#   * profit factor net 0.9441 en entrainement + validation (123 operations), 1.3916 en
+#     validation seule (35 operations), contre 1.2 exige ; le profit factor cumule reste sous 1 ;
+#   * p-value minimale 0,998 et ligne de Bonferroni 0,016667 : mesures de la 1.2.0 (meme regle),
+#     NON remesurees pour ce candidat ;
+#   * 0 survivant sur 7 apres correction du taux de fausses decouvertes (mesure de la 1.2.0).
+# Le filtre "avec la tendance" a ete trouve en regardant 164 tranches des memes donnees : ces
+# fenetres ne sont pas independantes de la decouverte. Le jeu scelle n'est PAS ouvert.
+# Retour arriere : remettre BTCUSD sur vwap_pullback@1.2.0 dans config/agent.yaml.
+# 1.2.0 reste publie et non modifie.
 strategy_id: vwap_pullback
 version: 1.4.0
-max_mode: SIGNAL
+max_mode: DEMO
 allowed_symbols: [BTCUSD]
 timeframes: [M15]
 history_bars: 400
