@@ -225,6 +225,8 @@ class TradeListing:
     performance: Performance
     markets: tuple[str, ...]
     strategies: tuple[str, ...]
+    # (closed_at epoch s, pnl, symbol) of the whole selection, oldest first: the bars chart.
+    points: tuple[tuple[int, float, str], ...] = ()
 
 
 def _trade_statement(conditions: Sequence[Any]) -> Any:
@@ -346,6 +348,7 @@ def trade_page(
         # returned: a selector that narrowed to its own choice would trap the operator.
         markets=available_markets(engine),
         strategies=traded_strategies(engine),
+        points=trade_points([entry.trade for entry in every]),
     )
 
 
@@ -3392,6 +3395,50 @@ def _candles(engine: Engine) -> tuple[str | None, tuple[CandleMark, ...]]:
         for index, row in enumerate(ordered)
     )
     return str(symbol), marks
+
+
+EQUITY_POINTS_MAX = 400
+
+
+def trade_points(trades: Iterable[Trade]) -> tuple[tuple[int, float, str], ...]:
+    """Stored closed trades as ``(epoch seconds UTC, pnl, symbol)``, oldest first.
+
+    Display plumbing for the interactive charts: the values are the stored ones, only the
+    shape changes. Periods and per-day buckets are summed in the browser from these points.
+    """
+    ordered = sorted(trades, key=lambda trade: trade.closed_at)
+    return tuple(
+        (int(trade.closed_at.timestamp()), float(trade.pnl_eur), trade.symbol) for trade in ordered
+    )
+
+
+def chart_payload(engine: Engine, ov: Overview) -> dict[str, Any]:
+    """Everything the overview charts draw, read-only and UTC; embedded as JSON in the page."""
+    series = equity_series(engine)
+    if len(series) > EQUITY_POINTS_MAX:
+        stride = len(series) / EQUITY_POINTS_MAX
+        picked = [series[int(i * stride)] for i in range(EQUITY_POINTS_MAX)]
+        if picked[-1] != series[-1]:
+            picked.append(series[-1])
+        series = picked
+    return {
+        "now": int(ov.at.timestamp()),
+        "equity": [[int(moment.timestamp()), float(value)] for moment, value in series],
+        "trades": [list(point) for point in trade_points(all_trades(engine))],
+        "markets": [
+            {
+                "name": market.market,
+                "net": float(market.performance.net_profit),
+                "trades": market.performance.trades,
+            }
+            for market in ov.markets
+        ],
+        "drawdown": {
+            "current": None if ov.account.drawdown is None else float(ov.account.drawdown),
+            "peak": None if ov.account.peak_equity is None else float(ov.account.peak_equity),
+            "max": float(ov.total.max_drawdown),
+        },
+    }
 
 
 def watermark(engine: Engine) -> ChartWatermark:

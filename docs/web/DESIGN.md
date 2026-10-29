@@ -61,6 +61,14 @@ Sombre, sur le verre le plus clair (`#272728`) : texte 13,6, secondaire 6,4, dis
 > Ce document dit ce qui a été retenu, ce qui a été écarté, et pourquoi. Les skills sont
 > des avis, pas des ordres : ils visent des sites vitrines, ce dashboard est un outil.
 
+### Passe densité et graphiques interactifs (2026-10-29)
+
+- **Densité** : bandeau KPI unique (`.cards`, verre + filets, hauteur au contenu), modules `.mod` dans une grille `.dash` (1/2/3 colonnes, `align-items:start`, `span-2` / `wide`), colonnes secondaires masquées par container query (`.opt`, `.opt2`). Tableaux mobiles en cartes compactes à deux paires label/valeur par ligne. Navigation latérale resserrée, réductible en rail (bouton, mémorisé).
+- **Graphiques** (`static/js/charts.js`, SVG vanilla, aucune lib) : courbe d'équité (crosshair, tooltip UTC, 1J/1S/1M/Tout côté client, dégradé vert/rouge selon la tendance), barres de résultat par jour UTC ou par trade, donut par marché, mini-sparklines dans les KPI, jauge `<meter>` du drawdown. Données : bloc JSON `#ta-charts` produit par `queries.chart_payload` (lecture seule, UTC, équité sous-échantillonnée à 400 points).
+- **Accessibilité** : chaque graphique est un `slider` focusable (flèches, Home/End, PageUp/Down), `aria-label` résumé, `aria-valuetext`, tableau alternatif (`<details>`), pointer events pour le tactile, `prefers-reduced-motion` respecté ; le sens n'est jamais porté par la couleur seule (flèches ▲▼, signe, valeurs).
+- **UX** (`static/js/ux.js`) : tri par colonne et filtre texte sur la page courante, copie 1 clic des tickets/identifiants, raccourcis `g`+lettre, `/`, `?` (désactivables), squelettes de chargement, états vides avec action.
+- Limites : tri/filtre ne portent que sur les lignes affichées (la pagination reste serveur) ; sans JavaScript les graphiques ne s'affichent pas (les chiffres restent dans les KPI et tableaux).
+
 ## Ce qui a été retenu
 
 **`minimalist-ui`** — l'école directrice, parce qu'elle décrit un outil et non une vitrine :

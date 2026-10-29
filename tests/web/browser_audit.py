@@ -37,7 +37,7 @@ PAGES = (
     "/system",
     "/nope",
 )
-SIZES = ((360, 740), (768, 1024), (1280, 800), (1920, 1080))
+SIZES = ((360, 740), (390, 844), (768, 1024), (1280, 800), (1920, 1080))
 PROBE = """() => {
   const root = document.documentElement;
   const width = root.clientWidth;
@@ -110,6 +110,44 @@ def check_drawer(page, label: str, failures: list[str]) -> None:
         failures.append(f"{label}: drawer did not close cleanly {closed}")
 
 
+def check_charts(page, label: str, failures: list[str]) -> None:
+    """The overview charts draw, answer to hover and keyboard, and the period selector works."""
+    page.goto(page.url.split("?")[0], wait_until="load")
+    page.wait_for_timeout(400)
+    if page.locator("[data-chart=equity] svg.eq").count() != 1:
+        failures.append(f"{label}: equity chart not drawn")
+        return
+    for kind in ("pnl-bars", "markets"):
+        if page.locator(f"[data-chart={kind}] svg").count() < 1:
+            failures.append(f"{label}: {kind} chart not drawn")
+    path_all = page.locator("[data-chart=equity] svg.eq path.line").get_attribute("d")
+    page.locator("[data-chart=equity] svg.eq").scroll_into_view_if_needed()
+    box = page.locator("[data-chart=equity] svg.eq").bounding_box()
+    page.mouse.move(box["x"] + box["width"] * 0.6, box["y"] + box["height"] / 2)
+    page.wait_for_timeout(200)
+    if page.locator("[data-chart=equity] .chart-tip.on").count() != 1:
+        failures.append(f"{label}: no tooltip on hover")
+    page.locator("[data-chart=equity] .seg-btn", has_text="1J").click()
+    page.wait_for_timeout(300)
+    path_day = page.locator("[data-chart=equity] svg.eq path.line").get_attribute("d")
+    pressed = page.locator("[data-chart=equity] .seg-btn[aria-pressed=true]").inner_text()
+    if pressed != "1J" or path_day == path_all:
+        failures.append(f"{label}: period selector did not change the curve ({pressed})")
+    page.locator("[data-chart=equity] svg.eq").focus()
+    page.keyboard.press("ArrowLeft")
+    page.wait_for_timeout(100)
+    if page.locator("[data-chart=equity] .chart-tip.on").count() != 1:
+        failures.append(f"{label}: no tooltip from the keyboard")
+    if not page.locator("[data-chart=equity] svg.eq").get_attribute("aria-valuetext"):
+        failures.append(f"{label}: slider has no value text")
+    page.keyboard.press("g")
+    page.keyboard.press("t")
+    page.wait_for_url("**/trades")
+    page.wait_for_timeout(300)
+    if page.locator("[data-chart=pnl-bars] svg").count() < 1:
+        failures.append(f"{label}: trades bars not drawn")
+
+
 def main(argv: list[str]) -> int:
     base = argv[1] if len(argv) > 1 else "http://127.0.0.1:8799"
     out = Path(argv[2] if len(argv) > 2 else "browser-audit")
@@ -147,6 +185,8 @@ def main(argv: list[str]) -> int:
                     failures.append(f"{label}: console {real[:2]}")
                 if width == 360 and path == "/trades" and probe["stacked"] == 0:
                     failures.append(f"{label}: wide table not stacked")
+                if width in (390, 1280) and path == "/":
+                    check_charts(page, f"{label} charts", failures)
                 if width == 360 and path == "/":
                     check_drawer(page, f"{label} drawer", failures)
                     dot = page.evaluate(

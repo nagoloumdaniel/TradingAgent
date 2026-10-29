@@ -334,6 +334,7 @@ def create_app(
             request,
             "overview",
             data=data,
+            charts=queries.chart_payload(engine, data),
             health=queries.market_health(engine, at),
             ea_halted=queries.ea_halted(data.ea),
         )
@@ -406,6 +407,7 @@ def create_app(
             request,
             "trades",
             listing=listing,
+            charts={"trades": [list(point) for point in listing.points]},
             modes=list(TradingMode),
             detail=queries.trade_detail(engine, trade_id) if trade_id is not None else None,
         )

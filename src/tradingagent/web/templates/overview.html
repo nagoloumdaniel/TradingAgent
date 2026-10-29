@@ -41,7 +41,10 @@
 {% endif %}
 
 <h2 class="sr-only">Indicateurs clés</h2>
-<div class="cards kpis">
+{% set dd = data.account.drawdown %}
+{% set dd_max = t.max_drawdown %}
+{% set dd_ratio = (dd / dd_max) if (dd is not none and dd_max and dd_max > 0) else none %}
+<div class="cards kpis strip">
   <div class="card hero">
     {{ dot(state, state_label) }}
     <div class="label">Solde</div>
@@ -63,6 +66,11 @@
   <div class="card" title="Trades clôturés depuis 00:00 UTC">
     <div class="label">P&amp;L du jour</div>
     <div class="value {{ display.ratio_class(data.pnl_day) }}">{{ display.money(data.pnl_day, signed=True) }}</div>
+    <dl class="facts">
+      <div title="Depuis lundi 00:00 UTC"><dt>Semaine</dt><dd class="{{ display.ratio_class(data.pnl_week) }}">{{ display.money(data.pnl_week, signed=True) }}</dd></div>
+      <div title="Depuis le 1er du mois, 00:00 UTC"><dt>Mois</dt><dd class="{{ display.ratio_class(data.pnl_month) }}">{{ display.money(data.pnl_month, signed=True) }}</dd></div>
+    </dl>
+    <svg data-spark="pnl" width="100%" height="34"></svg>
   </div>
   <div class="card">
     <div class="label">Positions ouvertes</div>
@@ -74,6 +82,12 @@
   <div class="card" title="Écart au pic d'équité enregistré">
     <div class="label">Drawdown courant</div>
     <div class="value neg">{{ display.money(data.account.drawdown) }}</div>
+    {% if dd_ratio is not none %}
+      {% set pct = [dd_ratio * 100, 100] | min %}
+      <meter class="meter" min="0" max="100" low="50" high="80" optimum="0" value="{{ '%.0f'|format(pct) }}"
+             aria-label="Drawdown courant : {{ '%.0f'|format(pct) }} % du drawdown maximal mesuré">{{ '%.0f'|format(pct) }} %</meter>
+      <div class="meter-cap">{{ '%.0f'|format(pct) }} % du maximal{% if pct >= 80 %} · élevé{% endif %}</div>
+    {% endif %}
     <dl class="facts" title="Plus grand drawdown mesuré par analytics, et sa durée">
       <div><dt>Maximal</dt><dd>{{ display.money(t.max_drawdown) }}</dd></div>
       <div><dt>Durée</dt><dd>{{ display.duration(t.max_drawdown_duration) }}</dd></div>
@@ -81,66 +95,81 @@
   </div>
 </div>
 
-<h2>Résultat</h2>
-<div class="panel">
-  <dl class="stats">
-    <div class="stat" title="Depuis lundi 00:00 UTC"><dt>P&amp;L de la semaine</dt>
-      <dd class="{{ display.ratio_class(data.pnl_week) }}">{{ display.money(data.pnl_week, signed=True) }}</dd></div>
-    <div class="stat" title="Depuis le 1er du mois, 00:00 UTC"><dt>P&amp;L du mois</dt>
-      <dd class="{{ display.ratio_class(data.pnl_month) }}">{{ display.money(data.pnl_month, signed=True) }}</dd></div>
-    <div class="stat"><dt>Résultat net (total)</dt>
-      <dd class="{{ display.ratio_class(t.net_profit) }}">{{ display.money(t.net_profit, signed=True) }}
-        <small>{{ t.trades }} trade(s) clôturé(s)</small></dd></div>
-  </dl>
+<div class="dash">
+  <section class="mod span-2" aria-labelledby="h-equity">
+    <h2 id="h-equity">Équité</h2>
+    <div class="chart is-loading" data-chart="equity" aria-busy="true"></div>
+  </section>
+
+  <section class="mod" aria-labelledby="h-open">
+    <h2 id="h-open">Positions ouvertes ({{ data.positions | length }})</h2>
+    <div class="table-wrap flat">
+    <table>
+      <caption class="sr-only">Positions ouvertes</caption>
+      <thead>
+        <tr><th scope="col">Marché</th><th scope="col">Sens</th><th scope="col" class="num">Volume</th><th scope="col" class="num opt2">Prix d'entrée</th>
+            <th scope="col" class="num opt">Notionnel</th><th scope="col" class="opt">Mode</th><th scope="col" class="opt">Ouverte le (UTC)</th><th scope="col">Âge</th></tr>
+      </thead>
+      <tbody>
+        {% for position in data.positions %}
+          <tr>
+            <td>{{ position.symbol }}</td>
+            <td>{{ display.direction_label(position.direction) }}</td>
+            <td class="num">{{ display.number(position.volume, 2) }}</td>
+            <td class="num opt2">{{ display.number(position.open_price, 5) }}</td>
+            <td class="num opt">{{ display.money(position.notional) }}</td>
+            <td class="opt">{{ display.mode_label(position.mode) }}</td>
+            <td class="opt">{{ display.moment(position.opened_at) }}</td>
+            <td>{{ display.duration(position.age) }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="8" class="empty">Aucune position ouverte. <a href="/trades">Voir les derniers trades</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section class="mod span-2" aria-labelledby="h-pnl">
+    <h2 id="h-pnl">Résultat des trades</h2>
+    <div class="chart is-loading" data-chart="pnl-bars" aria-busy="true"></div>
+  </section>
+
+  <section class="mod" aria-labelledby="h-split">
+    <h2 id="h-split">Répartition par marché</h2>
+    <div class="chart is-loading" data-chart="markets" aria-busy="true"></div>
+  </section>
+
+  <section class="mod wide" aria-labelledby="h-stats">
+    <h2 id="h-stats">Performance</h2>
+    {% if t.insufficient_sample %}
+      <div class="banner warn">Échantillon insuffisant ({{ t.trades }} trades) : Sharpe et Sortino sont masqués.</div>
+    {% endif %}
+    <dl class="stats dense">
+      <div class="stat" title="Depuis lundi 00:00 UTC"><dt>P&amp;L de la semaine</dt>
+        <dd class="{{ display.ratio_class(data.pnl_week) }}">{{ display.money(data.pnl_week, signed=True) }}</dd></div>
+      <div class="stat" title="Depuis le 1er du mois, 00:00 UTC"><dt>P&amp;L du mois</dt>
+        <dd class="{{ display.ratio_class(data.pnl_month) }}">{{ display.money(data.pnl_month, signed=True) }}</dd></div>
+      <div class="stat"><dt>Résultat net (total)</dt>
+        <dd class="{{ display.ratio_class(t.net_profit) }}">{{ display.money(t.net_profit, signed=True) }}
+          <small>{{ t.trades }} trade(s) clôturé(s)</small></dd></div>
+      <div class="stat" title="Gagnants / perdants"><dt>Trades</dt><dd>{{ t.trades }} <small>{{ t.wins }} / {{ t.losses }}</small></dd></div>
+      <div class="stat" title="Part des trades gagnants"><dt>Réussite</dt><dd>{{ display.percent(t.win_rate) }}</dd></div>
+      <div class="stat" title="Montants bruts : profit {{ display.money(t.gross_profit) }}, perte {{ display.money(t.gross_loss) }}"><dt>Facteur de profit</dt><dd>{{ display.ratio(t.profit_factor) }}</dd></div>
+      <div class="stat" title="Par trade. Gain moyen {{ display.number(t.average_win) }}, perte moyenne {{ display.number(t.average_loss) }}"><dt>Espérance</dt><dd>{{ display.number(t.expectancy) }}</dd></div>
+      <div class="stat" title="Meilleur et pire trade"><dt>Meilleur / pire</dt><dd>{{ display.money(t.best) }} <small>{{ display.money(t.worst) }}</small></dd></div>
+      <div class="stat" title="Séries consécutives, gagnantes / perdantes"><dt>Séries</dt><dd>{{ t.max_win_streak }} / {{ t.max_loss_streak }}</dd></div>
+      <div class="stat" title="Non annualisés (multiples rendement/risque)"><dt>Sharpe / Sortino</dt><dd>{{ display.ratio(t.sharpe) }} / {{ display.ratio(t.sortino) }}</dd></div>
+      <div class="stat" title="Par position clôturée"><dt>Durée moyenne</dt><dd>{{ display.duration(t.average_position_duration) }}</dd></div>
+      <div class="stat" title="Glissement moyen. Spread moyen {{ display.number(t.average_spread, 4) }}"><dt>Glissement / spread</dt><dd>{{ display.number(t.average_slippage, 4) }} <small>{{ display.number(t.average_spread, 4) }}</small></dd></div>
+      <div class="stat" title="Résultat net / risque engagé"><dt>Rendement / risque</dt><dd>{{ display.ratio(t.realized_rr) }}</dd></div>
+    </dl>
+  </section>
 </div>
 
-<h2>Statistiques</h2>
-{% if t.insufficient_sample %}
-  <div class="banner warn">Échantillon insuffisant ({{ t.trades }} trades) : Sharpe et Sortino sont masqués.</div>
-{% endif %}
-<div class="panel">
-  <dl class="stats">
-    <div class="stat" title="Gagnants / perdants"><dt>Trades</dt><dd>{{ t.trades }} <small>{{ t.wins }} / {{ t.losses }}</small></dd></div>
-    <div class="stat" title="Part des trades gagnants"><dt>Réussite</dt><dd>{{ display.percent(t.win_rate) }}</dd></div>
-    <div class="stat" title="Montants bruts : profit {{ display.money(t.gross_profit) }}, perte {{ display.money(t.gross_loss) }}"><dt>Facteur de profit</dt><dd>{{ display.ratio(t.profit_factor) }}</dd></div>
-    <div class="stat" title="Par trade. Gain moyen {{ display.number(t.average_win) }}, perte moyenne {{ display.number(t.average_loss) }}"><dt>Espérance</dt><dd>{{ display.number(t.expectancy) }}</dd></div>
-    <div class="stat" title="Meilleur et pire trade"><dt>Meilleur / pire</dt><dd>{{ display.money(t.best) }} <small>{{ display.money(t.worst) }}</small></dd></div>
-    <div class="stat" title="Séries consécutives, gagnantes / perdantes"><dt>Séries</dt><dd>{{ t.max_win_streak }} / {{ t.max_loss_streak }}</dd></div>
-    <div class="stat" title="Non annualisés (multiples rendement/risque)"><dt>Sharpe / Sortino</dt><dd>{{ display.ratio(t.sharpe) }} / {{ display.ratio(t.sortino) }}</dd></div>
-    <div class="stat" title="Par position clôturée"><dt>Durée moyenne</dt><dd>{{ display.duration(t.average_position_duration) }}</dd></div>
-    <div class="stat" title="Glissement moyen. Spread moyen {{ display.number(t.average_spread, 4) }}"><dt>Glissement / spread</dt><dd>{{ display.number(t.average_slippage, 4) }} <small>{{ display.number(t.average_spread, 4) }}</small></dd></div>
-    <div class="stat" title="Résultat net / risque engagé"><dt>Rendement / risque</dt><dd>{{ display.ratio(t.realized_rr) }}</dd></div>
-  </dl>
-</div>
-
-<h2>Positions ouvertes ({{ data.positions | length }})</h2>
-<div class="table-wrap">
-<table>
-  <caption class="sr-only">Positions ouvertes</caption>
-  <thead>
-    <tr><th scope="col">Marché</th><th scope="col">Sens</th><th scope="col" class="num">Volume</th><th scope="col" class="num">Prix d'entrée</th>
-        <th scope="col" class="num">Notionnel</th><th scope="col">Mode</th><th scope="col">Ouverte le (UTC)</th><th scope="col">Âge</th></tr>
-  </thead>
-  <tbody>
-    {% for position in data.positions %}
-      <tr>
-        <td>{{ position.symbol }}</td>
-        <td>{{ display.direction_label(position.direction) }}</td>
-        <td class="num">{{ display.number(position.volume, 2) }}</td>
-        <td class="num">{{ display.number(position.open_price, 5) }}</td>
-        <td class="num">{{ display.money(position.notional) }}</td>
-        <td>{{ display.mode_label(position.mode) }}</td>
-        <td>{{ display.moment(position.opened_at) }}</td>
-        <td>{{ display.duration(position.age) }}</td>
-      </tr>
-    {% else %}
-      <tr><td colspan="8" class="empty">Aucune position ouverte.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
-
-<h2>Par marché</h2>
+<div class="dash">
+<section class="mod span-2" aria-labelledby="h-markets">
+<h2 id="h-markets">Par marché</h2>
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Performance par marché</caption>
@@ -184,7 +213,39 @@
 </table>
 </div>
 
-<h2>Stratégies</h2>
+</section>
+
+<section class="mod" aria-labelledby="h-health">
+{# Santé par marché : deux pastilles. Le détail (battements, journal, protocole) vit sur
+   la page Système ; on ne le recopie pas ici. #}
+{% set guardians = {} %}
+{% for guardian in data.ea %}{% set _ = guardians.update({guardian.symbol: guardian}) %}{% endfor %}
+<h2 id="h-health">Santé des marchés</h2>
+<ul class="health">
+  {% for market in health %}
+    {% set guardian = guardians.get(market.symbol) %}
+    <li>
+      <a href="/system?market={{ market.symbol }}">{{ market.symbol }}</a>
+      <span class="dot-line">EA
+        {% if guardian is none %}{{ dot("idle", "EA : aucun rapport pour " ~ market.symbol) }}
+        {% elif guardian.online %}{{ dot("ok", "EA en ligne, battement de cœur il y a " ~ display.duration(guardian.heartbeat_age)) }}
+        {% else %}{{ dot("bad", "EA hors ligne") }}{% endif %}
+      </span>
+      <span class="dot-line">Données
+        {% if market.last_candle_at is none %}{{ dot("bad", "Aucune donnée") }}
+        {% elif market.candle_age is not none and market.candle_age.total_seconds() > 86400 %}{{ dot("warn", "Données anciennes : dernière bougie il y a " ~ display.duration(market.candle_age)) }}
+        {% else %}{{ dot("ok", "Données récentes : dernière bougie il y a " ~ display.duration(market.candle_age)) }}{% endif %}
+      </span>
+    </li>
+  {% else %}
+    <li class="empty">Aucun marché connu.</li>
+  {% endfor %}
+</ul>
+
+</section>
+
+<section class="mod wide" aria-labelledby="h-strat">
+<h2 id="h-strat">Stratégies</h2>
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Stratégies du registre</caption>
@@ -212,33 +273,10 @@
 </table>
 </div>
 
-{# Santé par marché : deux pastilles. Le détail (battements, journal, protocole) vit sur
-   la page Système ; on ne le recopie pas ici. #}
-{% set guardians = {} %}
-{% for guardian in data.ea %}{% set _ = guardians.update({guardian.symbol: guardian}) %}{% endfor %}
-<h2>Santé des marchés</h2>
-<ul class="health">
-  {% for market in health %}
-    {% set guardian = guardians.get(market.symbol) %}
-    <li>
-      <a href="/system?market={{ market.symbol }}">{{ market.symbol }}</a>
-      <span class="dot-line">EA
-        {% if guardian is none %}{{ dot("idle", "EA : aucun rapport pour " ~ market.symbol) }}
-        {% elif guardian.online %}{{ dot("ok", "EA en ligne, battement de cœur il y a " ~ display.duration(guardian.heartbeat_age)) }}
-        {% else %}{{ dot("bad", "EA hors ligne") }}{% endif %}
-      </span>
-      <span class="dot-line">Données
-        {% if market.last_candle_at is none %}{{ dot("bad", "Aucune donnée") }}
-        {% elif market.candle_age is not none and market.candle_age.total_seconds() > 86400 %}{{ dot("warn", "Données anciennes : dernière bougie il y a " ~ display.duration(market.candle_age)) }}
-        {% else %}{{ dot("ok", "Données récentes : dernière bougie il y a " ~ display.duration(market.candle_age)) }}{% endif %}
-      </span>
-    </li>
-  {% else %}
-    <li class="empty">Aucun marché connu.</li>
-  {% endfor %}
-</ul>
+</section>
 
-<h2>Par jour (agrégats enregistrés)</h2>
+<section class="mod wide" aria-labelledby="h-daily">
+<h2 id="h-daily">Par jour (agrégats enregistrés)</h2>
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Agrégats journaliers enregistrés dans daily_performance</caption>
@@ -266,5 +304,8 @@
 </table>
 </div>
 <p class="muted" title="Table daily_performance, lue telle qu'écrite par l'agent : rien n'est reconstitué.">Source <code>daily_performance</code></p>
+
+</section>
+</div>
 
 {% endblock %}

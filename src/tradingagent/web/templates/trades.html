@@ -29,6 +29,13 @@
   <div class="card"><div class="label">Facteur de profit</div><div class="value">{{ display.ratio(listing.performance.profit_factor) }}</div></div>
 </div>
 
+<div class="dash">
+  <section class="mod wide" aria-labelledby="h-trade-bars">
+    <h2 id="h-trade-bars">Résultat par trade (sélection courante)</h2>
+    <div class="chart is-loading" data-chart="pnl-bars" data-mode="trade" aria-busy="true"></div>
+  </section>
+</div>
+
 <div class="actions">
   <a href="/export/trades.csv?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}" title="Exporter la sélection">CSV</a>
   <a href="/export/trades.json?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}" title="Exporter la sélection">JSON</a>
