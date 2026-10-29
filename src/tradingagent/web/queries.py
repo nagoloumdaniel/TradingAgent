@@ -2749,6 +2749,57 @@ def report_page(
     )
 
 
+def report_detail(engine: Engine, report: ReportView) -> dict[str, Any]:
+    """The figures behind one stored report, read for its own UTC window.
+
+    Nothing is re-decided: the closed trades and account snapshots stored inside the
+    window are summed per UTC day and per market, next to the text that was generated.
+    """
+    start, end = report.window_start, report.window_end
+    trades = trades_between(engine, start, end)
+    perf = compute_performance(trades)
+    per_day: dict[int, float] = defaultdict(float)
+    per_market: dict[str, float] = defaultdict(float)
+    cumulative: list[list[float]] = []
+    running = 0.0
+    for trade in sorted(trades, key=lambda t: t.closed_at):
+        stamp = trade.closed_at if trade.closed_at.tzinfo else trade.closed_at.replace(tzinfo=UTC)
+        pnl = float(trade.pnl_eur)
+        per_day[int(stamp.timestamp()) // 86400] += pnl
+        per_market[trade.symbol] += pnl
+        running += pnl
+        cumulative.append([int(stamp.timestamp()), round(running, 2)])
+    equity = [
+        [int((m if m.tzinfo else m.replace(tzinfo=UTC)).timestamp()), float(v)]
+        for m, v in equity_series(engine)
+        if start <= (m if m.tzinfo else m.replace(tzinfo=UTC)) <= end
+    ]
+    return {
+        "id": report.id,
+        "period": report.period,
+        "window": [int(start.timestamp()), int(end.timestamp())],
+        "content": report.content,
+        "kpis": {
+            "trades": perf.trades,
+            "wins": perf.wins,
+            "losses": perf.losses,
+            "net": float(perf.net_profit),
+            "win_rate": None if perf.win_rate is None else float(perf.win_rate),
+            "profit_factor": perf.profit_factor,
+            "best": None if perf.best is None else float(perf.best),
+            "worst": None if perf.worst is None else float(perf.worst),
+            "max_drawdown": float(perf.max_drawdown),
+        },
+        "days": [{"ts": d * 86400, "value": round(v, 2)} for d, v in sorted(per_day.items())],
+        "markets": [
+            {"name": k, "value": round(v, 2)}
+            for k, v in sorted(per_market.items(), key=lambda kv: -abs(kv[1]))
+        ],
+        "cumulative": cumulative,
+        "equity": equity,
+    }
+
+
 def report_by_id(engine: Engine, report_id: int) -> ReportView | None:
     with Session(engine) as session:
         row = session.get(ReportRow, report_id)

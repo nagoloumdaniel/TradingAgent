@@ -633,11 +633,9 @@ def create_app(
         selector at all — and the page states what it does hold.
         """
         stored = queries.report_page(engine, query=q or "", page=paging.page_number(page_number))
-        opened = (
-            queries.report_by_id(engine, report_id)
-            if report_id is not None
-            else (stored.rows[0] if stored.rows else None)
-        )
+        # Opened only on request (the no-JavaScript fallback of the "Ouvrir" button): with
+        # JavaScript the report opens in a dialog and the page shows no report body.
+        opened = queries.report_by_id(engine, report_id) if report_id is not None else None
         return page(request, "reports", reports=stored, opened=opened)
 
     @app.get("/events")
@@ -697,6 +695,14 @@ def create_app(
             media_type="image/svg+xml",
             headers={"Content-Disposition": 'inline; filename="equity.svg"'},
         )
+
+    @app.get("/reports/{report_id}/detail")
+    def report_detail(report_id: int) -> Response:
+        """One report with the figures of its window, for the dialog of the reports page."""
+        stored = queries.report_by_id(engine, report_id)
+        if stored is None:
+            return JSONResponse({"error": "rapport inconnu"}, status_code=404)
+        return JSONResponse(queries.report_detail(engine, stored))
 
     @app.get("/export/reports/{report_id}.txt", response_class=PlainTextResponse)
     def export_report(report_id: int) -> PlainTextResponse:
