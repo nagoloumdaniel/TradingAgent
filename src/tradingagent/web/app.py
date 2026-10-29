@@ -174,7 +174,9 @@ def create_app(
     credential = configured_token(access_token)
     access = None if credential is None else AccessControl(credential)
     templates = Jinja2Templates(directory=str(templates_dir or TEMPLATES_DIR))
-    templates.env.globals.update(display=display, pages=PAGES, state_label=state_label)
+    templates.env.globals.update(
+        display=display.TemplateDisplay(), pages=PAGES, state_label=state_label
+    )
     templates.env.filters["describe"] = describe
 
     app = FastAPI(

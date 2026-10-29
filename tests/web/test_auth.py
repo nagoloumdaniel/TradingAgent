@@ -52,7 +52,7 @@ PROTECTED_PATHS = (
 )
 
 # Markers that only exist behind the token: a navigation entry, the read-only tag, a figure.
-DASHBOARD_MARKERS = ("TradingAgent", "lecture seule", "Vue d'ensemble", "16.75")
+DASHBOARD_MARKERS = ("TradingAgent", "NexaGold", "Vue d'ensemble", "16.75")
 
 
 def _app(engine: Engine, token: str) -> TestClient:

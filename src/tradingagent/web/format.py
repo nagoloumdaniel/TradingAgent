@@ -6,8 +6,13 @@ it only renders values that :mod:`tradingagent.analytics` or the storage readers
 produced (§34).
 """
 
+import math
+import sys
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Any
+
+from markupsafe import Markup, escape
 
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
@@ -24,6 +29,7 @@ from tradingagent.core.states import (
     StrategyStatus,
 )
 
+_THIS = sys.modules[__name__]
 NA = "n/a"
 EURO = "\N{EURO SIGN}"
 
@@ -122,33 +128,42 @@ _SESSIONS = {
 }
 
 
+def _missing(value: float | Decimal | None) -> bool:
+    """None, NaN and infinities are all "no figure": the page says n/a, never "nan"."""
+    if value is None:
+        return True
+    if isinstance(value, Decimal):
+        return not value.is_finite()
+    return not math.isfinite(value)
+
+
 def money(value: Decimal | None, *, signed: bool = False) -> str:
     """An exact amount, always two decimals. Never rendered through a float."""
-    if value is None:
+    if value is None or _missing(value):
         return NA
     sign = "+" if signed and value > 0 else ""
     return f"{sign}{value:.2f} {EURO}"
 
 
 def number(value: float | Decimal | None, digits: int = 2) -> str:
-    if value is None:
+    if value is None or _missing(value):
         return NA
     return f"{float(value):.{digits}f}"
 
 
 def ratio(value: float | None) -> str:
     """A dimensionless ratio (profit factor, Sharpe): shown as-is, never re-derived."""
-    return NA if value is None else f"{value:.2f}"
+    return NA if value is None or _missing(value) else f"{value:.2f}"
 
 
 def percent(value: Decimal | float | None) -> str:
     """A fraction already expressed as a ratio (0.42 → 42.0 %)."""
-    return NA if value is None else f"{float(value) * 100:.1f} %"
+    return NA if value is None or _missing(value) else f"{float(value) * 100:.1f} %"
 
 
 def percent_points(value: Decimal | float | None) -> str:
     """A value already expressed in percent (0.5 → 0.5 %), as the YAML states limits."""
-    return NA if value is None else f"{float(value):.1f} %"
+    return NA if value is None or _missing(value) else f"{float(value):.1f} %"
 
 
 def duration(value: timedelta | None) -> str:
@@ -263,7 +278,7 @@ def session_label(session: str | None) -> str:
 
 def r_multiple(value: Decimal | float | None) -> str:
     """Realized R, written the way the storage layer defines it (profit over risk)."""
-    return NA if value is None else f"{float(value):+.2f} R"
+    return NA if value is None or _missing(value) else f"{float(value):+.2f} R"
 
 
 def milliseconds(value: int | None) -> str:
@@ -272,7 +287,7 @@ def milliseconds(value: int | None) -> str:
 
 
 def ratio_class(value: Decimal | float | None) -> str:
-    if value is None:
+    if value is None or _missing(value):
         return ""
     return "pos" if value > 0 else ("neg" if value < 0 else "")
 
@@ -281,8 +296,37 @@ def severity_class(severity: Severity) -> str:
     return {"info": "ok", "warning": "warn", "critical": "bad"}.get(str(severity), "ok")
 
 
+class TemplateDisplay:
+    """What the templates see as ``display``: this module, with dates as ``<time>`` elements.
+
+    The text stays exactly what :func:`moment` and :func:`precise` write (UTC, so a test, a
+    screenshot and the SSE stream agree). The element adds the machine-readable instant,
+    which the page script uses to offer the reader's local time as a tooltip. Everything
+    else is delegated untouched.
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_THIS, name)
+
+    @staticmethod
+    def precise(value: datetime | None) -> Markup:
+        return _time(value, precise(value))
+
+    @staticmethod
+    def moment(value: datetime | None) -> Markup:
+        return _time(value, moment(value))
+
+
+def _time(value: datetime | None, text: str) -> Markup:
+    if value is None:
+        return escape(text)
+    instant = value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return Markup('<time datetime="{}">{}</time>').format(instant, text)
+
+
 __all__ = [
     "NA",
+    "TemplateDisplay",
     "analysis_kind_label",
     "direction_label",
     "duration",

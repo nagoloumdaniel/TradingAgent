@@ -38,12 +38,12 @@ def test_the_trades_list_links_to_the_replay(
 ) -> None:
     body = seeded_client.get("/trades").text
     assert f'href="/trades/{seeded.losing_signal_id}"' in body
-    assert "rejouer" in body
+    assert "Rejouer" in body
 
 
 def test_the_replay_renders_the_whole_chain(seeded_client: TestClient, seeded: seed.Seeded) -> None:
     body = seeded_client.get(f"/trades/{seeded.losing_signal_id}").text
-    assert f"signal #{seeded.losing_signal_id}" in body
+    assert f"Replay du trade #{seeded.losing_signal_id}" in body
     # The signal, with the indicators that produced it.
     assert SIGNAL_REASON in body
     assert "ema_fast" in body
@@ -72,7 +72,7 @@ def test_the_replay_answers_why_it_was_executed(
     seeded_client: TestClient, seeded: seed.Seeded
 ) -> None:
     body = seeded_client.get(f"/trades/{seeded.losing_signal_id}").text
-    assert "Pourquoi ce trade a-t-il été exécuté ?" in body
+    assert "Pourquoi ce trade ?" in body
     assert "Autorisé" in body
     assert "Version de la stratégie qui a exécuté (§27)" in body
 
@@ -132,7 +132,7 @@ def test_the_replay_shows_the_attached_ai_analysis(
     assert "Le régime de marché a changé." in body
     assert "range" in body
     assert "0.01" in body  # the recorded cost
-    assert "elle ne peut ni créer un signal" in body
+    assert "ne peut ni créer un signal" in body
 
 
 def test_the_r_multiple_follows_the_stored_ratio(engine: Engine, seeded: seed.Seeded) -> None:
@@ -155,9 +155,9 @@ def test_a_trade_without_execution_or_analysis_renders_every_empty_section(
     response = seeded_client.get(f"/trades/{signal_id}")
     assert response.status_code == 200
     body = response.text
-    assert "Aucune exécution enregistrée pour cet ordre." in body
-    assert "Aucune analyse IA rattachée à ce signal." in body
-    assert "Aucun événement d'exécution enregistré" in body
+    assert "Aucune exécution." in body
+    assert "Aucune analyse IA rattachée." in body
+    assert "Aucun événement d'exécution." in body
     assert SIGNAL_REASON in body  # the rest of the replay is still there
     assert "Position ouverte" in body
     assert "take_profit" in body  # the close is recorded, only the fill is missing
@@ -171,9 +171,7 @@ def test_a_trade_never_closed_still_replays_its_chain(
 
     response = seeded_client.get(f"/trades/{signal_id}")
     assert response.status_code == 200
-    assert "Aucune clôture enregistrée : la position est ouverte ou n'a jamais existé." in (
-        response.text
-    )
+    assert "Aucune clôture : la position est ouverte ou n'a jamais existé." in (response.text)
     assert "Position ouverte" in response.text
     assert "take_profit" not in response.text.split("<h2>Clôture</h2>", 1)[1].split("<h2>", 1)[0]
 
@@ -188,9 +186,9 @@ def test_a_signal_refused_by_risk_replays_without_order_or_position(
     assert "Refusé" in body
     assert "max_open_positions" in body
     assert "6.00" in body  # the risk the refusal avoided, as recorded
-    assert "Aucun ordre enregistré : le signal s'est arrêté avant l'envoi au courtier." in body
-    assert "Aucune position enregistrée : le signal n'a pas été exécuté." in body
-    assert "Aucune clôture enregistrée" in body
+    assert "Aucun ordre : le signal s'est arrêté avant l'envoi au courtier." in body
+    assert "Aucune position : le signal n'a pas été exécuté." in body
+    assert "Aucune clôture" in body
 
 
 def test_an_unknown_signal_is_a_404_without_dashboard_figures(seeded_client: TestClient) -> None:

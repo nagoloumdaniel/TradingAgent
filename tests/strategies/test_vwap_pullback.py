@@ -390,6 +390,78 @@ def test_the_trend_filter_lets_a_real_uptrend_through() -> None:
     assert "tendance up" in candidate.reason
 
 
+def _uptrend_with_a_deep_pullback() -> list[float]:
+    """The fixture of the previous test: 20/50 still reads an uptrend, 10/30 does not.
+
+    Measured (slope of one bar, in ATR): 20/50 -> +0.00087 (UP at a 1e-9 threshold),
+    10/30 -> -0.0155 (NEUTRAL). Same bars, two readings of "does it still push".
+    """
+    closes = [100.0]
+    for _ in range(60):
+        closes.append(closes[-1] + 0.04)
+    for _ in range(6):
+        closes.append(closes[-1] - 0.15)
+    closes.append(closes[-1] + 0.04)
+    return closes
+
+
+def test_the_trend_filter_reads_its_own_averages_when_they_are_declared() -> None:
+    """`trend_ema_fast`/`trend_ema_slow` decouple the filter's reading from the rule's.
+
+    The rule needs 20/50 to define a pullback; the measured edge ("trade only with the named
+    trend", docs/research/2026-10-11-ou-est-l-avantage.md) comes from a 10/30 reading. Without
+    this parameter the two cannot be set apart: changing `ema_fast`/`ema_slow` changes the whole
+    rule. The unfiltered witness and the 20/50 filtered run prove the silence comes from the
+    averages and not from a broken fixture.
+    """
+    closes = _uptrend_with_a_deep_pullback()
+
+    assert strategy().evaluate(context(closes)) is not None
+    assert strategy(trend_filter=True, trend_slope_atr=1e-9).evaluate(context(closes)) is not None
+    assert (
+        strategy(
+            trend_filter=True, trend_slope_atr=1e-9, trend_ema_fast=10, trend_ema_slow=30
+        ).evaluate(context(closes))
+        is None
+    )
+
+
+def test_declaring_the_rule_own_averages_as_the_trend_averages_changes_nothing() -> None:
+    """Explicit 20/50 must equal the default: no silent change for any published manifest."""
+    closes = _uptrend_with_a_deep_pullback()
+    default = strategy(trend_filter=True, trend_slope_atr=1e-9).evaluate(context(closes))
+    explicit = strategy(
+        trend_filter=True, trend_slope_atr=1e-9, trend_ema_fast=20, trend_ema_slow=50
+    ).evaluate(context(closes))
+
+    assert default == explicit
+
+
+def test_the_trend_averages_do_nothing_while_the_trend_filter_is_off() -> None:
+    """Declaring the averages is not enough to filter: the switch stays `trend_filter`."""
+    closes = _uptrend_with_a_deep_pullback()
+
+    unfiltered = strategy(trend_ema_fast=10, trend_ema_slow=30).evaluate(context(closes))
+
+    assert unfiltered == strategy().evaluate(context(closes))
+
+
+def test_the_trend_averages_default_to_none_so_old_manifests_keep_their_meaning() -> None:
+    default = parameters()
+
+    assert default.trend_ema_fast is None
+    assert default.trend_ema_slow is None
+
+
+def test_the_trend_averages_must_be_declared_together_and_in_order() -> None:
+    with pytest.raises(ValueError, match="trend_ema"):
+        parameters(trend_ema_fast=10)
+    with pytest.raises(ValueError, match="trend_ema"):
+        parameters(trend_ema_slow=30)
+    with pytest.raises(ValueError, match="trend_ema_slow must be longer"):
+        parameters(trend_ema_fast=30, trend_ema_slow=30)
+
+
 def test_the_volume_filter_refuses_a_touch_on_a_dried_up_bar() -> None:
     """Un retour au VWAP sans volume est une barre traversée, pas un niveau défendu.
 

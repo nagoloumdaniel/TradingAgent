@@ -19,7 +19,7 @@ def test_an_unmigrated_database_yields_a_503_page(tmp_path: Path) -> None:
         response = client.get("/")
         assert response.status_code == 503
         assert "Base de données indisponible" in response.text
-        assert "lecture seule" in response.text
+        assert "Rien n'a été écrit" in response.text
         assert "/healthz" in response.text
     engine.dispose()
 

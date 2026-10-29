@@ -27,6 +27,8 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, TextIO
 
+from tradingagent.observability import CollapseNetworkTracebacks
+
 # --- ANSI, enabled properly on Windows ------------------------------------------------
 
 RESET = "\x1b[0m"
@@ -222,6 +224,7 @@ def configure_console_logging(level: int | str, *, stream: TextIO | None = None)
     sink = stream if stream is not None else sys.stderr
     handler = logging.StreamHandler(sink)
     handler.setFormatter(ConsoleFormatter(colour=supports_colour(sink)))
+    handler.addFilter(CollapseNetworkTracebacks())
     handler._tradingagent_console = True  # type: ignore[attr-defined]
     target.addHandler(handler)
     for name in NOISY_LOGGERS:

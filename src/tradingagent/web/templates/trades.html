@@ -4,10 +4,6 @@
 {% block content %}
 {% set page = listing.page %}
 
-<h2>Historique des trades clôturés</h2>
-<p class="muted">Marché <strong>{{ page.market }}</strong> ·
-   {{ page.total }} trade(s) clôturé(s) pour cette sélection · affichage {{ page.showing }}.</p>
-
 <form class="filters" method="get" action="/trades">
   {# Chaque filtre reste un <select> natif, avec son nom et son libellé : le script de
      base.html le double d'un bouton stylé quand JavaScript est là, et le laisse tel quel
@@ -20,34 +16,30 @@
   {{ option_select("mode", "Mode", modes | map(attribute="value") | list,
                    page.filter_value("mode"), "Tous", mode_labels) }}
   {{ search_field("trades-q", "Recherche", page.query,
-                  "symbole, stratégie, mode, motif de sortie, ticket") }}
+                  "symbole, stratégie, ticket") }}
   <div><button type="submit">Filtrer</button></div>
 </form>
 
-<div class="cards">
-  <div class="card"><div class="label">Trades (sélection)</div><div class="value">{{ listing.performance.trades }}</div>
-    <div class="note">{{ listing.performance.wins }} gagnants / {{ listing.performance.losses }} perdants</div></div>
+<div class="cards" title="Chiffres calculés sur la sélection courante">
   <div class="card"><div class="label">Résultat net</div>
-    <div class="value {{ display.ratio_class(listing.performance.net_profit) }}">{{ display.money(listing.performance.net_profit, signed=True) }}</div>
-    <div class="note">analytics sur la sélection</div></div>
-  <div class="card"><div class="label">Taux de réussite</div><div class="value">{{ display.percent(listing.performance.win_rate) }}</div>
-    <div class="note">sur la sélection</div></div>
-  <div class="card"><div class="label">Facteur de profit</div><div class="value">{{ display.ratio(listing.performance.profit_factor) }}</div>
-    <div class="note">sur la sélection</div></div>
+    <div class="value {{ display.ratio_class(listing.performance.net_profit) }}">{{ display.money(listing.performance.net_profit, signed=True) }}</div></div>
+  <div class="card"><div class="label">Trades</div><div class="value">{{ listing.performance.trades }}</div>
+    <dl class="facts"><div><dt>Gagnants</dt><dd>{{ listing.performance.wins }}</dd></div><div><dt>Perdants</dt><dd>{{ listing.performance.losses }}</dd></div></dl></div>
+  <div class="card"><div class="label">Taux de réussite</div><div class="value">{{ display.percent(listing.performance.win_rate) }}</div></div>
+  <div class="card"><div class="label">Facteur de profit</div><div class="value">{{ display.ratio(listing.performance.profit_factor) }}</div></div>
 </div>
 
 <div class="actions">
-  <a href="/export/trades.csv?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}">Export CSV</a>
-  <a href="/export/trades.json?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}">Export JSON</a>
-  <a href="/export/performance.json">Performance JSON (tout)</a>
-  <a href="/export/equity.svg">Courbe d'équité (SVG)</a>
+  <a href="/export/trades.csv?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}" title="Exporter la sélection">CSV</a>
+  <a href="/export/trades.json?market={{ page.market }}&strategy={{ page.filter_value("strategy") }}&mode={{ page.filter_value("mode") }}" title="Exporter la sélection">JSON</a>
 </div>
 
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Trades clôturés, marché {{ page.market }} : {{ page.total }} trade(s) clôturé(s) pour cette sélection, affichage {{ page.showing }}</caption>
   <thead>
-    <tr><th>Clôturé le (UTC)</th><th>Marché</th><th>Stratégie</th><th>Sens</th><th>Unité de temps</th>
-        <th>Mode</th><th class="num">P&amp;L</th><th class="num">Risque</th><th>Durée</th><th>Détail</th></tr>
+    <tr><th scope="col">Clôturé le (UTC)</th><th scope="col">Marché</th><th scope="col">Stratégie</th><th scope="col">Sens</th><th scope="col">Unité de temps</th>
+        <th scope="col">Mode</th><th scope="col" class="num">P&amp;L</th><th scope="col" class="num">Risque</th><th scope="col">Durée</th><th scope="col">Détail</th></tr>
   </thead>
   <tbody id="trades-body">
     {% for entry in page.rows %}
@@ -62,7 +54,7 @@
         <td class="num {{ display.ratio_class(trade.pnl_eur) }}">{{ display.money(trade.pnl_eur, signed=True) }}</td>
         <td class="num">{{ display.money(trade.risk_eur) }}</td>
         <td>{{ display.duration(trade.closed_at - trade.opened_at) }}</td>
-        <td><a href="/trades/{{ entry.signal_id }}">rejouer</a></td>
+        <td><a href="/trades/{{ entry.signal_id }}" aria-label="Rejouer le trade {{ entry.signal_id }}">Rejouer</a></td>
       </tr>
     {% else %}
       <tr><td colspan="10" class="empty">{{ page.empty_message }}</td></tr>
@@ -75,31 +67,30 @@
 
 {% if detail %}
   <h2>Détail du trade</h2>
-  <p class="muted">Aperçu condensé. Le <a href="/trades/{{ detail.signal_id }}">replay complet</a>
-     rejoue le signal, la décision de risque, les ordres, la position et la clôture dans
-     l'ordre chronologique.</p>
+  <p><a href="/trades/{{ detail.signal_id }}">Replay complet</a></p>
   <div class="cards">
     <div class="card"><div class="label">Marché</div><div class="value">{{ detail.trade.symbol }}</div>
-      <div class="note">{{ detail.trade.strategy_ref }} — {{ detail.trade.timeframe.value }}</div></div>
+      <div class="note">{{ detail.trade.strategy_ref }} {{ detail.trade.timeframe.value }}</div></div>
     <div class="card"><div class="label">P&amp;L</div>
       <div class="value {{ display.ratio_class(detail.trade.pnl_eur) }}">{{ display.money(detail.trade.pnl_eur, signed=True) }}</div>
       <div class="note">risque {{ display.money(detail.trade.risk_eur) }}</div></div>
-    <div class="card"><div class="label">Ouverture</div><div class="value" style="font-size:15px">{{ display.precise(detail.trade.opened_at) }}</div>
+    <div class="card"><div class="label">Ouverture</div><div class="value sm">{{ display.precise(detail.trade.opened_at) }}</div>
       <div class="note">clôture {{ display.precise(detail.trade.closed_at) }}</div></div>
-    <div class="card"><div class="label">Sortie</div><div class="value" style="font-size:15px">{{ detail.exit_reason }}</div>
+    <div class="card"><div class="label">Sortie</div><div class="value sm">{{ detail.exit_reason }}</div>
       <div class="note">prix de clôture {{ display.number(detail.close_price, 5) }}</div></div>
   </div>
 
   <h3>Signal d'origine</h3>
   <div class="table-wrap">
   <table>
+    <caption class="sr-only">Signal d'origine</caption>
     <tbody>
-      <tr><th>Identifiant</th><td>{{ detail.signal_id }}</td><th>État</th><td>{{ state_label(detail.signal_state) }}</td></tr>
-      <tr><th>Prix observé</th><td>{{ display.number(detail.observed_price, 5) }}</td>
-          <th>Zone d'entrée</th><td>{{ display.number(detail.entry_low, 5) }} – {{ display.number(detail.entry_high, 5) }}</td></tr>
-      <tr><th>Stop</th><td>{{ display.number(detail.stop_loss, 5) }}</td>
-          <th>Objectifs</th><td>{% for target in detail.take_profits %}{{ display.number(target, 5) }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
-      <tr><th>Motif</th><td colspan="3">{{ detail.signal_reason }}</td></tr>
+      <tr><th scope="row">Identifiant</th><td>{{ detail.signal_id }}</td><th scope="row">État</th><td>{{ state_label(detail.signal_state) }}</td></tr>
+      <tr><th scope="row">Prix observé</th><td>{{ display.number(detail.observed_price, 5) }}</td>
+          <th scope="row">Zone d'entrée</th><td>{{ display.number(detail.entry_low, 5) }} - {{ display.number(detail.entry_high, 5) }}</td></tr>
+      <tr><th scope="row">Stop</th><td>{{ display.number(detail.stop_loss, 5) }}</td>
+          <th scope="row">Objectifs</th><td>{% for target in detail.take_profits %}{{ display.number(target, 5) }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
+      <tr><th scope="row">Motif</th><td colspan="3">{{ detail.signal_reason }}</td></tr>
     </tbody>
   </table>
   </div>
@@ -107,7 +98,8 @@
   <h3>Indicateurs enregistrés au signal</h3>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Indicateur</th><th class="num">Valeur</th></tr></thead>
+    <caption class="sr-only">Indicateurs enregistrés au signal</caption>
+    <thead><tr><th scope="col">Indicateur</th><th scope="col" class="num">Valeur</th></tr></thead>
     <tbody>
       {% for name, value in detail.indicators.items() %}
         <tr><td>{{ name }}</td><td class="num">{{ display.number(value, 5) }}</td></tr>
@@ -130,8 +122,9 @@
   <h3>Exécutions ({{ detail.executions | length }})</h3>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Ticket</th><th class="num">Prix</th><th class="num">Volume</th>
-               <th class="num">Glissement</th><th>Exécutée le (UTC)</th></tr></thead>
+    <caption class="sr-only">Exécutions</caption>
+    <thead><tr><th scope="col">Ticket</th><th scope="col" class="num">Prix</th><th scope="col" class="num">Volume</th>
+               <th scope="col" class="num">Glissement</th><th scope="col">Exécutée le (UTC)</th></tr></thead>
     <tbody>
       {% for execution in detail.executions %}
         <tr>

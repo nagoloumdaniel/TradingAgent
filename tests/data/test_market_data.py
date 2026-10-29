@@ -136,8 +136,91 @@ def test_stale_probe_tick_refuses_to_start(terminal: Any, credentials: Credentia
     terminal.ticks[PROBE] = RawTick(
         server_epoch(NOW - timedelta(minutes=10), timedelta(0)), 1.0, 1.0
     )
-    with pytest.raises(ClockUnverifiableError, match=r"stale|off a half-hour"):
+    with pytest.raises(ClockUnverifiableError, match=r"s old|ahead of the local clock"):
         run(market.connect())
+
+
+def test_a_quiet_probe_is_measured_on_the_freshest_tick_of_the_watched_symbols(
+    terminal: Any, credentials: Credentials
+) -> None:
+    """The probe can be quiet while gold is not: any watched symbol shares the server clock."""
+
+    async def scenario() -> None:
+        market = client(terminal, credentials)
+        await market.connect()
+        await market.select({"XAUUSD"})
+        terminal.ticks[PROBE] = RawTick(
+            server_epoch(NOW - timedelta(minutes=10), timedelta(0)), 1.0, 1.0
+        )
+        terminal.ticks["XAUUSD"] = RawTick(server_epoch(NOW, timedelta(0)) - 4, 1.0, 1.0)
+        await market.verify_clock()  # does not raise
+        await market.close()
+
+    run(scenario())
+
+
+def test_when_every_watched_tick_is_old_the_clock_stays_unverifiable(
+    terminal: Any, credentials: Credentials
+) -> None:
+    """Prudence is kept: no fresh tick anywhere means no measurement, whatever the cause."""
+
+    async def scenario() -> None:
+        market = client(terminal, credentials)
+        await market.connect()
+        await market.select({"XAUUSD"})
+        old = server_epoch(NOW - timedelta(minutes=10), timedelta(0))
+        terminal.ticks[PROBE] = RawTick(old, 1.0, 1.0)
+        terminal.ticks["XAUUSD"] = RawTick(old - 60, 1.0, 1.0)
+        with pytest.raises(ClockUnverifiableError, match="s old"):
+            await market.verify_clock()
+        await market.close()
+
+    run(scenario())
+
+
+def test_a_failing_secondary_symbol_does_not_end_the_clock_check_with_a_terminal_error(
+    terminal: Any, credentials: Credentials
+) -> None:
+    """The client stays usable: a secondary tick that cannot be read means "unverifiable"."""
+
+    async def scenario() -> None:
+        market = client(terminal, credentials)
+        await market.connect()
+        await market.select({"XAUUSD"})
+        terminal.ticks[PROBE] = RawTick(
+            server_epoch(NOW - timedelta(minutes=10), timedelta(0)), 1.0, 1.0
+        )
+        original = terminal.last_tick
+
+        def failing(symbol: str) -> Any:
+            if symbol == "XAUUSD":
+                raise TerminalError("symbol not available")
+            return original(symbol)
+
+        terminal.last_tick = failing
+        with pytest.raises(ClockUnverifiableError):
+            await market.verify_clock()
+        await market.close()
+
+    run(scenario())
+
+
+def test_a_fresher_tick_does_not_hide_a_real_offset_change(
+    terminal: Any, credentials: Credentials
+) -> None:
+    async def scenario() -> None:
+        market = client(terminal, credentials)
+        await market.connect()
+        await market.select({"XAUUSD"})
+        terminal.ticks[PROBE] = RawTick(
+            server_epoch(NOW - timedelta(minutes=10), timedelta(0)), 1.0, 1.0
+        )
+        terminal.ticks["XAUUSD"] = RawTick(server_epoch(NOW, timedelta(hours=1)) - 4, 1.0, 1.0)
+        with pytest.raises(ClockMismatchError):
+            await market.verify_clock()
+        await market.close()
+
+    run(scenario())
 
 
 def test_offset_change_while_running_is_detected(terminal: Any, credentials: Credentials) -> None:

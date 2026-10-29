@@ -2545,7 +2545,13 @@ def market_health(
 
 def _distinct(engine: Engine, column: Any) -> list[str]:
     with Session(engine) as session:
-        return [str(value) for value in session.scalars(select(column).distinct()).all()]
+        # A nullable column (an event about the whole account has no symbol) must not turn
+        # into a market literally named "None" in the selector.
+        return [
+            str(value)
+            for value in session.scalars(select(column).distinct()).all()
+            if value is not None
+        ]
 
 
 LATENCY_PAIRS: tuple[tuple[str, ExecutionEventKind, ExecutionEventKind], ...] = (

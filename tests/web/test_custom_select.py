@@ -27,7 +27,7 @@ def test_the_enhancement_is_marked_on_every_filter(seeded_client: TestClient) ->
     body = seeded_client.get("/trades").text
 
     # `data-custom-select>` and not `data-custom-select`: the enhancer's own selector
-    # (`select[data-custom-select]`) lives in the base template and must not be counted.
+    # (`select[data-custom-select]`) lives in the script and must not be counted.
     assert body.count("data-custom-select>") == len(FILTERS)
 
 
@@ -60,11 +60,11 @@ def test_the_form_still_filters_without_javascript(seeded_client: TestClient) ->
 def test_the_enhancer_keeps_its_accessibility_contract(
     seeded_client: TestClient, marker: str
 ) -> None:
-    assert marker in seeded_client.get("/trades").text
+    assert marker in seeded_client.get("/static/js/app.js").text
 
 
 def test_the_custom_control_is_styled_by_the_design_system(client: TestClient) -> None:
-    body = client.get("/positions").text
+    body = client.get("/static/css/app.css").text
 
     assert ".custom-select-button" in body
     assert ".custom-select-list" in body

@@ -3,10 +3,7 @@
 {% block title %}Rapports{% endblock %}
 {% block content %}
 
-<h2>Rapports enregistrés</h2>
-<p class="muted">{{ reports.total }} rapport(s) · affichage {{ reports.showing }}.
-   Le contenu est celui qui a été généré et, le cas échéant, envoyé : le tableau de bord le
-   restitue, il ne le régénère pas.</p>
+<h2>Rapports</h2>
 
 <form class="filters" method="get" action="/reports" role="search">
   {{ search_field("reports-q", "Recherche", reports.query, "période ou contenu du rapport") }}
@@ -16,17 +13,18 @@
 
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Période</th><th>Fenêtre (UTC)</th><th>Généré le</th><th>Envoyé le</th><th>Actions</th></tr></thead>
+  <caption class="sr-only">Rapports enregistrés : {{ reports.total }} rapport(s), affichage {{ reports.showing }}</caption>
+  <thead><tr><th scope="col">Période</th><th scope="col">Fenêtre (UTC)</th><th scope="col">Généré le</th><th scope="col">Envoyé le</th><th scope="col">Actions</th></tr></thead>
   <tbody id="reports-body">
     {% for report in reports.rows %}
       <tr>
         <td>{{ report.period }}</td>
-        <td>{{ display.moment(report.window_start) }} → {{ display.moment(report.window_end) }}</td>
+        <td>{{ display.moment(report.window_start) }} à {{ display.moment(report.window_end) }}</td>
         <td>{{ display.precise(report.generated_at) }}</td>
         <td>{% if report.sent_at %}{{ display.precise(report.sent_at) }}{% else %}<span class="badge warn">non envoyé</span>{% endif %}</td>
         <td>
-          <a href="/reports?report_id={{ report.id }}">ouvrir</a>
-          · <a href="/export/reports/{{ report.id }}.txt">télécharger</a>
+          <a href="/reports?report_id={{ report.id }}">Ouvrir</a>
+          <a href="/export/reports/{{ report.id }}.txt">Télécharger</a>
         </td>
       </tr>
     {% else %}
@@ -40,18 +38,16 @@
 
 <h2>Exports</h2>
 <div class="actions">
-  <a href="/export/trades.csv">Trades — CSV</a>
-  <a href="/export/trades.json">Trades — JSON</a>
-  <a href="/export/performance.json">Performance — JSON</a>
-  <a href="/export/equity.svg">Courbe d'équité — SVG</a>
+  <a href="/export/trades.csv">Trades CSV</a>
+  <a href="/export/trades.json">Trades JSON</a>
+  <a href="/export/performance.json">Performance JSON</a>
+  <a href="/export/equity.svg">Équité SVG</a>
 </div>
-<img src="/export/equity.svg" alt="Courbe d'équité et drawdown" style="max-width:100%;margin-top:12px;border:1px solid var(--line);border-radius:10px">
+<img src="/export/equity.svg" alt="Courbe d'équité et drawdown" class="equity-img">
 
 {% if opened %}
-  <h2>Rapport {{ opened.period }} — {{ display.moment(opened.window_start) }}</h2>
+  <h2>Rapport {{ opened.period }}, {{ display.moment(opened.window_start) }}</h2>
   <pre>{{ opened.content }}</pre>
-{% else %}
-  <p class="empty">Aucun rapport à afficher.</p>
 {% endif %}
 
 {% endblock %}

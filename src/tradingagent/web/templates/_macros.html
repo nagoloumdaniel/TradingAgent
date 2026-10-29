@@ -61,3 +61,8 @@
            placeholder="{{ placeholder }}" autocomplete="off" spellcheck="false">
   </div>
 {% endmacro %}
+
+{# Un état se dessine, il ne s'écrit pas : pastille (vert actif, ambre dégradé, rouge arrêt)
+   dont le sens est porté par le nom accessible et l'info-bulle, jamais par du texte visible.
+   La forme double la couleur (disque, losange, carré) : la couleur n'est jamais seule. #}
+{% macro dot(state, label) %}<span class="dot" data-state="{{ state }}" role="img" aria-label="{{ label }}" title="{{ label }}"></span>{% endmacro %}

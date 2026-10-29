@@ -300,6 +300,38 @@ def transition(
         return int(event.id)
 
 
+def transition_once(
+    engine: Engine,
+    signal_id: int,
+    target: SignalState,
+    occurred_at: datetime,
+    detail: str | None = None,
+) -> int | None:
+    """`transition`, except that a signal already in `target` is left alone (returns None).
+
+    RM-018 forbids leaving a terminal state and stays strict. This is for the callers that
+    report a fact which may already have been recorded by another path — a position the
+    broker's journal closed and the loop closes again: the second report changes nothing
+    and must not read as a violation. Any other illegal move still raises.
+    """
+    with Session(engine) as session:
+        signal = session.scalars(
+            select(SignalRow).where(SignalRow.id == signal_id).with_for_update()
+        ).first()
+        if signal is None:
+            raise ValueError(f"unknown signal {signal_id}")
+        if signal.state is target:
+            return None
+        validate_transition(signal.state, target)
+        signal.state = target
+        event = SignalEventRow(
+            signal_id=signal_id, state=target, occurred_at=occurred_at, detail=detail
+        )
+        session.add(event)
+        session.commit()
+        return int(event.id)
+
+
 def history(engine: Engine, signal_id: int) -> list[SignalEventRow]:
     """The signal's full lifecycle, oldest first — nothing can be lost or rewritten."""
     statement = (

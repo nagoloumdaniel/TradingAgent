@@ -1,13 +1,9 @@
 {% extends "error.html" %}
 
 {% block details %}
-<p class="muted">
-  Le tableau de bord n'a pas pu lire la base ({{ reason }}). <strong>Rien n'a été écrit</strong> :
-  il est en lecture seule.
-</p>
+<p class="muted">Lecture impossible ({{ reason }}). Rien n'a été écrit.</p>
 <p class="muted">
   Vérifiez que l'agent tourne, que <code>DATABASE_URL</code> est correct et que les
-  migrations ont été appliquées — <code>uv run tradingagent-run</code> les applique au
-  démarrage.
+  migrations sont appliquées (<code>uv run tradingagent-run</code> les applique au démarrage).
 </p>
 {% endblock %}

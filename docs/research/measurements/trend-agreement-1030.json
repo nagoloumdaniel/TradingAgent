@@ -1,0 +1,1284 @@
+{
+  "generated_at": "2026-10-28T21:28:06.109106+00:00",
+  "candidate_overrides": {
+    "trend_filter": true,
+    "trend_ema_fast": 10,
+    "trend_ema_slow": 30,
+    "trend_slope_atr": 0.05
+  },
+  "rule": {
+    "min_trades_total": 60,
+    "min_quarter_trades": 5,
+    "min_forward_trades": 10
+  },
+  "markets": {
+    "BTCUSD": {
+      "baseline": {
+        "market": "BTCUSD",
+        "variant": "baseline",
+        "ref": "vwap_pullback@1.2.0",
+        "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+        "sealed_window_not_read": [
+          "2026-06-05T23:15:00+00:00",
+          "2026-10-09T01:45:00+00:00"
+        ],
+        "train": {
+          "trades": 709,
+          "wins": 392,
+          "win_rate": 0.5528913963328632,
+          "net_profit": -999.064,
+          "profit_factor": 0.7148,
+          "mean_r": -0.1409,
+          "ci95_r": [
+            -0.2051,
+            -0.0768
+          ],
+          "max_drawdown_eur": 1054.1005,
+          "signals": 1220
+        },
+        "train_window": [
+          "2025-01-21T16:30:00+00:00",
+          "2026-01-31T20:30:00+00:00"
+        ],
+        "validation": {
+          "trades": 205,
+          "wins": 113,
+          "win_rate": 0.551219512195122,
+          "net_profit": -327.7082,
+          "profit_factor": 0.6818,
+          "mean_r": -0.1599,
+          "ci95_r": [
+            -0.2794,
+            -0.0403
+          ],
+          "max_drawdown_eur": 357.5177,
+          "signals": 366
+        },
+        "validation_window": [
+          "2026-01-31T20:30:00+00:00",
+          "2026-06-05T23:15:00+00:00"
+        ],
+        "train_plus_validation": {
+          "trades": 914,
+          "wins": 505,
+          "win_rate": 0.5525164113785558,
+          "net_profit": -1326.7722,
+          "profit_factor": 0.7073,
+          "mean_r": -0.1452,
+          "ci95_r": [
+            -0.2017,
+            -0.0887
+          ],
+          "max_drawdown_eur": 1404.5877,
+          "signals": null
+        },
+        "quarters": {
+          "2025-Q1": {
+            "trades": 137,
+            "wins": 77,
+            "win_rate": 0.5620437956204379,
+            "net_profit": -151.9719,
+            "profit_factor": 0.7677,
+            "mean_r": -0.1109,
+            "ci95_r": [
+              -0.2565,
+              0.0346
+            ],
+            "max_drawdown_eur": 209.9846,
+            "signals": null
+          },
+          "2025-Q2": {
+            "trades": 180,
+            "wins": 109,
+            "win_rate": 0.6055555555555555,
+            "net_profit": -82.2862,
+            "profit_factor": 0.8955,
+            "mean_r": -0.0457,
+            "ci95_r": [
+              -0.172,
+              0.0805
+            ],
+            "max_drawdown_eur": 152.2944,
+            "signals": null
+          },
+          "2025-Q3": {
+            "trades": 159,
+            "wins": 87,
+            "win_rate": 0.5471698113207547,
+            "net_profit": -267.5306,
+            "profit_factor": 0.6696,
+            "mean_r": -0.1683,
+            "ci95_r": [
+              -0.3051,
+              -0.0315
+            ],
+            "max_drawdown_eur": 301.606,
+            "signals": null
+          },
+          "2025-Q4": {
+            "trades": 172,
+            "wins": 91,
+            "win_rate": 0.5290697674418605,
+            "net_profit": -307.8084,
+            "profit_factor": 0.6539,
+            "mean_r": -0.179,
+            "ci95_r": [
+              -0.3094,
+              -0.0486
+            ],
+            "max_drawdown_eur": 352.3408,
+            "signals": null
+          },
+          "2026-Q1": {
+            "trades": 156,
+            "wins": 80,
+            "win_rate": 0.5128205128205128,
+            "net_profit": -331.5722,
+            "profit_factor": 0.6046,
+            "mean_r": -0.2125,
+            "ci95_r": [
+              -0.3497,
+              -0.0754
+            ],
+            "max_drawdown_eur": 344.4241,
+            "signals": null
+          },
+          "2026-Q2": {
+            "trades": 110,
+            "wins": 61,
+            "win_rate": 0.5545454545454546,
+            "net_profit": -185.603,
+            "profit_factor": 0.6651,
+            "mean_r": -0.1687,
+            "ci95_r": [
+              -0.3319,
+              -0.0055
+            ],
+            "max_drawdown_eur": 223.3766,
+            "signals": null
+          }
+        },
+        "forward": {
+          "trades": 33,
+          "wins": 22,
+          "win_rate": 0.6666666666666666,
+          "net_profit": 7.8395,
+          "profit_factor": 1.0624,
+          "mean_r": 0.0238,
+          "ci95_r": [
+            -0.2644,
+            0.3119
+          ],
+          "max_drawdown_eur": 45.2974,
+          "signals": 66
+        },
+        "forward_window": [
+          "2026-10-09T01:45:00+00:00",
+          "2026-10-28T21:15:00+00:00"
+        ],
+        "forward_trades": [
+          {
+            "opened_at": "2026-10-13T17:30:00+00:00",
+            "closed_at": "2026-10-13T21:45:00+00:00",
+            "direction": "BUY",
+            "r": 0.6672,
+            "mae_r": 0.676248919956,
+            "mfe_r": 0.776956019105
+          },
+          {
+            "opened_at": "2026-10-13T23:30:00+00:00",
+            "closed_at": "2026-10-14T00:30:00+00:00",
+            "direction": "BUY",
+            "r": 0.6191,
+            "mae_r": 0.73569235371,
+            "mfe_r": 0.810306188629
+          },
+          {
+            "opened_at": "2026-10-14T02:30:00+00:00",
+            "closed_at": "2026-10-14T03:00:00+00:00",
+            "direction": "BUY",
+            "r": 0.6343,
+            "mae_r": 0.553840032136,
+            "mfe_r": 1.342310615611
+          },
+          {
+            "opened_at": "2026-10-14T06:15:00+00:00",
+            "closed_at": "2026-10-14T08:15:00+00:00",
+            "direction": "BUY",
+            "r": 0.6371,
+            "mae_r": 0.608195689464,
+            "mfe_r": 2.502344034483
+          },
+          {
+            "opened_at": "2026-10-15T05:00:00+00:00",
+            "closed_at": "2026-10-15T05:15:00+00:00",
+            "direction": "SELL",
+            "r": 0.6943,
+            "mae_r": 0.286798187852,
+            "mfe_r": 0.771221317534
+          },
+          {
+            "opened_at": "2026-10-15T08:30:00+00:00",
+            "closed_at": "2026-10-15T10:45:00+00:00",
+            "direction": "SELL",
+            "r": 0.685,
+            "mae_r": 0.225954357156,
+            "mfe_r": 0.884443279292
+          },
+          {
+            "opened_at": "2026-10-15T14:30:00+00:00",
+            "closed_at": "2026-10-15T15:00:00+00:00",
+            "direction": "SELL",
+            "r": -1.0669,
+            "mae_r": 1.566649669984,
+            "mfe_r": 0.160778520806
+          },
+          {
+            "opened_at": "2026-10-16T07:30:00+00:00",
+            "closed_at": "2026-10-16T10:15:00+00:00",
+            "direction": "BUY",
+            "r": -1.0888,
+            "mae_r": 1.355779087845,
+            "mfe_r": 0.668665468608
+          },
+          {
+            "opened_at": "2026-10-17T05:00:00+00:00",
+            "closed_at": "2026-10-17T07:45:00+00:00",
+            "direction": "SELL",
+            "r": -1.1145,
+            "mae_r": 1.323238457307,
+            "mfe_r": 0.167520724468
+          },
+          {
+            "opened_at": "2026-10-17T10:30:00+00:00",
+            "closed_at": "2026-10-17T11:15:00+00:00",
+            "direction": "BUY",
+            "r": 0.5001,
+            "mae_r": 0.156097859628,
+            "mfe_r": 0.812168434998
+          },
+          {
+            "opened_at": "2026-10-17T12:15:00+00:00",
+            "closed_at": "2026-10-17T13:00:00+00:00",
+            "direction": "SELL",
+            "r": 0.4833,
+            "mae_r": 0.484768877885,
+            "mfe_r": 0.756160692587
+          },
+          {
+            "opened_at": "2026-10-17T15:00:00+00:00",
+            "closed_at": "2026-10-17T15:30:00+00:00",
+            "direction": "SELL",
+            "r": 0.4914,
+            "mae_r": 0.392116171114,
+            "mfe_r": 0.816766750465
+          },
+          {
+            "opened_at": "2026-10-17T18:45:00+00:00",
+            "closed_at": "2026-10-17T21:30:00+00:00",
+            "direction": "SELL",
+            "r": 0.5522,
+            "mae_r": 0.860547159273,
+            "mfe_r": 2.782253361291
+          },
+          {
+            "opened_at": "2026-10-18T01:00:00+00:00",
+            "closed_at": "2026-10-18T01:45:00+00:00",
+            "direction": "SELL",
+            "r": -1.1007,
+            "mae_r": 2.010350010957,
+            "mfe_r": 0.017836196671
+          },
+          {
+            "opened_at": "2026-10-18T07:15:00+00:00",
+            "closed_at": "2026-10-18T09:15:00+00:00",
+            "direction": "BUY",
+            "r": 0.5814,
+            "mae_r": 0.629788367597,
+            "mfe_r": 1.764360631664
+          },
+          {
+            "opened_at": "2026-10-18T22:30:00+00:00",
+            "closed_at": "2026-10-18T23:30:00+00:00",
+            "direction": "SELL",
+            "r": -1.09,
+            "mae_r": 2.204703101947,
+            "mfe_r": 0.254953084096
+          },
+          {
+            "opened_at": "2026-10-20T14:00:00+00:00",
+            "closed_at": "2026-10-20T14:15:00+00:00",
+            "direction": "SELL",
+            "r": -1.6774,
+            "mae_r": 4.926171402621,
+            "mfe_r": -0.028316973651
+          },
+          {
+            "opened_at": "2026-10-21T03:45:00+00:00",
+            "closed_at": "2026-10-21T07:30:00+00:00",
+            "direction": "BUY",
+            "r": 0.6258,
+            "mae_r": 0.708183849074,
+            "mfe_r": 1.25387366864
+          },
+          {
+            "opened_at": "2026-10-23T09:45:00+00:00",
+            "closed_at": "2026-10-23T10:30:00+00:00",
+            "direction": "BUY",
+            "r": 0.6313,
+            "mae_r": 0.43523701782,
+            "mfe_r": 0.784235539431
+          },
+          {
+            "opened_at": "2026-10-23T17:45:00+00:00",
+            "closed_at": "2026-10-23T19:15:00+00:00",
+            "direction": "SELL",
+            "r": 0.6686,
+            "mae_r": 0.156617004497,
+            "mfe_r": 0.907517495342
+          },
+          {
+            "opened_at": "2026-10-24T04:30:00+00:00",
+            "closed_at": "2026-10-24T05:45:00+00:00",
+            "direction": "SELL",
+            "r": 0.6258,
+            "mae_r": 0.136177168,
+            "mfe_r": 0.736638040241
+          },
+          {
+            "opened_at": "2026-10-24T06:45:00+00:00",
+            "closed_at": "2026-10-24T09:00:00+00:00",
+            "direction": "SELL",
+            "r": 0.5914,
+            "mae_r": 0.806616358554,
+            "mfe_r": 0.77585646137
+          },
+          {
+            "opened_at": "2026-10-24T13:00:00+00:00",
+            "closed_at": "2026-10-24T14:15:00+00:00",
+            "direction": "SELL",
+            "r": 0.5816,
+            "mae_r": 0.453073185242,
+            "mfe_r": 1.386537529938
+          },
+          {
+            "opened_at": "2026-10-24T19:00:00+00:00",
+            "closed_at": "2026-10-24T23:45:00+00:00",
+            "direction": "SELL",
+            "r": -1.0819,
+            "mae_r": 1.693235211503,
+            "mfe_r": 0.133666258456
+          },
+          {
+            "opened_at": "2026-10-25T17:00:00+00:00",
+            "closed_at": "2026-10-25T17:15:00+00:00",
+            "direction": "BUY",
+            "r": 0.5991,
+            "mae_r": 0.095879085168,
+            "mfe_r": 1.202393411321
+          },
+          {
+            "opened_at": "2026-10-25T19:30:00+00:00",
+            "closed_at": "2026-10-25T21:00:00+00:00",
+            "direction": "BUY",
+            "r": -1.1061,
+            "mae_r": 1.011467166479,
+            "mfe_r": 0.119353538294
+          },
+          {
+            "opened_at": "2026-10-25T23:00:00+00:00",
+            "closed_at": "2026-10-25T23:15:00+00:00",
+            "direction": "SELL",
+            "r": 0.6214,
+            "mae_r": 0.135464171693,
+            "mfe_r": 0.793880134396
+          },
+          {
+            "opened_at": "2026-10-26T04:45:00+00:00",
+            "closed_at": "2026-10-26T08:45:00+00:00",
+            "direction": "SELL",
+            "r": -1.0763,
+            "mae_r": 1.209523481788,
+            "mfe_r": 0.649511956634
+          },
+          {
+            "opened_at": "2026-10-26T14:45:00+00:00",
+            "closed_at": "2026-10-26T15:00:00+00:00",
+            "direction": "SELL",
+            "r": -1.0754,
+            "mae_r": 1.347191200463,
+            "mfe_r": 0.37150707478
+          },
+          {
+            "opened_at": "2026-10-26T22:15:00+00:00",
+            "closed_at": "2026-10-26T23:15:00+00:00",
+            "direction": "SELL",
+            "r": 0.6454,
+            "mae_r": 0.161110669489,
+            "mfe_r": 1.276243595282
+          },
+          {
+            "opened_at": "2026-10-27T00:00:00+00:00",
+            "closed_at": "2026-10-27T02:45:00+00:00",
+            "direction": "SELL",
+            "r": 0.6363,
+            "mae_r": 0.995674529534,
+            "mfe_r": 0.919611014934
+          },
+          {
+            "opened_at": "2026-10-27T11:45:00+00:00",
+            "closed_at": "2026-10-27T12:30:00+00:00",
+            "direction": "SELL",
+            "r": -1.0894,
+            "mae_r": 1.300489932881,
+            "mfe_r": 0.215945785732
+          },
+          {
+            "opened_at": "2026-10-28T07:30:00+00:00",
+            "closed_at": "2026-10-28T08:00:00+00:00",
+            "direction": "BUY",
+            "r": 0.579,
+            "mae_r": 0.127508439877,
+            "mfe_r": 0.858217554911
+          }
+        ]
+      },
+      "candidate": {
+        "market": "BTCUSD",
+        "variant": "candidate",
+        "ref": "vwap_pullback@1.2.0",
+        "dataset_fingerprint": "2f04c3b23c31e4074bf618612b09f6ec4c2b55bcfa90b48d024918ff93578459",
+        "sealed_window_not_read": [
+          "2026-06-05T23:15:00+00:00",
+          "2026-10-09T01:45:00+00:00"
+        ],
+        "train": {
+          "trades": 88,
+          "wins": 52,
+          "win_rate": 0.5909090909090909,
+          "net_profit": -71.3794,
+          "profit_factor": 0.8215,
+          "mean_r": -0.0811,
+          "ci95_r": [
+            -0.2618,
+            0.0996
+          ],
+          "max_drawdown_eur": 111.9569,
+          "signals": 138
+        },
+        "train_window": [
+          "2025-01-21T16:30:00+00:00",
+          "2026-01-31T20:30:00+00:00"
+        ],
+        "validation": {
+          "trades": 35,
+          "wins": 25,
+          "win_rate": 0.7142857142857143,
+          "net_profit": 42.8821,
+          "profit_factor": 1.3916,
+          "mean_r": 0.1225,
+          "ci95_r": [
+            -0.137,
+            0.382
+          ],
+          "max_drawdown_eur": 27.7327,
+          "signals": 52
+        },
+        "validation_window": [
+          "2026-01-31T20:30:00+00:00",
+          "2026-06-05T23:15:00+00:00"
+        ],
+        "train_plus_validation": {
+          "trades": 123,
+          "wins": 77,
+          "win_rate": 0.6260162601626016,
+          "net_profit": -28.4973,
+          "profit_factor": 0.9441,
+          "mean_r": -0.0232,
+          "ci95_r": [
+            -0.1724,
+            0.1261
+          ],
+          "max_drawdown_eur": 111.9569,
+          "signals": null
+        },
+        "quarters": {
+          "2025-Q1": {
+            "trades": 14,
+            "wins": 4,
+            "win_rate": 0.2857142857142857,
+            "net_profit": -82.9627,
+            "profit_factor": 0.252,
+            "mean_r": -0.5926,
+            "ci95_r": [
+              -1.0378,
+              -0.1474
+            ],
+            "max_drawdown_eur": 82.9627,
+            "signals": null
+          },
+          "2025-Q2": {
+            "trades": 29,
+            "wins": 20,
+            "win_rate": 0.6896551724137931,
+            "net_profit": 30.8438,
+            "profit_factor": 1.3146,
+            "mean_r": 0.1064,
+            "ci95_r": [
+              -0.1909,
+              0.4036
+            ],
+            "max_drawdown_eur": 42.3894,
+            "signals": null
+          },
+          "2025-Q3": {
+            "trades": 16,
+            "wins": 10,
+            "win_rate": 0.625,
+            "net_profit": -12.6667,
+            "profit_factor": 0.8208,
+            "mean_r": -0.0792,
+            "ci95_r": [
+              -0.5141,
+              0.3558
+            ],
+            "max_drawdown_eur": 29.6417,
+            "signals": null
+          },
+          "2025-Q4": {
+            "trades": 20,
+            "wins": 13,
+            "win_rate": 0.65,
+            "net_profit": 6.1798,
+            "profit_factor": 1.0806,
+            "mean_r": 0.0309,
+            "ci95_r": [
+              -0.3419,
+              0.4037
+            ],
+            "max_drawdown_eur": 37.541,
+            "signals": null
+          },
+          "2026-Q1": {
+            "trades": 26,
+            "wins": 16,
+            "win_rate": 0.6153846153846154,
+            "net_profit": -9.7485,
+            "profit_factor": 0.9109,
+            "mean_r": -0.0375,
+            "ci95_r": [
+              -0.3656,
+              0.2906
+            ],
+            "max_drawdown_eur": 40.5064,
+            "signals": null
+          },
+          "2026-Q2": {
+            "trades": 18,
+            "wins": 14,
+            "win_rate": 0.7777777777777778,
+            "net_profit": 39.8569,
+            "profit_factor": 1.9121,
+            "mean_r": 0.2214,
+            "ci95_r": [
+              -0.1135,
+              0.5564
+            ],
+            "max_drawdown_eur": 21.7779,
+            "signals": null
+          }
+        },
+        "forward": {
+          "trades": 5,
+          "wins": 3,
+          "win_rate": 0.6,
+          "net_profit": -4.557,
+          "profit_factor": 0.7887,
+          "mean_r": -0.0911,
+          "ci95_r": [
+            -0.8822,
+            0.6999
+          ],
+          "max_drawdown_eur": 10.8082,
+          "signals": 9
+        },
+        "forward_window": [
+          "2026-10-09T01:45:00+00:00",
+          "2026-10-28T21:15:00+00:00"
+        ],
+        "forward_trades": [
+          {
+            "opened_at": "2026-10-13T18:30:00+00:00",
+            "closed_at": "2026-10-13T22:00:00+00:00",
+            "direction": "SELL",
+            "r": -1.0808,
+            "mae_r": 1.069924657209,
+            "mfe_r": 0.485143203459
+          },
+          {
+            "opened_at": "2026-10-17T12:15:00+00:00",
+            "closed_at": "2026-10-17T13:00:00+00:00",
+            "direction": "SELL",
+            "r": 0.4833,
+            "mae_r": 0.484768877885,
+            "mfe_r": 0.756160692587
+          },
+          {
+            "opened_at": "2026-10-24T04:30:00+00:00",
+            "closed_at": "2026-10-24T05:45:00+00:00",
+            "direction": "SELL",
+            "r": 0.6258,
+            "mae_r": 0.136177168,
+            "mfe_r": 0.736638040241
+          },
+          {
+            "opened_at": "2026-10-24T06:45:00+00:00",
+            "closed_at": "2026-10-24T09:00:00+00:00",
+            "direction": "SELL",
+            "r": 0.5914,
+            "mae_r": 0.806616358554,
+            "mfe_r": 0.77585646137
+          },
+          {
+            "opened_at": "2026-10-26T14:45:00+00:00",
+            "closed_at": "2026-10-26T15:00:00+00:00",
+            "direction": "SELL",
+            "r": -1.0754,
+            "mae_r": 1.347191200463,
+            "mfe_r": 0.37150707478
+          }
+        ]
+      },
+      "verdict": {
+        "a_improves_pf_train_and_validation": true,
+        "b_at_least_60_trades": true,
+        "c_better_in_majority_of_quarters": true,
+        "quarters_better": 5,
+        "quarters_comparable": 6,
+        "d_forward_not_worse": null,
+        "retained": true,
+        "forward_conclusive": false
+      }
+    },
+    "XAUUSD": {
+      "baseline": {
+        "market": "XAUUSD",
+        "variant": "baseline",
+        "ref": "vwap_pullback@1.1.0",
+        "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+        "sealed_window_not_read": [
+          "2026-04-08T18:15:00+00:00",
+          "2026-10-09T03:30:00+00:00"
+        ],
+        "train": {
+          "trades": 656,
+          "wins": 378,
+          "win_rate": 0.5762195121951219,
+          "net_profit": -863.7961,
+          "profit_factor": 0.7229,
+          "mean_r": -0.1317,
+          "ci95_r": [
+            -0.197,
+            -0.0664
+          ],
+          "max_drawdown_eur": 923.0591,
+          "signals": 1109
+        },
+        "train_window": [
+          "2024-03-25T13:00:00+00:00",
+          "2025-10-02T11:45:00+00:00"
+        ],
+        "validation": {
+          "trades": 231,
+          "wins": 108,
+          "win_rate": 0.4675324675324675,
+          "net_profit": -621.9104,
+          "profit_factor": 0.5454,
+          "mean_r": -0.2692,
+          "ci95_r": [
+            -0.3873,
+            -0.1512
+          ],
+          "max_drawdown_eur": 625.1554,
+          "signals": 403
+        },
+        "validation_window": [
+          "2025-10-02T11:45:00+00:00",
+          "2026-04-08T18:15:00+00:00"
+        ],
+        "train_plus_validation": {
+          "trades": 887,
+          "wins": 486,
+          "win_rate": 0.5479143179255919,
+          "net_profit": -1485.7065,
+          "profit_factor": 0.6688,
+          "mean_r": -0.1675,
+          "ci95_r": [
+            -0.2249,
+            -0.1101
+          ],
+          "max_drawdown_eur": 1526.0973,
+          "signals": null
+        },
+        "quarters": {
+          "2024-Q2": {
+            "trades": 119,
+            "wins": 74,
+            "win_rate": 0.6218487394957983,
+            "net_profit": -82.3987,
+            "profit_factor": 0.8382,
+            "mean_r": -0.0692,
+            "ci95_r": [
+              -0.2192,
+              0.0807
+            ],
+            "max_drawdown_eur": 136.9026,
+            "signals": null
+          },
+          "2024-Q3": {
+            "trades": 101,
+            "wins": 57,
+            "win_rate": 0.5643564356435643,
+            "net_profit": -171.4622,
+            "profit_factor": 0.6534,
+            "mean_r": -0.1698,
+            "ci95_r": [
+              -0.3344,
+              -0.0051
+            ],
+            "max_drawdown_eur": 182.2112,
+            "signals": null
+          },
+          "2024-Q4": {
+            "trades": 106,
+            "wins": 58,
+            "win_rate": 0.5471698113207547,
+            "net_profit": -208.9077,
+            "profit_factor": 0.6164,
+            "mean_r": -0.1971,
+            "ci95_r": [
+              -0.3609,
+              -0.0332
+            ],
+            "max_drawdown_eur": 237.9385,
+            "signals": null
+          },
+          "2025-Q1": {
+            "trades": 109,
+            "wins": 70,
+            "win_rate": 0.6422018348623854,
+            "net_profit": -31.7615,
+            "profit_factor": 0.9293,
+            "mean_r": -0.0291,
+            "ci95_r": [
+              -0.1894,
+              0.1311
+            ],
+            "max_drawdown_eur": 99.8855,
+            "signals": null
+          },
+          "2025-Q2": {
+            "trades": 102,
+            "wins": 53,
+            "win_rate": 0.5196078431372549,
+            "net_profit": -184.7122,
+            "profit_factor": 0.6523,
+            "mean_r": -0.1811,
+            "ci95_r": [
+              -0.3505,
+              -0.0117
+            ],
+            "max_drawdown_eur": 216.1479,
+            "signals": null
+          },
+          "2025-Q3": {
+            "trades": 114,
+            "wins": 64,
+            "win_rate": 0.5614035087719298,
+            "net_profit": -164.7923,
+            "profit_factor": 0.7037,
+            "mean_r": -0.1446,
+            "ci95_r": [
+              -0.3027,
+              0.0136
+            ],
+            "max_drawdown_eur": 209.266,
+            "signals": null
+          },
+          "2025-Q4": {
+            "trades": 108,
+            "wins": 55,
+            "win_rate": 0.5092592592592593,
+            "net_profit": -216.9398,
+            "profit_factor": 0.6318,
+            "mean_r": -0.2009,
+            "ci95_r": [
+              -0.3724,
+              -0.0293
+            ],
+            "max_drawdown_eur": 223.4097,
+            "signals": null
+          },
+          "2026-Q1": {
+            "trades": 120,
+            "wins": 54,
+            "win_rate": 0.45,
+            "net_profit": -340.4881,
+            "profit_factor": 0.5271,
+            "mean_r": -0.2837,
+            "ci95_r": [
+              -0.4447,
+              -0.1228
+            ],
+            "max_drawdown_eur": 340.4881,
+            "signals": null
+          },
+          "2026-Q2": {
+            "trades": 8,
+            "wins": 1,
+            "win_rate": 0.125,
+            "net_profit": -84.2439,
+            "profit_factor": 0.0783,
+            "mean_r": -1.053,
+            "ci95_r": [
+              -1.6975,
+              -0.4086
+            ],
+            "max_drawdown_eur": 84.2439,
+            "signals": null
+          }
+        },
+        "forward": {
+          "trades": 20,
+          "wins": 10,
+          "win_rate": 0.5,
+          "net_profit": -49.6631,
+          "profit_factor": 0.5498,
+          "mean_r": -0.2483,
+          "ci95_r": [
+            -0.6327,
+            0.1361
+          ],
+          "max_drawdown_eur": 86.1662,
+          "signals": 35
+        },
+        "forward_window": [
+          "2026-10-09T03:30:00+00:00",
+          "2026-10-28T21:00:00+00:00"
+        ],
+        "forward_trades": [
+          {
+            "opened_at": "2026-10-15T07:30:00+00:00",
+            "closed_at": "2026-10-15T08:15:00+00:00",
+            "direction": "BUY",
+            "r": 0.6105,
+            "mae_r": 0.440632343032,
+            "mfe_r": 0.97378114936
+          },
+          {
+            "opened_at": "2026-10-15T13:00:00+00:00",
+            "closed_at": "2026-10-15T13:15:00+00:00",
+            "direction": "BUY",
+            "r": 0.6166,
+            "mae_r": 0.554938283211,
+            "mfe_r": 0.921706301232
+          },
+          {
+            "opened_at": "2026-10-15T14:30:00+00:00",
+            "closed_at": "2026-10-15T14:45:00+00:00",
+            "direction": "BUY",
+            "r": 0.6431,
+            "mae_r": 0.286080654933,
+            "mfe_r": 1.102263847138
+          },
+          {
+            "opened_at": "2026-10-15T17:30:00+00:00",
+            "closed_at": "2026-10-15T18:15:00+00:00",
+            "direction": "BUY",
+            "r": 0.6243,
+            "mae_r": 0.174064444107,
+            "mfe_r": 0.832178355067
+          },
+          {
+            "opened_at": "2026-10-16T12:15:00+00:00",
+            "closed_at": "2026-10-16T12:30:00+00:00",
+            "direction": "BUY",
+            "r": 0.5931,
+            "mae_r": 0.10225244051,
+            "mfe_r": 0.782031141875
+          },
+          {
+            "opened_at": "2026-10-19T00:45:00+00:00",
+            "closed_at": "2026-10-19T01:15:00+00:00",
+            "direction": "BUY",
+            "r": -1.1069,
+            "mae_r": 1.049903868872,
+            "mfe_r": 0.205941930293
+          },
+          {
+            "opened_at": "2026-10-19T06:30:00+00:00",
+            "closed_at": "2026-10-19T07:00:00+00:00",
+            "direction": "BUY",
+            "r": 0.6101,
+            "mae_r": 0.573987327905,
+            "mfe_r": 0.856033887969
+          },
+          {
+            "opened_at": "2026-10-19T08:30:00+00:00",
+            "closed_at": "2026-10-19T09:45:00+00:00",
+            "direction": "BUY",
+            "r": -1.0961,
+            "mae_r": 1.086430698576,
+            "mfe_r": -0.023291113296
+          },
+          {
+            "opened_at": "2026-10-20T06:00:00+00:00",
+            "closed_at": "2026-10-20T06:15:00+00:00",
+            "direction": "SELL",
+            "r": 0.5771,
+            "mae_r": 0.156819357317,
+            "mfe_r": 1.33260142184
+          },
+          {
+            "opened_at": "2026-10-20T06:45:00+00:00",
+            "closed_at": "2026-10-20T07:45:00+00:00",
+            "direction": "SELL",
+            "r": 0.6065,
+            "mae_r": 0.613062136918,
+            "mfe_r": 0.820572616633
+          },
+          {
+            "opened_at": "2026-10-20T14:15:00+00:00",
+            "closed_at": "2026-10-20T14:30:00+00:00",
+            "direction": "SELL",
+            "r": -1.0901,
+            "mae_r": 1.969274013389,
+            "mfe_r": 0.466478015299
+          },
+          {
+            "opened_at": "2026-10-21T04:15:00+00:00",
+            "closed_at": "2026-10-21T05:30:00+00:00",
+            "direction": "SELL",
+            "r": -1.108,
+            "mae_r": 1.243136118061,
+            "mfe_r": 0.318277422097
+          },
+          {
+            "opened_at": "2026-10-21T06:30:00+00:00",
+            "closed_at": "2026-10-21T10:45:00+00:00",
+            "direction": "SELL",
+            "r": -1.1007,
+            "mae_r": 1.175225961583,
+            "mfe_r": 0.535717643079
+          },
+          {
+            "opened_at": "2026-10-21T19:45:00+00:00",
+            "closed_at": "2026-10-21T20:15:00+00:00",
+            "direction": "BUY",
+            "r": 0.6207,
+            "mae_r": 0.121665752613,
+            "mfe_r": 0.726826314181
+          },
+          {
+            "opened_at": "2026-10-21T23:45:00+00:00",
+            "closed_at": "2026-10-22T00:30:00+00:00",
+            "direction": "BUY",
+            "r": -1.1084,
+            "mae_r": 1.177361689035,
+            "mfe_r": 0.033633918129
+          },
+          {
+            "opened_at": "2026-10-23T07:00:00+00:00",
+            "closed_at": "2026-10-23T09:15:00+00:00",
+            "direction": "SELL",
+            "r": -1.0921,
+            "mae_r": 1.111027424151,
+            "mfe_r": 0.361785088534
+          },
+          {
+            "opened_at": "2026-10-27T01:15:00+00:00",
+            "closed_at": "2026-10-27T01:45:00+00:00",
+            "direction": "SELL",
+            "r": -1.1149,
+            "mae_r": 1.213547314177,
+            "mfe_r": 0.612909252657
+          },
+          {
+            "opened_at": "2026-10-27T11:15:00+00:00",
+            "closed_at": "2026-10-27T12:30:00+00:00",
+            "direction": "SELL",
+            "r": -1.0972,
+            "mae_r": 1.235562833596,
+            "mfe_r": 0.043625522735
+          },
+          {
+            "opened_at": "2026-10-28T03:15:00+00:00",
+            "closed_at": "2026-10-28T05:00:00+00:00",
+            "direction": "BUY",
+            "r": -1.1166,
+            "mae_r": 1.36493481784,
+            "mfe_r": 0.305875414965
+          },
+          {
+            "opened_at": "2026-10-28T11:00:00+00:00",
+            "closed_at": "2026-10-28T12:30:00+00:00",
+            "direction": "BUY",
+            "r": 0.5627,
+            "mae_r": 0.622306966559,
+            "mfe_r": 1.477960290302
+          }
+        ]
+      },
+      "candidate": {
+        "market": "XAUUSD",
+        "variant": "candidate",
+        "ref": "vwap_pullback@1.1.0",
+        "dataset_fingerprint": "d847b980c6802d6a5a3ff1a4481a40c5d736283e21953f5cf0c3c0ed4684e37b",
+        "sealed_window_not_read": [
+          "2026-04-08T18:15:00+00:00",
+          "2026-10-09T03:30:00+00:00"
+        ],
+        "train": {
+          "trades": 75,
+          "wins": 42,
+          "win_rate": 0.56,
+          "net_profit": -121.0414,
+          "profit_factor": 0.6755,
+          "mean_r": -0.1614,
+          "ci95_r": [
+            -0.3582,
+            0.0354
+          ],
+          "max_drawdown_eur": 154.4983,
+          "signals": 103
+        },
+        "train_window": [
+          "2024-03-25T13:00:00+00:00",
+          "2025-10-02T11:45:00+00:00"
+        ],
+        "validation": {
+          "trades": 36,
+          "wins": 20,
+          "win_rate": 0.5555555555555556,
+          "net_profit": -33.0027,
+          "profit_factor": 0.8068,
+          "mean_r": -0.0917,
+          "ci95_r": [
+            -0.3809,
+            0.1975
+          ],
+          "max_drawdown_eur": 91.8601,
+          "signals": 53
+        },
+        "validation_window": [
+          "2025-10-02T11:45:00+00:00",
+          "2026-04-08T18:15:00+00:00"
+        ],
+        "train_plus_validation": {
+          "trades": 111,
+          "wins": 62,
+          "win_rate": 0.5585585585585585,
+          "net_profit": -154.0442,
+          "profit_factor": 0.7167,
+          "mean_r": -0.1388,
+          "ci95_r": [
+            -0.3009,
+            0.0233
+          ],
+          "max_drawdown_eur": 172.7028,
+          "signals": null
+        },
+        "quarters": {
+          "2024-Q2": {
+            "trades": 11,
+            "wins": 6,
+            "win_rate": 0.5454545454545454,
+            "net_profit": -20.3359,
+            "profit_factor": 0.6363,
+            "mean_r": -0.1849,
+            "ci95_r": [
+              -0.7133,
+              0.3435
+            ],
+            "max_drawdown_eur": 44.8816,
+            "signals": null
+          },
+          "2024-Q3": {
+            "trades": 9,
+            "wins": 5,
+            "win_rate": 0.5555555555555556,
+            "net_profit": -18.3509,
+            "profit_factor": 0.5905,
+            "mean_r": -0.2039,
+            "ci95_r": [
+              -0.7726,
+              0.3648
+            ],
+            "max_drawdown_eur": 23.2084,
+            "signals": null
+          },
+          "2024-Q4": {
+            "trades": 15,
+            "wins": 9,
+            "win_rate": 0.6,
+            "net_profit": -19.3964,
+            "profit_factor": 0.7256,
+            "mean_r": -0.1293,
+            "ci95_r": [
+              -0.5807,
+              0.322
+            ],
+            "max_drawdown_eur": 41.4667,
+            "signals": null
+          },
+          "2025-Q1": {
+            "trades": 6,
+            "wins": 3,
+            "win_rate": 0.5,
+            "net_profit": -17.1215,
+            "profit_factor": 0.4782,
+            "mean_r": -0.2854,
+            "ci95_r": [
+              -0.9943,
+              0.4236
+            ],
+            "max_drawdown_eur": 27.2947,
+            "signals": null
+          },
+          "2025-Q2": {
+            "trades": 23,
+            "wins": 13,
+            "win_rate": 0.5652173913043478,
+            "net_profit": -23.8767,
+            "profit_factor": 0.7797,
+            "mean_r": -0.1038,
+            "ci95_r": [
+              -0.4633,
+              0.2557
+            ],
+            "max_drawdown_eur": 57.3216,
+            "signals": null
+          },
+          "2025-Q3": {
+            "trades": 10,
+            "wins": 6,
+            "win_rate": 0.6,
+            "net_profit": -11.0825,
+            "profit_factor": 0.7761,
+            "mean_r": -0.1108,
+            "ci95_r": [
+              -0.7206,
+              0.499
+            ],
+            "max_drawdown_eur": 42.8573,
+            "signals": null
+          },
+          "2025-Q4": {
+            "trades": 14,
+            "wins": 10,
+            "win_rate": 0.7142857142857143,
+            "net_profit": 23.9284,
+            "profit_factor": 1.5524,
+            "mean_r": 0.1709,
+            "ci95_r": [
+              -0.2602,
+              0.6021
+            ],
+            "max_drawdown_eur": 21.5888,
+            "signals": null
+          },
+          "2026-Q1": {
+            "trades": 20,
+            "wins": 9,
+            "win_rate": 0.45,
+            "net_profit": -53.6789,
+            "profit_factor": 0.5415,
+            "mean_r": -0.2684,
+            "ci95_r": [
+              -0.664,
+              0.1272
+            ],
+            "max_drawdown_eur": 84.817,
+            "signals": null
+          },
+          "2026-Q2": {
+            "trades": 3,
+            "wins": 1,
+            "win_rate": 0.3333333333333333,
+            "net_profit": -14.1297,
+            "profit_factor": 0.3363,
+            "mean_r": -0.471,
+            "ci95_r": [
+              -1.6342,
+              0.6922
+            ],
+            "max_drawdown_eur": 14.1297,
+            "signals": null
+          }
+        },
+        "forward": {
+          "trades": 4,
+          "wins": 3,
+          "win_rate": 0.75,
+          "net_profit": 6.7921,
+          "profit_factor": 1.6092,
+          "mean_r": 0.1698,
+          "ci95_r": [
+            -0.6696,
+            1.0093
+          ],
+          "max_drawdown_eur": 11.1488,
+          "signals": 6
+        },
+        "forward_window": [
+          "2026-10-09T03:30:00+00:00",
+          "2026-10-28T21:00:00+00:00"
+        ],
+        "forward_trades": [
+          {
+            "opened_at": "2026-10-15T07:30:00+00:00",
+            "closed_at": "2026-10-15T08:15:00+00:00",
+            "direction": "BUY",
+            "r": 0.6105,
+            "mae_r": 0.440632343032,
+            "mfe_r": 0.97378114936
+          },
+          {
+            "opened_at": "2026-10-20T06:00:00+00:00",
+            "closed_at": "2026-10-20T06:15:00+00:00",
+            "direction": "SELL",
+            "r": 0.5771,
+            "mae_r": 0.156819357317,
+            "mfe_r": 1.33260142184
+          },
+          {
+            "opened_at": "2026-10-20T06:45:00+00:00",
+            "closed_at": "2026-10-20T07:45:00+00:00",
+            "direction": "SELL",
+            "r": 0.6065,
+            "mae_r": 0.613062136918,
+            "mfe_r": 0.820572616633
+          },
+          {
+            "opened_at": "2026-10-27T01:15:00+00:00",
+            "closed_at": "2026-10-27T01:45:00+00:00",
+            "direction": "SELL",
+            "r": -1.1149,
+            "mae_r": 1.213547314177,
+            "mfe_r": 0.612909252657
+          }
+        ]
+      },
+      "verdict": {
+        "a_improves_pf_train_and_validation": false,
+        "b_at_least_60_trades": true,
+        "c_better_in_majority_of_quarters": true,
+        "quarters_better": 5,
+        "quarters_comparable": 8,
+        "d_forward_not_worse": null,
+        "retained": false,
+        "forward_conclusive": false
+      }
+    }
+  }
+}

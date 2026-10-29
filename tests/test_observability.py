@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 
 from tradingagent.observability import (
+    CollapseNetworkTracebacks,
     JsonFormatter,
     Metrics,
     ResourceMonitor,
@@ -225,3 +226,72 @@ def test_snapshot_serialises_to_json() -> None:
     metrics.observe_latency("notify", 0.1)
     line = format_snapshot(metrics.snapshot())
     assert json.loads(line)["counters"] == {"signals": 1}
+
+
+def _log_through_handler(handler: logging.Handler, error: BaseException | None) -> None:
+    logger = logging.getLogger("telegram.ext.Updater")
+    logger.propagate = False
+    logger.handlers = [handler]
+    logger.setLevel(logging.DEBUG)
+    try:
+        if error is None:
+            logger.error("polling failed")
+        else:
+            try:
+                raise error
+            except BaseException:  # the filter reads the active exception
+                logger.exception("polling failed")
+    finally:
+        logger.handlers = []
+        logger.propagate = True
+
+
+def _json_handler_output(error: BaseException | None) -> dict[str, Any]:
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(JsonFormatter())
+    handler.addFilter(CollapseNetworkTracebacks())
+    _log_through_handler(handler, error)
+    return json.loads(stream.getvalue())
+
+
+def test_a_network_error_is_logged_as_one_line_without_its_traceback() -> None:
+    """36 "Exception happened while polling for updates" tracebacks in two weeks."""
+    from telegram.error import TimedOut
+
+    payload = _json_handler_output(TimedOut("Timed out"))
+
+    assert "exception" not in payload
+    assert "TimedOut" in payload["message"] and "Timed out" in payload["message"]
+    assert payload["message"].startswith("polling failed")
+
+
+def test_a_database_outage_is_logged_without_its_traceback_or_its_statement() -> None:
+    from sqlalchemy.exc import OperationalError
+
+    payload = _json_handler_output(
+        OperationalError("INSERT INTO candles VALUES (?)", {"v": 1}, Exception("host not found"))
+    )
+
+    assert "exception" not in payload
+    assert "host not found" in payload["message"]
+    assert "INSERT" not in payload["message"]
+
+
+def test_a_real_defect_keeps_its_traceback() -> None:
+    payload = _json_handler_output(KeyError("a bug"))
+
+    assert "KeyError" in payload["exception"]
+
+
+def test_a_record_without_an_exception_is_left_alone() -> None:
+    payload = _json_handler_output(None)
+
+    assert payload["message"] == "polling failed"
+
+
+def test_the_json_configuration_installs_the_filter(restore_logging: Any) -> None:
+    stream = io.StringIO()
+    handler = configure_json_logging(logging.INFO, [], stream=stream)
+
+    assert any(isinstance(f, CollapseNetworkTracebacks) for f in handler.filters)

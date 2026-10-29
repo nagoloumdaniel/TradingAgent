@@ -289,7 +289,7 @@ def test_the_alerts_section_aligns_its_columns(seeded_client: TestClient) -> Non
 
     assert '<ul class="alerts"' not in body
     for column in ("Horodatage (UTC)", "Gravité", "Type", "Détail"):
-        assert f"<th>{column}</th>" in body
+        assert f'<th scope="col">{column}</th>' in body
     # The seeded critical event carries its severity badge, in its own aligned cell.
     assert "clock_mismatch" in body
     assert 'class="badge bad"' in body

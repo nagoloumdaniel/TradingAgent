@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from tradingagent.config.redaction import install_secret_redaction, redact
+from tradingagent.resilience import is_transient, one_line
 
 Now = Callable[[], datetime]
 
@@ -111,6 +112,41 @@ class JsonFormatter(logging.Formatter):
         return self._now(record.created).astimezone(UTC).isoformat()
 
 
+def _is_network_failure(error: BaseException) -> bool:
+    """A failure of a link (database, terminal, Telegram), whose traceback says nothing new.
+
+    Telegram's own exceptions are recognised by their base class, imported lazily so that
+    logging stays usable in a process that never touches the bot.
+    """
+    if is_transient(error):
+        return True
+    try:
+        from telegram.error import NetworkError
+    except ImportError:  # pragma: no cover - telegram is a dependency of the agent
+        return False
+    return isinstance(error, NetworkError)
+
+
+class CollapseNetworkTracebacks(logging.Filter):
+    """Replace the traceback of a network failure with the one line that explains it.
+
+    The libraries log their own retries with `exc_info`: python-telegram-bot wrote a full
+    traceback for every failed poll (36 in two weeks) and SQLAlchemy appends the statement
+    and its bound values. The failure is the same each time and the cause is on the first
+    line; a defect (any other exception) keeps its traceback untouched.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        exc_info = record.exc_info
+        error = exc_info[1] if exc_info else None
+        if error is not None and _is_network_failure(error):
+            record.msg = f"{record.getMessage()} [{one_line(error)}]"
+            record.args = ()
+            record.exc_info = None
+            record.exc_text = None
+        return True
+
+
 def configure_json_logging(
     level: int | str,
     secrets: Iterable[str],
@@ -135,6 +171,7 @@ def configure_json_logging(
             target.removeHandler(existing)
     handler = logging.StreamHandler(stream if stream is not None else sys.stderr)
     handler.setFormatter(JsonFormatter(secrets=values))
+    handler.addFilter(CollapseNetworkTracebacks())
     handler._tradingagent_json = True  # type: ignore[attr-defined]
     target.addHandler(handler)
     return handler

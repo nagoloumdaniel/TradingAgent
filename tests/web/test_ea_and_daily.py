@@ -64,18 +64,26 @@ def test_an_unconfigured_bridge_yields_nothing(populated: seed.Seeded, engine: E
     assert queries.ea_views(Path("nowhere-at-all"), seed.NOW) == ()
 
 
-def test_overview_shows_the_guardians(seeded_client: TestClient) -> None:
+def test_system_page_says_when_there_is_no_bridge(seeded_client: TestClient) -> None:
     """Without a bridge the page says so rather than showing an empty table as a status."""
-    body = seeded_client.get("/").text
+    body = seeded_client.get("/system").text
     assert "Gardiens EA" in body
     assert "Aucun rapport EA" in body
     assert "TRADINGAGENT_EA_REPORTS_DIR" in body
 
 
+def test_overview_draws_a_missing_bridge_as_an_idle_dot(seeded_client: TestClient) -> None:
+    """The overview carries a state, not a sentence: one dot per market, no guardian table."""
+    body = seeded_client.get("/").text
+    assert "Santé des marchés" in body
+    assert 'data-state="idle"' in body
+    assert "Gardiens EA" not in body
+
+
 def test_overview_shows_a_live_and_a_silent_guardian(ea_client: TestClient) -> None:
     body = ea_client.get("/").text
-    assert "EN LIGNE" in body
-    assert "HORS LIGNE" in body
+    assert 'aria-label="EA en ligne, battement de cœur' in body
+    assert 'aria-label="EA hors ligne"' in body
     assert "order 5001 filled" not in body  # the journal belongs to the system page
     assert "Aucun rapport EA" not in body
 

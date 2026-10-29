@@ -35,7 +35,8 @@ def test_every_page_renders_on_an_empty_database(client: TestClient, path: str) 
 def test_every_page_renders_on_a_populated_database(seeded_client: TestClient, path: str) -> None:
     response = seeded_client.get(path)
     assert response.status_code == 200
-    assert "lecture seule" in response.text
+    assert "NexaGold" in response.text
+    assert "lecture seule" not in response.text.lower()
 
 
 def test_navigation_lists_every_page(seeded_client: TestClient) -> None:
@@ -70,9 +71,8 @@ def test_overview_separates_each_market(seeded_client: TestClient) -> None:
 
 def test_overview_states_the_market_and_data_status(seeded_client: TestClient) -> None:
     body = seeded_client.get("/").text
-    assert "battement de cœur" in body
-    assert "données récentes" in body  # the XAUUSD candle is one hour old
-    assert "données anciennes" in body  # the BTCUSD candle is thirty hours old
+    assert "Données récentes" in body  # the XAUUSD candle is one hour old
+    assert "Données anciennes" in body  # the BTCUSD candle is thirty hours old
 
 
 def test_overview_shows_the_strategy_status(seeded_client: TestClient) -> None:
@@ -329,4 +329,5 @@ def test_positions_page_carries_the_live_wiring(seeded_client: TestClient) -> No
     assert "alertes" in body.lower()
     # The open count is rendered from the database for the selected market, never left as a
     # placeholder the stream fills in later.
-    assert '<span id="open-count">1</span>' in body
+    assert 'id="open-count">1</div>' in body
+    assert 'role="status"' in body and 'aria-live="polite"' in body  # the stream state

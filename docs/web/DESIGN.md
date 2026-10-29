@@ -1,5 +1,61 @@
 # Design du dashboard — décisions et sources
 
+> **Mise à jour 2026-10-29 : refonte noir / blanc / verre.** La direction visuelle ci-dessous
+> (« Direction actuelle ») remplace la palette or et la hiérarchie textuelle des pages. Les
+> sections plus bas qui parlent d'or, d'accent bleu ou de libellés en majuscules sont
+> historiques ; le reste (Geist, sprite d'icônes, pagination serveur, pages d'erreur sans base)
+> reste valable.
+
+## Direction actuelle (2026-10-29)
+
+**Lecture du brief** : console d'opérateur, monochrome, verre dépoli, lue surtout la nuit.
+Variance 4, mouvement 3, densité 6.
+
+| Axe | Décision |
+|---|---|
+| Palette | Noir `#0a0a0b`, blanc `#f4f4f5` et leurs gris, pour les deux thèmes (clair : `#ebebed` / `#0e0e10`). L'accent est le blanc (sombre) ou le noir (clair). Plus d'or : NexaGold vit dans le logo. |
+| Couleur | Vert = gain, haussier, actif. Rouge = perte, baissier, arrêt. Ambre = dégradé ou avertissement. Jamais en surface, seulement en valeur, pastille ou badge. |
+| Verre | `backdrop-filter: blur(20px) saturate(150%)`, fond blanc 4,5 % (sombre) ou 62 % (clair), bord 1 px translucide, reflet haut `inset 0 1px 0`. Approximation web, pas un matériau Apple. Sous `prefers-reduced-transparency`, surfaces opaques. |
+| Formes | Panneaux 16 px, contrôles 10 px, pastilles et badges ronds. Pas d'autre rayon. |
+| Typo | Geist / Geist Mono. Titres de section en casse normale, 15 px, 600. Plus de majuscules espacées. Libellés de cartes 13 px gris. |
+| Mouvement | Un seul mouvement permanent : la pastille d'état qui respire (2,6 s, 1,6 s à l'arrêt), uniquement sous `prefers-reduced-motion: no-preference`. Le reste répond à une action (150 ms de couleur, enfoncement à 0,97). |
+
+### Un état se dessine, il ne s'écrit pas
+
+La pastille (`.dot`, macro `dot()` de `_macros.html`) porte l'état : `role="img"`, `aria-label` et
+`title` disent le sens, aucun texte visible. La couleur ne vit jamais seule : disque (ok), losange
+(dégradé), carré (arrêt).
+
+- Carte Solde de l'accueil, coin haut droit : vert actif, rouge arrêt (la bannière rouge apparaît
+  seulement pour donner les motifs), ambre si une garde EA est en arrêt, un EA est hors ligne, un
+  marché n'a aucune donnée ou des données de plus de 24 h.
+- Accueil, « Santé des marchés » : deux pastilles par marché (EA, données).
+- Positions : état du flux SSE (`role="status"`, `aria-live="polite"`, texte hors écran mis à jour).
+- Risque et Système : base de données, arrêt global.
+
+### Ce qui a été supprimé, fusionné, déplacé
+
+| Page | Changement |
+|---|---|
+| Chrome | Étiquette « lecture seule » retirée du bandeau ; pied de page réduit à l'heure de rendu UTC (la phrase sur l'EUR et l'UTC redisait les en-têtes). |
+| Accueil | Bannière « Trading actif » remplacée par la pastille. Quatre KPI en tête (solde, P&L du jour, positions ouvertes, drawdown). Résultat et statistiques en deux panneaux de chiffres au lieu de 14 cartes à notes. Positions ouvertes remontent avant « Par marché ». Les deux tableaux EA et données de marché (doublons de Système) deviennent « Santé des marchés ». |
+| Positions | Paragraphe d'état remplacé par deux cartes (ouvertes avec pastille du flux, historique). Texte d'alertes retiré. |
+| Trades | Titre et phrase de sélection retirés (dans la légende du tableau). Exports globaux retirés (déjà dans Rapports). Notes « sur la sélection » retirées. |
+| Risque | Bannière « Aucun arrêt actif » et paragraphes « lecture seule » retirés ; état global en pastille. Tableau EA réduit à ce qui concerne le risque (le détail est dans Système). |
+| Stratégies, Scalping, Labo IA, Rapports, Système, Replay | Paragraphes de méthode déplacés en `title` (infobulle) ou en `<caption>` hors écran ; notes de cartes redondantes retirées. |
+| Erreurs | 404 : paragraphe générique retiré. 500 et 503 : mentions « lecture seule » retirées. |
+
+Tous les tableaux ont une `<caption class="sr-only">` ; elle nomme aussi la zone défilante.
+
+### Contrastes mesurés (WCAG 2.2 AA)
+
+Sombre, sur le verre le plus clair (`#272728`) : texte 13,6, secondaire 6,4, discret 4,7, vert 8,0, rouge 6,8, ambre 8,1. Clair, sur `#ebebed` : texte 16,2, secondaire 6,2, discret 4,9, vert 4,6, rouge 4,9, ambre 4,9. Bouton principal 18,0 (sombre) et 18,5 (clair).
+
+> **Mise à jour 2026-10-28** : la palette (désormais noir chaud et or NexaGold), la navigation
+> (barre du haut pleine largeur, rail, barre basse sur téléphone) et le comportement des tableaux
+> sont décrits dans [`RESPONSIVE.md`](RESPONSIVE.md) et remplacent les sections « pilule
+> flottante », « barre latérale figée / tiroir » et « Adaptatif » ci-dessous.
+
 > Installé le 2026-10-07 avec `npx skills add Leonxlnx/taste-skill` (12 skills) et
 > `npx skills add emilkowalski/skills` (12 skills), tous deux dans `~/.claude/skills/`.
 > Ce document dit ce qui a été retenu, ce qui a été écarté, et pourquoi. Les skills sont

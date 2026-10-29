@@ -15,7 +15,7 @@ from tradingagent.signals.lifecycle import TRANSITIONS, IllegalTransitionError, 
 from tradingagent.storage.engine import create_database_engine
 from tradingagent.storage.migrate import upgrade
 from tradingagent.storage.models import SignalEventRow, SignalRow, StrategyVersionRow
-from tradingagent.storage.signals import history, transition
+from tradingagent.storage.signals import history, transition, transition_once
 
 T0 = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)
 
@@ -204,3 +204,21 @@ def test_history_is_empty_for_a_fresh_candidate(engine: Engine) -> None:
     signal_id = seed_signal(engine)
 
     assert history(engine, signal_id) == []
+
+
+def test_transition_once_does_nothing_when_the_signal_is_already_there(engine: Engine) -> None:
+    signal_id = seed_signal(engine, SignalState.POSITION_OPEN)
+
+    assert transition_once(engine, signal_id, SignalState.CLOSED, T0) is not None
+    assert transition_once(engine, signal_id, SignalState.CLOSED, T0) is None
+
+    assert [event.state for event in history(engine, signal_id)] == [SignalState.CLOSED]
+
+
+def test_transition_once_keeps_every_other_rm018_rule(engine: Engine) -> None:
+    signal_id = seed_signal(engine, SignalState.CLOSED)
+
+    with pytest.raises(IllegalTransitionError):
+        transition_once(engine, signal_id, SignalState.POSITION_OPEN, T0)
+    with pytest.raises(ValueError, match="unknown"):
+        transition_once(engine, 99999, SignalState.CLOSED, T0)
