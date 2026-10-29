@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#0d0c0a">
+<meta name="theme-color" content="#0a0a0b">
 <link rel="icon" type="image/png" href="/static/nexagold.png">
 <title>{% block title %}Tableau de bord{% endblock %} - NexaGold TradingAgent</title>
 <script>
@@ -84,8 +84,7 @@
        pour le thème clair, où le blanc serait invisible. #}
     <img class="brand-mark brand-mark-dark" src="/static/nexagold.png" alt="" width="28" height="28">
     <img class="brand-mark brand-mark-light" src="/static/nexagold-dark.png" alt="" width="28" height="28">
-    <span class="name"><span class="word">NexaGold</span> TradingAgent</span>
-    <span class="tag">lecture seule</span>
+    <span class="name">NexaGold <span class="sub">TradingAgent</span></span>
   </a>
   <div class="topbar-end">
     {# Un seul bouton, deux icônes, et un état annoncé. aria-pressed vaut vrai quand le
@@ -129,10 +128,7 @@
   </button>
 </nav>
 
-<footer>
-  Vue rendue le {{ display.precise(render_at) }} UTC. Montants en EUR, dates et heures en UTC
-  (l'heure locale s'affiche au survol).
-</footer>
+<footer>{{ display.precise(render_at) }} UTC</footer>
 
 <script src="/static/js/app.js" defer></script>
 </body>

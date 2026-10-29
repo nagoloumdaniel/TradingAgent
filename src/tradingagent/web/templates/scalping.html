@@ -3,51 +3,40 @@
 {% block title %}Scalping{% endblock %}
 {% block content %}
 
-<h2>Statistiques de scalping — {{ view.market or 'aucun marché' }}</h2>
-<p class="muted">Le marché est un paramètre de la requête : les trades, les coûts et les
-   latences sont lus en SQL pour <strong>{{ view.market }}</strong> seulement. Chaque découpe
-   décrit la sélection entière de ce marché, pas une page de dix lignes : une distribution ne
-   se calcule pas sur un dixième de son échantillon.</p>
-
 <form class="filters" method="get" action="/scalping">
   {% if markets %}
     {{ market_select(view.hours, markets) }}
   {% else %}
-    <p class="muted">Aucun marché en base : il n'y a rien à séparer.</p>
+    <p class="muted">Aucun marché en base.</p>
   {% endif %}
   <div><button type="submit">Filtrer</button></div>
 </form>
 
 {% if view.trades == 0 %}
-  <div class="empty">
-    Aucun trade clôturé pour {{ view.market or 'cette base' }} : les découpes apparaîtront dès
-    la première clôture.
-  </div>
+  <div class="empty">Aucun trade clôturé pour {{ view.market or 'cette base' }}.</div>
 {% else %}
   <div class="cards">
     <div class="card">
       <div class="label">Trades analysés</div>
       <div class="value" id="scalping-trades">{{ view.trades }}</div>
-      <div class="note">toutes stratégies de {{ view.market }}</div>
     </div>
     <div class="card">
       <div class="label">Latence médiane</div>
       <div class="value sm">
         {{ display.number(view.execution.median_latency_ms, 0) if view.execution.median_latency_ms is not none else "n/a" }} ms
       </div>
-      <div class="note">order_sent → filled, {{ view.execution.sample }} mesure(s)</div>
+      <div class="note" title="De order_sent à filled">{{ view.execution.sample }} mesure(s)</div>
     </div>
     <div class="card">
       <div class="label">Pire latence</div>
       <div class="value sm">
         {{ display.number(view.execution.worst_latency_ms, 0) if view.execution.worst_latency_ms is not none else "n/a" }} ms
       </div>
-      <div class="note">la queue compte plus que la moyenne</div>
     </div>
     <div class="card">
       <div class="label">Slippage moyen / max</div>
       <div class="value sm">{{ display.number(view.costs.average_slippage, 4) }} / {{ display.number(view.costs.max_slippage, 4) }}</div>
-      <div class="note">{{ view.costs.slippage_sample }} trade(s) avec la donnée</div>
+      <div class="note">{{ view.costs.slippage_sample }} trade(s)</div>
     </div>
   </div>
 {% endif %}
@@ -56,13 +45,13 @@
    et la couleur du résultat vient de `format.ratio_class` — vert au-dessus de zéro, rouge en
    dessous, aucune couleur à zéro. #}
 {% macro bucket_table(title, note, buckets, table_id) %}
-<h2>{{ title }}</h2>
-<p class="muted">{{ note }}</p>
+<h2 title="{{ note }}">{{ title }}</h2>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">{{ title }}. {{ note }}</caption>
   <thead>
     <tr>
-      <th scope="col">Découpe</th><th scope="col" class="num">Trades</th><th scope="col" class="num">Résultat net</th>
+      <th scope="col">Découpe</th><th scope="col" class="num">Trades</th><th scope="col" class="num" title="Net : commission et swap du courtier déjà déduits, jamais recalculés ici">Résultat net</th>
       <th scope="col" class="num">Réussite</th><th scope="col" class="num">Espérance</th>
     </tr>
   </thead>
@@ -86,7 +75,7 @@
 {% endmacro %}
 
 {{ bucket_table("Par heure (UTC)",
-                "Où la stratégie gagne et où elle perd, heure par heure. Vingt-quatre heures au plus, dix par affichage.",
+                "Où la stratégie gagne et où elle perd, heure par heure.",
                 view.hours.rows, "hours-body") }}
 {{ pager(view.hours, "Pagination des découpes horaires") }}
 {{ bucket_table("Par session", "Sessions conventionnelles déduites de l'heure UTC, pas les horaires du courtier.", view.sessions, "sessions-body") }}
@@ -98,6 +87,7 @@
 <h2>Coûts</h2>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Coûts d'exécution</caption>
   <thead><tr><th scope="col">Mesure</th><th scope="col" class="num">Valeur</th><th scope="col" class="num">Échantillon</th></tr></thead>
   <tbody>
     <tr><td>Slippage moyen</td><td class="num">{{ display.number(view.costs.average_slippage, 4) }}</td><td class="num">{{ view.costs.slippage_sample }}</td></tr>
@@ -107,11 +97,6 @@
   </tbody>
 </table>
 </div>
-<p class="muted">Un « n/a » signifie que la donnée n'existe pas en base, jamais qu'elle vaut zéro :
-   le tableau de bord n'invente aucune mesure.</p>
-<p class="muted">Net : les montants viennent de <code>trades.pnl_eur</code>, commission et swap
-   du courtier déjà déduits pour un trade passé chez lui (MT5 cumule
-   <code>profit + swap + commission</code>) ; un trade papier n'en porte aucun. Le tableau de
-   bord ne recalcule ni les uns ni les autres.</p>
+<p class="muted">n/a : donnée absente de la base, jamais zéro.</p>
 
 {% endblock %}

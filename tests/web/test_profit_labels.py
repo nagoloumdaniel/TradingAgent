@@ -113,7 +113,6 @@ def test_the_scalping_page_counts_the_trades_it_cut(seeded_client: TestClient) -
     body = _text(seeded_client, "/scalping", market=XAU)
 
     assert "Trades analysés" in body
-    assert "toutes stratégies de XAUUSD" in body
 
 
 # --- an empty screen is not a fault -----------------------------------------------------

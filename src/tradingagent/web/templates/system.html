@@ -1,23 +1,20 @@
 {% extends "base.html" %}
-{% from "_macros.html" import pager, search_field, market_select %}
+{% from "_macros.html" import pager, search_field, market_select, dot %}
 {% block title %}Système{% endblock %}
 {% block content %}
 
-<h2>Santé du système</h2>
-<p class="muted">Tout ce qui suit est lu dans la base ou mesuré par le paquet
-   <code>observability</code>. Aucune sonde n'est inventée.</p>
-
 <div class="cards">
-  <div class="card"><div class="label">Base de données</div>
-    <div class="value">{% if data.database.ok %}<span class="badge ok">joignable</span>{% else %}<span class="badge bad">injoignable</span>{% endif %}</div>
-    <div class="note">moteur {{ data.database.dialect }}</div></div>
-  <div class="card"><div class="label">Arrêt en cours</div>
-    <div class="value">{% if data.halt.halted %}<span class="badge bad">oui</span>{% else %}<span class="badge ok">non</span>{% endif %}</div>
-    <div class="note">lecture pessimiste de <code>halt_commands</code></div></div>
-  <div class="card"><div class="label">Marchés connus</div><div class="value">{{ data.markets | length }}</div>
-    <div class="note">positions, bougies et télémétrie confondues</div></div>
-  <div class="card"><div class="label">Erreurs récentes</div><div class="value">{{ data.errors.total }}</div>
-    <div class="note">avertissements et critiques</div></div>
+  <div class="card">
+    {% if data.database.ok %}{{ dot("ok", "Base de données joignable") }}{% else %}{{ dot("bad", "Base de données injoignable") }}{% endif %}
+    <div class="label">Base de données</div>
+    <div class="value sm">{% if data.database.ok %}joignable{% else %}injoignable{% endif %}</div>
+    <div class="note">{{ data.database.dialect }}</div></div>
+  <div class="card" title="Lecture pessimiste de halt_commands">
+    {% if data.halt.halted %}{{ dot("bad", "Trading arrêté") }}{% else %}{{ dot("ok", "Aucun arrêt en cours") }}{% endif %}
+    <div class="label">Arrêt en cours</div>
+    <div class="value sm">{% if data.halt.halted %}oui{% else %}non{% endif %}</div></div>
+  <div class="card" title="Positions, bougies et télémétrie confondues"><div class="label">Marchés connus</div><div class="value">{{ data.markets | length }}</div></div>
+  <div class="card" title="Avertissements et critiques"><div class="label">Erreurs récentes</div><div class="value">{{ data.errors.total }}</div></div>
 </div>
 
 {% if not data.database.ok %}
@@ -40,10 +37,9 @@
 
 <h2>Marché, données et EA</h2>
 <h3>Gardiens EA</h3>
-<p class="muted">Rapports JSON écrits par les EA, lus par <code>tradingagent.ea.bridge</code> :
-   un rapport absent, tronqué ou illisible vaut <strong>hors ligne</strong>, jamais une exception.</p>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Gardiens EA, lus dans les rapports JSON du pont : un rapport absent ou illisible vaut hors ligne</caption>
   <thead><tr><th scope="col">Marché</th><th scope="col">État</th><th scope="col">Battement (UTC)</th><th scope="col">Âge</th><th scope="col">Version EA</th>
              <th scope="col">Protocole</th><th scope="col">Révision appliquée</th><th scope="col">Connecté</th><th scope="col">Trading autorisé</th>
              <th scope="col">Kill switch</th><th scope="col">Arrêt local</th><th scope="col">Motif</th><th scope="col" class="num">Positions vues</th></tr></thead>
@@ -54,14 +50,14 @@
         <td>{% if guardian.online %}<span class="badge ok">EN LIGNE</span>{% else %}<span class="badge bad">HORS LIGNE</span>{% endif %}</td>
         <td>{{ display.precise(guardian.heartbeat_at) }}</td>
         <td>{{ display.duration(guardian.heartbeat_age) }}</td>
-        <td>{{ guardian.ea_version or '—' }}</td>
-        <td>{{ guardian.protocol_version if guardian.readable else '—' }}</td>
-        <td>{{ guardian.applied_revision if guardian.readable else '—' }}</td>
+        <td>{{ guardian.ea_version or '-' }}</td>
+        <td>{{ guardian.protocol_version if guardian.readable else '-' }}</td>
+        <td>{{ guardian.applied_revision if guardian.readable else '-' }}</td>
         <td>{{ 'oui' if guardian.connected else 'non' }}</td>
         <td>{{ 'oui' if guardian.trade_allowed else 'non' }}</td>
         <td>{% if guardian.kill_switch %}<span class="badge bad">actif</span>{% else %}non{% endif %}</td>
         <td>{% if guardian.local_halt %}<span class="badge warn">actif</span>{% else %}non{% endif %}</td>
-        <td>{{ guardian.halt_reason or '—' }}</td>
+        <td>{{ guardian.halt_reason or '-' }}</td>
         <td class="num">{{ guardian.remote_positions }}</td>
       </tr>
     {% else %}
@@ -76,13 +72,9 @@
    compté et paginé en SQL. Il est borné — les lignes les plus récentes, et le total lu est
    écrit à côté, parce qu'une troncature silencieuse serait le défaut qu'on remplace. #}
 <h3>Journal des EA (derniers événements)</h3>
-<p class="muted">
-  <span id="ea-journal-count">{{ data.journal | length }} sur {{ data.journal_total }}</span>
-  événement(s) lu(s) dans les rapports : les plus récents d'abord, tous gardiens confondus,
-  bornés à un affichage.
-</p>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only"><span id="ea-journal-count">{{ data.journal | length }} sur {{ data.journal_total }}</span> événement(s) lu(s) dans les rapports, les plus récents d'abord</caption>
   <thead><tr><th scope="col">Marché</th><th scope="col">Le (UTC)</th><th scope="col">Séquence</th><th scope="col">Gravité</th><th scope="col">Type</th><th scope="col">Message</th><th scope="col">Ticket</th></tr></thead>
   <tbody id="ea-journal-body">
     {% for event in data.journal %}
@@ -90,10 +82,10 @@
         <td>{{ event.symbol }}</td>
         <td>{{ display.precise(event.at) }}</td>
         <td class="num">{{ event.seq }}</td>
-        <td><span class="badge">{{ event.severity or '—' }}</span></td>
+        <td><span class="badge">{{ event.severity or '-' }}</span></td>
         <td>{{ event.kind }}</td>
         <td>{{ event.message }}</td>
-        <td>{{ event.ticket if event.ticket is not none else '—' }}</td>
+        <td>{{ event.ticket if event.ticket is not none else '-' }}</td>
       </tr>
     {% else %}
       <tr><td colspan="7" class="empty">Aucun événement EA enregistré.</td></tr>
@@ -103,10 +95,9 @@
 </div>
 
 <h3>Données de marché</h3>
-<p class="muted">Dernière bougie stockée et dernier événement d'exécution : ce que la base
-   enregistre, pour recouper le battement de cœur de l'EA.</p>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Dernière bougie stockée et dernier événement d'exécution par marché</caption>
   <thead><tr><th scope="col">Marché</th><th scope="col">Dernière bougie (UTC)</th><th scope="col">Âge des données</th>
              <th scope="col">Dernier événement d'exécution</th><th scope="col">Type</th><th scope="col">État</th></tr></thead>
   <tbody>
@@ -116,7 +107,7 @@
         <td>{{ display.precise(market.last_candle_at) }}</td>
         <td>{{ display.duration(market.candle_age) }}</td>
         <td>{{ display.precise(market.last_event_at) }}</td>
-        <td>{{ market.last_event_kind.value if market.last_event_kind else '—' }}</td>
+        <td>{{ market.last_event_kind.value if market.last_event_kind else '-' }}</td>
         <td>
           {% if market.last_candle_at is none %}<span class="badge bad">aucune donnée</span>
           {% elif market.candle_age is not none and market.candle_age.total_seconds() > 86400 %}<span class="badge warn">données anciennes</span>
@@ -130,11 +121,10 @@
 </table>
 </div>
 
-<h2>Latences d'exécution</h2>
-<p class="muted">Mesurées par <code>ExecutionEventStore.latency</code> entre deux sauts consécutifs
-   d'un même ordre, à partir des événements stockés.</p>
+<h2 title="Mesurées entre deux sauts consécutifs d'un même ordre, à partir des événements stockés">Latences d'exécution</h2>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Latences d'exécution par saut</caption>
   <thead><tr><th scope="col">Saut</th><th scope="col" class="num">Échantillons</th><th scope="col" class="num">Médiane (ms)</th><th scope="col" class="num">Pire (ms)</th></tr></thead>
   <tbody>
     {% for latency in data.latencies %}
@@ -152,11 +142,9 @@
 </div>
 
 <h2>Dernières erreurs et avertissements</h2>
-<p class="muted">Marché <strong>{{ data.errors.market or 'tous' }}</strong> ·
-   {{ data.errors.total }} erreur(s) ou avertissement(s), {{ data.errors.showing }}.
-   Les événements sans marché concernent le compte entier : ils restent affichés.</p>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Erreurs et avertissements, marché {{ data.errors.market or 'tous' }} : {{ data.errors.total }}, {{ data.errors.showing }}. Les événements sans marché concernent le compte entier et restent affichés.</caption>
   <thead><tr><th scope="col">Le (UTC)</th><th scope="col">Marché</th><th scope="col">Gravité</th><th scope="col">Type</th><th scope="col">Détail</th></tr></thead>
   <tbody id="errors-body">
     {% for event in data.errors.rows %}
@@ -176,10 +164,9 @@
 {{ pager(data.errors, "Pagination des erreurs") }}
 
 <h2>Télémétrie d'exécution récente</h2>
-<p class="muted">Marché <strong>{{ data.telemetry.market or 'tous' }}</strong> ·
-   {{ data.telemetry.total }} événement(s), {{ data.telemetry.showing }}.</p>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Télémétrie d'exécution, marché {{ data.telemetry.market or 'tous' }} : {{ data.telemetry.total }} événement(s), {{ data.telemetry.showing }}</caption>
   <thead><tr><th scope="col">Le (UTC)</th><th scope="col">Marché</th><th scope="col">Type</th><th scope="col">Détail</th></tr></thead>
   <tbody id="telemetry-body">
     {% for event in data.telemetry.rows %}

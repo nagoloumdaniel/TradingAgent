@@ -1,24 +1,55 @@
 {% extends "base.html" %}
+{% from "_macros.html" import dot %}
 {% block title %}Vue d'ensemble{% endblock %}
 {% block content %}
+{% set t = data.total %}
+
+{# L'état du trading se lit sur la pastille de la carte Solde : vert actif, rouge arrêt,
+   ambre dégradé. Une bannière n'apparaît que lorsqu'il y a quelque chose à expliquer. #}
+{% set ea_off = data.ea | rejectattr('online') | list %}
+{% set no_data = health | selectattr('last_candle_at', 'none') | list %}
+{% set old_data = [] %}
+{% for market in health %}{% if market.candle_age is not none and market.candle_age.total_seconds() > 86400 %}{% set _ = old_data.append(market.symbol) %}{% endif %}{% endfor %}
+{% set reasons = [] %}
+{% if ea_halted %}{% set _ = reasons.append("garde EA en arrêt") %}{% endif %}
+{% if ea_off %}{% set _ = reasons.append("EA hors ligne : " ~ (ea_off | map(attribute='symbol') | join(', '))) %}{% endif %}
+{% if no_data %}{% set _ = reasons.append("aucune donnée : " ~ (no_data | map(attribute='symbol') | join(', '))) %}{% endif %}
+{% if old_data %}{% set _ = reasons.append("données anciennes : " ~ (old_data | join(', '))) %}{% endif %}
+{% if data.halt.halted %}
+  {% set state, state_label = "bad", "Trading arrêté" %}
+{% elif reasons %}
+  {% set state, state_label = "warn", "Service dégradé : " ~ (reasons | join(' ; ')) %}
+{% else %}
+  {% set state, state_label = "ok", "Trading actif" %}
+{% endif %}
 
 {% if data.halt.halted %}
   <div class="banner bad">
     <strong>Trading arrêté.</strong>
     {% for reason in data.halt.reasons %}<div>{{ reason }}</div>{% endfor %}
-    {% if data.halt.close_positions %}<div>Fermeture des positions demandée par l'arrêt.</div>{% endif %}
+    {% if data.halt.close_positions %}<div>Fermeture des positions demandée.</div>{% endif %}
   </div>
-{% else %}
-  <div class="banner ok">Trading actif : aucun arrêt en cours.</div>
+{% endif %}
+{% if ea_halted %}
+  <div class="banner bad">
+    <strong>Garde EA en arrêt.</strong>
+    {% for guardian in ea_halted %}
+      <div>{{ guardian.symbol }} : kill switch {{ 'actif' if guardian.kill_switch else 'inactif' }},
+        arrêt local {{ 'actif' if guardian.local_halt else 'inactif' }}{% if guardian.halt_reason %} ({{ guardian.halt_reason }}){% endif %}.</div>
+    {% endfor %}
+  </div>
 {% endif %}
 
-<h2>Compte</h2>
-<div class="cards">
+<h2 class="sr-only">Indicateurs clés</h2>
+<div class="cards kpis">
   <div class="card hero">
+    {{ dot(state, state_label) }}
     <div class="label">Solde</div>
     <div class="value">{{ display.money(data.account.balance) }}</div>
-    <div class="note">équité {{ display.money(data.account.equity) }} · pic {{ display.money(data.account.peak_equity) }}
-      · instantané {{ display.moment(data.account.at) }}</div>
+    <dl class="facts">
+      <div><dt>Équité</dt><dd>{{ display.money(data.account.equity) }}</dd></div>
+      <div><dt>Pic</dt><dd>{{ display.money(data.account.peak_equity) }}</dd></div>
+    </dl>
     {% if watermark and watermark.equity_line %}
       <svg class="spark" viewBox="0 0 {{ watermark.width }} {{ watermark.height }}"
            preserveAspectRatio="none" role="img"
@@ -27,121 +58,65 @@
         <path class="line" d="{{ watermark.equity_line }}"/>
       </svg>
     {% endif %}
+    <div class="meta" title="Dernier instantané du compte">{{ display.moment(data.account.at) }}</div>
+  </div>
+  <div class="card" title="Trades clôturés depuis 00:00 UTC">
+    <div class="label">P&amp;L du jour</div>
+    <div class="value {{ display.ratio_class(data.pnl_day) }}">{{ display.money(data.pnl_day, signed=True) }}</div>
   </div>
   <div class="card">
+    <div class="label">Positions ouvertes</div>
+    <div class="value">{{ data.positions | length }}</div>
+    <dl class="facts" title="Volume × prix d'entrée : un ordre de grandeur, pas une exposition de compte">
+      <div><dt>Notionnel</dt><dd>{{ display.money(data.markets | sum(attribute='notional')) }}</dd></div>
+    </dl>
+  </div>
+  <div class="card" title="Écart au pic d'équité enregistré">
     <div class="label">Drawdown courant</div>
     <div class="value neg">{{ display.money(data.account.drawdown) }}</div>
-    <div class="note">écart au pic enregistré (instantanés)</div>
-  </div>
-  <div class="card">
-    <div class="label">Drawdown maximal</div>
-    <div class="value neg">{{ display.money(data.total.max_drawdown) }}</div>
-    <div class="note">analytics — durée {{ display.duration(data.total.max_drawdown_duration) }}</div>
+    <dl class="facts" title="Plus grand drawdown mesuré par analytics, et sa durée">
+      <div><dt>Maximal</dt><dd>{{ display.money(t.max_drawdown) }}</dd></div>
+      <div><dt>Durée</dt><dd>{{ display.duration(t.max_drawdown_duration) }}</dd></div>
+    </dl>
   </div>
 </div>
 
 <h2>Résultat</h2>
-<div class="cards">
-  <div class="card">
-    <div class="label">P&amp;L du jour</div>
-    <div class="value {% if data.pnl_day < 0 %}neg{% elif data.pnl_day > 0 %}pos{% endif %}">{{ display.money(data.pnl_day, signed=True) }}</div>
-    <div class="note">trades clôturés depuis 00:00 UTC</div>
-  </div>
-  <div class="card">
-    <div class="label">P&amp;L de la semaine</div>
-    <div class="value {% if data.pnl_week < 0 %}neg{% elif data.pnl_week > 0 %}pos{% endif %}">{{ display.money(data.pnl_week, signed=True) }}</div>
-    <div class="note">depuis lundi 00:00 UTC</div>
-  </div>
-  <div class="card">
-    <div class="label">P&amp;L du mois</div>
-    <div class="value {% if data.pnl_month < 0 %}neg{% elif data.pnl_month > 0 %}pos{% endif %}">{{ display.money(data.pnl_month, signed=True) }}</div>
-    <div class="note">depuis le 1er du mois, 00:00 UTC</div>
-  </div>
-  <div class="card">
-    <div class="label">Résultat net (total)</div>
-    <div class="value {% if data.total.net_profit < 0 %}neg{% elif data.total.net_profit > 0 %}pos{% endif %}">{{ display.money(data.total.net_profit, signed=True) }}</div>
-    <div class="note">{{ data.total.trades }} trade(s) clôturé(s)</div>
-  </div>
+<div class="panel">
+  <dl class="stats">
+    <div class="stat" title="Depuis lundi 00:00 UTC"><dt>P&amp;L de la semaine</dt>
+      <dd class="{{ display.ratio_class(data.pnl_week) }}">{{ display.money(data.pnl_week, signed=True) }}</dd></div>
+    <div class="stat" title="Depuis le 1er du mois, 00:00 UTC"><dt>P&amp;L du mois</dt>
+      <dd class="{{ display.ratio_class(data.pnl_month) }}">{{ display.money(data.pnl_month, signed=True) }}</dd></div>
+    <div class="stat"><dt>Résultat net (total)</dt>
+      <dd class="{{ display.ratio_class(t.net_profit) }}">{{ display.money(t.net_profit, signed=True) }}
+        <small>{{ t.trades }} trade(s) clôturé(s)</small></dd></div>
+  </dl>
 </div>
 
-<h2>Statistiques (analytics)</h2>
-{% set t = data.total %}
+<h2>Statistiques</h2>
 {% if t.insufficient_sample %}
-  <div class="banner warn">Échantillon insuffisant ({{ t.trades }} trades) : les ratios Sharpe et
-    Sortino sont masqués plutôt qu'estimés.</div>
+  <div class="banner warn">Échantillon insuffisant ({{ t.trades }} trades) : Sharpe et Sortino sont masqués.</div>
 {% endif %}
-<div class="cards">
-  <div class="card"><div class="label">Trades</div><div class="value">{{ t.trades }}</div>
-    <div class="note">gagnants {{ t.wins }} / perdants {{ t.losses }}</div></div>
-  <div class="card"><div class="label">Taux de réussite</div><div class="value">{{ display.percent(t.win_rate) }}</div>
-    <div class="note">part des trades gagnants</div></div>
-  <div class="card"><div class="label">Facteur de profit</div><div class="value">{{ display.ratio(t.profit_factor) }}</div>
-    <div class="note">bruts {{ display.money(t.gross_profit) }} / {{ display.money(t.gross_loss) }}</div></div>
-  <div class="card"><div class="label">Espérance / trade</div><div class="value">{{ display.number(t.expectancy) }}</div>
-    <div class="note">gain moyen {{ display.number(t.average_win) }}, perte moyenne {{ display.number(t.average_loss) }}</div></div>
-  <div class="card"><div class="label">Meilleur / pire</div><div class="value">{{ display.money(t.best) }}</div>
-    <div class="note">pire {{ display.money(t.worst) }}</div></div>
-  <div class="card"><div class="label">Séries</div><div class="value sm">{{ t.max_win_streak }} / {{ t.max_loss_streak }}</div>
-    <div class="note">gagnantes / perdantes consécutives</div></div>
-  <div class="card"><div class="label">Sharpe / Sortino</div><div class="value sm">{{ display.ratio(t.sharpe) }} / {{ display.ratio(t.sortino) }}</div>
-    <div class="note">non annualisés (multiples rendement/risque)</div></div>
-  <div class="card"><div class="label">Durée moyenne</div><div class="value sm">{{ display.duration(t.average_position_duration) }}</div>
-    <div class="note">par position clôturée</div></div>
-  <div class="card"><div class="label">Glissement / spread moyens</div>
-    <div class="value">{{ display.number(t.average_slippage, 4) }}</div>
-    <div class="note">spread {{ display.number(t.average_spread, 4) }}</div></div>
-  <div class="card"><div class="label">Rendement / risque réalisé</div><div class="value">{{ display.ratio(t.realized_rr) }}</div>
-    <div class="note">net / risque engagé</div></div>
+<div class="panel">
+  <dl class="stats">
+    <div class="stat" title="Gagnants / perdants"><dt>Trades</dt><dd>{{ t.trades }} <small>{{ t.wins }} / {{ t.losses }}</small></dd></div>
+    <div class="stat" title="Part des trades gagnants"><dt>Réussite</dt><dd>{{ display.percent(t.win_rate) }}</dd></div>
+    <div class="stat" title="Montants bruts : profit {{ display.money(t.gross_profit) }}, perte {{ display.money(t.gross_loss) }}"><dt>Facteur de profit</dt><dd>{{ display.ratio(t.profit_factor) }}</dd></div>
+    <div class="stat" title="Par trade. Gain moyen {{ display.number(t.average_win) }}, perte moyenne {{ display.number(t.average_loss) }}"><dt>Espérance</dt><dd>{{ display.number(t.expectancy) }}</dd></div>
+    <div class="stat" title="Meilleur et pire trade"><dt>Meilleur / pire</dt><dd>{{ display.money(t.best) }} <small>{{ display.money(t.worst) }}</small></dd></div>
+    <div class="stat" title="Séries consécutives, gagnantes / perdantes"><dt>Séries</dt><dd>{{ t.max_win_streak }} / {{ t.max_loss_streak }}</dd></div>
+    <div class="stat" title="Non annualisés (multiples rendement/risque)"><dt>Sharpe / Sortino</dt><dd>{{ display.ratio(t.sharpe) }} / {{ display.ratio(t.sortino) }}</dd></div>
+    <div class="stat" title="Par position clôturée"><dt>Durée moyenne</dt><dd>{{ display.duration(t.average_position_duration) }}</dd></div>
+    <div class="stat" title="Glissement moyen. Spread moyen {{ display.number(t.average_spread, 4) }}"><dt>Glissement / spread</dt><dd>{{ display.number(t.average_slippage, 4) }} <small>{{ display.number(t.average_spread, 4) }}</small></dd></div>
+    <div class="stat" title="Résultat net / risque engagé"><dt>Rendement / risque</dt><dd>{{ display.ratio(t.realized_rr) }}</dd></div>
+  </dl>
 </div>
-
-<h2>Par marché</h2>
-<div class="table-wrap">
-<table>
-  <thead>
-    <tr>
-      <th scope="col">Marché</th><th scope="col" class="num">Trades</th><th scope="col" class="num">Gagnants</th><th scope="col" class="num">Perdants</th>
-      <th scope="col" class="num">Réussite</th><th scope="col" class="num">Résultat net</th><th scope="col" class="num">Facteur de profit</th>
-      <th scope="col" class="num">Drawdown max</th><th scope="col" class="num">Positions ouvertes</th><th scope="col" class="num">Notionnel</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for market in data.markets %}
-      <tr>
-        <td>{{ market.market }}</td>
-        <td class="num">{{ market.performance.trades }}</td>
-        <td class="num">{{ market.performance.wins }}</td>
-        <td class="num">{{ market.performance.losses }}</td>
-        <td class="num">{{ display.percent(market.performance.win_rate) }}</td>
-        <td class="num {% if market.performance.net_profit < 0 %}neg{% elif market.performance.net_profit > 0 %}pos{% endif %}">{{ display.money(market.performance.net_profit, signed=True) }}</td>
-        <td class="num">{{ display.ratio(market.performance.profit_factor) }}</td>
-        <td class="num">{{ display.money(market.performance.max_drawdown) }}</td>
-        <td class="num">{{ market.open_positions }}</td>
-        <td class="num">{{ display.money(market.notional) }}</td>
-      </tr>
-    {% else %}
-      <tr><td colspan="10" class="empty">Aucun marché suivi pour l'instant.</td></tr>
-    {% endfor %}
-    <tr class="total">
-      <td>TOTAL</td>
-      <td class="num">{{ t.trades }}</td>
-      <td class="num">{{ t.wins }}</td>
-      <td class="num">{{ t.losses }}</td>
-      <td class="num">{{ display.percent(t.win_rate) }}</td>
-      <td class="num">{{ display.money(t.net_profit, signed=True) }}</td>
-      <td class="num">{{ display.ratio(t.profit_factor) }}</td>
-      <td class="num">{{ display.money(t.max_drawdown) }}</td>
-      <td class="num">{{ data.positions | length }}</td>
-      <td class="num">{{ display.money(data.markets | sum(attribute='notional')) }}</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-<p class="muted">Le notionnel est <em>volume × prix d'entrée</em> : un ordre de grandeur
-   agrégé depuis la base, pas une exposition de compte (la taille de contrat n'y est pas stockée).</p>
 
 <h2>Positions ouvertes ({{ data.positions | length }})</h2>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Positions ouvertes</caption>
   <thead>
     <tr><th scope="col">Marché</th><th scope="col">Sens</th><th scope="col" class="num">Volume</th><th scope="col" class="num">Prix d'entrée</th>
         <th scope="col" class="num">Notionnel</th><th scope="col">Mode</th><th scope="col">Ouverte le (UTC)</th><th scope="col">Âge</th></tr>
@@ -165,9 +140,54 @@
 </table>
 </div>
 
+<h2>Par marché</h2>
+<div class="table-wrap">
+<table>
+  <caption class="sr-only">Performance par marché</caption>
+  <thead>
+    <tr>
+      <th scope="col">Marché</th><th scope="col" class="num">Trades</th><th scope="col" class="num">Gagnants</th><th scope="col" class="num">Perdants</th>
+      <th scope="col" class="num">Réussite</th><th scope="col" class="num">Résultat net</th><th scope="col" class="num">Facteur de profit</th>
+      <th scope="col" class="num">Drawdown max</th><th scope="col" class="num">Positions ouvertes</th><th scope="col" class="num">Notionnel</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for market in data.markets %}
+      <tr>
+        <td>{{ market.market }}</td>
+        <td class="num">{{ market.performance.trades }}</td>
+        <td class="num">{{ market.performance.wins }}</td>
+        <td class="num">{{ market.performance.losses }}</td>
+        <td class="num">{{ display.percent(market.performance.win_rate) }}</td>
+        <td class="num {{ display.ratio_class(market.performance.net_profit) }}">{{ display.money(market.performance.net_profit, signed=True) }}</td>
+        <td class="num">{{ display.ratio(market.performance.profit_factor) }}</td>
+        <td class="num">{{ display.money(market.performance.max_drawdown) }}</td>
+        <td class="num">{{ market.open_positions }}</td>
+        <td class="num">{{ display.money(market.notional) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="10" class="empty">Aucun marché suivi.</td></tr>
+    {% endfor %}
+    <tr class="total">
+      <td>TOTAL</td>
+      <td class="num">{{ t.trades }}</td>
+      <td class="num">{{ t.wins }}</td>
+      <td class="num">{{ t.losses }}</td>
+      <td class="num">{{ display.percent(t.win_rate) }}</td>
+      <td class="num">{{ display.money(t.net_profit, signed=True) }}</td>
+      <td class="num">{{ display.ratio(t.profit_factor) }}</td>
+      <td class="num">{{ display.money(t.max_drawdown) }}</td>
+      <td class="num">{{ data.positions | length }}</td>
+      <td class="num">{{ display.money(data.markets | sum(attribute='notional')) }}</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
 <h2>Stratégies</h2>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Stratégies du registre</caption>
   <thead>
     <tr><th scope="col">Référence</th><th scope="col">Marché</th><th scope="col">Statut</th><th scope="col">Origine</th>
         <th scope="col" class="num">Trades</th><th scope="col" class="num">Résultat net</th><th scope="col" class="num">Réussite</th>
@@ -179,9 +199,9 @@
         <td>{{ view.ref }}</td>
         <td>{{ view.market }}</td>
         <td>{% if view.status %}<span class="badge">{{ view.status }}</span>{% else %}<span class="badge warn">hors registre</span>{% endif %}</td>
-        <td>{{ view.origin or '—' }}</td>
+        <td>{{ view.origin or '-' }}</td>
         <td class="num">{{ view.performance.trades }}</td>
-        <td class="num {% if view.performance.net_profit < 0 %}neg{% elif view.performance.net_profit > 0 %}pos{% endif %}">{{ display.money(view.performance.net_profit, signed=True) }}</td>
+        <td class="num {{ display.ratio_class(view.performance.net_profit) }}">{{ display.money(view.performance.net_profit, signed=True) }}</td>
         <td class="num">{{ display.percent(view.performance.win_rate) }}</td>
         <td class="num">{{ display.ratio(view.performance.profit_factor) }}</td>
       </tr>
@@ -192,83 +212,36 @@
 </table>
 </div>
 
-<h2>Marché et exécution (statut MT5 / EA)</h2>
-{% if ea_halted %}
-  <div class="banner bad">
-    <strong>Garde EA en arrêt.</strong>
-    {% for guardian in ea_halted %}
-      <div>{{ guardian.symbol }} : kill switch {{ 'actif' if guardian.kill_switch else 'inactif' }},
-        arrêt local {{ 'actif' if guardian.local_halt else 'inactif' }}{% if guardian.halt_reason %} — {{ guardian.halt_reason }}{% endif %}.</div>
-    {% endfor %}
-  </div>
-{% endif %}
-
-<h3>Gardiens EA (pont de fichiers)</h3>
-<p class="muted">Statut lu dans les rapports JSON écrits par les EA
-   (<code>tradingagent.ea.bridge</code>) : rien n'est recalculé, un rapport absent ou illisible
-   vaut « hors ligne ».</p>
-<div class="table-wrap">
-<table>
-  <thead><tr><th scope="col">Marché</th><th scope="col">État EA</th><th scope="col">Battement (UTC)</th><th scope="col">Âge</th>
-             <th scope="col">Connecté</th><th scope="col">Trading autorisé</th><th scope="col">Kill switch</th><th scope="col">Arrêt local</th>
-             <th scope="col">Révision appliquée</th></tr></thead>
-  <tbody>
-    {% for guardian in data.ea %}
-      <tr>
-        <td>{{ guardian.symbol }}</td>
-        <td>{% if guardian.online %}<span class="badge ok">EN LIGNE</span>{% else %}<span class="badge bad">HORS LIGNE</span>{% endif %}</td>
-        <td>{{ display.precise(guardian.heartbeat_at) }}</td>
-        <td>{{ display.duration(guardian.heartbeat_age) }}</td>
-        <td>{{ 'oui' if guardian.connected else 'non' }}</td>
-        <td>{{ 'oui' if guardian.trade_allowed else 'non' }}</td>
-        <td>{% if guardian.kill_switch %}<span class="badge bad">actif</span>{% else %}non{% endif %}</td>
-        <td>{% if guardian.local_halt %}<span class="badge warn">actif</span>{% else %}non{% endif %}</td>
-        <td>{{ guardian.applied_revision if guardian.readable else '—' }}</td>
-      </tr>
-    {% else %}
-      <tr><td colspan="9" class="empty">Aucun rapport EA : le pont n'est pas configuré
-        (<code>--ea-reports-dir</code> ou <code>TRADINGAGENT_EA_REPORTS_DIR</code>).</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
-
-<h3>Données de marché</h3>
-<p class="muted">Dernière bougie stockée et dernier événement d'exécution : ce que la base
-   enregistre réellement, pour recouper le battement de cœur de l'EA.</p>
-<div class="table-wrap">
-<table>
-  <thead>
-    <tr><th scope="col">Marché</th><th scope="col">Dernière bougie (UTC)</th><th scope="col">Âge</th>
-        <th scope="col">Dernier événement</th><th scope="col">Type</th><th scope="col">État</th></tr>
-  </thead>
-  <tbody>
-    {% for market in health %}
-      <tr>
-        <td>{{ market.symbol }}</td>
-        <td>{{ display.precise(market.last_candle_at) }}</td>
-        <td>{{ display.duration(market.candle_age) if market.candle_age is not none else 'n/a' }}</td>
-        <td>{{ display.precise(market.last_event_at) }}</td>
-        <td>{{ market.last_event_kind or '—' }}</td>
-        <td>
-          {% if market.last_candle_at is none %}<span class="badge bad">aucune donnée</span>
-          {% elif market.candle_age is not none and market.candle_age.total_seconds() > 86400 %}<span class="badge warn">données anciennes</span>
-          {% else %}<span class="badge ok">données récentes</span>{% endif %}
-        </td>
-      </tr>
-    {% else %}
-      <tr><td colspan="6" class="empty">Aucun marché connu de la base.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
+{# Santé par marché : deux pastilles. Le détail (battements, journal, protocole) vit sur
+   la page Système ; on ne le recopie pas ici. #}
+{% set guardians = {} %}
+{% for guardian in data.ea %}{% set _ = guardians.update({guardian.symbol: guardian}) %}{% endfor %}
+<h2>Santé des marchés</h2>
+<ul class="health">
+  {% for market in health %}
+    {% set guardian = guardians.get(market.symbol) %}
+    <li>
+      <a href="/system?market={{ market.symbol }}">{{ market.symbol }}</a>
+      <span class="dot-line">EA
+        {% if guardian is none %}{{ dot("idle", "EA : aucun rapport pour " ~ market.symbol) }}
+        {% elif guardian.online %}{{ dot("ok", "EA en ligne, battement de cœur il y a " ~ display.duration(guardian.heartbeat_age)) }}
+        {% else %}{{ dot("bad", "EA hors ligne") }}{% endif %}
+      </span>
+      <span class="dot-line">Données
+        {% if market.last_candle_at is none %}{{ dot("bad", "Aucune donnée") }}
+        {% elif market.candle_age is not none and market.candle_age.total_seconds() > 86400 %}{{ dot("warn", "Données anciennes : dernière bougie il y a " ~ display.duration(market.candle_age)) }}
+        {% else %}{{ dot("ok", "Données récentes : dernière bougie il y a " ~ display.duration(market.candle_age)) }}{% endif %}
+      </span>
+    </li>
+  {% else %}
+    <li class="empty">Aucun marché connu.</li>
+  {% endfor %}
+</ul>
 
 <h2>Par jour (agrégats enregistrés)</h2>
-<p class="muted">Table <code>daily_performance</code>, lue telle qu'écrite par l'agent : le
-   tableau de bord affiche les agrégats stockés et les ratios que la couche de stockage en
-   dérive, il ne les reconstitue pas.</p>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Agrégats journaliers enregistrés dans daily_performance</caption>
   <thead><tr><th scope="col">Jour (UTC)</th><th scope="col">Mode</th><th scope="col">Marché</th><th scope="col">Stratégie</th>
              <th scope="col" class="num">Trades</th><th scope="col" class="num">Gagnants</th><th scope="col" class="num">Réussite</th>
              <th scope="col" class="num">Résultat</th><th scope="col" class="num">Risque engagé</th><th scope="col" class="num">Multiple R</th></tr></thead>
@@ -282,7 +255,7 @@
         <td class="num">{{ day.trades }}</td>
         <td class="num">{{ day.wins }}</td>
         <td class="num">{{ display.percent(day.win_rate) }}</td>
-        <td class="num {% if day.pnl < 0 %}neg{% elif day.pnl > 0 %}pos{% endif %}">{{ display.money(day.pnl, signed=True) }}</td>
+        <td class="num {{ display.ratio_class(day.pnl) }}">{{ display.money(day.pnl, signed=True) }}</td>
         <td class="num">{{ display.money(day.risk_eur) }}</td>
         <td class="num">{{ display.ratio(day.r_multiple) }}</td>
       </tr>
@@ -292,5 +265,6 @@
   </tbody>
 </table>
 </div>
+<p class="muted" title="Table daily_performance, lue telle qu'écrite par l'agent : rien n'est reconstitué.">Source <code>daily_performance</code></p>
 
 {% endblock %}

@@ -277,14 +277,14 @@ def test_the_replay_page_draws_the_stored_candles(
     response = seeded_client.get(f"/trades/{seeded.xau_signal_id}")
     assert response.status_code == 200
     body = response.text
-    assert "Conditions de marché au moment du signal" in body
+    assert "Conditions de marché" in body
     assert 'class="replay-chart"' in body
     assert 'class="wick up"' in body and 'class="wick down"' in body
     assert 'class="signal"' in body
-    assert "20 bougies H1 réellement stockées" in body
+    assert "20 bougies H1 stockées" in body
     assert "Londres" in body  # 08:00 UTC
-    assert "2650.00000 → 2650.00000" in body
-    assert "glissement enregistré : 0.1500" in body
+    assert "2650.00000 / 2650.00000" in body
+    assert "glissement 0.1500" in body
 
 
 def test_a_database_without_candles_says_so_instead_of_drawing(
@@ -294,7 +294,7 @@ def test_a_database_without_candles_says_so_instead_of_drawing(
     states it and draws nothing — no 500, no straight line standing in for a chart."""
     response = seeded_client.get(f"/trades/{seeded.xau_signal_id}")
     assert response.status_code == 200
-    assert "Aucune bougie stockée pour cet instant" in response.text
+    assert "Pas assez de bougies stockées autour du signal" in response.text
     assert 'class="replay-chart"' not in response.text
     assert _context(engine, seeded.xau_signal_id).chart is None
 
@@ -306,7 +306,7 @@ def test_under_the_threshold_the_page_draws_nothing(
     assert written == 9 < queries.REPLAY_MIN_CANDLES
     response = seeded_client.get(f"/trades/{seeded.xau_signal_id}")
     assert response.status_code == 200
-    assert "Aucune bougie stockée pour cet instant" in response.text
+    assert "Pas assez de bougies stockées autour du signal" in response.text
     assert 'class="replay-chart"' not in response.text
 
 
@@ -320,10 +320,10 @@ def test_the_page_never_invents_a_missing_value(
     assert response.status_code == 200
     body = response.text
     assert "ATR n/a · médiane du marché n/a" in body
-    assert "2650.00000 → n/a" in body
-    assert "glissement enregistré : n/a" in body
-    assert "Aucun indicateur enregistré pour ce signal" in body
-    assert "moins de 10 autour du signal" in body
+    assert "2650.00000 / n/a" in body
+    assert "glissement n/a" in body
+    assert "Aucun indicateur enregistré" in body
+    assert "moins de 10 : pas de graphique" in body
 
 
 def test_the_page_says_which_unit_it_traced(seeded_client: TestClient, engine: Engine) -> None:
@@ -339,7 +339,7 @@ def test_the_page_says_which_unit_it_traced(seeded_client: TestClient, engine: E
     )
     body = seeded_client.get(f"/trades/{signal_id}").text
     assert "L'unité du signal (H1) n'a pas assez de bougies" in body
-    assert "12 bougies M15 réellement stockées" in body
+    assert "12 bougies M15 stockées" in body
 
 
 # ---------------------------------------------------------------------------------------

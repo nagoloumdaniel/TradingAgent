@@ -108,7 +108,10 @@
     }
   }
 
+  // The accessible name of a scrolling frame: the table's caption, else the heading above it.
   function headingOf(wrap) {
+    var caption = wrap.querySelector("caption");
+    if (caption && caption.textContent.trim()) { return caption.textContent.trim(); }
     var node = wrap.previousElementSibling;
     while (node && node.tagName !== "H2" && node.tagName !== "H3") {
       node = node.previousElementSibling;

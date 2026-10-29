@@ -11,7 +11,10 @@ For every page at 360, 768, 1280 and 1920 px it checks, in a headless Chromium, 
 * nothing outside a table frame pokes past the viewport;
 * every interactive control is at least 44 x 44 px on the phone and tablet sizes;
 * the console and the network report no error (the 404 probe is expected to log one);
-* on the phone, wide tables really are stacked cards (``.is-stack``).
+* on the phone, wide tables really are stacked cards (``.is-stack``);
+* on the phone, the "Plus" sheet opens above the scrim, traps focus, makes the page inert and
+  closes on Escape with the focus back on its button;
+* the overview's state dot is exposed to assistive technology (role and accessible name).
 
 It saves a full-page screenshot per page and size, then exits non-zero on any failure.
 """
@@ -66,6 +69,47 @@ PROBE = """() => {
 }"""
 
 
+DRAWER_PROBE = """() => {
+  const nav = document.getElementById('side-nav');
+  const first = nav.querySelector('a');
+  const box = first.getBoundingClientRect();
+  const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+  return {
+    visible: getComputedStyle(nav).visibility === 'visible',
+    topmost: !!hit && nav.contains(hit),
+    inert: document.querySelector('main').hasAttribute('inert'),
+    expanded: document.getElementById('menu-toggle').getAttribute('aria-expanded'),
+  };
+}"""
+
+
+def check_drawer(page, label: str, failures: list[str]) -> None:
+    """The phone sheet: opens above the scrim, traps Tab, closes on Escape."""
+    page.goto(page.url.split("?")[0], wait_until="load")
+    page.click("#menu-toggle")
+    page.wait_for_timeout(350)
+    state = page.evaluate(DRAWER_PROBE)
+    if not (state["visible"] and state["topmost"] and state["inert"]):
+        failures.append(f"{label}: drawer not usable when open {state}")
+    if state["expanded"] != "true":
+        failures.append(f"{label}: aria-expanded not true {state}")
+    for _ in range(14):
+        page.keyboard.press("Tab")
+    if not page.evaluate(
+        "document.getElementById('side-nav').contains(document.activeElement)"
+        " || document.activeElement.id === 'menu-toggle'"
+    ):
+        failures.append(f"{label}: focus escaped the sheet")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(350)
+    closed = page.evaluate(
+        "({v: getComputedStyle(document.getElementById('side-nav')).visibility,"
+        " f: document.activeElement.id, i: document.querySelector('main').hasAttribute('inert')})"
+    )
+    if closed["v"] != "hidden" or closed["f"] != "menu-toggle" or closed["i"]:
+        failures.append(f"{label}: drawer did not close cleanly {closed}")
+
+
 def main(argv: list[str]) -> int:
     base = argv[1] if len(argv) > 1 else "http://127.0.0.1:8799"
     out = Path(argv[2] if len(argv) > 2 else "browser-audit")
@@ -103,6 +147,15 @@ def main(argv: list[str]) -> int:
                     failures.append(f"{label}: console {real[:2]}")
                 if width == 360 and path == "/trades" and probe["stacked"] == 0:
                     failures.append(f"{label}: wide table not stacked")
+                if width == 360 and path == "/":
+                    check_drawer(page, f"{label} drawer", failures)
+                    dot = page.evaluate(
+                        "(() => { const d = document.querySelector('.card .dot');"
+                        " return d ? [d.getAttribute('role'), d.getAttribute('aria-label')]"
+                        " : null; })()"
+                    )
+                    if not dot or dot[0] != "img" or not dot[1]:
+                        failures.append(f"{label}: state dot not accessible {dot}")
                 print(label, "ok" if not failures or label not in failures[-1] else "FAIL")
             context.close()
         browser.close()

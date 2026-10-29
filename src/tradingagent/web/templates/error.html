@@ -7,7 +7,7 @@
    base ne se transforme pas en erreur de rendu. Le filigrane est donc absent, par
    construction et non par oubli. #}
 
-{% block title %}{{ status }} — {{ headline }}{% endblock %}
+{% block title %}{{ status }} {{ headline }}{% endblock %}
 
 {% block heading %}{% endblock %}
 
@@ -20,7 +20,7 @@
   {% block details %}{% endblock %}
 
   {% if allow %}
-    <p class="muted">Méthodes acceptées sur cette adresse : <code>{{ allow }}</code>.</p>
+    <p class="muted">Méthodes acceptées : <code>{{ allow }}</code></p>
   {% endif %}
 
   <div class="actions">

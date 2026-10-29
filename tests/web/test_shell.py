@@ -77,12 +77,99 @@ def test_the_stylesheet_and_script_are_served_locally_and_read_only(client: Test
         assert client.post(path).status_code == 405
 
 
-def test_the_brand_palette_is_gold_on_warm_black(client: TestClient) -> None:
+def test_the_palette_is_monochrome_glass_with_trading_colours_as_signals(
+    client: TestClient,
+) -> None:
     css = _css(client)
 
-    assert "--accent: #dcb55c" in css
-    assert "--canvas: #0d0c0a" in css
+    assert "--canvas: #0a0a0b" in css  # near-black, dark theme
+    assert "--accent: #f4f4f5" in css  # the accent is white, not the old gold
+    assert "#dcb55c" not in css
     assert ':root[data-theme="light"]' in css
+    assert "backdrop-filter" in css  # the glass material
+    assert "@media (prefers-reduced-transparency: reduce)" in css  # opaque on request
+    # Red, green and amber exist only as meaning: no rule uses them as a surface accent.
+    assert "--up:" in css and "--down:" in css and "--warn:" in css
+
+
+def test_no_page_names_itself_read_only_in_the_chrome(seeded_client: TestClient) -> None:
+    for path in ("/", "/positions", "/risk", "/system"):
+        body = seeded_client.get(path).text
+        assert 'class="tag"' not in body, path
+        assert "lecture seule" not in body.lower(), path
+    assert "Montants en EUR" not in seeded_client.get("/").text  # footer says it once, as data
+
+
+def test_the_overview_state_is_a_dot_with_an_accessible_name(
+    seeded_client: TestClient,
+) -> None:
+    body = seeded_client.get("/").text
+
+    assert "Trading actif : aucun arrêt en cours." not in body
+    dot = re.search(r'<span class="dot" data-state="(\w+)" role="img" aria-label="([^"]+)"', body)
+    assert dot is not None
+    assert dot.group(1) in {"ok", "warn", "bad"}
+    assert dot.group(2)
+
+
+def test_a_halt_turns_the_overview_dot_red(seeded_client: TestClient, seed_halt: None) -> None:
+    body = seeded_client.get("/").text
+
+    assert re.search(r'data-state="bad" role="img" aria-label="Trading arrêté"', body)
+
+
+def test_the_dot_pulses_only_when_motion_is_welcome(client: TestClient) -> None:
+    css = _css(client)
+
+    assert "@keyframes dot-pulse" in css
+    assert "@media (prefers-reduced-motion: no-preference)" in _media_any(css)
+    # Colour is never the only cue: the three states have three shapes.
+    assert 'data-state="warn"] { background: var(--warn); border-radius: 2px;' in css
+    assert 'data-state="bad"] { background: var(--down); border-radius: 3px;' in css
+
+
+def _media_any(css: str) -> str:
+    start = css.index("@media (prefers-reduced-motion: no-preference)")
+    return css[start : start + 120]
+
+
+def test_every_table_has_a_caption(seeded_client: TestClient) -> None:
+    for path in (
+        "/",
+        "/positions",
+        "/trades",
+        "/risk",
+        "/system",
+        "/strategies",
+        "/scalping",
+        "/ai-lab",
+        "/reports",
+    ):
+        body = seeded_client.get(path).text
+        tables = body.count("<table")
+        captions = body.count('<caption class="sr-only">')
+        assert tables == captions, (path, tables, captions)
+
+
+def test_the_phone_sheet_keeps_its_stacking_focus_trap_and_inert_page(
+    client: TestClient,
+) -> None:
+    """The "Plus" sheet regressions that were fixed once: .shell must not form a stacking
+    context on a phone (the sheet sits above the scrim), Tab stays in the sheet, and the page
+    behind is inert while it is open."""
+    css = _css(client)
+    js = _js(client)
+    phone = _media(css, "(max-width: 767px)")
+
+    assert ".shell { z-index: auto; }" in phone
+    sheet = re.search(r"nav\.side \{(.*?)\}", phone, re.S)
+    assert sheet is not None and "z-index: 40" in sheet.group(1)
+    assert re.search(r"\.drawer-scrim \{[^}]*z-index: 30", css)
+    assert re.search(r"\.tabbar \{[^}]*z-index: 45", phone)
+    assert 'event.key !== "Tab"' in js  # focus trap
+    assert 'setAttribute("inert", "")' in js
+    assert "header.topbar, main, footer" in js
+    assert "restoreFocus" in js
 
 
 def test_the_top_bar_is_sticky_and_full_width(client: TestClient) -> None:

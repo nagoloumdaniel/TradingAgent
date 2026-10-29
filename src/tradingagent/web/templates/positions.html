@@ -3,14 +3,22 @@
 {% block title %}Positions{% endblock %}
 {% block content %}
 
-<h2>Positions — {{ positions.total }} au total</h2>
-<p class="muted">
-  Marché <strong>{{ positions.market }}</strong>, du plus récent au plus ancien ;
-  {{ positions.showing }}. Flux en direct toutes les {{ "%g"|format(interval) }} s depuis la base.
-  Positions ouvertes : <span id="open-count">{{ open_count }}</span>.
-  État : <span id="stream-status" class="badge">connexion…</span>
-  Dernière mise à jour : <span id="positions-at">{{ display.precise(at) }}</span> UTC.
-</p>
+<div class="cards">
+  <div class="card">
+    <span class="live" id="stream-status" role="status" aria-live="polite"
+          title="Flux en direct toutes les {{ '%g'|format(interval) }} s depuis la base">
+      <span class="dot" data-state="idle" aria-hidden="true"></span>
+      <span class="sr-only" id="stream-text">Flux : connexion…</span>
+    </span>
+    <div class="label">Positions ouvertes</div>
+    <div class="value" id="open-count">{{ open_count }}</div>
+    <div class="meta" title="Dernière mise à jour du flux (UTC)"><span id="positions-at">{{ display.precise(at) }}</span> UTC</div>
+  </div>
+  <div class="card" title="Positions de l'historique pour ce marché, ouvertes et clôturées">
+    <div class="label">Historique {{ positions.market }}</div>
+    <div class="value">{{ positions.total }}</div>
+  </div>
+</div>
 
 {# Sans JavaScript, ce formulaire est le seul chemin vers le filtrage : pas de menu à
    construire, pas de recherche côté client. Le serveur répond à GET /positions?q=…&page=… #}
@@ -19,7 +27,7 @@
   <div class="field">
     <label for="positions-q">Recherche</label>
     <input type="search" id="positions-q" name="q" value="{{ positions.query }}"
-           placeholder="symbole, sens, mode, ticket, motif de sortie"
+           placeholder="symbole, sens, mode, ticket"
            autocomplete="off" spellcheck="false">
   </div>
   <div><button type="submit">Rechercher</button></div>
@@ -34,6 +42,7 @@
 
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Positions {{ positions.market }}, du plus récent au plus ancien : {{ positions.showing }}</caption>
   <thead>
     <tr>{% for column in columns %}<th scope="col"{% if column in numeric %} class="num"{% endif %}>{{ column }}</th>{% endfor %}</tr>
   </thead>
@@ -50,10 +59,9 @@
 {{ pager(positions, "Pagination des positions") }}
 
 <h2>Alertes</h2>
-<p class="muted">Événements système de gravité avertissement ou critique, poussés par le flux.
-   Chaque colonne reste alignée : l'horodatage, le badge de gravité, le type et le détail.</p>
 <div class="table-wrap">
   <table>
+    <caption class="sr-only">Alertes d'avertissement ou critiques, poussées par le flux</caption>
     <thead>
       <tr>{% for column in alert_columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr>
     </thead>
@@ -66,7 +74,7 @@
           <td class="wrap">{{ alert.detail | describe }}</td>
         </tr>
       {% else %}
-        <tr><td colspan="{{ alert_columns | length }}" class="empty">Aucun événement de gravité avertissement ou critique en base.</td></tr>
+        <tr><td colspan="{{ alert_columns | length }}" class="empty">Aucune alerte.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -81,6 +89,15 @@
   var alerts = document.getElementById("alerts-list");
   var openCount = document.getElementById("open-count");
   var status = document.getElementById("stream-status");
+  var streamDot = status.querySelector(".dot");
+  var streamText = document.getElementById("stream-text");
+  var streamTitle = status.getAttribute("title");
+  // The state is drawn (dot) and announced (role="status", polite): no visible sentence.
+  function setStream(state, text) {
+    streamDot.dataset.state = state;
+    streamText.textContent = text;
+    status.setAttribute("title", text + ". " + streamTitle);
+  }
   var at = document.getElementById("positions-at");
 
   // Same shape as the server-rendered rows: timestamp, badge, type, detail.
@@ -143,12 +160,10 @@
   // table would be the contradiction this page exists to avoid.
   var source = new EventSource("/events?market=" + encodeURIComponent("{{ positions.market }}"));
   source.addEventListener("open", function () {
-    status.textContent = "flux connecté";
-    status.className = "badge ok";
+    setStream("ok", "Flux connecté");
   });
   source.addEventListener("error", function () {
-    status.textContent = "flux interrompu — reconnexion…";
-    status.className = "badge bad";
+    setStream("bad", "Flux interrompu, reconnexion en cours");
   });
   source.addEventListener("positions", function (message) {
     var payload = JSON.parse(message.data);

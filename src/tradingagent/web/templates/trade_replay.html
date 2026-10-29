@@ -22,53 +22,52 @@
   </div>
 {% else %}
 
-<p class="muted"><a class="back-link" href="/trades">← Historique des trades</a></p>
-<h2>Replay du trade, signal #{{ replay.signal_id }}</h2>
+<p class="muted"><a class="back-link" href="/trades">← Trades</a></p>
 <p class="muted">
-  {{ replay.signal.symbol }} · {{ display.direction_label(replay.signal.direction) }} ·
-  {{ replay.signal.timeframe.value }} · {{ replay.strategy.ref }} ·
+  {{ replay.signal.symbol }}, {{ display.direction_label(replay.signal.direction) }},
+  {{ replay.signal.timeframe.value }}, {{ replay.strategy.ref }},
   mode {{ display.mode_label(replay.signal.mode) }}<br>
-  Signal généré le {{ display.precise(replay.signal.generated_at) }} UTC
-  {%- if replay.trade %} · clôturé le {{ display.precise(replay.trade.closed_at) }} UTC
-  {%- else %} · aucune position clôturée{% endif %}.
-  Reconstruit à partir des lignes enregistrées : rien n'est recalculé, rien n'est inventé.
+  Signal du {{ display.precise(replay.signal.generated_at) }} UTC
+  {%- if replay.trade %}, clôturé le {{ display.precise(replay.trade.closed_at) }} UTC
+  {%- else %}, aucune position clôturée{% endif %}
 </p>
 
 <div class="cards">
   <div class="card"><div class="label">Résultat</div>
     {% if replay.trade %}
       <div class="value {% if replay.trade.pnl_eur < 0 %}neg{% elif replay.trade.pnl_eur > 0 %}pos{% endif %}">{{ display.money(replay.trade.pnl_eur, signed=True) }}</div>
-      <div class="note">risque autorisé {{ display.money(replay.trade.risk_eur) }}</div>
+      <div class="note">risque {{ display.money(replay.trade.risk_eur) }}</div>
     {% else %}
       <div class="value">{{ display.NA }}</div>
-      <div class="note">aucune clôture enregistrée</div>
+
     {% endif %}
   </div>
   <div class="card"><div class="label">R réalisé</div>
     <div class="value {% if replay.r_multiple is not none and replay.r_multiple < 0 %}neg{% elif replay.r_multiple is not none and replay.r_multiple > 0 %}pos{% endif %}">{{ display.r_multiple(replay.r_multiple) }}</div>
-    <div class="note">profit net / risque enregistré</div>
+
   </div>
   <div class="card"><div class="label">Sortie</div>
     <div class="value sm">{{ replay.exit_reason or display.NA }}</div>
     <div class="note">prix de clôture {{ display.number(replay.close_price, 5) }}</div>
   </div>
-  <div class="card"><div class="label">Durée signal → clôture</div>
+  <div class="card"><div class="label">Durée signal à clôture</div>
     <div class="value sm">{{ display.duration(replay.total_duration) }}</div>
-    <div class="note">différence de deux horodatages stockés</div>
+
   </div>
   <div class="card"><div class="label">Version ayant exécuté</div>
     <div class="value sm">{{ replay.strategy.ref }}</div>
-    <div class="note">{{ replay.strategy.strategy_id }} · {{ replay.strategy.version }}</div>
+    <div class="note">{{ replay.strategy.strategy_id }} {{ replay.strategy.version }}</div>
   </div>
   <div class="card"><div class="label">Ordres / exécutions</div>
     <div class="value sm">{{ 0 if replay.order is none else 1 }} / {{ replay.executions | length }}</div>
-    <div class="note">{% if replay.order %}retcode {{ replay.order.retcode if replay.order.retcode is not none else display.NA }}{% else %}aucun ordre enregistré{% endif %}</div>
+    <div class="note">{% if replay.order %}retcode {{ replay.order.retcode if replay.order.retcode is not none else display.NA }}{% else %}aucun ordre{% endif %}</div>
   </div>
 </div>
 
-<h2>Pourquoi ce trade a-t-il été exécuté ?</h2>
+<h2>Pourquoi ce trade ?</h2>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Signal, risque, ordre et sortie en une lecture</caption>
   <tbody>
     <tr><th scope="row">Signal</th><td class="wrap">{{ replay.signal.reason }}</td></tr>
     <tr><th scope="row">Risque</th>
@@ -77,7 +76,7 @@
             <span class="badge {% if replay.risk.outcome.value == 'authorized' %}ok{% elif replay.risk.outcome.value == 'reduced' %}warn{% else %}bad{% endif %}">{{ display.risk_outcome_label(replay.risk.outcome) }}</span>
             {{ replay.risk.reason }}
           {% else %}
-            <span class="muted">Aucune décision de risque enregistrée : l'exécution ne peut pas être expliquée par une autorisation.</span>
+            <span class="muted">Aucune décision de risque enregistrée.</span>
           {% endif %}
         </td></tr>
     <tr><th scope="row">Ordre</th>
@@ -88,18 +87,19 @@
             {%- if replay.order.retcode is not none %} · retcode {{ replay.order.retcode }}{% endif %}
             {%- if replay.order.broker_comment %} · {{ replay.order.broker_comment }}{% endif %}
           {% else %}
-            <span class="muted">Aucun ordre : le signal n'a pas dépassé cette étape.</span>
+            <span class="muted">Aucun ordre.</span>
           {% endif %}
         </td></tr>
     <tr><th scope="row">Sortie</th>
-        <td class="wrap">{% if replay.trade %}{{ replay.exit_reason }} — {{ display.money(replay.trade.pnl_eur, signed=True) }}{% else %}<span class="muted">Position encore ouverte ou jamais ouverte.</span>{% endif %}</td></tr>
+        <td class="wrap">{% if replay.trade %}{{ replay.exit_reason }}, {{ display.money(replay.trade.pnl_eur, signed=True) }}{% else %}<span class="muted">Position encore ouverte ou jamais ouverte.</span>{% endif %}</td></tr>
   </tbody>
 </table>
 </div>
 
-<h2>Version de la stratégie qui a exécuté (§27)</h2>
+<h2>Version de la stratégie</h2>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Version de la stratégie qui a exécuté (§27)</caption>
   <tbody>
     <tr><th scope="row">Référence</th><td>{{ replay.strategy.ref }}</td>
         <th scope="row">Identifiant</th><td>{{ replay.strategy.strategy_id }}</td></tr>
@@ -120,22 +120,21 @@
   </tbody>
 </table>
 </div>
-<h3>Manifeste enregistré</h3>
+<h3>Manifeste</h3>
 {% if replay.strategy.manifest %}
   <pre>{{ replay.strategy.manifest | describe }}</pre>
 {% else %}
-  <p class="empty">Aucun manifeste enregistré pour cette version.</p>
+  <p class="empty">Aucun manifeste enregistré.</p>
 {% endif %}
 {% if replay.strategy.parameters %}
   <h3>Paramètres au registre</h3>
   <pre>{{ replay.strategy.parameters | describe }}</pre>
 {% endif %}
 
-<h2>Chronologie</h2>
-<p class="muted">Toutes les étapes enregistrées, fusionnées et ordonnées par horodatage UTC.
-   Aucun événement n'est déduit : ce qui n'a pas été persisté n'apparaît pas.</p>
+<h2 title="Étapes enregistrées, ordonnées par horodatage UTC. Rien n'est déduit.">Chronologie</h2>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Chronologie du trade</caption>
   <thead><tr><th scope="col">Horodatage (UTC)</th><th scope="col">Étape</th><th scope="col">Détail</th></tr></thead>
   <tbody>
     {% for step in timeline %}
@@ -154,6 +153,7 @@
 <h2>Signal d'origine</h2>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Signal d'origine</caption>
   <tbody>
     <tr><th scope="row">Identifiant</th><td>{{ replay.signal.id }}</td>
         <th scope="row">État</th><td>{{ state_label(replay.signal.state) }}</td></tr>
@@ -163,7 +163,7 @@
     <tr><th scope="row">Sens</th><td>{{ display.direction_label(replay.signal.direction) }}</td>
         <th scope="row">Mode</th><td>{{ display.mode_label(replay.signal.mode) }}</td></tr>
     <tr><th scope="row">Prix observé</th><td>{{ display.number(replay.signal.observed_price, 5) }}</td>
-        <th scope="row">Zone d'entrée</th><td>{{ display.number(replay.signal.entry_low, 5) }} – {{ display.number(replay.signal.entry_high, 5) }}</td></tr>
+        <th scope="row">Zone d'entrée</th><td>{{ display.number(replay.signal.entry_low, 5) }} - {{ display.number(replay.signal.entry_high, 5) }}</td></tr>
     <tr><th scope="row">Stop</th><td>{{ display.number(replay.signal.stop_loss, 5) }}</td>
         <th scope="row">Objectifs</th>
         <td>{% for target in replay.signal.take_profits %}{{ display.number(target, 5) }}{% if not loop.last %} · {% endif %}{% else %}<span class="muted">aucun</span>{% endfor %}</td></tr>
@@ -174,17 +174,7 @@
 </table>
 </div>
 
-<p class="muted">Les indicateurs enregistrés sont détaillés dans <em>Conditions de marché au
-   moment du signal</em>, ci-dessous : c'est là que l'ATR enregistré devient un régime de
-   volatilité, et qu'il ne le devient pas quand il manque.</p>
-
-<h2>Conditions de marché au moment du signal</h2>
-<p class="muted">
-  Les bougies stockées autour de <code>signals.generated_at</code>, le régime de volatilité
-  déduit de l'ATR que le signal a enregistré, et la session UTC. Aucun indicateur n'est
-  recalculé à partir du graphique : ce que la base ne contient pas s'affiche
-  <code>{{ display.NA }}</code>.
-</p>
+<h2 title="Bougies stockées autour du signal, régime de volatilité déduit de l'ATR enregistré, session UTC. Ce que la base ne contient pas s'affiche {{ display.NA }}.">Conditions de marché</h2>
 
 <div class="cards">
   <div class="card"><div class="label">Régime de volatilité</div>
@@ -193,20 +183,20 @@
   </div>
   <div class="card"><div class="label">Session (UTC)</div>
     <div class="value sm">{{ display.session_label(context.session) }}</div>
-    <div class="note">heure UTC du signal, <code>ai.daily.session_of</code></div>
+
   </div>
-  <div class="card"><div class="label">Prix observé → obtenu</div>
-    <div class="value sm">{{ display.number(context.observed_price, 5) }} → {{ display.number(context.executed_price, 5) }}</div>
-    <div class="note">glissement enregistré : {{ display.number(context.slippage, 4) }}</div>
+  <div class="card"><div class="label">Prix observé / obtenu</div>
+    <div class="value sm">{{ display.number(context.observed_price, 5) }} / {{ display.number(context.executed_price, 5) }}</div>
+    <div class="note">glissement {{ display.number(context.slippage, 4) }}</div>
   </div>
   <div class="card"><div class="label">Bougies stockées</div>
     <div class="value sm">{{ context.candles | length }}</div>
     <div class="note">
       {%- if context.chart -%}
-        {{ context.chart.timeframe.value }} · {{ display.number(context.chart.low, 5) }} –
+        {{ context.chart.timeframe.value }}, {{ display.number(context.chart.low, 5) }} -
         {{ display.number(context.chart.high, 5) }}
       {%- else -%}
-        moins de {{ min_candles }} autour du signal : aucun graphique
+        moins de {{ min_candles }} : pas de graphique
       {%- endif -%}
     </div>
   </div>
@@ -258,31 +248,26 @@
             text-anchor="end">{{ display.precise(chart.last_at) }}</text>
     </svg>
     <figcaption class="muted">
-      {{ chart.candles | length }} bougies {{ chart.timeframe.value }} réellement stockées, de
-      {{ display.precise(chart.first_at) }} à {{ display.precise(chart.last_at) }} UTC. La
-      ligne pointillée marque l'instant du signal.
+      {{ chart.candles | length }} bougies {{ chart.timeframe.value }} stockées. Le pointillé marque le signal.
       {% if chart.timeframe != replay.signal.timeframe %}
-        L'unité du signal ({{ replay.signal.timeframe.value }}) n'a pas assez de bougies
-        stockées : le graphique trace celles de ce marché, sans mélanger deux unités.
+        L'unité du signal ({{ replay.signal.timeframe.value }}) n'a pas assez de bougies : le graphique trace {{ chart.timeframe.value }}.
       {% endif %}
     </figcaption>
   </figure>
 {% else %}
-  <p class="empty">Aucune bougie stockée pour cet instant : la base ne contient pas assez de
-     bougies autour de ce signal (minimum {{ min_candles }}) pour dessiner un graphique. Rien
-     n'est interpolé — un graphique se mérite, et la page ne dessine pas ce que la base ne
-     contient pas.</p>
+  <p class="empty">Pas assez de bougies stockées autour du signal (minimum {{ min_candles }}) : aucun graphique.</p>
 {% endif %}
 
 <h3>Indicateurs enregistrés au signal</h3>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Indicateurs enregistrés au signal</caption>
   <thead><tr><th scope="col">Indicateur</th><th scope="col" class="num">Valeur</th></tr></thead>
   <tbody>
     {% for name, value in context.indicators.items() %}
       <tr><td>{{ name }}</td><td class="num">{{ display.number(value, 5) }}</td></tr>
     {% else %}
-      <tr><td colspan="2" class="empty">Aucun indicateur enregistré pour ce signal : ni ATR, donc aucun régime à comparer.</td></tr>
+      <tr><td colspan="2" class="empty">Aucun indicateur enregistré (ni ATR, donc aucun régime).</td></tr>
     {% endfor %}
   </tbody>
 </table>
@@ -296,6 +281,7 @@
   </p>
   <div class="table-wrap">
   <table>
+    <caption class="sr-only">Décision de risque</caption>
     <tbody>
       <tr><th scope="row">Décidée le (UTC)</th><td>{{ display.precise(replay.risk.decided_at) }}</td>
           <th scope="row">Volume autorisé</th><td class="mono">{{ display.number(replay.risk.volume, 2) }}</td></tr>
@@ -307,6 +293,7 @@
   <h3>Contrôles, un par un</h3>
   <div class="table-wrap">
   <table>
+    <caption class="sr-only">Contrôles de risque, un par un</caption>
     <thead><tr><th scope="col">Contrôle</th><th scope="col">Lecture</th></tr></thead>
     <tbody>
       {% for check in checks %}
@@ -315,19 +302,20 @@
           <td>{% if check.state %}<span class="badge {{ check.state }}">{{ check.value }}</span>{% else %}{{ check.value }}{% endif %}</td>
         </tr>
       {% else %}
-        <tr><td colspan="2" class="empty">Aucun contrôle détaillé enregistré : le motif ci-dessus est la seule trace.</td></tr>
+        <tr><td colspan="2" class="empty">Aucun contrôle détaillé enregistré.</td></tr>
       {% endfor %}
     </tbody>
   </table>
   </div>
 {% else %}
-  <p class="empty">Aucune décision de risque enregistrée pour ce signal.</p>
+  <p class="empty">Aucune décision de risque enregistrée.</p>
 {% endif %}
 
 <h2>Ordre</h2>
 {% if replay.order %}
   <div class="table-wrap">
   <table>
+    <caption class="sr-only">Ordre</caption>
     <tbody>
       <tr><th scope="row">Identifiant</th><td>{{ replay.order.id }}</td>
           <th scope="row">État</th><td>
@@ -347,12 +335,13 @@
   </table>
   </div>
 {% else %}
-  <p class="empty">Aucun ordre enregistré : le signal s'est arrêté avant l'envoi au courtier.</p>
+  <p class="empty">Aucun ordre : le signal s'est arrêté avant l'envoi au courtier.</p>
 {% endif %}
 
 <h2>Exécutions</h2>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Exécutions de l'ordre</caption>
   <thead><tr><th scope="col">Ticket de deal</th><th scope="col" class="num">Prix demandé</th><th scope="col" class="num">Prix obtenu</th>
              <th scope="col" class="num">Volume</th><th scope="col" class="num">Glissement</th><th scope="col">Exécutée le (UTC)</th></tr></thead>
   <tbody>
@@ -366,7 +355,7 @@
         <td>{{ display.precise(execution.executed_at) }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="6" class="empty">Aucune exécution enregistrée pour cet ordre.</td></tr>
+      <tr><td colspan="6" class="empty">Aucune exécution.</td></tr>
     {% endfor %}
   </tbody>
 </table>
@@ -376,6 +365,7 @@
 {% if replay.position %}
   <div class="table-wrap">
   <table>
+    <caption class="sr-only">Position</caption>
     <tbody>
       <tr><th scope="row">Ticket de position</th><td>{{ replay.position.broker_position_ticket }}</td>
           <th scope="row">État</th><td>{{ display.position_state_label(replay.position.state) }}</td></tr>
@@ -389,13 +379,14 @@
   </table>
   </div>
 {% else %}
-  <p class="empty">Aucune position enregistrée : le signal n'a pas été exécuté.</p>
+  <p class="empty">Aucune position : le signal n'a pas été exécuté.</p>
 {% endif %}
 
 <h2>Clôture</h2>
 {% if replay.trade %}
   <div class="table-wrap">
   <table>
+    <caption class="sr-only">Clôture</caption>
     <tbody>
       <tr><th scope="row">Clôturée le (UTC)</th><td>{{ display.precise(replay.trade.closed_at) }}</td>
           <th scope="row">Prix de clôture</th><td>{{ display.number(replay.close_price, 5) }}</td></tr>
@@ -409,14 +400,13 @@
   </table>
   </div>
 {% else %}
-  <p class="empty">Aucune clôture enregistrée : la position est ouverte ou n'a jamais existé.</p>
+  <p class="empty">Aucune clôture : la position est ouverte ou n'a jamais existé.</p>
 {% endif %}
 
-<h2>Événements d'exécution</h2>
-<p class="muted">Les latences sont celles mesurées et enregistrées par le runtime
-   (<code>elapsed_ms</code>) : le tableau de bord ne chronomètre rien lui-même.</p>
+<h2 title="Latences mesurées et enregistrées par le runtime (elapsed_ms)">Événements d'exécution</h2>
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Événements d'exécution</caption>
   <thead><tr><th scope="col">Étape</th><th scope="col">Horodatage (UTC)</th><th scope="col" class="num">Latence</th><th scope="col">Détail</th></tr></thead>
   <tbody>
     {% for event in replay.events %}
@@ -427,7 +417,7 @@
         <td class="wrap">{{ event.detail | describe }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="4" class="empty">Aucun événement d'exécution enregistré pour ce signal ou cet ordre.</td></tr>
+      <tr><td colspan="4" class="empty">Aucun événement d'exécution.</td></tr>
     {% endfor %}
   </tbody>
 </table>
@@ -437,6 +427,7 @@
 {% for analysis in replay.analyses %}
   <div class="table-wrap">
   <table>
+    <caption class="sr-only">Analyse IA rattachée</caption>
     <tbody>
       <tr><th scope="row">Type</th><td>{{ display.analysis_kind_label(analysis.kind) }}</td>
           <th scope="row">Modèle</th><td>{{ analysis.model }}</td></tr>
@@ -448,11 +439,10 @@
   </table>
   </div>
 {% else %}
-  <p class="empty">Aucune analyse IA rattachée à ce signal.</p>
+  <p class="empty">Aucune analyse IA rattachée.</p>
 {% endfor %}
 {% if replay.analyses %}
-  <p class="muted">L'IA observe et propose : elle ne peut ni créer un signal, ni augmenter une
-     taille, ni desserrer un stop (C-002).</p>
+  <p class="muted">L'IA ne peut ni créer un signal, ni augmenter une taille, ni desserrer un stop (C-002).</p>
 {% endif %}
 
 {% endif %}

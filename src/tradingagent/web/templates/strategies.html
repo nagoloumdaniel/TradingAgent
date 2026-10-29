@@ -4,18 +4,13 @@
 {% block content %}
 {% set listing_page = listing.page %}
 
-<h2>Registre des stratégies — {{ listing_page.total }} au total</h2>
-<p class="muted">Un seul marché à la fois, <strong>{{ listing_page.market }}</strong> :
-   {{ listing_page.showing }}. Le statut vient de <code>strategy_registry</code> ; les chiffres
-   viennent du paquet <code>analytics</code> appliqué aux trades réellement produits. Une
-   référence absente du registre est affichée quand même, avec un statut vide : c'est
-   exactement ce qu'il faut voir.</p>
+<h2>Registre des stratégies</h2>
 
 <form class="filters" method="get" action="/strategies" role="search">
   {% if listing.markets %}
     {{ market_select(listing_page, listing.markets) }}
   {% else %}
-    <p class="muted">Aucun marché en base : il n'y a rien à séparer.</p>
+    <p class="muted">Aucun marché en base.</p>
   {% endif %}
   {{ search_field("strategies-q", "Recherche", listing_page.query,
                   "référence, stratégie, version") }}
@@ -31,10 +26,11 @@
 
 <div class="table-wrap">
 <table>
+  <caption class="sr-only">Registre des stratégies, marché {{ listing_page.market }} : {{ listing_page.total }} au total, {{ listing_page.showing }}</caption>
   <thead>
     <tr><th scope="col">Référence</th><th scope="col">Marché</th><th scope="col">Stratégie</th><th scope="col">Version</th><th scope="col">Statut</th>
         <th scope="col">Origine</th><th scope="col">Promue le (UTC)</th><th scope="col" class="num">Trades</th>
-        <th scope="col" class="num">Résultat net</th><th scope="col" class="num">Réussite</th><th scope="col" class="num">Facteur de profit</th>
+        <th scope="col" class="num" title="trades.pnl_eur : commission et swap du courtier déjà déduits, jamais recalculés ici">Résultat net</th><th scope="col" class="num">Réussite</th><th scope="col" class="num">Facteur de profit</th>
         <th scope="col" class="num">Drawdown max</th></tr>
   </thead>
   <tbody id="strategies-body">
@@ -48,7 +44,7 @@
           {% if view.status %}<span class="badge {% if view.status.value == 'live' %}ok{% elif view.status.value == 'deprecated' %}bad{% else %}warn{% endif %}">{{ view.status.value }}</span>
           {% else %}<span class="badge warn">hors registre</span>{% endif %}
         </td>
-        <td>{{ view.origin or '—' }}</td>
+        <td>{{ view.origin or '-' }}</td>
         <td>{{ display.moment(view.promoted_at) }}</td>
         <td class="num">{{ view.performance.trades }}</td>
         {# Vert au-dessus de zéro, rouge en dessous, et aucune couleur à zéro : la règle vit
@@ -67,20 +63,14 @@
 
 {{ pager(listing_page, "Pagination des stratégies") }}
 
-<p class="muted">Net : les montants viennent de <code>trades.pnl_eur</code>, commission et swap
-   du courtier déjà déduits pour un trade passé chez lui (MT5 cumule
-   <code>profit + swap + commission</code>) ; un trade papier n'en porte aucun. Le tableau de
-   bord ne recalcule ni les uns ni les autres.</p>
-
 <h2>Validation et backtests</h2>
-<p class="muted">Les mêmes dix références que ci-dessus : le détail suit la page, il ne
-   parcourt pas tout le registre.</p>
 {% for view in listing_page.rows %}
-  <h3>{{ view.ref }} — {{ view.market }}</h3>
+  <h3>{{ view.ref }} <span class="muted">{{ view.market }}</span></h3>
   {% if view.promotion_reason %}<p class="muted">Motif de promotion : {{ view.promotion_reason }}</p>{% endif %}
 
   <div class="table-wrap">
   <table>
+    <caption class="sr-only">Validations de {{ view.ref }}</caption>
     <thead><tr><th scope="col">Portail de validation</th><th scope="col">Verdict</th><th scope="col">Détail enregistré</th><th scope="col">Le (UTC)</th></tr></thead>
     <tbody>
       {% for validation in view.validations %}
@@ -100,6 +90,7 @@
   {% set backtest = view.last_backtest %}
   <div class="table-wrap">
   <table>
+    <caption class="sr-only">Dernier backtest de {{ view.ref }}, métriques telles qu'enregistrées</caption>
     <thead><tr><th scope="col">Dernier backtest</th><th scope="col">Jeu de données</th><th scope="col">Fenêtre (UTC)</th>
                <th scope="col">Empreinte</th><th scope="col">Métriques enregistrées</th><th scope="col">Coûts</th><th scope="col">Rapport</th></tr></thead>
     <tbody>
@@ -107,11 +98,11 @@
         <tr>
           <td>{{ display.precise(backtest.created_at) }}</td>
           <td>{{ backtest.dataset_id }}</td>
-          <td>{{ display.moment(backtest.window_start) }} → {{ display.moment(backtest.window_end) }}</td>
+          <td>{{ display.moment(backtest.window_start) }} à {{ display.moment(backtest.window_end) }}</td>
           <td><code>{{ backtest.fingerprint[:12] }}</code></td>
           <td>{{ backtest.metrics | describe }}</td>
           <td>{{ backtest.costs | describe }}</td>
-          <td>{{ backtest.report_path or '—' }}</td>
+          <td>{{ backtest.report_path or '-' }}</td>
         </tr>
       {% else %}
         <tr><td colspan="7" class="empty">Aucun backtest enregistré pour cette référence.</td></tr>
@@ -119,8 +110,6 @@
     </tbody>
   </table>
   </div>
-  <p class="muted">Les métriques sont affichées telles qu'enregistrées : aucun backtest n'est
-     relancé, aucune métrique n'est recalculée.</p>
 {% else %}
   <p class="empty">{{ listing_page.empty_message }}</p>
 {% endfor %}

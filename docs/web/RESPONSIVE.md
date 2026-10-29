@@ -1,9 +1,8 @@
-# Dashboard responsive (refonte NexaGold, 2026-10-28)
+# Dashboard responsive (refonte noir / blanc / verre, 2026-10-29)
 
-Cette refonte remplace l'identité "bleu froid / pilule flottante" décrite dans `DESIGN.md`
-par une identité **NexaGold** : noir chaud et or, Geist / Geist Mono embarquées. Le reste de
-`DESIGN.md` (lecture seule, pagination serveur, pages d'erreur sans base, polices locales,
-sprite Lucide) reste valable.
+L'identité est décrite dans `DESIGN.md` (« Direction actuelle ») : noir, blanc et gris, verre
+dépoli, rouge / vert / ambre réservés au sens. Ce document garde la mécanique responsive, qui
+n'a pas changé de forme : barre basse, rail, barre latérale, tableaux empilés.
 
 ## Où vit quoi
 
@@ -37,8 +36,13 @@ seulement si elle déborde, nommée d'après son titre). La page, elle, ne défi
 
 ## Accessibilité et états
 
-- Contrastes mesurés (WCAG 2.2 AA) : texte secondaire 5,2 à 7,7 sombre, 4,9 à 6,6 clair ; bouton or 9,4 (sombre) et 6,3 (clair).
-- Cibles ≥ 44 px (boutons, champs, liens de navigation, pagination) ; focus visible 2 px or ; lien d'évitement ; un seul `<h1>` par page ; `scope="col|row"` sur tous les `<th>` ; `aria-current`.
+- Contrastes mesurés (WCAG 2.2 AA) : voir `DESIGN.md` ; minimum 4,6 (texte discret sur le verre le plus clair), bouton principal 18.
+- Cibles ≥ 44 px (boutons, champs, liens de navigation, pagination, liens de santé) ; focus visible 2 px (blanc en sombre, noir en clair) ;
+- Chaque `<table>` a une `<caption class="sr-only">` ; `app.js` s'en sert pour nommer la zone défilante.
+- État du flux SSE : `role="status"` + `aria-live="polite"` ; pastille d'état : `role="img"` + `aria-label`.
+- `prefers-reduced-transparency` : surfaces opaques, sans flou.
+- Tiroir « Plus » : `.shell { z-index: auto }` sous 768 px (la feuille, z 40, passe au-dessus du voile, z 30), Tab piégé dans la feuille, page derrière `inert`, Échap rend le focus au bouton. Couvert par `test_shell.py` et par `browser_audit.py` (ouverture, élément au sommet, piège de focus, fermeture).
+- Lien d'évitement ; un seul `<h1>` par page ; `scope="col|row"` sur tous les `<th>` ; `aria-current`.
 - `prefers-reduced-motion`, `forced-colors`, `hover: none` traités.
 - Vide, erreur, indisponible : `td.empty`, `.banner.*`, pages 404/500/503 dans la même coquille.
 
@@ -63,6 +67,5 @@ uv run --with playwright python tests/web/browser_audit.py http://127.0.0.1:8799
 ```
 
 `browser_audit.py` (Chromium headless, hors suite pytest) contrôle 11 pages à 360, 768, 1280 et
-1920 px : pas de défilement horizontal, cibles ≥ 44 px sous 1280 px, aucune erreur console,
-tableaux empilés sur téléphone ; il enregistre une capture par page. Captures de référence :
-`screenshots/responsive-overview-360.png`, `responsive-trades-768.png`, `responsive-overview-1920.png`.
+1920 px (thème clair par défaut ; ajouter `?theme=dark` pour le sombre) : pas de défilement horizontal, cibles ≥ 44 px sous 1280 px, aucune erreur console,
+tableaux empilés sur téléphone ; il enregistre une capture par page.
