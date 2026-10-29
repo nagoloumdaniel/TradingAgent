@@ -32,7 +32,7 @@
         <td class="opt">{{ display.precise(report.generated_at) }}</td>
         <td>{% if report.sent_at %}{{ display.precise(report.sent_at) }}{% else %}{{ badge("warn", "non envoyé") }}{% endif %}</td>
         <td class="row-actions">
-          <a class="icon-btn" href="/reports?report_id={{ report.id }}" title="Ouvrir" aria-label="Ouvrir le rapport {{ report.period }}">{{ icon("eye") }}<span class="btn-text">Ouvrir</span></a>
+          <a class="icon-btn" data-report="{{ report.id }}" href="/reports?report_id={{ report.id }}" title="Voir le rapport" aria-label="Voir le rapport {{ report.period }}">{{ icon("eye") }}<span class="btn-text">Voir</span></a>
           <a class="icon-btn" href="/export/reports/{{ report.id }}.txt" title="Télécharger" aria-label="Télécharger le rapport {{ report.period }}">{{ icon("file-down") }}<span class="btn-text">Télécharger</span></a>
         </td>
       </tr>
@@ -53,4 +53,6 @@
   {% endcall %}
 {% endif %}
 
+<dialog class="report-dialog" id="report-dialog" aria-labelledby="report-title"></dialog>
+<script src="/static/js/reports.js" defer></script>
 {% endblock %}

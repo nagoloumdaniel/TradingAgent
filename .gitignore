@@ -46,3 +46,6 @@ Thumbs.db
 .mimosa/
 .v2c/
 .video_agent/
+
+# Vercel link (ids locaux)
+.vercel/
