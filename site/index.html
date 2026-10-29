@@ -24,7 +24,7 @@
 <meta name="twitter:description" content="Stratégies assistées par IA, backtest, exécution MT5 protégée, monitoring web. Open source.">
 <meta name="twitter:image" content="https://nexagold.vercel.app/og-image.png">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"TradingAgent","description":"Plateforme open source de trading algorithmique XAUUSD et BTCUSD : recherche de stratégies assistée par IA, backtest, exécution MetaTrader 5 et monitoring web.","codeRepository":"https://github.com/nagoloumdaniel/TradingAgent","programmingLanguage":"Python","license":"https://opensource.org/licenses/MIT","author":{"@type":"Person","name":"Daniel Nagoloum Talla"},"inLanguage":"fr"}
+{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"TradingAgent","description":"Plateforme open source de trading algorithmique XAUUSD et BTCUSD : recherche de stratégies assistée par IA, backtest, exécution MetaTrader 5 et monitoring web.","url":"https://nexagold.vercel.app/","codeRepository":"https://github.com/nagoloumdaniel/TradingAgent","programmingLanguage":"Python","license":"https://opensource.org/licenses/MIT","author":{"@type":"Person","name":"Daniel Nagoloum Talla"},"inLanguage":"fr"}
 </script>
 <style>
 :root{color-scheme:dark}
@@ -44,6 +44,9 @@ h1{margin:28px 0 12px;font-size:clamp(30px,6vw,52px);line-height:1.08;letter-spa
 ul.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));margin:36px 0;padding:0;list-style:none}
 ul.grid li{padding:16px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.03)}
 ul.grid strong{display:block;margin-bottom:4px}
+.status{max-width:44rem;margin:0 0 28px;padding:12px 16px;border:1px solid rgba(255,255,255,.24);border-radius:12px;background:rgba(255,255,255,.04)}
+.fig{margin:0}
+.fig figcaption{margin-top:8px;color:#a9a9b1;font-size:14px}
 footer{margin-top:40px;color:#a9a9b1;font-size:14px}
 </style>
 </head>
@@ -57,7 +60,11 @@ footer{margin-top:40px;color:#a9a9b1;font-size:14px}
     <a href="https://github.com/nagoloumdaniel/TradingAgent#readme">Documentation</a>
     <a href="https://github.com/nagoloumdaniel/TradingAgent/blob/main/DISCLAIMER.md">Avertissement sur les risques</a>
   </nav>
-  <img class="shot" src="dashboard.png" width="1440" height="900" alt="Tableau de bord TradingAgent : solde, courbe d'équité, positions ouvertes et résultat des trades" fetchpriority="high">
+  <p class="status"><strong>Projet en cours, démo uniquement.</strong> Compte de démonstration MetaTrader 5, mode réel non activé, aucune rentabilité démontrée.</p>
+  <figure class="fig">
+    <img class="shot" src="dashboard.png" width="1440" height="900" alt="Tableau de bord TradingAgent : solde, courbe d'équité, positions ouvertes et résultat des trades" fetchpriority="high">
+    <figcaption>Capture avec des données de démonstration fictives, pas des résultats réels.</figcaption>
+  </figure>
   <h2>Ce que fait le projet</h2>
   <ul class="grid">
     <li><strong>Recherche assistée par IA</strong>Génération et amélioration quotidienne de stratégies, jamais d'ordre direct.</li>
