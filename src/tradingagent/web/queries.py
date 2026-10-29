@@ -1192,6 +1192,26 @@ def equity_series(engine: Engine) -> list[tuple[datetime, Decimal]]:
     return [(moment, Decimal(value)) for moment, value in rows]
 
 
+STRANDED_HEAD_GAP = timedelta(days=14)
+
+
+def without_stranded_head(
+    series: list[tuple[datetime, Decimal]],
+) -> list[tuple[datetime, Decimal]]:
+    """Drop leading points cut off from the rest of the curve by a gap of two weeks or more.
+
+    The first snapshot of this account is stamped 2026-04-27 while the next one is from
+    2026-10-08: the clock was wrong when it was written. Drawn as it is, it becomes a
+    straight line across five months that no equity ever followed. The rows stay in the
+    database; only the drawing ignores them.
+    """
+    start = 0
+    for index in range(len(series) - 1):
+        if series[index + 1][0] - series[index][0] >= STRANDED_HEAD_GAP:
+            start = index + 1
+    return series[start:]
+
+
 def account_figures(engine: Engine, at: datetime) -> AccountFigures:
     """The account's recorded state.
 
@@ -3414,7 +3434,7 @@ def trade_points(trades: Iterable[Trade]) -> tuple[tuple[int, float, str], ...]:
 
 def chart_payload(engine: Engine, ov: Overview) -> dict[str, Any]:
     """Everything the overview charts draw, read-only and UTC; embedded as JSON in the page."""
-    series = equity_series(engine)
+    series = without_stranded_head(equity_series(engine))
     if len(series) > EQUITY_POINTS_MAX:
         stride = len(series) / EQUITY_POINTS_MAX
         picked = [series[int(i * stride)] for i in range(EQUITY_POINTS_MAX)]
@@ -3450,7 +3470,7 @@ def watermark(engine: Engine) -> ChartWatermark:
     503, a 404 and a real answer.
     """
     try:
-        line, area = _equity_geometry(equity_series(engine))
+        line, area = _equity_geometry(without_stranded_head(equity_series(engine)))
         symbol, candles = _candles(engine)
     except SQLAlchemyError as error:
         log.warning("watermark unavailable: %s", error)

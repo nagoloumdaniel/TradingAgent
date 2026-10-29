@@ -34,3 +34,19 @@ def test_chart_scripts_are_served_and_read_only(client: TestClient) -> None:
         assert script.status_code == 200
         assert "fetch(" not in script.text and "XMLHttpRequest" not in script.text
         assert "http://" not in script.text.replace("http://www.w3.org/2000/svg", "")
+
+
+def test_a_snapshot_stranded_months_before_the_rest_is_not_drawn() -> None:
+    from datetime import UTC, datetime
+    from decimal import Decimal
+
+    from tradingagent.web.queries import without_stranded_head
+
+    series = [
+        (datetime(2026, 4, 27, tzinfo=UTC), Decimal("5558.63")),
+        (datetime(2026, 10, 8, tzinfo=UTC), Decimal("5496.67")),
+        (datetime(2026, 10, 9, tzinfo=UTC), Decimal("5496.70")),
+    ]
+    assert without_stranded_head(series) == series[1:]
+    assert without_stranded_head(series[1:]) == series[1:]
+    assert without_stranded_head([]) == []
