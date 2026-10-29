@@ -1,0 +1,23 @@
+name: Bug
+description: Un comportement incorrect
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Ce qui se passe, et ce que vous attendiez
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Étapes pour reproduire
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit ou version
+  - type: markdown
+    attributes:
+      value: "Ne collez jamais de clé, de token ni le contenu de `.env`."
