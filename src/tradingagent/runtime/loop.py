@@ -626,7 +626,11 @@ class AgentLoop:
                 magic=self._ea_magic,
                 positions=expected,
                 kill_switch=halted,
-                max_positions=self._config.risk.simulated.max_positions_per_market,
+                max_positions=(
+                    self._config.risk.live
+                    if self._mode is TradingMode.LIVE
+                    else self._config.risk.simulated
+                ).max_positions_per_market,
                 now=self._now,
             )
 

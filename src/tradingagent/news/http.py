@@ -24,6 +24,7 @@ from urllib.parse import urlsplit
 from tradingagent.news.faireconomy import NEXT_WEEK_URL, THIS_WEEK_URL
 from tradingagent.news.ports import HttpError, HttpResponse
 from tradingagent.news.rss import FEEDS
+from tradingagent.news.webscan import SCAN_PAGES
 from tradingagent.resilience import one_line
 
 USER_AGENT = "TradingAgent/0.1 (+economic-calendar; read-only)"
@@ -36,7 +37,12 @@ MAX_REDIRECTS = 3
 
 def known_hosts() -> frozenset[str]:
     """The hosts of the configured sources: the only places a redirect may lead."""
-    urls = (THIS_WEEK_URL, NEXT_WEEK_URL, *(feed.url for feed in FEEDS))
+    urls = (
+        THIS_WEEK_URL,
+        NEXT_WEEK_URL,
+        *(feed.url for feed in FEEDS),
+        *(p.url for p in SCAN_PAGES),
+    )
     return frozenset(host for url in urls if (host := urlsplit(url).hostname))
 
 

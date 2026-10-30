@@ -86,6 +86,7 @@ from tradingagent.news.market_state import MarketStateReader
 from tradingagent.news.ports import EventSource
 from tradingagent.news.rss import FEEDS, RssSource
 from tradingagent.news.service import NewsService
+from tradingagent.news.webscan import SCAN_PAGES, WebScanSource
 from tradingagent.notify.access import AccessGate
 from tradingagent.notify.bot_menu import menu_post_init
 from tradingagent.notify.commands import CommandRouter, status_handler
@@ -481,9 +482,24 @@ def _build_news(engine: Engine, settings: Settings, config: NewsConfig) -> NewsS
         FaireconomySource(http, url=NEXT_WEEK_URL, name="faireconomy_next", optional=True),
         *(RssSource(spec, http, lookback_hours=config.headline_lookback_hours) for spec in FEEDS),
     ]
+    calls = AiCallStore(engine)
+    model_name = target.model if target is not None else "deterministic"
+    # The AI reads public schedule pages itself: no third-party calendar API is needed.
+    sources.extend(
+        WebScanSource(
+            page,
+            http,
+            client,
+            calls,
+            model=model_name,
+            horizon_days=config.horizon_days,
+            ai_timeout=config.ai_timeout_seconds,
+        )
+        for page in SCAN_PAGES
+    )
     analyst = NewsAnalyst(
         client,
-        AiCallStore(engine),
+        calls,
         model=target.model if target is not None else "deterministic",
         spent_today=lambda day: store.ai_cost_between(day, day + timedelta(days=1)),
         config=config,

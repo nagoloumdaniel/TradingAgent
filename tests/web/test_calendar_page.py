@@ -146,7 +146,7 @@ def test_the_page_shows_the_seeded_events_with_utc_and_paris_times(
     assert "12:30" in html and "14:30 Paris" in html  # October 7th is summer time
     assert "Calendrier à jour." in html
     assert "XAUUSD" in html and "BTCUSD" in html
-    assert "Prévision" in html and "Précédent" in html and "Réel" in html
+    assert "Prévision" in html and "Précédent" in html
     assert "Fed Chair Powell speaks" in html  # speeches section
     assert "Gold slips as the dollar firms" in html  # headlines section
     assert 'data-reading="live"' not in html  # every shown event has a stored analysis
@@ -163,7 +163,7 @@ def test_an_event_with_no_stored_analysis_is_read_by_the_rules_and_labelled(
 
 def test_the_actual_figure_is_never_invented(client: TestClient, filled: NewsStore) -> None:
     html = page(client, "/calendar")
-    assert "aucune source gratuite" in html
+    assert "<dt>Réel</dt>" not in html  # no actual from the source: the cell is hidden
     assert 'class="has-actual"' not in html
 
 

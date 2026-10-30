@@ -88,7 +88,8 @@
         <time class="num" datetime="{{ e.at_iso }}">{{ e.time_utc }}</time>
         <span class="cal-tl-paris">{{ e.time_paris }} Paris</span>
         <span class="cal-tl-main"><a href="#ev-{{ e.key }}-today">{{ e.title }}</a> {{ flag(e) }} {{ impact_chip(e) }}</span>
-        <span class="cal-tl-figs num">{{ e.forecast }} / {{ e.previous }}</span>
+        {% set figs = [e.forecast, e.previous] | reject("equalto", "—") | list %}
+        <span class="cal-tl-figs num">{% if figs %}{{ figs | join(" / ") }}{% endif %}</span>
         <span class="badge cal-state" data-state="{{ e.state }}" data-countdown="{{ e.at_iso }}">{{ e.state_label }}</span>
       </li>
     {% endfor %}
@@ -129,7 +130,6 @@
       <div class="cal-events">
         {% for e in cal.selected_events %}{{ event_card(e) }}{% endfor %}
       </div>
-      <p class="cal-meta">Le chiffre « Réel » n'est fourni par aucune source gratuite : il reste « — » une fois la publication passée.</p>
     {% else %}
       {{ nothing(cal.selected_note) }}
     {% endif %}

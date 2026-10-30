@@ -55,11 +55,11 @@
     </div>
   </header>
 
-  {% if e.kind == "release" %}
+  {% if e.kind == "release" and (e.has_actual or e.forecast != "—" or e.previous != "—") %}
   <dl class="cal-figures">
-    <div class="{% if e.has_actual %}has-actual{% endif %}"><dt>Réel</dt><dd class="num">{{ e.actual }}</dd></div>
-    <div><dt>Prévision</dt><dd class="num">{{ e.forecast }}</dd></div>
-    <div><dt>Précédent</dt><dd class="num">{{ e.previous }}</dd></div>
+    {% if e.has_actual %}<div class="has-actual"><dt>Réel</dt><dd class="num">{{ e.actual }}</dd></div>{% endif %}
+    {% if e.forecast != "—" %}<div><dt>Prévision</dt><dd class="num">{{ e.forecast }}</dd></div>{% endif %}
+    {% if e.previous != "—" %}<div><dt>Précédent</dt><dd class="num">{{ e.previous }}</dd></div>{% endif %}
   </dl>
   {% elif e.summary %}
   <p class="cal-summary">{{ e.summary }}</p>
