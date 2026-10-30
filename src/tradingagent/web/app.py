@@ -136,12 +136,12 @@ PAGES: tuple[tuple[str, str], ...] = (
     ("/positions", "Positions"),
     ("/trades", "Trades"),
     ("/scalping", "Scalping"),
+    ("/calendar", "Calendrier"),
     ("/strategies", "Stratégies"),
     ("/ai-lab", "Labo IA"),
     ("/risk", "Risque"),
     ("/system", "Système"),
     ("/reports", "Rapports"),
-    ("/calendar", "Calendrier"),
 )
 
 
