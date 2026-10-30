@@ -44,6 +44,7 @@
 #define TA_TIMER_SECONDS      1     // une passe par seconde
 #define TA_REPORT_SECONDS     2     // un battement de coeur toutes les deux secondes
 #define TA_STATE_STALE_SECONDS 30   // backend silencieux au-dela : arret local
+#define TA_DIVERGENCE_GRACE_SECONDS 90 // divergence tolerée le temps que le backend republie (stop/TP touche)
 #define TA_EVENTS_IN_MEMORY   25    // evenements rappeles dans le rapport
 #define TA_COMMENT_LIMIT      31    // limite imposee par le serveur MT5
 
@@ -624,6 +625,8 @@ private:
    TaEvent  m_events[];
    int      m_eventSeq;
    string   m_lastDivergence;
+   datetime m_divergenceSince;
+   string   m_pendingDivergence;
 
    //--- compteurs
    int      m_ordersSent;
@@ -737,6 +740,7 @@ CTradingAgentGuardian::CTradingAgentGuardian()
    m_haltReason     = "";
    m_eventSeq       = 0;
    m_lastDivergence = "";
+   m_divergenceSince = 0;
    m_ordersSent     = 0;
    m_ordersRefused  = 0;
    m_divergenceCount = 0;
@@ -1930,8 +1934,24 @@ void CTradingAgentGuardian::Watchdog()
    if(found == 0)
    {
       m_lastDivergence = "";
+      m_pendingDivergence = "";
+      m_divergenceSince = 0;
       return;
    }
+
+   //--- Delai de grace : un stop ou un TP touche ferme la position au terminal avant que le
+   //--- backend ait republie son etat. Cet ecart est normal et se resorbe a la prochaine
+   //--- publication ; seule une divergence qui dure est une vraie divergence (RM-014).
+   //--- Le chrono repart si l'ecart change de nature (une divergence se resorbe, une autre
+   //--- apparait) ou si l'horloge recule ; seul un ecart identique et durable declenche l'arret.
+   datetime now = TimeGMT();
+   if(m_divergenceSince == 0 || details != m_pendingDivergence || now < m_divergenceSince)
+   {
+      m_divergenceSince   = now;
+      m_pendingDivergence = details;
+   }
+   if((now - m_divergenceSince) < TA_DIVERGENCE_GRACE_SECONDS)
+      return;
 
    m_divergenceCount += found;
    //--- La meme divergence n'est pas repetee a chaque seconde : elle est deja persistante
