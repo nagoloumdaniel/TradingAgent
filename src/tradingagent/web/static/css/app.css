@@ -1277,3 +1277,9 @@ dialog.report-dialog > p { padding: 20px; }
 @media (hover: hover) {
   .card:not(.cards > .card):hover { border-color: var(--line-strong); }
 }
+
+/* -- loading state ---------------------------------------------------------------------- */
+html.is-loading::before { content: ""; position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 1000; background: var(--accent); transform-origin: left; animation: ta-progress 1.6s cubic-bezier(.2,.7,.2,1) forwards; }
+html.is-loading main { opacity: 0.55; transition: opacity 0.2s ease 0.1s; pointer-events: none; }
+@keyframes ta-progress { from { transform: scaleX(0.05); } to { transform: scaleX(0.9); } }
+@media (prefers-reduced-motion: reduce) { html.is-loading::before { animation: none; transform: scaleX(0.6); } }
