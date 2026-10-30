@@ -105,6 +105,11 @@ def page_text(html: str) -> str:
         log.debug("html parse stopped early")
     text = re.sub(r"[ \t]+", " ", "".join(parser.parts))
     text = re.sub(r"\n\s*\n+", "\n", text).strip()
+    # Calendar tables start with a time of day; what comes before is menus and country lists
+    # that would eat the whole budget.
+    first_time = re.search(r"^\d{1,2}:\d{2}(?: [AP]M)?\s*$", text, re.MULTILINE)
+    if first_time is not None and first_time.start() > 0:
+        text = text[max(0, first_time.start() - 200) :]
     return text[:MAX_TEXT_CHARS]
 
 
