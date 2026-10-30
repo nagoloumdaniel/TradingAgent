@@ -78,6 +78,14 @@ from tradingagent.data.market_data import MarketDataClient, Subscription
 from tradingagent.data.mt5_terminal import Mt5Terminal
 from tradingagent.data.terminal import MAGIC as BROKER_MAGIC
 from tradingagent.execution import MT5Broker, PaperBroker, PositionTracker, TradeLog
+from tradingagent.news.analyst import NewsAnalyst
+from tradingagent.news.config import NewsConfig
+from tradingagent.news.faireconomy import NEXT_WEEK_URL, FaireconomySource
+from tradingagent.news.http import UrllibHttpClient
+from tradingagent.news.market_state import MarketStateReader
+from tradingagent.news.ports import EventSource
+from tradingagent.news.rss import FEEDS, RssSource
+from tradingagent.news.service import NewsService
 from tradingagent.notify.access import AccessGate
 from tradingagent.notify.bot_menu import menu_post_init
 from tradingagent.notify.commands import CommandRouter, status_handler
@@ -130,6 +138,7 @@ from tradingagent.storage.engine import create_database_engine
 from tradingagent.storage.events import SystemEventStore
 from tradingagent.storage.halts import HaltStore
 from tradingagent.storage.migrate import upgrade
+from tradingagent.storage.news import NewsStore
 from tradingagent.storage.signals import SignalRepository
 from tradingagent.strategies.manifest import StrategyManifest
 from tradingagent.strategies.registry import REGISTRY
@@ -451,7 +460,50 @@ def _build_ai(engine: Engine, settings: Settings) -> AiFilterLayer | None:
     )
 
 
-def _build_lab(engine: Engine, settings: Settings, notifier: Any, now: Any) -> DailyLab:
+def _build_news(engine: Engine, settings: Settings, config: NewsConfig) -> NewsService | None:
+    """The economic calendar: feeds, the AI reading (optional) and the blackout gate.
+
+    Without a model key the calendar is read by the rules; with a dead feed the gate says it is
+    blind and lets signals through. Neither stops the agent.
+    """
+    if not config.enabled:
+        return None
+    target = _model_target(settings)
+    client = (
+        ModelClient(target.api_key, target.model, base_url=target.base_url)
+        if target is not None
+        else None
+    )
+    store = NewsStore(engine)
+    http = UrllibHttpClient()
+    sources: list[EventSource] = [
+        FaireconomySource(http, name="faireconomy"),
+        FaireconomySource(http, url=NEXT_WEEK_URL, name="faireconomy_next", optional=True),
+        *(RssSource(spec, http, lookback_hours=config.headline_lookback_hours) for spec in FEEDS),
+    ]
+    analyst = NewsAnalyst(
+        client,
+        AiCallStore(engine),
+        model=target.model if target is not None else "deterministic",
+        spent_today=lambda day: store.ai_cost_between(day, day + timedelta(days=1)),
+        config=config,
+    )
+    return NewsService(
+        store,
+        sources,
+        analyst,
+        MarketStateReader(CandleStore(engine)),
+        SystemEventStore(engine),
+        config,
+        # `news.fail_closed_when_blind` only ever applies to real money: simulated modes keep the
+        # fail-open gate whatever the flag says.
+        live=settings.trading_mode is TradingMode.LIVE,
+    )
+
+
+def _build_lab(
+    engine: Engine, settings: Settings, notifier: Any, now: Any, news: NewsService | None = None
+) -> DailyLab:
     """The daily AI Lab pass. Without a model it still runs, deterministically.
 
     That is the point of the design: the long-term improvement loop does not depend on an
@@ -470,10 +522,13 @@ def _build_lab(engine: Engine, settings: Settings, notifier: Any, now: Any) -> D
         else None
     )
     model = target.model if target is not None else "deterministic"
+    upcoming = (
+        (lambda: news.upcoming_summary(now(), hours=72, limit=10)) if news is not None else None
+    )
     return DailyLab(
         engine,
-        analyst=TradeAnalyst(store, client, model=model),
-        researcher=StrategyResearcher(store, client, model=model),
+        analyst=TradeAnalyst(store, client, model=model, upcoming=upcoming),
+        researcher=StrategyResearcher(store, client, model=model, upcoming=upcoming),
         notifier=notifier,
         cycle=DailyImprovement(engine),
         now=now,
@@ -880,6 +935,7 @@ async def _build(
         quarantine=PersistentQuarantine(halts, now=now),
     )
     history = HistorySync(market, candles, now=now)
+    news = _build_news(engine, settings, config.news)
     pipeline = SignalPipeline(
         engine=engine,
         halts=halts,
@@ -891,6 +947,7 @@ async def _build(
         mode=mode,
         calendar_for=calendars.get,
         ai=_build_ai(engine, settings),
+        news=news,
         now=now,
     )
     loop = AgentLoop(
@@ -914,7 +971,8 @@ async def _build(
         calendars=calendars,
         ea_directory=settings.ea_files_dir,
         ea_magic=BROKER_MAGIC,
-        lab=_build_lab(engine, settings, notifier, now),
+        lab=_build_lab(engine, settings, notifier, now, news),
+        news=news,
         now=now,
     )
     del account_snapshot

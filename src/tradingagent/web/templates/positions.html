@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_icons.html" import icon, head, fold, badge, nothing %}
+{% from "_icons.html" import icon, head %}
 {% from "_macros.html" import pager, market_select %}
 {% block title %}Positions{% endblock %}
 {% block content %}
@@ -14,6 +14,11 @@
     <div class="label">{{ icon("layers") }}Positions ouvertes</div>
     <div class="value" id="open-count">{{ open_count }}</div>
     <div class="meta" title="Dernière mise à jour du flux (UTC)"><span id="positions-at">{{ display.precise(at) }}</span> UTC</div>
+  </div>
+  <div class="card" title="Avertissements et critiques de la journée UTC en cours. Le détail, jour par jour, est sur la page Système.">
+    <div class="label">{{ icon("alert-triangle") }}Alertes du jour</div>
+    <div class="value" id="alert-count">{{ alert_count }}</div>
+    <div class="meta"><a href="/system">{% if alert_count %}Voir les erreurs{% else %}Aucune erreur aujourd'hui{% endif %}</a></div>
   </div>
   <div class="card" title="Positions de l'historique pour ce marché, ouvertes et clôturées">
     <div class="label">{{ icon("clock") }}Historique {{ positions.market }}</div>
@@ -70,35 +75,12 @@
 
 {{ pager(positions, "Pagination des positions") }}
 
-{% call fold("h-alerts", "alert-triangle", "Alertes", alerts | length, "wide", false, "") %}
-<div class="table-wrap" data-nolimit>
-  <table>
-    <caption class="sr-only">Alertes d'avertissement ou critiques, poussées par le flux</caption>
-    <thead>
-      <tr>{% for column in alert_columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr>
-    </thead>
-    <tbody id="alerts-list">
-      {% for alert in alerts %}
-        <tr>
-          <td class="mono">{{ display.precise(alert.occurred_at) }}</td>
-          <td>{{ badge(display.severity_class(alert.severity), display.severity_label(alert.severity)) }}</td>
-          <td class="mono">{{ alert.kind }}</td>
-          <td class="wrap">{{ alert.detail | describe }}</td>
-        </tr>
-      {% else %}
-        <tr><td colspan="{{ alert_columns | length }}" class="empty">Aucune alerte.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endcall %}
 <script>
 (function () {
   "use strict";
   // The table itself is paginated and searched server-side: rewriting its rows from the
   // stream would erase the page and the filter the operator chose. The stream feeds the
-  // two things that must stay live — the open-position count and the alerts list.
-  var alerts = document.getElementById("alerts-list");
+  // two things that must stay live: the open-position count and today's alert count.
   var openCount = document.getElementById("open-count");
   var status = document.getElementById("stream-status");
   var streamDot = status.querySelector(".dot");
@@ -112,61 +94,9 @@
   }
   var at = document.getElementById("positions-at");
 
-  // Same shape as the server-rendered rows: timestamp, badge, type, detail.
-  function alertRow(cells, severity) {
-    var row = document.createElement("tr");
-    var moment = document.createElement("td");
-    moment.className = "mono";
-    moment.textContent = cells[0];
-    var badgeCell = document.createElement("td");
-    var badge = document.createElement("span");
-    badge.className = "badge " + (severity || "ok");
-    badge.textContent = cells[1];
-    badgeCell.appendChild(badge);
-    var kind = document.createElement("td");
-    kind.className = "mono";
-    kind.textContent = cells[2];
-    var detail = document.createElement("td");
-    detail.className = "wrap";
-    detail.textContent = cells[3];
-    row.appendChild(moment);
-    row.appendChild(badgeCell);
-    row.appendChild(kind);
-    row.appendChild(detail);
-    return row;
-  }
-
-  // The rows the server already rendered are the ones the first stream cycle would send
-  // again: key them so the live feed completes the list instead of duplicating it.
-  var seen = {};
-  function alertKey(cells) { return cells.join("\u0000"); }
-  Array.prototype.forEach.call(alerts.rows, function (row) {
-    var cells = Array.prototype.map.call(row.cells, function (cell) {
-      return cell.textContent;
-    });
-    seen[alertKey(cells)] = true;
-  });
-
-  function renderAlerts(payload) {
-    var empty = alerts.querySelector(".empty");
-    if (empty && empty.parentNode && empty.parentNode.parentNode) {
-      empty.parentNode.parentNode.removeChild(empty.parentNode);
-    }
-    var additions = [];
-    payload.rows.forEach(function (cells, index) {
-      if (seen[alertKey(cells)]) { return; }
-      seen[alertKey(cells)] = true;
-      additions.push(alertRow(cells, (payload.severities || [])[index]));
-    });
-    // Newest first, like the server's own order: the frame arrives oldest-first, so the new
-    // rows are inserted at the top in reverse.
-    for (var i = additions.length - 1; i >= 0; i--) {
-      alerts.insertBefore(additions[i], alerts.firstChild);
-    }
-    // The same ceiling the server applies, so a session left open for a week cannot grow
-    // the list without bound.
-    while (alerts.rows.length > 20) { alerts.deleteRow(alerts.rows.length - 1); }
-  }
+  // The alerts themselves live on /system, one day at a time. This page only keeps their
+  // number for today live, so the tile above never disagrees with the list it links to.
+  var alertCount = document.getElementById("alert-count");
 
   // The stream carries the same market as the table: an unfiltered count above a filtered
   // table would be the contradiction this page exists to avoid.
@@ -183,7 +113,8 @@
     at.textContent = payload.at;
   });
   source.addEventListener("alerts", function (message) {
-    renderAlerts(JSON.parse(message.data));
+    var payload = JSON.parse(message.data);
+    if (alertCount && typeof payload.count === "number") { alertCount.textContent = payload.count; }
   });
 })();
 </script>

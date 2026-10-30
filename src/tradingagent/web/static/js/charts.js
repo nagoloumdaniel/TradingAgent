@@ -54,8 +54,8 @@
     var r = goodHigh ? 1 - ratio : ratio;
     return r >= 0.8 ? "bad" : (r >= 0.5 ? "warn" : "ok");
   }
-  var SEGMENTS = ["var(--up)", "var(--warn)", "var(--down)",
-    "color-mix(in srgb, var(--up) 55%, transparent)", "color-mix(in srgb, var(--warn) 55%, transparent)", "color-mix(in srgb, var(--down) 55%, transparent)"];
+  /* Donut identity is a single ink ramp (--shade) read through the legend, never a status
+     hue: green / amber / red stay reserved for good / warning / bad. */
   function nice(v) { return Math.abs(v) >= 1000 ? v.toFixed(0) : (Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(2)); }
 
   function empty(box, message, href, action) {
@@ -425,7 +425,7 @@
     box.removeAttribute("aria-busy");
     box.classList.remove("is-loading");
     var total = markets.reduce(function (s, m) { return s + m.trades; }, 0);
-    var shades = [96, 72, 54, 42, 34, 30];
+    var shades = [96, 76, 62, 54, 49, 46];
     var wrap = html("div", "donut-wrap", null, box);
     var host = html("div", "donut-host", null, wrap);
     var size = 148, r = 56, circ = 2 * Math.PI * r;
@@ -454,14 +454,12 @@
         "stroke-dashoffset": (-acc).toFixed(2), transform: "rotate(-90 " + size / 2 + " " + size / 2 + ")"
       }, svg);
       arc.style.setProperty("--shade", shades[Math.min(i, shades.length - 1)] + "%");
-      arc.style.setProperty("--seg", SEGMENTS[i % SEGMENTS.length]);
       acc += len;
       arcs.push(arc);
       var li = html("li", "legend-row", null, list);
       li.setAttribute("tabindex", "0");
       var sw = html("span", "swatch", null, li);
       sw.style.setProperty("--shade", shades[Math.min(i, shades.length - 1)] + "%");
-      sw.style.setProperty("--seg", SEGMENTS[i % SEGMENTS.length]);
       html("span", "legend-name", m.name, li);
       html("span", "legend-n num", m.trades + " · " + Math.round(m.trades / total * 100) + " %", li);
       html("span", "legend-net num " + tone(m.net), arrow(m.net) + " " + money(m.net, true), li);
@@ -703,8 +701,29 @@
     return box;
   }
 
+  /* A limit that does not exist is not drawn as a gauge: there is no ratio to be 80 % of.
+     The tile counts (big number, per-market breakdown) and says "illimité" in words. */
+  function unlimitedGauge(g, wrap) {
+    var el = html("div", "gauge unlimited", null, wrap);
+    el.setAttribute("role", "listitem");
+    var top = html("div", "gauge-top", null, el);
+    html("strong", null, g.name, top);
+    html("span", null, "illimité", top);
+    var viz = html("div", "gauge-viz count", null, el);
+    html("span", "gv-count", String(Math.round(g.used || 0)), viz);
+    (g.parts || []).forEach(function (part) {
+      var chip = html("span", "gv-part", null, viz);
+      html("span", null, part.name, chip);
+      html("b", null, String(part.value), chip);
+    });
+    var st = html("div", "gauge-state", null, el);
+    var svg = svgEl("svg", { "class": "icon", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "1.75", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" }, st);
+    svgEl("use", { href: "#i-info" }, svg);
+    html("span", null, "Aucune limite : comptage seul", st);
+  }
+
   function gaugesChart(box) {
-    var items = (DATA.gauges || []).filter(function (g) { return g.limit; });
+    var items = (DATA.gauges || []).filter(function (g) { return g.limit || g.unlimited; });
     if (!items.length) {
       empty(box, "Configuration de risque illisible ou absente : aucune limite à comparer.", "/system", "Voir le système");
       return;
@@ -715,6 +734,7 @@
     var seen = { money: 0, pct: 0, int: 0 };
     var kinds = { money: ["arc", "ring"], pct: ["bullet"], int: ["pips", "steps"] };
     items.forEach(function (g) {
+      if (g.unlimited) { unlimitedGauge(g, wrap); return; }
       var ratio = g.ratio == null ? 0 : g.ratio;
       var state = ratio >= 0.8 ? "bad" : (ratio >= 0.5 ? "warn" : "ok");
       var el = html("div", "gauge " + state, null, wrap);
@@ -838,7 +858,7 @@
     }
     ready(box);
     var total = rows.reduce(function (s, r) { return s + r.value; }, 0);
-    var shades = [96, 64, 44, 32, 26];
+    var shades = [96, 76, 62, 54, 46];
     var toneVar = { ok: "var(--up)", bad: "var(--down)", warn: "var(--warn)" };
     var wrap = html("div", "donut-wrap", null, box);
     var size = 120, r = 44, circ = 2 * Math.PI * r;
@@ -860,14 +880,12 @@
       var arc = svgEl("circle", { "class": "arc", cx: size / 2, cy: size / 2, r: r, "stroke-width": 14, "stroke-dasharray": Math.max(0.5, len - gap).toFixed(2) + " " + circ.toFixed(2), "stroke-dashoffset": (-acc).toFixed(2), transform: "rotate(-90 " + size / 2 + " " + size / 2 + ")" }, svg);
       var shade = shades[Math.min(i, shades.length - 1)] + "%";
       arc.style.setProperty("--shade", shade);
-      if (!row.tone) { arc.style.setProperty("--seg", SEGMENTS[i % SEGMENTS.length]); }
       if (row.tone) { arc.style.stroke = toneVar[row.tone]; }
       acc += len; arcs.push(arc);
       var li = html("li", "legend-row", null, list);
       li.tabIndex = 0;
       var sw = html("span", "swatch", null, li);
       sw.style.setProperty("--shade", shade);
-      if (!row.tone) { sw.style.setProperty("--seg", SEGMENTS[i % SEGMENTS.length]); }
       if (row.tone) { sw.style.background = toneVar[row.tone]; }
       html("span", "legend-name", row.name, li);
       html("span", "legend-n num", row.value + " · " + Math.round(row.value / total * 100) + " %", li);

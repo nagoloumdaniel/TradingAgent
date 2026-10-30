@@ -8,7 +8,8 @@ from tradingagent.core.mode import TradingMode
 from tradingagent.core.states import RiskOutcome
 from tradingagent.data.market_calendar import SlotStatus
 from tradingagent.risk.engine import AccountModeMismatchError, decide
-from tradingagent.risk.model import limits_for
+from tradingagent.risk.model import OpenPosition, limits_for
+from tradingagent.risk.streak import DayLossRun
 
 
 def test_a_sound_trade_is_authorized_with_its_size() -> None:
@@ -38,6 +39,49 @@ def test_a_refusal_lists_every_limit_hit() -> None:
     assert decision.sizing is None
 
 
+def test_unlimited_counts_authorize_and_the_persisted_motif_keeps_the_counts() -> None:
+    ctx = context()
+    ctx = replace(
+        ctx,
+        limits=replace(
+            ctx.limits,
+            max_open_positions=None,
+            max_positions_per_market=None,
+            max_trades_per_day=None,
+        ),
+        portfolio=replace(
+            ctx.portfolio,
+            trades_today=12,
+            open_positions=(OpenPosition("XAUUSD", D("0.01")), OpenPosition("BTCUSD", D("0.01"))),
+            open_exposure_eur=D(100),
+        ),
+    )
+    decision = decide(ctx, LOGIN)
+    assert decision.outcome is RiskOutcome.AUTHORIZED
+    record = decision.checks_record()
+    assert record["open_positions"]["reason"] == "2 open, unlimited"
+    assert record["market_positions"]["reason"] == "1 open on XAUUSD, unlimited"
+    assert record["trades_today"]["reason"] == "12 today, unlimited"
+
+
+def test_three_losses_today_refuse_with_the_french_motif_persisted() -> None:
+    ctx = context()
+    ctx = replace(
+        ctx,
+        portfolio=replace(
+            ctx.portfolio,
+            losses_today=DayLossRun(3, ctx.now.date()),
+            consecutive_losses=0,
+            last_loss_at=None,
+        ),
+    )
+    decision = decide(ctx, LOGIN)
+    assert decision.outcome is RiskOutcome.REFUSED
+    assert "daily_loss_streak" in {check.name for check in decision.refusals}
+    assert "3 pertes consécutives aujourd'hui" in decision.reason
+    assert "demain 00:00 UTC" in decision.reason
+
+
 def test_a_sizing_error_refuses_never_falls_back() -> None:
     decision = decide(context(quote=replace(GOLD_QUOTE, loss_one_lot=None)), LOGIN)
     assert decision.outcome is RiskOutcome.REFUSED
@@ -53,7 +97,7 @@ def test_without_a_stop_sizing_is_not_attempted() -> None:
 
 def test_the_checks_record_keeps_every_verdict() -> None:
     record = decide(context(), LOGIN).checks_record()
-    assert len(record) == 18  # 17 controls (RM-004 to RM-019) plus sizing
+    assert len(record) == 19  # 18 controls (RM-004 to RM-019) plus sizing
     assert all(entry["passed"] for entry in record.values())
 
 

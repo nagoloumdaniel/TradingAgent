@@ -492,3 +492,81 @@ class DailyPerformanceRow(Base):
     pnl: Mapped[Decimal]
     risk_eur: Mapped[Decimal]
     created_at: Mapped[datetime]
+
+
+class EconomicEventRow(Base):
+    """One announcement of the economic calendar, or one market-moving headline.
+
+    `key` is the identity a source derives from (source, currency, title, time): refreshing the
+    same announcement is an update of this row, not a second row. Figures are kept as the text the
+    source published ("0.3%", "198K") -- converting them is the reader's job, and a rounded copy
+    would be a figure nobody published.
+    """
+
+    __tablename__ = "economic_events"
+    __table_args__ = (UniqueConstraint("key", name="uq_economic_events_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(32))
+    source: Mapped[str] = mapped_column(String(32))
+    starts_at: Mapped[datetime] = mapped_column(index=True)
+    currency: Mapped[str] = mapped_column(String(8))
+    title: Mapped[str] = mapped_column(String(240))
+    impact: Mapped[str] = mapped_column(String(8))
+    kind: Mapped[str] = mapped_column(String(12))
+    country: Mapped[str] = mapped_column(String(8))
+    forecast: Mapped[str | None] = mapped_column(String(32))
+    previous: Mapped[str | None] = mapped_column(String(32))
+    actual: Mapped[str | None] = mapped_column(String(32))
+    url: Mapped[str | None] = mapped_column(String(500))
+    summary: Mapped[str] = mapped_column(Text)
+    first_seen_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+
+
+class NewsAnalysisRow(Base):
+    """One reading of one event, by the model or by the deterministic fallback.
+
+    Insert-only: a new `actual` or a revised forecast earns a new row and the latest one wins, so
+    how the reading moved around a release stays visible afterwards.
+    """
+
+    __tablename__ = "news_analyses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_key: Mapped[str] = mapped_column(String(32), index=True)
+    input_hash: Mapped[str] = mapped_column(String(16))
+    source: Mapped[str] = mapped_column(String(16))
+    model: Mapped[str] = mapped_column(String(64))
+    verdicts: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    analysed_at: Mapped[datetime]
+
+
+class NewsBriefRow(Base):
+    """The morning summary of a day: one is written, later ones for the same day supersede it."""
+
+    __tablename__ = "news_briefs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day: Mapped[str] = mapped_column(String(10), index=True)
+    source: Mapped[str] = mapped_column(String(16))
+    model: Mapped[str] = mapped_column(String(64))
+    headline: Mapped[str] = mapped_column(Text)
+    markets: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    generated_at: Mapped[datetime]
+
+
+class NewsFetchRow(Base):
+    """What each refresh of each feed amounted to, so the dashboard can say what is stale."""
+
+    __tablename__ = "news_fetches"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), index=True)
+    ok: Mapped[bool]
+    items: Mapped[int]
+    status: Mapped[int | None]
+    error: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(Text)
+    retry_after: Mapped[int | None]
+    fetched_at: Mapped[datetime]

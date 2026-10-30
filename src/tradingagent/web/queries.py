@@ -67,6 +67,7 @@ from tradingagent.ea.bridge import (
     read_reports,
 )
 from tradingagent.ea.health import ea_health
+from tradingagent.risk.streak import longest_loss_run_today
 from tradingagent.storage.account import AccountStore, RefusedRisk, ReportData, Snapshot
 from tradingagent.storage.daily import DailyPerformance, DailyPerformanceStore
 from tradingagent.storage.halts import HaltStore
@@ -1908,11 +1909,24 @@ class AiCallHealth:
     filters: tuple[str, ...]
     models: tuple[str, ...]
     failures: tuple[AiCallFailureView, ...]
+    scope: str = ""
+    """The window the counts were read through ("aujourd'hui"); empty for the whole history."""
+    history_calls: int = -1
+    """Every call ever recorded, whatever the window; ``-1`` means the window is the history."""
+
+    @property
+    def total_calls(self) -> int:
+        return self.calls if self.history_calls < 0 else self.history_calls
 
     @property
     def never_called(self) -> bool:
-        """No call at all: nothing was verified, so nothing is declared."""
-        return self.calls == 0
+        """No call at all, ever: nothing was verified, so nothing is declared."""
+        return self.total_calls == 0
+
+    @property
+    def quiet(self) -> bool:
+        """No call in the window although the model has been called before: a quiet day."""
+        return self.calls == 0 and self.total_calls > 0
 
     @property
     def healthy(self) -> bool:
@@ -1920,22 +1934,37 @@ class AiCallHealth:
         return self.calls > 0 and self.failed == 0
 
 
-def ai_call_health(engine: Engine, *, failures_shown: int = AI_FAILURES_SHOWN) -> AiCallHealth:
+def ai_call_health(
+    engine: Engine,
+    *,
+    failures_shown: int = AI_FAILURES_SHOWN,
+    day: paging.DayScope | None = None,
+) -> AiCallHealth:
     """The AI layer's own journal: how many calls, how many answers, how many refusals.
+
+    ``day`` narrows the counts, the cost and the failure list to one UTC day, so a failure of
+    last week no longer paints today red; without it the whole journal is read. The mode and
+    the models stay whole-history: they say what the layer *is*, not what it did today.
 
     ``filters`` and ``models`` are the values actually recorded, not the configured ones: the
     page must show the mode that ran, not the mode someone meant to run. The euro cost is
     summed in Python — ``cost_eur`` is an exact decimal stored as text on SQLite, where a SQL
     ``sum`` would concatenate strings rather than add amounts.
     """
+    window = _window(AiCallRow.called_at, day)
     with Session(engine) as session:
         counts: dict[str | None, int] = {
             verdict: int(total)
             for verdict, total in session.execute(
-                select(AiCallRow.verdict, func.count()).group_by(AiCallRow.verdict)
+                select(AiCallRow.verdict, func.count()).where(*window).group_by(AiCallRow.verdict)
             ).all()
         }
-        amounts = session.scalars(select(AiCallRow.cost_eur)).all()
+        history_calls = (
+            -1
+            if day is None or day.is_history
+            else int(session.scalar(select(func.count()).select_from(AiCallRow)) or 0)
+        )
+        amounts = session.scalars(select(AiCallRow.cost_eur).where(*window)).all()
         last_called_at = session.scalar(select(func.max(AiCallRow.called_at)))
         models = tuple(sorted(session.scalars(select(AiCallRow.model).distinct()).all()))
         filters = tuple(
@@ -1947,7 +1976,7 @@ def ai_call_health(engine: Engine, *, failures_shown: int = AI_FAILURES_SHOWN) -
         )
         unanswered = session.scalars(
             select(AiCallRow)
-            .where(AiCallRow.verdict.is_(None))
+            .where(AiCallRow.verdict.is_(None), *window)
             .order_by(desc(AiCallRow.called_at), desc(AiCallRow.id))
             .limit(max(0, failures_shown))
         ).all()
@@ -1973,7 +2002,27 @@ def ai_call_health(engine: Engine, *, failures_shown: int = AI_FAILURES_SHOWN) -
         filters=filters,
         models=models,
         failures=failures,
+        scope="" if day is None or day.is_history else day.label,
+        history_calls=history_calls,
     )
+
+
+def _window(column: Any, day: paging.DayScope | None) -> list[Any]:
+    """The conditions that narrow ``column`` to one UTC day; none for the whole history.
+
+    Half-open, ``[start, end)``: midnight belongs to the day it opens. This is the single
+    place a day becomes SQL, so every error list reads the same window.
+    """
+    if day is None or day.start is None or day.end is None:
+        return []
+    return [column >= day.start, column < day.end]
+
+
+def _day_filter(day: paging.DayScope | None) -> tuple[tuple[str, str], ...]:
+    """The ``day`` parameter a page link must carry; nothing for today, the default."""
+    if day is None or not day.param:
+        return ()
+    return ((paging.DAY_PARAM, day.param),)
 
 
 # ---------------------------------------------------------------------------------------
@@ -1998,9 +2047,12 @@ class RiskLimits:
     daily_loss_pct: Decimal
     weekly_loss_pct: Decimal
     max_drawdown_pct: Decimal
-    max_open_positions: int
-    max_positions_per_market: int
-    max_trades_per_day: int
+    max_open_positions: int | None
+    """``None`` means unlimited: the dashboard counts, it never compares."""
+    max_positions_per_market: int | None
+    max_trades_per_day: int | None
+    stop_after_losses_per_day: int | None
+    """Losing trades in one UTC day after which trading stops until 00:00 UTC (``None``: off)."""
     cooldown_after_losses: int
     cooldown_hours: Decimal
     max_spread_stop_pct: Decimal
@@ -2042,6 +2094,7 @@ def _limits(
         max_open_positions=source.max_open_positions,
         max_positions_per_market=source.max_positions_per_market,
         max_trades_per_day=source.max_trades_per_day,
+        stop_after_losses_per_day=source.stop_after_consecutive_losses_per_day,
         cooldown_after_losses=source.cooldown_after_losses,
         cooldown_hours=source.cooldown_hours,
         max_spread_stop_pct=source.max_spread_stop_pct,
@@ -2141,9 +2194,15 @@ def recent_events(
     since: datetime | None = None,
     minimum: Severity | None = None,
     limit: int = 50,
+    day: paging.DayScope | None = None,
 ) -> tuple[SystemEventView, ...]:
-    """System events, newest first: the risk page, the system page and the SSE alert feed."""
+    """System events, newest first: the positions alerts and the SSE alert feed.
+
+    ``day`` restricts the read to one UTC day (the live feed passes today, so a stream that
+    has just connected never replays yesterday's alerts); without it the history is read.
+    """
     statement = select(SystemEventRow).order_by(desc(SystemEventRow.occurred_at))
+    statement = statement.where(*_window(SystemEventRow.occurred_at, day))
     if since is not None:
         statement = statement.where(SystemEventRow.occurred_at > since)
     if minimum is not None:
@@ -2162,6 +2221,30 @@ def recent_events(
     )
 
 
+def event_count(
+    engine: Engine,
+    *,
+    day: paging.DayScope | None = None,
+    minimum: Severity | None = None,
+    market: str = paging.ALL_MARKETS,
+) -> int:
+    """How many system events fall in the window: the figure behind "N erreurs aujourd'hui".
+
+    One ``COUNT`` in SQL, with the same window and the same severity rule as the lists, so a
+    card and the table under it can never disagree.
+    """
+    conditions: list[Any] = _window(SystemEventRow.occurred_at, day)
+    scoped = _event_market(SystemEventRow.symbol, market)
+    if scoped is not None:
+        conditions.append(scoped)
+    if minimum is not None:
+        conditions.append(SystemEventRow.severity != Severity.INFO)
+    with Session(engine) as session:
+        return int(
+            session.scalar(select(func.count()).select_from(SystemEventRow).where(*conditions)) or 0
+        )
+
+
 def risk_view(
     engine: Engine,
     at: datetime,
@@ -2172,6 +2255,7 @@ def risk_view(
     query: str = "",
     events_page: int = 1,
     history_page: int = 1,
+    day: paging.DayScope | None = None,
 ) -> RiskView:
     """The risk page: the state, and the two logs that grow without bound.
 
@@ -2190,12 +2274,13 @@ def risk_view(
         path="/risk",
         noun="événement",
         filters=(("hpage", str(history_page)),),
+        day=day,
     )
     history = halt_page(
         engine,
         query=query,
         page=history_page,
-        filters=((events.page_param, str(events_page)),),
+        filters=((events.page_param, str(events_page)), *_day_filter(day)),
     )
     return RiskView(
         at=at,
@@ -2270,11 +2355,18 @@ def event_page(
     feminine: bool = False,
     page_param: str = "page",
     filters: tuple[tuple[str, str], ...] = (),
+    day: paging.DayScope | None = None,
 ) -> Page[SystemEventView]:
-    """One page of system events, newest first, filtered, searched and bounded in SQL."""
+    """One page of system events, newest first, filtered, searched and bounded in SQL.
+
+    ``day`` is the window: today by default on the pages, one chosen day, or the whole
+    history. It travels in the page links (``day=...``) so page two of yesterday is still
+    yesterday.
+    """
     needle = query.strip()
     scoped = _event_market(SystemEventRow.symbol, market)
     conditions: list[Any] = [] if scoped is None else [scoped]
+    conditions.extend(_window(SystemEventRow.occurred_at, day))
     if minimum is not None:
         conditions.append(SystemEventRow.severity != Severity.INFO)
     conditions.extend(
@@ -2318,7 +2410,8 @@ def event_page(
         noun=noun,
         feminine=feminine,
         page_param=page_param,
-        filters=filters,
+        filters=(*filters, *_day_filter(day)),
+        scope="" if day is None else day.label,
     )
 
 
@@ -2641,6 +2734,7 @@ def system_view(
     query: str = "",
     page: int = 1,
     errors_page: int = 1,
+    day: paging.DayScope | None = None,
 ) -> SystemView:
     """The health page: the probes, and the three lists that can grow.
 
@@ -2654,7 +2748,7 @@ def system_view(
         market=market,
         query=query,
         page=page,
-        filters=(("epage", str(errors_page)),),
+        filters=(("epage", str(errors_page)), *_day_filter(day)),
     )
     errors = event_page(
         engine,
@@ -2667,6 +2761,7 @@ def system_view(
         feminine=True,
         page_param="epage",
         filters=((telemetry.page_param, str(page)),),
+        day=day,
     )
     return SystemView(
         at=at,
@@ -3093,6 +3188,7 @@ def ai_lab_pages(
     validations_page: int = 1,
     backtests_page: int = 1,
     page_size: int = AI_PAGE_SIZE,
+    day: paging.DayScope | None = None,
 ) -> AiLabListing:
     """The four lists of the laboratory, each one page, each bounded in the database."""
     needle = query.strip()
@@ -3189,7 +3285,8 @@ def ai_lab_pages(
             page_param="page",
             filters=_siblings(
                 proposals=proposals.page, validations=validations.page, backtests=backtests.page
-            ),
+            )
+            + _day_filter(day),
             noun="analyse",
             feminine=True,
             **common,
@@ -3202,7 +3299,8 @@ def ai_lab_pages(
             page_param="proposals",
             filters=_siblings(
                 page=analyses.page, validations=validations.page, backtests=backtests.page
-            ),
+            )
+            + _day_filter(day),
             noun="proposition",
             feminine=True,
             **common,
@@ -3215,7 +3313,8 @@ def ai_lab_pages(
             page_param="validations",
             filters=_siblings(
                 page=analyses.page, proposals=proposals.page, backtests=backtests.page
-            ),
+            )
+            + _day_filter(day),
             noun="validation",
             feminine=True,
             **common,
@@ -3228,7 +3327,8 @@ def ai_lab_pages(
             page_param="backtests",
             filters=_siblings(
                 page=analyses.page, proposals=proposals.page, validations=validations.page
-            ),
+            )
+            + _day_filter(day),
             noun="backtest",
             **common,
         ),
@@ -3586,6 +3686,30 @@ def _gauge(
     return {"name": name, "used": used, "limit": limit, "ratio": ratio, "kind": kind, "text": text}
 
 
+def _count_gauge(
+    name: str,
+    used: int,
+    limit: int | None,
+    parts: Sequence[tuple[str, int]] = (),
+) -> dict[str, Any]:
+    """A count against a limit that may not exist.
+
+    With a limit it is an ordinary gauge ("2 sur 5"). Without one (``None``, unlimited) there
+    is nothing to compare: the gauge says "illimité", carries no ratio, and therefore can
+    never turn amber or red. ``parts`` is the per-market (or per-bucket) breakdown.
+    """
+    gauge = _gauge(
+        name,
+        float(used),
+        None if limit is None else float(limit),
+        "int",
+        f"{used} sur {limit}" if limit is not None else f"{used} · illimité",
+    )
+    gauge["unlimited"] = limit is None
+    gauge["parts"] = [{"name": label, "value": value} for label, value in parts]
+    return gauge
+
+
 def risk_gauges(
     engine: Engine, at: datetime, view: RiskView, account: AccountFigures
 ) -> list[dict[str, Any]]:
@@ -3614,26 +3738,52 @@ def risk_gauges(
             used = abs(float(account.drawdown)) / float(account.peak_equity) * 100
             cap = float(limits.max_drawdown_pct)
             gauges.append(_gauge("Drawdown", used, cap, "pct", f"{used:.2f} % sur {cap:.2f} %"))
-    opened = sum(e.open_positions for e in view.exposures)
+    per_market = [(e.market, e.open_positions) for e in view.exposures if e.open_positions]
+    opened = sum(count for _, count in per_market)
+    gauges.append(_count_gauge("Positions ouvertes", opened, limits.max_open_positions))
+    busiest = max((count for _, count in per_market), default=0)
     gauges.append(
-        _gauge(
-            "Positions ouvertes",
-            float(opened),
-            float(limits.max_open_positions),
-            "int",
-            f"{opened} sur {limits.max_open_positions}",
+        _count_gauge(
+            "Positions par marché",
+            busiest,
+            limits.max_positions_per_market,
+            parts=per_market,
         )
     )
-    gauges.append(
-        _gauge(
-            "Trades du jour",
-            float(day.trades),
-            float(limits.max_trades_per_day),
-            "int",
-            f"{day.trades} sur {limits.max_trades_per_day}",
+    gauges.append(_count_gauge("Trades du jour", day.trades, limits.max_trades_per_day))
+    if limits.stop_after_losses_per_day is not None:
+        streak = _losses_today(engine, at)
+        gauges.append(
+            _count_gauge("Pertes consécutives du jour", streak, limits.stop_after_losses_per_day)
         )
-    )
     return gauges
+
+
+@dataclass(frozen=True)
+class DailyStop:
+    """The "N losses in a day, stop until 00:00 UTC" rule and where today stands against it."""
+
+    losses: int
+    limit: int
+
+    @property
+    def triggered(self) -> bool:
+        return self.losses >= self.limit
+
+
+def daily_stop(engine: Engine, at: datetime, view: RiskView) -> DailyStop | None:
+    """The first profile's daily-loss-streak stop, or ``None`` when the rule is off."""
+    if not view.limits or view.limits[0].stop_after_losses_per_day is None:
+        return None
+    return DailyStop(_losses_today(engine, at), view.limits[0].stop_after_losses_per_day)
+
+
+def _losses_today(engine: Engine, at: datetime) -> int:
+    """The longest run of losses reached today (UTC): the figure the daily lock is read on."""
+    closed = [
+        (trade.pnl_eur, trade.closed_at) for trade in trades_between(engine, day_start(at), at)
+    ]
+    return longest_loss_run_today(closed, at).longest
 
 
 def positions_chart(positions: Sequence[OpenPositionView]) -> dict[str, Any]:
@@ -3844,6 +3994,7 @@ __all__ = [
     "available_markets",
     "backtest_runs",
     "daily_performance",
+    "daily_stop",
     "daily_window",
     "database_health",
     "day_start",

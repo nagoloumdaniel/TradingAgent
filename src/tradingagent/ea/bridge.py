@@ -153,7 +153,7 @@ class EaState:
     revision: int
     published_at: datetime
     kill_switch: bool = False
-    max_positions: int = 1
+    max_positions: int = 1  # 0 means unlimited
     max_total_volume: float | None = None
     positions: tuple[ExpectedPosition, ...] = ()
     orders: tuple[AuthorisedOrder, ...] = ()
@@ -386,7 +386,7 @@ def publish_state(
     positions: Sequence[ExpectedPosition] = (),
     orders: Sequence[AuthorisedOrder] = (),
     kill_switch: bool = False,
-    max_positions: int = 1,
+    max_positions: int | None = 1,
     max_total_volume: float | None = None,
     revision: int | None = None,
     now: Callable[[], datetime] = _utc_now,
@@ -397,6 +397,16 @@ def publish_state(
     publishes on a timer does not have to track it. The heartbeat is `now()` in UTC: the
     EA compares it with its own clock and refuses to trade when the backend has gone
     quiet (RM-013).
+
+    `max_positions=None` means unlimited and is published as 0, which the EA reads as "no
+    cap" (`m_maxPositions > 0 && ...`).
+
+    Operator decision (2026-10-30): the shipped `config/agent.yaml` leaves the position counts
+    unlimited, so the EA publishes 0 and no longer caps stacking on its own. That is not a
+    missing guard: the real limits are enforced upstream by the risk engine (per-trade risk,
+    daily and weekly loss, drawdown, the exposure ceiling and the three-losses-a-day stop).
+    `max_total_volume` stays None (not published) because no config value defines it; do not
+    invent one here.
     """
     target = state_path(directory, symbol)
     if revision is None:
@@ -409,7 +419,7 @@ def publish_state(
         revision=revision,
         published_at=now(),
         kill_switch=kill_switch,
-        max_positions=max_positions,
+        max_positions=0 if max_positions is None else max_positions,
         max_total_volume=max_total_volume,
         positions=tuple(positions),
         orders=tuple(orders),

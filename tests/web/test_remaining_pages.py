@@ -481,7 +481,7 @@ def test_the_risk_events_are_searched_in_sql(seeded_client: TestClient) -> None:
 
     empty = seeded_client.get("/risk", params={"q": "zzz-introuvable"}).text
 
-    assert "Aucun événement pour « zzz-introuvable »." in empty
+    assert "Aucun événement pour « zzz-introuvable » dans tout l&#39;historique." in empty
     assert len(_rows(empty, "risk-events-body")) == 1
 
 
@@ -540,7 +540,7 @@ def test_the_system_errors_show_ten_at_most_and_are_searched(
 
     assert len(_rows(first, "errors-body")) == MAX_ROWS
     assert "epage=2" in first
-    assert "Aucune erreur pour « zzz-introuvable »." in (
+    assert "Aucune erreur pour « zzz-introuvable » dans tout l&#39;historique." in (
         seeded_client.get("/system", params={"q": "zzz-introuvable"}).text
     )
 

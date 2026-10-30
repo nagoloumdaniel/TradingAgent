@@ -32,6 +32,7 @@ from tradingagent.risk.model import (  # noqa: E402
     TradeIntent,
     limits_for,
 )
+from tradingagent.risk.streak import DayLossRun  # noqa: E402
 
 EQUITY = D("5496.67")
 PEAK = D("5496.96")
@@ -64,7 +65,18 @@ def context(
         account=AccountState(LOGIN, True, "EUR", EQUITY, EQUITY, EQUITY),
         spec=BTC,
         quote=MarketQuote(bid, ask_d, loss_one_lot, D(margin_one_lot), RATE),
-        portfolio=PortfolioState((), 0, EQUITY, D(0), EQUITY, D(0), PEAK, 0, None),
+        portfolio=PortfolioState(
+            (),
+            0,
+            EQUITY,
+            D(0),
+            EQUITY,
+            D(0),
+            PEAK,
+            0,
+            None,
+            DayLossRun(0, datetime.fromisoformat(now).date()),
+        ),
         market=SlotStatus.OPEN,
         limits=limits,
         now=datetime.fromisoformat(now),

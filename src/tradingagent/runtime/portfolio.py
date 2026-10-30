@@ -14,6 +14,7 @@ from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from tradingagent.risk.model import AccountState, OpenPosition, PortfolioState
+from tradingagent.risk.streak import longest_loss_run_today, losing_streak
 from tradingagent.storage.models import AccountSnapshotRow, PositionRow, TradeRow
 
 STREAK_LOOKBACK = 200
@@ -46,7 +47,8 @@ class PortfolioBuilder:
         day_equity = _equity_at_or_before(snapshots, start_day, account.equity)
         week_equity = _equity_at_or_before(snapshots, start_week, account.equity)
         peak = max([account.equity, *_equities(snapshots)])
-        streak, last_loss = self._losing_streak()
+        recent = self._recent_closes()
+        streak, last_loss = losing_streak(recent)
         return PortfolioState(
             open_positions=open_positions,
             trades_today=trades_today,
@@ -57,6 +59,9 @@ class PortfolioBuilder:
             equity_peak=peak,
             consecutive_losses=streak,
             last_loss_at=last_loss,
+            # The daily stop is a lock over every trade of the UTC day, not over the
+            # streak lookback: a run reached this morning must survive a busy afternoon.
+            losses_today=longest_loss_run_today(self._closes_since(start_day), at),
             # §21: the notional already committed. None means "not measured", which the
             # risk engine treats as a refusal rather than as zero.
             open_exposure_eur=open_exposure_eur,
@@ -79,7 +84,15 @@ class PortfolioBuilder:
             rows = session.execute(statement).all()
         return [(row[0], Decimal(row[1])) for row in rows]
 
-    def _losing_streak(self) -> tuple[int, datetime | None]:
+    def _closes_since(self, start: datetime) -> list[tuple[Decimal, datetime]]:
+        """Every trade closed from `start` on, in any order (the daily lock reads them all)."""
+        statement = select(TradeRow.pnl_eur, TradeRow.closed_at).where(TradeRow.closed_at >= start)
+        with Session(self._engine) as session:
+            rows = session.execute(statement).all()
+        return [(Decimal(pnl), closed_at) for pnl, closed_at in rows]
+
+    def _recent_closes(self) -> list[tuple[Decimal, datetime]]:
+        """Closed trades, newest first: what the streak functions read."""
         statement = (
             select(TradeRow.pnl_eur, TradeRow.closed_at)
             .order_by(TradeRow.closed_at.desc())
@@ -87,16 +100,7 @@ class PortfolioBuilder:
         )
         with Session(self._engine) as session:
             rows = session.execute(statement).all()
-        streak = 0
-        last_loss: datetime | None = None
-        for pnl, closed_at in rows:
-            if Decimal(pnl) < 0:
-                streak += 1
-                if last_loss is None:
-                    last_loss = closed_at
-            else:
-                break
-        return streak, last_loss
+        return [(Decimal(pnl), closed_at) for pnl, closed_at in rows]
 
 
 def _equities(snapshots: list[tuple[datetime, Decimal]]) -> list[Decimal]:

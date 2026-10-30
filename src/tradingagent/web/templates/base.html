@@ -31,6 +31,7 @@
 })();
 </script>
 <link rel="stylesheet" href="/static/css/app.css">
+{% if page == "calendar" %}<link rel="stylesheet" href="/static/css/calendar.css">{% endif %}
 </head>
 <body>
 
@@ -44,7 +45,7 @@
 {% set nav_icons = {
      "/": "gauge", "/positions": "layers", "/trades": "receipt", "/scalping": "zap",
      "/strategies": "flask", "/ai-lab": "bot", "/risk": "shield", "/system": "server",
-     "/reports": "file-text",
+     "/reports": "file-text", "/calendar": "calendar",
    } %}
 {% include "_sprite.html" %}
 <div class="atmosphere" aria-hidden="true">
@@ -143,5 +144,6 @@
 <script src="/static/js/charts.js" defer></script>
 <script src="/static/js/ux.js" defer></script>
 <script src="/static/js/live.js" defer></script>
+{% if page == "calendar" %}<script src="/static/js/calendar.js" defer></script>{% endif %}
 </body>
 </html>

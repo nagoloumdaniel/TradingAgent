@@ -16,6 +16,7 @@ from tradingagent.core.mode import AiFilter
 from tradingagent.core.states import Severity
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.market_data import Subscription
+from tradingagent.news.blackout import BlackoutDecision
 
 if TYPE_CHECKING:  # the lab imports this module, so the reference stays one-way
     from tradingagent.ai.daily import LabRun
@@ -30,6 +31,16 @@ from tradingagent.risk.model import (
     OrderRequest,
     OrderResult,
 )
+
+
+class NewsPort(Protocol):
+    """The economic calendar as the loop and the pipeline see it (see `news.service`)."""
+
+    async def tick(self, now: datetime) -> object: ...
+
+    def check(self, symbol: str, now: datetime) -> BlackoutDecision: ...
+
+    def upcoming_summary(self, now: datetime, hours: int = 24, limit: int = 8) -> str: ...
 
 
 class MarketPort(Protocol):

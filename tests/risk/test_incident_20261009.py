@@ -41,6 +41,7 @@ from tradingagent.risk.model import (
     TradeIntent,
     limits_for,
 )
+from tradingagent.risk.streak import DayLossRun
 
 # The demo account on 2026-10-09 04:00 UTC: `account_snapshots` and the stored checks agree.
 EQUITY = D("5496.67")  # 0.5 % in play = 27.48 EUR, 2 % daily = 109.93 EUR in the stored reasons
@@ -96,6 +97,7 @@ class Stored:
                 equity_peak=PEAK,
                 consecutive_losses=0,
                 last_loss_at=None,
+                losses_today=DayLossRun(0, datetime.fromisoformat(self.at).date()),
             ),
             market=SlotStatus.OPEN,
             limits=limits_for(self.mode, RISK),
@@ -186,7 +188,7 @@ def test_each_stored_refusal_is_the_entry_zone_and_nothing_else(stored: Stored) 
 def test_the_other_seventeen_controls_passed_on_those_signals(stored: Stored) -> None:
     """No limit, no halt, no cooldown, no margin shortage: only the entry price was refused."""
     record = decide(stored.context(), LOGIN).checks_record()
-    assert len(record) == 18
+    assert len(record) == 19
     assert all(entry["passed"] for name, entry in record.items() if name != "entry_zone")
     assert record["sizing"]["passed"], record["sizing"]["reason"]
 

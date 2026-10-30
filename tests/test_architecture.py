@@ -22,6 +22,7 @@ PACKAGES = {
     "reporting",
     "backtest",
     "research",
+    "news",
 }
 OFFLINE_ONLY = {"backtest", "research"}
 EXECUTION_GATEKEEPERS = {"risk", "execution"}

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon, head, fold, badge, nothing %}
-{% from "_macros.html" import pager, market_select, search_field %}
+{% from "_macros.html" import pager, market_select, search_field, day_control %}
 {% block title %}Labo IA{% endblock %}
 {% block content %}
 
@@ -33,43 +33,41 @@
    ci-dessus étaient à zéro pendant que `ai_calls` portait 22 appels, tous refusés par le
    fournisseur (« 402 Insufficient Balance ») : une table vide se lisait comme une semaine
    calme. Cette section lit le journal des appels, et rien d'autre. #}
-{{ head("h-calls", "cpu", "Appels au modèle", ai_calls.calls) }}
-<p class="muted">Tous marchés confondus.</p>
+{{ head("h-calls", "cpu", "Appels au modèle", ai_calls.calls ~ " " ~ (ai_calls.scope or "au total")) }}
+{{ day_control(day, "/ai-lab", {"q": lab.analyses.query, "market": lab.analyses.market}, "appels") }}
+<p class="muted">Tous marchés confondus. Les compteurs ci-dessous suivent le jour affiché ; le coût et les modèles sont ceux de cette fenêtre.</p>
 
 {% if ai_calls.never_called %}
   <div class="banner warn">{{ icon("alert-triangle") }}Aucun appel au modèle n'a été enregistré : la couche IA n'a rien évalué.</div>
+{% elif ai_calls.quiet %}
+  <div class="banner ok">{{ icon("check-circle") }}Aucun appel {{ ai_calls.scope }}, donc aucune erreur. {{ ai_calls.total_calls }} appel(s) au total dans l'historique.</div>
 {% elif ai_calls.failed %}
   <div class="banner bad">{{ icon("x-circle") }}
-    {{ ai_calls.failed }} appel(s) sur {{ ai_calls.calls }} n'ont pas abouti : la décision est restée aux règles déterministes.
+    {{ ai_calls.failed }} appel(s) sur {{ ai_calls.calls }} n'ont pas abouti{% if ai_calls.scope %} {{ ai_calls.scope }}{% endif %} : la décision est restée aux règles déterministes.
     {% if 'shadow' in ai_calls.filters %}En mode <code>shadow</code>, un verdict ne bloque jamais le signal.{% endif %}
     Dernier message du fournisseur : <code>{{ ai_calls.failures[0].error }}</code>
   </div>
 {% else %}
-  <div class="banner ok">{{ icon("check-circle") }}{{ ai_calls.calls }} appel(s), toutes les réponses exploitables.</div>
+  <div class="banner ok">{{ icon("check-circle") }}{{ ai_calls.calls }} appel(s){% if ai_calls.scope %} {{ ai_calls.scope }}{% endif %}, toutes les réponses exploitables.</div>
 {% endif %}
 
+{# Les verdicts (approuvés / refusés) vivent dans le donut ci-dessous : une seule fois. #}
 <div class="cards">
-  <div class="card"><div class="label">{{ icon("cpu") }}Appels</div><div class="value">{{ ai_calls.calls }}</div>
-</div>
   <div class="card"><div class="label">{{ icon("check-circle") }}Réponses exploitables</div><div class="value">{{ ai_calls.answered }}</div>
     {% if ai_calls.calls and not ai_calls.answered %}<div class="note">Aucune réponse exploitable</div>{% endif %}</div>
   <div class="card"><div class="label">{{ icon("alert-triangle") }}Sans réponse</div><div class="value">{{ ai_calls.failed }}</div>
-</div>
-  <div class="card"><div class="label">{{ icon("shield") }}Verdicts</div><div class="value sm">{{ ai_calls.approved }} approuvé(s) · {{ ai_calls.rejected }} refusé(s)</div>
-</div>
-  <div class="card" title="Somme de cost_eur, appels facturés seulement"><div class="label">{{ icon("euro") }}Coût cumulé</div><div class="value sm">{{ display.money(ai_calls.cost_eur) }}</div>
-</div>
-  <div class="card"><div class="label">{{ icon("clock") }}Dernier appel</div><div class="value sm">{{ display.precise(ai_calls.last_called_at) if ai_calls.last_called_at else "jamais" }}</div>
-</div>
-  <div class="card" title="Lu dans ai_calls, pas dans la configuration"><div class="label">{{ icon("eye") }}Mode effectif</div><div class="value sm">{{ ai_calls.filters | join(', ') or "-" }}</div>
-</div>
-  <div class="card"><div class="label">{{ icon("bot") }}Modèles</div><div class="value sm">{{ ai_calls.models | join(', ') or "-" }}</div>
-</div>
+    <div class="note">{{ ai_calls.scope or "tout l'historique" }}</div></div>
+  <div class="card" title="Somme de cost_eur, appels facturés seulement"><div class="label">{{ icon("euro") }}Coût</div><div class="value sm">{{ display.money(ai_calls.cost_eur) }}</div>
+    <div class="note">{{ ai_calls.scope or "cumulé" }}</div></div>
+  <div class="card"><div class="label">{{ icon("clock") }}Dernier appel</div><div class="value sm">{{ display.precise(ai_calls.last_called_at) if ai_calls.last_called_at else "jamais" }}</div></div>
+  <div class="card" title="Lu dans ai_calls, pas dans la configuration"><div class="label">{{ icon("bot") }}Mode effectif</div>
+    <div class="value sm">{{ ai_calls.filters | join(', ') or "-" }}</div>
+    <div class="note">{{ ai_calls.models | join(', ') or "-" }}</div></div>
 </div>
 
 <div class="dash">
   <section class="mod" aria-labelledby="h-d-calls">
-    {{ head("h-d-calls", "pie", "Verdicts des appels") }}
+    {{ head("h-d-calls", "pie", "Verdicts des appels", ai_calls.scope or "tout l'historique") }}
     <div class="chart is-loading" data-chart="donut" data-key="calls" data-unit="appel(s)" aria-busy="true"></div>
   </section>
   <section class="mod" aria-labelledby="h-d-val">

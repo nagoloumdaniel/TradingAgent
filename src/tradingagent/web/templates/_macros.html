@@ -4,6 +4,7 @@
 
    No JavaScript, no CDN, no build step: these are plain Jinja macros over the `Page`
    primitive in `tradingagent.web.paging`. #}
+{% from "_icons.html" import icon %}
 
 {# A page link is a link: it carries its state in the URL, so it can be copied, bookmarked
    and reloaded. The server clamps an out-of-range page; the browser never decides. #}
@@ -66,3 +67,71 @@
    dont le sens est porté par le nom accessible et l'info-bulle, jamais par du texte visible.
    La forme double la couleur (disque, losange, carré) : la couleur n'est jamais seule. #}
 {% macro dot(state, label) %}<span class="dot" data-state="{{ state }}" role="img" aria-label="{{ label }}" title="{{ label }}"></span>{% endmacro %}
+
+{# Une limite absente (None) est « illimitée » : on compte, on ne compare pas. #}
+{% macro cap(value) -%}
+{% if value is none %}<span class="unlimited" title="Aucune limite configurée : seul le compte est affiché">illimité</span>{% else %}{{ value }}{% endif %}
+{%- endmacro %}
+
+{# Lien vers un autre jour, en gardant recherche, marché et page des autres listes.
+   `params` : dict des paramètres à conserver ; les valeurs vides sont omises. Aujourd'hui est
+   le défaut : son lien n'écrit pas `day`. #}
+{% macro day_href(path, params, value) -%}
+{%- set merged = dict(params, day=value) if value else params -%}
+{{ path }}{% set pairs = merged | dictsort | selectattr("1") | list %}{% if pairs %}?{{ pairs | urlencode }}{% endif %}
+{%- endmacro %}
+
+{# Le jour des erreurs : aujourd'hui par défaut, jour précédent/suivant, une date, ou tout
+   l'historique. Le formulaire est un GET : sans JavaScript tout fonctionne, et l'état vit
+   dans l'URL (partageable, rechargeable). Le journal n'est jamais effacé : seule la fenêtre
+   de lecture change. `label` nomme ce qui est listé (« erreurs », « événements »…). #}
+{% macro day_control(day, path, params, label="erreurs") %}
+<nav class="day-nav" aria-label="Jour des {{ label }}">
+  {% if day.previous %}
+    <a class="day-step" rel="prev" href="{{ day_href(path, params, day.previous.isoformat()) }}" aria-label="Jour précédent" title="Jour précédent">{{ icon("chevron-left") }}</a>
+  {% else %}
+    <span class="day-step disabled" aria-hidden="true">{{ icon("chevron-left") }}</span>
+  {% endif %}
+  <form class="day-form" method="get" action="{{ path }}">
+    {% for key, value in params.items() if value %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+    <label class="sr-only" for="day-{{ label|replace(' ', '-') }}">Jour des {{ label }}</label>
+    <input type="date" id="day-{{ label|replace(' ', '-') }}" name="day" value="{{ day.day.isoformat() if day.day else '' }}"
+           max="{{ day.today.isoformat() }}" min="2020-01-01">
+    <button type="submit">Afficher</button>
+  </form>
+  {% if day.following %}
+    <a class="day-step" rel="next" href="{{ day_href(path, params, day.following.isoformat() if day.following != day.today else '') }}" aria-label="Jour suivant" title="Jour suivant">{{ icon("chevron-right") }}</a>
+  {% else %}
+    <span class="day-step disabled" aria-hidden="true">{{ icon("chevron-right") }}</span>
+  {% endif %}
+  <span class="day-scope" role="status">Affichage : <strong>{{ day.label }}</strong></span>
+  {% if not day.is_today %}<a class="day-link" href="{{ day_href(path, params, '') }}">Aujourd'hui</a>{% endif %}
+  {% if not day.is_history %}<a class="day-link" href="{{ day_href(path, params, 'all') }}">Tout l'historique</a>{% endif %}
+</nav>
+{% endmacro %}
+
+{# L'arrêt du trading et les gardes EA en arrêt : une seule définition pour la vue d'ensemble
+   et la page Risque. Sur la vue d'ensemble `detail_href` renvoie vers la page qui explique. #}
+{% macro halt_banners(halt, ea_halted, detail_href="") %}
+  {% if halt.halted %}
+    <div class="banner bad" role="alert">{{ icon("x-circle") }}
+      <strong>Trading arrêté.</strong>
+      {% if halt.reasons|length > 1 %}
+        <ul>{% for reason in halt.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+      {% else %}
+        {% for reason in halt.reasons %}<span>{{ reason }}</span>{% endfor %}
+      {% endif %}
+      {% if halt.close_positions %}<div>Fermeture des positions demandée.</div>{% endif %}
+      {% if detail_href %}<a class="banner-link" href="{{ detail_href }}">Voir le risque</a>{% endif %}
+    </div>
+  {% endif %}
+  {% if ea_halted %}
+    <div class="banner bad" role="alert">{{ icon("x-circle") }}
+      <strong>Garde EA en arrêt.</strong>
+      {% for guardian in ea_halted %}
+        <div>{{ guardian.symbol }} : kill switch {{ 'actif' if guardian.kill_switch else 'inactif' }},
+          arrêt local {{ 'actif' if guardian.local_halt else 'inactif' }}{% if guardian.halt_reason %} ({{ guardian.halt_reason }}){% endif %}.</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endmacro %}

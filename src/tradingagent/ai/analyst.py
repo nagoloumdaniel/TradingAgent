@@ -30,6 +30,7 @@ from tradingagent.ai.layer import (
     PRICES_EUR_PER_MTOK,
     AiClient,
 )
+from tradingagent.ai.upcoming import UpcomingEvents, read_upcoming, upcoming_block
 from tradingagent.analytics.model import Trade
 from tradingagent.core.states import AnalysisKind
 from tradingagent.storage.ai_calls import AiReply
@@ -291,7 +292,7 @@ def _cost_eur(reply: AiReply) -> Decimal:
     return (cost / Decimal(1_000_000)).quantize(Decimal("0.000001"))
 
 
-def _prompt(verdict: LossVerdict, trades: int, losses: int) -> str:
+def _prompt(verdict: LossVerdict, trades: int, losses: int, upcoming: str = "") -> str:
     return (
         "Analyse déterministe déjà calculée :\n"
         f"Verdict : {verdict.kind.value}\n"
@@ -299,6 +300,7 @@ def _prompt(verdict: LossVerdict, trades: int, losses: int) -> str:
         f"Chiffres : {json.dumps(verdict.figures, sort_keys=True, default=str)}\n"
         f"Trades examinés : {trades}\n"
         f"Pertes : {losses}\n"
+        f"{upcoming_block(upcoming)}"
         "Commente ce verdict en une à trois phrases."
     )
 
@@ -313,11 +315,13 @@ class TradeAnalyst:
         *,
         model: str = "deterministic",
         thresholds: AnalystThresholds = DEFAULT_THRESHOLDS,
+        upcoming: UpcomingEvents | None = None,
     ) -> None:
         self._store = store
         self._client = client
         self._model = model
         self._thresholds = thresholds
+        self._upcoming = upcoming
 
     async def analyse_loss(
         self,
@@ -383,7 +387,8 @@ class TradeAnalyst:
             "losses": losses,
             "overrun_attempts": [],
         }
-        response, overruns, model, error, cost = await self._comment(verdict, trades, losses)
+        note = await asyncio.to_thread(read_upcoming, self._upcoming)
+        response, overruns, model, error, cost = await self._comment(verdict, trades, losses, note)
         findings["overrun_attempts"] = list(overruns)
         if error is not None:
             findings["model_error"] = error
@@ -395,7 +400,7 @@ class TradeAnalyst:
             ref=ref,
             signal_id=signal_id,
             model=model,
-            request={"prompt": _prompt(verdict, trades, losses)},
+            request={"prompt": _prompt(verdict, trades, losses, note)},
             response=response,
             findings=findings,
             cost_eur=cost,
@@ -405,14 +410,14 @@ class TradeAnalyst:
         return verdict
 
     async def _comment(
-        self, verdict: LossVerdict, trades: int, losses: int
+        self, verdict: LossVerdict, trades: int, losses: int, upcoming: str = ""
     ) -> tuple[str | None, tuple[str, ...], str, str | None, Decimal | None]:
         """The model only comments. Its failure is a detail, never a lost analysis."""
         if self._client is None:
             return None, (), self._model, None, None
         try:
             reply: AiReply = await self._client.complete(
-                SYSTEM_PROMPT, _prompt(verdict, trades, losses)
+                SYSTEM_PROMPT, _prompt(verdict, trades, losses, upcoming)
             )
         except Exception as error:  # timeout, network, provider: analysis still stands
             return None, (), self._model, str(error), None

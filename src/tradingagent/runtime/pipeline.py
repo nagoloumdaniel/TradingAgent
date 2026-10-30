@@ -38,6 +38,7 @@ from tradingagent.notify.trade_messages import (
     PositionOpened,
     render_position_opened,
 )
+from tradingagent.resilience import one_line
 from tradingagent.risk.checks import RiskContext
 from tradingagent.risk.engine import AccountModeMismatchError, RiskDecision, decide
 from tradingagent.risk.model import (
@@ -48,7 +49,7 @@ from tradingagent.risk.model import (
     limits_for,
 )
 from tradingagent.runtime.portfolio import PortfolioBuilder
-from tradingagent.runtime.ports import AiReviewerPort, BrokerPort, NotifierPort
+from tradingagent.runtime.ports import AiReviewerPort, BrokerPort, NewsPort, NotifierPort
 from tradingagent.storage.halts import HaltStore
 from tradingagent.storage.risk_decisions import RiskDecisionStore
 from tradingagent.storage.signals import (
@@ -97,6 +98,7 @@ class SignalPipeline:
         mode: TradingMode,
         calendar_for: Callable[[str], MarketCalendar | None],
         ai: AiReviewerPort | None = None,
+        news: NewsPort | None = None,
         send_attempts: int = SEND_ATTEMPTS,
         send_backoff: float = SEND_BACKOFF_SECONDS,
         sleep: Callable[[float], Awaitable[None]] | None = None,
@@ -112,6 +114,11 @@ class SignalPipeline:
         self._mode = mode
         self._calendar_for = calendar_for
         self._ai = ai
+        self._news = news
+        # One operator message per episode, not per signal: a calendar that stays blind for a
+        # day would otherwise bury the journal under one event per candidate.
+        self._news_blind = False
+        self._news_faulty = False
         self._send_attempts = send_attempts
         self._send_backoff = send_backoff
         self._sleep = sleep if sleep is not None else asyncio.sleep
@@ -130,6 +137,10 @@ class SignalPipeline:
         if detail.state is not SignalState.CANDIDATE:
             return ProcessOutcome(signal_id, "already_processed", str(detail.state))
         now = self._now()
+
+        blackout = await self._news_blackout(detail, now)
+        if blackout is not None:
+            return blackout
 
         review = await self._review(detail, now)
         if review is not None and review.blocks_signal:
@@ -186,6 +197,76 @@ class SignalPipeline:
                 sent += 1
         return sent
 
+    async def _news_blackout(self, detail: SignalDetail, now: datetime) -> ProcessOutcome | None:
+        """Refuse a candidate that would open inside an announcement's window (pre-risk).
+
+        Not a risk rule (the risk engine knows nothing of the calendar): a candidate refused here
+        is expired with its motif, and the operator-visible event says which announcement. The
+        gate is fail-open by default: a calendar it cannot read never blocks, it only says it was
+        blind (a WARNING, once per episode). With `news.fail_closed_when_blind` in live mode the
+        service itself answers `blocked` with a motif; this method only applies the refusal.
+        """
+        if self._news is None:
+            return None
+        try:
+            verdict = await asyncio.to_thread(self._news.check, detail.symbol, now)
+        except Exception as error:  # a news fault must not stop the pipeline
+            log.warning("news gate failed: %s", one_line(error))
+            if not self._news_faulty:
+                self._news_faulty = True
+                self._event(
+                    "news_gate_failed",
+                    Severity.WARNING,
+                    {"signal_id": detail.id, "error": one_line(error)},
+                    now,
+                    symbol=detail.symbol,
+                )
+            return None
+        self._news_faulty = False
+        if not verdict.degraded:
+            self._news_blind = False
+        elif not self._news_blind:
+            self._news_blind = True
+            self._event(
+                "news_gate_degraded",
+                Severity.WARNING,
+                {"signal_id": detail.id, "reason": verdict.degraded},
+                now,
+                symbol=detail.symbol,
+            )
+        if not verdict.blocked:
+            return None
+        transition(
+            self._engine,
+            detail.id,
+            SignalState.EXPIRED,
+            now,
+            f"news_blackout: {verdict.reason}",
+        )
+        self._event(
+            "news_blackout",
+            Severity.WARNING,
+            {
+                "signal_id": detail.id,
+                "reason": verdict.reason,
+                "event": verdict.event.title if verdict.event else None,
+                "window_start": verdict.window_start.isoformat() if verdict.window_start else None,
+                "window_end": verdict.window_end.isoformat() if verdict.window_end else None,
+            },
+            now,
+            symbol=detail.symbol,
+        )
+        return ProcessOutcome(detail.id, "news_blackout", verdict.reason)
+
+    def _upcoming_events(self, now: datetime) -> str:
+        if self._news is None:
+            return ""
+        try:
+            return self._news.upcoming_summary(now)
+        except Exception as error:  # the prompt context is a nicety, never a dependency
+            log.warning("news summary failed: %s", error)
+            return ""
+
     async def _review(self, detail: SignalDetail, now: datetime) -> ReviewOutcome | None:
         if self._ai is None:
             return None
@@ -201,6 +282,7 @@ class SignalPipeline:
             take_profits=detail.take_profits,
             indicators=detail.indicators,
             market_state=str(self._market_state(detail.symbol, now)),
+            upcoming_events=await asyncio.to_thread(self._upcoming_events, now),
         )
         return await self._ai.review(context, now, detail.id, detail.ai_filter)
 

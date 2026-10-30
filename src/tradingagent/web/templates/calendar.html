@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, badge, nothing %}
+{% from "_calendar_macros.html" import event_card, event_line, day_link, bias_chip, stance_chip, flag, impact_chip %}
+{% block title %}Annonces économiques{% endblock %}
+{% block heading %}
+<div class="cal-heading">
+  <h1 class="page-title">Annonces économiques</h1>
+  <p class="cal-clock" aria-label="Heure actuelle">
+    {{ icon("clock") }}<span class="num" id="cal-now" data-now="{{ now_iso | default('') }}">{{ cal.now_label }}</span>
+    <span class="cal-clock-sep" aria-hidden="true">·</span><span class="num">{{ cal.paris_label }}</span>
+  </p>
+</div>
+{% endblock %}
+{% block content %}
+
+{# --- état des sources : toujours dit, jamais deviné ------------------------------------- #}
+<section class="banner {{ cal.freshness.level }}" aria-labelledby="cal-fresh" role="status">
+  <p class="cal-fresh-head" id="cal-fresh">{{ icon({"ok": "check-circle", "warn": "alert-triangle", "bad": "x-circle"}.get(cal.freshness.level, "info")) }}<strong>{{ cal.freshness.headline }}</strong>
+    <span class="cal-fresh-last">Dernière mise à jour : {{ cal.freshness.last_refresh }}</span></p>
+  {% if cal.freshness.details %}<ul>{% for line in cal.freshness.details %}<li>{{ line }}</li>{% endfor %}</ul>{% endif %}
+</section>
+
+{# --- lecture du marché ------------------------------------------------------------------ #}
+<section class="cal-read" aria-labelledby="h-read">
+  <div class="cal-read-head">
+    <h2 id="h-read" class="cal-h2">{{ icon("eye") }}Lecture du marché</h2>
+    {% if cal.brief %}<span class="badge cal-reading" data-reading="{{ cal.brief.origin }}">{{ cal.brief.origin_label }}</span>{% endif %}
+  </div>
+  {% if cal.brief %}
+  <p class="cal-brief-headline">{{ cal.brief.headline }}</p>
+  <div class="cal-brief-markets">
+    {% for m in cal.brief.markets %}
+    <article class="cal-market" data-bias="{{ m.bias }}" aria-label="{{ m.symbol }}">
+      <header><h3>{{ m.symbol }}</h3><span class="num cal-price">{{ m.last_price }}</span></header>
+      <p class="cal-chips">{{ bias_chip(m) }}{{ stance_chip(m.stance, m.stance_label) }}</p>
+      <p class="cal-market-sum">{{ m.summary }}</p>
+      <p class="cal-market-state">Marché : {{ m.state_phrase }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  <p class="cal-meta">Synthèse du {{ cal.brief.generated }}. {{ cal.ai_note }}</p>
+  {% else %}
+    {{ nothing("Aucune synthèse : le calendrier est vide, il n'y a rien à résumer pour aujourd'hui.") }}
+  {% endif %}
+
+  {% if cal.next_major %}
+  {% set n = cal.next_major %}
+  <p class="cal-next">
+    <span class="cal-label">Prochaine annonce forte</span>
+    <a href="/calendar?day={{ n.at_iso[:10] }}#ev-{{ n.key }}"><strong>{{ n.title }}</strong></a>
+    {{ flag(n) }}
+    <span class="num">{{ n.date_label }} {{ n.time_utc }} UTC · {{ n.time_paris }} Paris</span>
+    <span class="badge cal-state" data-state="{{ n.state }}" data-countdown="{{ n.at_iso }}">{{ n.state_label }}</span>
+    {% if n.blackout %}<span class="badge cal-blackout">{{ icon("ban") }}Signaux bloqués {{ n.blackout }}</span>{% endif %}
+  </p>
+  {% endif %}
+</section>
+
+{# --- aujourd'hui + 7 jours ------------------------------------------------------------- #}
+<section class="cal-strip-wrap" aria-labelledby="h-strip">
+  <h2 id="h-strip" class="cal-h2">{{ icon("calendar") }}Aujourd'hui et les 7 jours suivants</h2>
+  <nav class="cal-strip" id="week-strip" aria-label="Sept prochains jours">
+    {% for c in cal.strip %}{{ day_link(c, true) }}{% endfor %}
+  </nav>
+  <p class="cal-legend" aria-label="Légende des impacts">
+    <span class="cal-n" data-impact="high"><i></i>fort</span>
+    <span class="cal-n" data-impact="medium"><i></i>moyen</span>
+    <span class="cal-n" data-impact="low"><i></i>faible</span>
+    <span class="cal-legend-note">Nombre d'annonces par niveau d'impact.</span>
+  </p>
+</section>
+
+{# --- frise d'aujourd'hui ---------------------------------------------------------------- #}
+<section class="cal-today" aria-labelledby="h-today">
+  <h2 id="h-today" class="cal-h2">{{ icon("timer") }}Aujourd'hui, heure par heure</h2>
+  <div class="cal-track" aria-hidden="true">
+    <div class="cal-track-line" style="--now: {{ cal.now_percent }}%">
+      {% for left, impact, label in cal.track %}<span class="cal-mark" data-impact="{{ impact }}" style="left: {{ left }}%" title="{{ label }}"></span>{% endfor %}
+      <span class="cal-now-mark" style="left: {{ cal.now_percent }}%" title="Maintenant"></span>
+    </div>
+    <div class="cal-track-hours"><span>00h</span><span>06h</span><span>12h</span><span>18h</span><span>24h</span></div>
+  </div>
+  {% if cal.today %}
+  <ol class="cal-timeline">
+    {% for e in cal.today %}
+      {% if loop.index0 == cal.now_index %}<li class="cal-now-row" aria-label="Maintenant, {{ cal.now_label }}"><span>Maintenant · {{ cal.now_label }}</span></li>{% endif %}
+      <li class="cal-tl" data-impact="{{ e.impact }}" data-state="{{ e.state }}">
+        <time class="num" datetime="{{ e.at_iso }}">{{ e.time_utc }}</time>
+        <span class="cal-tl-paris">{{ e.time_paris }} Paris</span>
+        <span class="cal-tl-main"><a href="#ev-{{ e.key }}-today">{{ e.title }}</a> {{ flag(e) }} {{ impact_chip(e) }}</span>
+        <span class="cal-tl-figs num">{{ e.forecast }} / {{ e.previous }}</span>
+        <span class="badge cal-state" data-state="{{ e.state }}" data-countdown="{{ e.at_iso }}">{{ e.state_label }}</span>
+      </li>
+    {% endfor %}
+    {% if cal.now_index >= cal.today | length %}<li class="cal-now-row" aria-label="Maintenant, {{ cal.now_label }}"><span>Maintenant · {{ cal.now_label }}</span></li>{% endif %}
+  </ol>
+  {% else %}
+    {{ nothing("Aucune annonce enregistrée aujourd'hui." if cal.total_events or not cal.sources else "Aucune annonce enregistrée aujourd'hui, et les sources n'ont pas encore répondu.") }}
+  {% endif %}
+</section>
+
+{# --- grille du mois + panneau du jour -------------------------------------------------- #}
+<div class="cal-split">
+  <section class="cal-month" aria-labelledby="h-month" id="month-grid">
+    <header class="cal-month-head">
+      <h2 id="h-month" class="cal-h2">{{ icon("calendar") }}<span>{{ cal.month.label | capitalize }}</span></h2>
+      <div class="cal-month-nav">
+        <a class="cal-nav" href="{{ cal.month.previous_href }}" data-day-link rel="prev" aria-label="Mois précédent">{{ icon("chevron-left") }}</a>
+        {% if not cal.month.is_current %}<a class="cal-nav cal-nav-today" href="{{ cal.month.today_href }}" data-day-link>Aujourd'hui</a>{% endif %}
+        <a class="cal-nav" href="{{ cal.month.next_href }}" data-day-link rel="next" aria-label="Mois suivant">{{ icon("chevron-right") }}</a>
+      </div>
+    </header>
+    <table class="cal-grid">
+      <caption class="sr-only">Calendrier de {{ cal.month.label }} : nombre d'annonces par jour</caption>
+      <thead><tr>{% for name in ("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim.") %}<th scope="col">{{ name }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for week in cal.weeks %}<tr>{% for c in week %}<td>{{ day_link(c) }}</td>{% endfor %}</tr>{% endfor %}
+      </tbody>
+    </table>
+    <p class="cal-meta">Les sources couvrent la semaine en cours et, quand elle est publiée, la suivante : un jour plus lointain apparaît vide sans qu'il le soit.</p>
+  </section>
+
+  <section class="cal-panel" id="day-panel" aria-labelledby="day-title" aria-live="polite">
+    <header class="cal-panel-head">
+      <h2 id="day-title" class="cal-h2" tabindex="-1">{{ icon("list") }}<span>{{ cal.selected_label | capitalize }}</span>{% if cal.selected_is_today %}<span class="badge cal-today-tag">aujourd'hui</span>{% endif %}</h2>
+      <span class="badge cal-count">{{ cal.selected_events | length }} annonce(s)</span>
+    </header>
+    {% if cal.selected_events %}
+      <div class="cal-events">
+        {% for e in cal.selected_events %}{{ event_card(e) }}{% endfor %}
+      </div>
+      <p class="cal-meta">Le chiffre « Réel » n'est fourni par aucune source gratuite : il reste « — » une fois la publication passée.</p>
+    {% else %}
+      {{ nothing(cal.selected_note) }}
+    {% endif %}
+    {% if cal.selected_headlines %}
+      <h3 class="cal-h3">Titres de presse de ce jour</h3>
+      <ul class="cal-lines">{% for e in cal.selected_headlines %}{{ event_line(e) }}{% endfor %}</ul>
+    {% endif %}
+  </section>
+</div>
+
+{# --- discours, déclarations, titres ---------------------------------------------------- #}
+<section class="cal-media" aria-labelledby="h-media">
+  <h2 id="h-media" class="cal-h2">{{ icon("radio") }}Discours, déclarations et presse</h2>
+  <p class="cal-meta">Ce que disent les banquiers centraux et les médias peut bouger l'or et le bitcoin sans calendrier. Les titres des dernières 48 h sont lus par le modèle quand il est disponible, sinon par les règles.</p>
+  <div class="cal-media-cols">
+    <div>
+      <h3 class="cal-h3">Discours et conférences</h3>
+      {% if cal.speeches %}<ul class="cal-lines">{% for e in cal.speeches %}{{ event_line(e) }}{% endfor %}</ul>
+      {% else %}{{ nothing("Aucun discours enregistré pour les prochains jours.") }}{% endif %}
+    </div>
+    <div>
+      <h3 class="cal-h3">Titres des médias (48 h)</h3>
+      {% if cal.headlines %}<ul class="cal-lines">{% for e in cal.headlines %}{{ event_line(e) }}{% endfor %}</ul>
+      {% else %}{{ nothing("Aucun titre retenu : soit les flux de presse sont en échec (voir ci-dessous), soit rien n'a touché l'or ou le bitcoin.") }}{% endif %}
+    </div>
+  </div>
+</section>
+
+{# --- sources + avertissement ------------------------------------------------------------ #}
+<section class="cal-sources" aria-labelledby="h-src">
+  <h2 id="h-src" class="cal-h2">{{ icon("database") }}Sources</h2>
+  {% if cal.sources %}
+  <ul class="cal-source-list">
+    {% for s in cal.sources %}
+    <li data-ok="{{ 'yes' if s.ok else 'no' }}">
+      <span class="cal-source-name">{{ icon("check-circle" if s.ok else "x-circle") }}{{ s.label }}</span>
+      <span class="cal-source-text">{{ s.text }}</span>
+      <span class="cal-source-age">{{ s.age }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+    {{ nothing("Aucune source n'a encore été interrogée.") }}
+  {% endif %}
+  <p class="cal-notice" role="note">{{ icon("info") }}<span>{{ cal.notice }}</span></p>
+</section>
+{% endblock %}

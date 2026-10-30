@@ -49,3 +49,6 @@ Thumbs.db
 
 # Vercel link (ids locaux)
 .vercel/
+
+# Claude Code local state (settings, worktrees, scratch)
+.claude/

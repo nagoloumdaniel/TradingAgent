@@ -183,6 +183,8 @@ def check_drawdown(ctx: RiskContext) -> CheckResult:
 def check_open_positions(ctx: RiskContext) -> CheckResult:
     """RM-008: simultaneous positions, all markets."""
     count, limit = len(ctx.portfolio.open_positions), ctx.limits.max_open_positions
+    if limit is None:
+        return _verdict("open_positions", True, f"{count} open, unlimited")
     return _verdict("open_positions", count < limit, f"{count} open, limit {limit}")
 
 
@@ -191,6 +193,8 @@ def check_market_positions(ctx: RiskContext) -> CheckResult:
     symbol = ctx.intent.symbol
     count = sum(1 for position in ctx.portfolio.open_positions if position.symbol == symbol)
     limit = ctx.limits.max_positions_per_market
+    if limit is None:
+        return _verdict("market_positions", True, f"{count} open on {symbol}, unlimited")
     return _verdict("market_positions", count < limit, f"{count} open on {symbol}, limit {limit}")
 
 
@@ -275,6 +279,8 @@ def check_total_exposure(ctx: RiskContext) -> CheckResult:
 def check_trades_today(ctx: RiskContext) -> CheckResult:
     """RM-008: trades opened today, all markets."""
     count, limit = ctx.portfolio.trades_today, ctx.limits.max_trades_per_day
+    if limit is None:
+        return _verdict("trades_today", True, f"{count} today, unlimited")
     return _verdict("trades_today", count < limit, f"{count} today, limit {limit}")
 
 
@@ -333,6 +339,35 @@ def check_cooldown(ctx: RiskContext) -> CheckResult:
     )
 
 
+def check_daily_loss_streak(ctx: RiskContext) -> CheckResult:
+    """Operator rule: once N consecutive losing trades have been closed on one UTC day,
+    no new trade opens until the next 00:00 UTC.
+
+    This is a lock, not a counter: the caller measures the longest run reached at any point
+    of the day (`risk.streak.longest_loss_run_today`), so a position opened earlier that
+    closes in profit afterwards does not lift it. The check re-reads the clock it was
+    given: a measure taken for another UTC day is stale and counts for nothing, so the
+    lock lifts at midnight even on a stale snapshot.
+    """
+    portfolio, limit = ctx.portfolio, ctx.limits.stop_after_losses_per_day
+    streak = portfolio.losses_today.longest
+    if limit is None:
+        return _verdict(
+            "daily_loss_streak", True, f"{streak} consecutive loss(es) today, rule disabled"
+        )
+    if portfolio.losses_today.day != ctx.now.date():
+        streak = 0
+    if streak < limit:
+        return _verdict(
+            "daily_loss_streak", True, f"{streak} consecutive loss(es) today, limit {limit}"
+        )
+    return _verdict(
+        "daily_loss_streak",
+        False,
+        f"{streak} pertes consécutives aujourd'hui, trades arrêtés jusqu'à demain 00:00 UTC",
+    )
+
+
 def check_live_eligibility(ctx: RiskContext) -> CheckResult:
     """RM-019: in LIVE, the minimum lot alone must fit the risk budget."""
     if not ctx.limits.is_live:
@@ -364,5 +399,6 @@ CHECKS: tuple[Callable[[RiskContext], CheckResult], ...] = (
     check_account_currency,
     check_trading_hours,
     check_cooldown,
+    check_daily_loss_streak,
     check_live_eligibility,
 )

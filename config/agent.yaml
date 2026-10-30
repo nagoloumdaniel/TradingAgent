@@ -36,11 +36,16 @@ risk:
     daily_loss_pct: 2
     weekly_loss_pct: 6
     max_drawdown_pct: 10
-    max_open_positions: 2
-    max_positions_per_market: 1
-    max_trades_per_day: 4
+    # Unlimited by operator decision (2026-10-30): no cap on open positions, positions per market
+    # or trades per day; the counts are still recorded with each decision. Capital protection
+    # remains risk_per_trade, daily/weekly loss, drawdown and the exposure ceiling.
+    max_open_positions: null
+    max_positions_per_market: null
+    max_trades_per_day: null
     cooldown_after_losses: 3
     cooldown_hours: 4
+    # 3 consecutive losses closed on the same UTC day: no new trade until 00:00 UTC (null = off).
+    stop_after_consecutive_losses_per_day: 3
     max_spread_stop_pct: 10
     margin_usage_pct: 50
   live:
@@ -51,10 +56,37 @@ risk:
     daily_loss_pct: 5
     weekly_loss_pct: 10
     max_drawdown_pct: 20
-    max_open_positions: 2
-    max_positions_per_market: 1
-    max_trades_per_day: 2
+    # Unlimited by operator decision (2026-10-30): no cap on open positions, positions per market
+    # or trades per day; the counts are still recorded with each decision. Capital protection
+    # remains risk_per_trade, daily/weekly loss, drawdown and the exposure ceiling.
+    max_open_positions: null
+    max_positions_per_market: null
+    max_trades_per_day: null
     cooldown_after_losses: 2
     cooldown_hours: 12
+    stop_after_consecutive_losses_per_day: 3
     max_spread_stop_pct: 10
     margin_usage_pct: 50
+
+# Economic calendar (optional; every value below is the default, so the section can be omitted).
+# A candidate signal is refused when it would open inside the window around a high-impact
+# announcement (30 minutes either side for FOMC / NFP / CPI / rate decisions). The AI only reads
+# the calendar; a missing key or a dead feed never stops the agent (the gate fails open).
+# `fail_closed_when_blind` flips that for real money only: with it true AND trading_mode LIVE, a
+# calendar the gate cannot see (never fetched, older than max_staleness_minutes, or an empty
+# weekday export) REFUSES new signals with a motif instead of letting them through. It stays
+# reject-only (it never creates or loosens a signal). In SIGNAL/PAPER/DEMO it changes nothing:
+# the gate keeps failing open and says so with a `news_gate_degraded` warning (once per episode).
+# news:
+#   enabled: true
+#   fail_closed_when_blind: false
+#   poll_minutes: 20
+#   daily_hour_utc: 6
+#   ai_daily_budget_eur: 0.30
+#   blackout:
+#     enabled: true
+#     high_before_minutes: 15
+#     high_after_minutes: 15
+#     major_before_minutes: 30
+#     major_after_minutes: 30
+#     medium_enabled: false

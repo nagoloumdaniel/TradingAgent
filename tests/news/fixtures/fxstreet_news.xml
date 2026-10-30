@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>FXStreet Forex &amp; Commodities News</title>
+        <link>https://www.fxstreet.com/news/feed</link>
+        <description>Real-time Forex News and the latest trading updates. Stay updated on the latest news about currencies and commodities markets.</description>
+        <lastBuildDate>Fri, 30 Oct 2026 14:25:26 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <atom:link href="https://www.fxstreet.com/rss/news" rel="self" type="application/rss+xml"/>
+        <item>
+            <title><![CDATA[Gold slides over 2.5% to yearly lows as risk-off mood offers little support]]></title>
+            <link>https://www.fxstreet.com/news/gold-slips-below-4-000-despite-risk-off-mood-as-hawkish-fed-expectations-weigh-202610301110</link>
+            <guid isPermaLink="false">218fcbbd-054c-4d0e-8594-e8ae270b01a2</guid>
+            <pubDate>Fri, 30 Oct 2026 11:10:02 GMT</pubDate>
+            <description><![CDATA[Gold (XAU/USD) plunges more than 2.5% on Friday, hitting fresh year-to-date lows.]]></description>
+            <enclosure url="https://editorial.fxsstatic.com/images/i/gold-march-04.jpg" length="0" type="image/jpg"/>
+        </item>
+<item>
+            <title><![CDATA[Euro retreats despite stronger GDP and hawkish ECB signals]]></title>
+            <link>https://www.fxstreet.com/news/euro-retreats-despite-stronger-gdp-and-hawkish-ecb-signals-202610301407</link>
+            <guid isPermaLink="false">89f641ba-d6da-4aab-88d6-f9768d30e4d9</guid>
+            <pubDate>Fri, 30 Oct 2026 14:07:48 GMT</pubDate>
+            <description><![CDATA[EUR/USD turns lower on Friday, giving up earlier gains as the US Dollar (USD) rebounds amid heightened volatility across financial markets. At the time of writing, the pair trades around 1.1140 after reaching an intraday high of 1.1214.]]></description>
+            <enclosure url="https://editorial.fxsstatic.com/images/i/EURUSD-bearish-object.png" length="0" type="image/png"/>
+        </item>
+<item>
+            <title><![CDATA[European Central Bank: December hike still base case – UOB]]></title>
+            <link>https://www.fxstreet.com/news/european-central-bank-december-hike-still-base-case-uob-202610301403</link>
+            <guid isPermaLink="false">a3f0b5ce-015e-40cd-84e0-c3587150ffc5</guid>
+            <pubDate>Fri, 30 Oct 2026 14:03:44 GMT</pubDate>
+            <description><![CDATA[UOB economist Lee Sue Ann notes that the European Central Bank (ECB) kept key rates unchanged in October but delivered a hawkish message.]]></description>
+            <enclosure url="https://editorial.fxsstatic.com/images/i/Discover-f-16.jpg" length="0" type="image/jpg"/>
+        </item>
+<item>
+            <title><![CDATA[Norges Bank: Rate path seen steady – Nordea]]></title>
+            <link>https://www.fxstreet.com/news/norges-bank-rate-path-seen-steady-nordea-202610301343</link>
+            <guid isPermaLink="false">c56d079f-8f7c-434e-bcfe-6c84786bd541</guid>
+            <pubDate>Fri, 30 Oct 2026 13:43:38 GMT</pubDate>
+            <description><![CDATA[Nordea’s Kjetil Olsen expects Norges Bank to keep its key policy rate at 4.5% next Thursday, in line with the September rate path. He notes mixed data: slightly higher core inflation and energy prices versus a stronger NOK and softer retail sales. Olsen argues communication will stay broadly unchanged and that rate cuts are unlikely before inflation clearly converges to the 2% target, which he does not foresee before 2028.]]></description>
+            <enclosure url="https://editorial.fxsstatic.com/images/i/Norway.png" length="0" type="image/png"/>
+        </item>
+<item>
+            <title><![CDATA[Bank of England: Gradual hiking path – Rabobank]]></title>
+            <link>https://www.fxstreet.com/news/bank-of-england-gradual-hiking-path-rabobank-202610301323</link>
+            <guid isPermaLink="false">6d08ea3e-c58a-476c-af9f-cd3e483f4dc4</guid>
+            <pubDate>Fri, 30 Oct 2026 13:23:50 GMT</pubDate>
+            <description><![CDATA[Rabobank strategist Stefan Koopman expects the Bank of England’s (BoE) Monetary Policy Committee (MPC) to raise Bank Rate to 4.00% in November 2026 in a 7-2 split, followed by another 25bp hike to 4.25% in February 2027. The report stresses that higher market rates have already tightened conditions, but argues policymakers must now validate pricing. Fiscal policy is seen as a minor offset to the energy-driven inflation shock.]]></description>
+            <enclosure url="https://editorial.fxsstatic.com/images/i/BoE.png" length="0" type="image/png"/>
+        </item>
+    </channel>
+</rss>

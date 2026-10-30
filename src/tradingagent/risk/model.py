@@ -11,6 +11,7 @@ from decimal import Decimal
 from tradingagent.config.agent import LiveRiskProfile, RiskConfig, RiskProfile
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
+from tradingagent.risk.streak import DayLossRun
 
 HUNDRED = Decimal(100)
 CROSS_CHECK_TOLERANCE = Decimal("0.02")
@@ -28,6 +29,9 @@ DEFAULT_MAX_TOTAL_EXPOSURE = Decimal("2")
 # fits gold and bitcoin alike, exactly as `max_spread_stop_pct` does. One means the
 # expected adverse slippage may not exceed the spread itself.
 DEFAULT_MAX_SLIPPAGE_TO_SPREAD = Decimal("1")
+
+# Operator rule of 2026-10-30: three losses in a row on one UTC day end that day's trading.
+DEFAULT_STOP_AFTER_LOSSES_PER_DAY = 3
 
 
 @dataclass(frozen=True)
@@ -172,6 +176,11 @@ class PortfolioState:
     equity_peak: Decimal
     consecutive_losses: int
     last_loss_at: datetime | None
+    # The operator's daily stop is a lock: the longest run of losses reached at any point
+    # of the current UTC day, with the day it was measured for (see `risk.streak`). A later
+    # win does not lift it. Deliberately required, with no default: a caller that forgets to
+    # measure it fails to build the state instead of silently skipping the rule.
+    losses_today: DayLossRun
     # RM-008: current notional exposure of every open position, all markets summed, in
     # EUR. Computed by the caller, because `OpenPosition` carries neither the contract
     # size nor a price — only the caller holds the instrument specs and the quotes of
@@ -191,9 +200,10 @@ class RiskLimits:
     daily_loss: Decimal
     weekly_loss: Decimal
     max_drawdown: Decimal
-    max_open_positions: int
-    max_positions_per_market: int
-    max_trades_per_day: int
+    # None means unlimited: the checks still count and report, they just never refuse.
+    max_open_positions: int | None
+    max_positions_per_market: int | None
+    max_trades_per_day: int | None
     cooldown_after_losses: int
     cooldown: timedelta
     max_spread_to_stop: Decimal
@@ -203,6 +213,9 @@ class RiskLimits:
     # RM-008 and RM-012 ceilings; see the module constants for why they default here.
     max_total_exposure: Decimal = DEFAULT_MAX_TOTAL_EXPOSURE
     max_slippage_to_spread: Decimal = DEFAULT_MAX_SLIPPAGE_TO_SPREAD
+    # Consecutive losses closed within one UTC day that stop trading until 00:00 UTC.
+    # None disables the rule.
+    stop_after_losses_per_day: int | None = DEFAULT_STOP_AFTER_LOSSES_PER_DAY
 
     @property
     def is_live(self) -> bool:
@@ -238,4 +251,5 @@ def limits_for(mode: TradingMode, config: RiskConfig) -> RiskLimits:
         # §21 ceilings, now declared by the operator in agent.yaml like every other limit.
         max_total_exposure=profile.max_total_exposure_pct / HUNDRED,
         max_slippage_to_spread=profile.max_slippage_to_spread,
+        stop_after_losses_per_day=profile.stop_after_consecutive_losses_per_day,
     )

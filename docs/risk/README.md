@@ -9,7 +9,7 @@ l'état d'arrêt (`halt`).
 Un seul contrôle n'est pas un verdict mais une erreur fatale : RM-017, la cohérence
 compte/mode, levée par `core/account.py` et non listée ci-dessous.
 
-## Les 17 contrôles
+## Les 18 contrôles
 
 | # | Contrôle (`risk/checks.py`) | Règle métier | Ce qu'il refuse |
 |---|---|---|---|
@@ -20,22 +20,38 @@ compte/mode, levée par `core/account.py` et non listée ci-dessous.
 | 5 | `check_daily_loss` | RM-006 — perte quotidienne | perte du jour plus le risque entier de l'opération au-delà du seuil |
 | 6 | `check_weekly_loss` | RM-007 — perte hebdomadaire | perte de la semaine plus le risque de l'opération au-delà du seuil |
 | 7 | `check_drawdown` | RM-007 — drawdown | baisse depuis le pic d'équité au-delà du seuil |
-| 8 | `check_open_positions` | RM-008 — nombre de positions | nombre maximal de positions simultanées atteint, tous marchés |
-| 9 | `check_market_positions` | RM-008 — une position par marché | une position déjà ouverte sur le marché visé |
+| 8 | `check_open_positions` | RM-008 — nombre de positions | plafond de positions simultanées (tous marchés) atteint ; `null` dans `agent.yaml` = illimité, le décompte reste consigné (« 3 open, unlimited ») |
+| 9 | `check_market_positions` | RM-008 — une position par marché | plafond de positions sur le marché visé atteint ; `null` = illimité, décompte par marché consigné |
 | 10 | `check_total_exposure` | RM-008 — exposition totale | exposition notionnelle ouverte **plus** celle de l'ordre au-delà du plafond |
-| 11 | `check_trades_today` | RM-008 — opérations du jour | nombre maximal d'opérations quotidiennes atteint |
+| 11 | `check_trades_today` | RM-008 — opérations du jour | plafond d'opérations du jour atteint ; `null` = illimité, décompte du jour consigné |
 | 12 | `check_spread` | RM-012 — spread | spread observé supérieur au pourcentage configuré de la distance de stop |
 | 13 | `check_margin` | RM-012 — marge | marge libre insuffisante pour porter le lot minimal |
 | 14 | `check_account_currency` | Invariant — unités | compte dans une devise autre que l'EUR (les montants seraient mélangés) |
 | 15 | `check_trading_hours` | F-005 — horaires | marché fermé ou non prouvé ouvert |
 | 16 | `check_cooldown` | Refroidissement | reprise trop tôt après une série de pertes |
-| 17 | `check_live_eligibility` | RM-019 — éligibilité au réel | en `LIVE`, lot minimal déjà au-dessus du risque autorisé |
+| 17 | `check_daily_loss_streak` | Règle opérateur — pertes successives | verrou : dès que la plus longue série de pertes consécutives clôturées le jour UTC courant atteint `stop_after_consecutive_losses_per_day` (défaut 3), plus aucun trade jusqu'à 00:00 UTC, même si un gain suit (`null` désactive) |
+| 18 | `check_live_eligibility` | RM-019 — éligibilité au réel | en `LIVE`, lot minimal déjà au-dessus du risque autorisé |
 
 S'y ajoute le contrôle `sizing` (RM-005 et section 9 du cahier), exécuté après les
-17 autres : il borne la taille par le risque, la marge, la taille maximale de
+18 autres : il borne la taille par le risque, la marge, la taille maximale de
 l'instrument et le plafond configuré, et refuse si le lot minimal est inatteignable.
-`decide` enregistre donc 18 verdicts ; la décision, les motifs et l'état du signal sont
+`decide` enregistre donc 19 verdicts ; la décision, les motifs et l'état du signal sont
 persistés ensemble par `storage/risk_decisions.py`.
+
+## Plafonds illimités : ce qui garde la main
+
+Décision opérateur (2026-10-30) : `config/agent.yaml` laisse `max_open_positions`,
+`max_positions_per_market` et `max_trades_per_day` à `null` (illimité). En mode réel ces
+trois clés n'ont **pas** de valeur par défaut : les omettre est une erreur de
+configuration (`risk.live : ... obligatoire(s) en mode réel`), pour qu'« illimité » reste
+un choix écrit et jamais un oubli. Le profil simulé garde `null` par défaut.
+
+Conséquence côté EA (`ea/bridge.py`) : l'agent publie `max_positions = 0`, que l'EA lit
+comme « pas de plafond ». L'EA ne limite donc plus l'empilement de positions. Il n'y a pas
+de plafond de volume total (`max_total_volume` n'est pas publié, aucune valeur de
+configuration ne le définit). Les vrais garde-fous sont ceux du moteur de risque : risque
+par trade, perte quotidienne et hebdomadaire, drawdown, plafond d'exposition totale
+(`check_total_exposure`) et le verrou « 3 pertes consécutives dans la journée ».
 
 ## Couverture du §21 du cahier
 

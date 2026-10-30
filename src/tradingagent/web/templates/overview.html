@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import dot %}
+{% from "_macros.html" import dot, halt_banners %}
 {% from "_icons.html" import icon, head, fold, badge %}
 {% block title %}Vue d'ensemble{% endblock %}
 {% block content %}
@@ -24,22 +24,7 @@
   {% set state, state_label = "ok", "Trading actif" %}
 {% endif %}
 
-{% if data.halt.halted %}
-  <div class="banner bad">{{ icon("x-circle") }}
-    <strong>Trading arrêté.</strong>
-    {% for reason in data.halt.reasons %}<div>{{ reason }}</div>{% endfor %}
-    {% if data.halt.close_positions %}<div>Fermeture des positions demandée.</div>{% endif %}
-  </div>
-{% endif %}
-{% if ea_halted %}
-  <div class="banner bad">{{ icon("x-circle") }}
-    <strong>Garde EA en arrêt.</strong>
-    {% for guardian in ea_halted %}
-      <div>{{ guardian.symbol }} : kill switch {{ 'actif' if guardian.kill_switch else 'inactif' }},
-        arrêt local {{ 'actif' if guardian.local_halt else 'inactif' }}{% if guardian.halt_reason %} ({{ guardian.halt_reason }}){% endif %}.</div>
-    {% endfor %}
-  </div>
-{% endif %}
+{{ halt_banners(data.halt, ea_halted, "/risk") }}
 
 <h2 class="sr-only">Indicateurs clés</h2>
 {% set dd = data.account.drawdown %}
@@ -103,7 +88,7 @@
   </section>
 
   <section class="mod" aria-labelledby="h-open">
-    {{ head("h-open", "layers", "Positions ouvertes", data.positions | length) }}
+    {{ head("h-open", "layers", "Positions ouvertes") }}
     <div class="table-wrap flat">
     <table>
       <caption class="sr-only">Positions ouvertes</caption>
@@ -147,10 +132,6 @@
       <div class="banner warn">{{ icon("alert-triangle") }}Échantillon insuffisant ({{ t.trades }} trades) : Sharpe et Sortino sont masqués.</div>
     {% endif %}
     <dl class="stats dense">
-      <div class="stat" title="Depuis lundi 00:00 UTC"><dt>P&amp;L de la semaine</dt>
-        <dd class="{{ display.ratio_class(data.pnl_week) }}">{{ display.money(data.pnl_week, signed=True) }}</dd></div>
-      <div class="stat" title="Depuis le 1er du mois, 00:00 UTC"><dt>P&amp;L du mois</dt>
-        <dd class="{{ display.ratio_class(data.pnl_month) }}">{{ display.money(data.pnl_month, signed=True) }}</dd></div>
       <div class="stat"><dt>Résultat net (total)</dt>
         <dd class="{{ display.ratio_class(t.net_profit) }}">{{ display.money(t.net_profit, signed=True) }}
           <small>{{ t.trades }} trade(s) clôturé(s)</small></dd></div>

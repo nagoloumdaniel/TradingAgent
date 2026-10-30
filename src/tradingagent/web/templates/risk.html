@@ -1,27 +1,10 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon, head, fold, badge, nothing %}
-{% from "_macros.html" import pager, search_field, market_select, dot %}
+{% from "_macros.html" import pager, search_field, market_select, dot, day_control, cap, halt_banners %}
 {% block title %}Risque{% endblock %}
 {% block content %}
 
-{% if data.halt.halted %}
-  <div class="banner bad">{{ icon("x-circle") }}
-    <strong>Trading arrêté.</strong>
-    <ul>
-      {% for reason in data.halt.reasons %}<li>{{ reason }}</li>{% endfor %}
-    </ul>
-    {% if data.halt.close_positions %}<div>Fermeture des positions demandée.</div>{% endif %}
-  </div>
-{% endif %}
-{% if ea_halted %}
-  <div class="banner bad">{{ icon("x-circle") }}
-    <strong>Un garde EA est en arrêt.</strong>
-    {% for guardian in ea_halted %}
-      <div>{{ guardian.symbol }} : kill switch {{ 'actif' if guardian.kill_switch else 'inactif' }},
-        arrêt local {{ 'actif' if guardian.local_halt else 'inactif' }}{% if guardian.halt_reason %} ({{ guardian.halt_reason }}){% endif %}.</div>
-    {% endfor %}
-  </div>
-{% endif %}
+{{ halt_banners(data.halt, ea_halted) }}
 
 <div class="cards">
   <div class="card" title="Lecture pessimiste : un état illisible compte comme arrêté">
@@ -31,6 +14,13 @@
   <div class="card"><div class="label">{{ icon("layers") }}Marchés désactivés</div>
     <div class="value">{{ data.halted_markets | length }}</div>
     {% if data.halted_markets %}<div class="note">{{ data.halted_markets | join(', ') }}</div>{% endif %}</div>
+  {% if daily_stop %}
+  <div class="card" title="Après {{ daily_stop.limit }} pertes consécutives dans la journée UTC, les nouveaux trades s'arrêtent jusqu'à 00:00 UTC">
+    {% if daily_stop.triggered %}{{ dot("bad", "Arrêt journalier déclenché") }}{% else %}{{ dot("ok", "Arrêt journalier actif, non déclenché") }}{% endif %}
+    <div class="label">{{ icon("timer") }}Arrêt après pertes</div>
+    <div class="value">{{ daily_stop.losses }} / {{ daily_stop.limit }}</div>
+    <div class="note">{% if daily_stop.triggered %}déclenché, reprise à 00:00 UTC{% else %}règle active, pertes consécutives du jour{% endif %}</div></div>
+  {% endif %}
   <div class="card" title="Stratégie × marché suspendues"><div class="label">{{ icon("alert-triangle") }}Paires en quarantaine</div>
     <div class="value">{{ data.halted_pairs | length }}</div></div>
   <div class="card" title="Risque évité par les refus (F-011)"><div class="label">{{ icon("shield") }}Refus du risque</div>
@@ -128,7 +118,7 @@
     <tr><th scope="col">Profil</th><th scope="col" class="num">Risque / trade</th><th scope="col" class="num">Perte jour</th>
         <th scope="col" class="num">Perte semaine</th><th scope="col" class="num">Drawdown max</th>
         <th scope="col" class="num">Positions max</th><th scope="col" class="num">Par marché</th><th scope="col" class="num">Trades / jour</th>
-        <th scope="col" class="num">Refroidissement</th><th scope="col" class="num">Heures</th><th scope="col" class="num">Spread/stop max</th>
+        <th scope="col" class="num">Arrêt / pertes du jour</th><th scope="col" class="num">Refroidissement</th><th scope="col" class="num">Heures</th><th scope="col" class="num">Spread/stop max</th>
         <th scope="col" class="num">Marge max</th><th scope="col" class="num">Volume max</th><th scope="col" class="num">Capital de référence</th></tr>
   </thead>
   <tbody>
@@ -139,9 +129,10 @@
         <td class="num">{{ display.percent_points(limits.daily_loss_pct) }}</td>
         <td class="num">{{ display.percent_points(limits.weekly_loss_pct) }}</td>
         <td class="num">{{ display.percent_points(limits.max_drawdown_pct) }}</td>
-        <td class="num">{{ limits.max_open_positions }}</td>
-        <td class="num">{{ limits.max_positions_per_market }}</td>
-        <td class="num">{{ limits.max_trades_per_day }}</td>
+        <td class="num">{{ cap(limits.max_open_positions) }}</td>
+        <td class="num">{{ cap(limits.max_positions_per_market) }}</td>
+        <td class="num">{{ cap(limits.max_trades_per_day) }}</td>
+        <td class="num">{{ cap(limits.stop_after_losses_per_day) }}</td>
         <td class="num">{{ limits.cooldown_after_losses }}</td>
         <td class="num">{{ display.number(limits.cooldown_hours, 1) }}</td>
         <td class="num">{{ display.percent_points(limits.max_spread_stop_pct) }}</td>
@@ -150,13 +141,14 @@
         <td class="num">{{ display.money(limits.reference_capital) }}{% if limits.currency %} {{ limits.currency }}{% endif %}</td>
       </tr>
     {% else %}
-      <tr><td colspan="14" class="empty">Configuration de risque illisible ou absente.</td></tr>
+      <tr><td colspan="15" class="empty">Configuration de risque illisible ou absente.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
 {% endcall %}
-{% call fold("h-events", "list", "Événements système", data.events.total, "wide", false, "") %}
+{% call fold("h-events", "list", "Événements système", data.events.total ~ " " ~ day.label, "wide", false, "") %}
+{{ day_control(day, "/risk", {"q": data.events.query, "market": data.events.market, "hpage": ""}, "événements") }}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Événements système, marché {{ data.events.market or 'tous' }} : {{ data.events.total }} événement(s), {{ data.events.showing }}. Les événements sans marché concernent le compte entier et restent affichés.</caption>

@@ -10,11 +10,13 @@ from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine
+from sqlalchemy import Engine, insert
 from tests.web import seed
 
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
+from tradingagent.core.states import Severity
+from tradingagent.storage.models import SystemEventRow
 from tradingagent.web import queries
 from tradingagent.web.app import create_app
 
@@ -280,29 +282,46 @@ def test_a_protected_page_stays_protected_when_it_is_paginated(
 
 
 # ---------------------------------------------------------------------------------------
-# The alerts section: aligned columns rather than a list of running text.
+# The alerts: one number for today here, the list one day at a time on /system.
 # ---------------------------------------------------------------------------------------
 
 
-def test_the_alerts_section_aligns_its_columns(seeded_client: TestClient) -> None:
+def test_the_positions_page_counts_todays_alerts_and_links_to_the_list(
+    seeded_client: TestClient,
+) -> None:
     body = seeded_client.get("/positions").text
 
+    # No second copy of the error list: it lives on /system, scoped to one day.
     assert '<ul class="alerts"' not in body
-    for column in ("Horodatage (UTC)", "Gravité", "Type", "Détail"):
-        assert f'<th scope="col">{column}</th>' in body
-    # The seeded critical event carries its severity badge, in its own aligned cell.
-    assert "clock_mismatch" in body
-    assert 'class="badge bad"' in body
+    assert 'id="alerts-list"' not in body
+    assert "Alertes du jour" in body
+    assert re.search(r'id="alert-count">2<', body)  # the seeded warning and critical
+    assert 'href="/system"' in body
 
 
-def test_the_alerts_list_is_still_the_live_feed_target(seeded_client: TestClient) -> None:
+def test_old_alerts_do_not_count_as_todays(engine: Engine, populated: seed.Seeded) -> None:
+    del populated
+    with engine.begin() as connection:
+        connection.execute(
+            insert(SystemEventRow).values(
+                kind="feed_lost",
+                severity=Severity.CRITICAL,
+                detail={},
+                occurred_at=seed.NOW - timedelta(days=2),
+            )
+        )
+
+    with TestClient(create_app(engine, now=lambda: seed.NOW)) as client:
+        body = client.get("/positions").text
+
+    assert re.search(r'id="alert-count">2<', body)
+
+
+def test_the_alert_count_is_still_fed_by_the_live_stream(seeded_client: TestClient) -> None:
     body = seeded_client.get("/positions").text
 
-    assert 'id="alerts-list"' in body
     assert 'new EventSource("/events?market="' in body
-    # The first stream cycle repeats what the server already rendered: the page must key
-    # the rows so the feed completes the list instead of duplicating it.
-    assert "alertKey" in body
+    assert "payload.count" in body
 
 
 # ---------------------------------------------------------------------------------------
