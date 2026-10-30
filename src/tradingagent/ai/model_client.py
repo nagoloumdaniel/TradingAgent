@@ -26,12 +26,13 @@ class ModelClient:
             else anthropic.Anthropic(api_key=api_key, base_url=base_url)
         )
 
-    async def complete(self, system: str, user: str) -> AiReply:
+    async def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> AiReply:
+        """`max_tokens` defaults to what a signal verdict needs; the news batches ask for more."""
 
         def create() -> object:
             message = self._client.messages.create(
                 model=self._model,
-                max_tokens=1024,
+                max_tokens=max_tokens,
                 system=system,
                 messages=[{"role": "user", "content": user}],
             )

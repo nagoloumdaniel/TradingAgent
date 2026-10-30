@@ -19,6 +19,9 @@
       button.setAttribute("aria-pressed", String(light));
       button.setAttribute("aria-label", label);
       button.setAttribute("title", label);
+      /* The browser chrome follows the page canvas, not the system theme. */
+      var chrome = document.querySelector('meta[name="theme-color"]');
+      if (chrome) { chrome.setAttribute("content", light ? "#ebebed" : "#0a0a0b"); }
     }
     button.addEventListener("click", function () {
       var next = current() === "light" ? "dark" : "light";

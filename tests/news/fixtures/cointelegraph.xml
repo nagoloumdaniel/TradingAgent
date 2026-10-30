@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:media="http://search.yahoo.com/mrss/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:sy="http://purl.org/rss/1.0/modules/syndication/" xmlns:slash="http://purl.org/rss/1.0/modules/slash/">
+  <channel>
+    <title>Cointelegraph.com News</title>
+    <link>https://cointelegraph.com</link>
+    <atom:link href="https://cointelegraph.com/rss" rel="self" type="application/rss+xml"/>
+    <description>Cointelegraph covers fintech, blockchain and Bitcoin bringing you the latest crypto news and analyses on the future of money.</description>
+    <generator>cointelegraph.com</generator>
+    <lastBuildDate>Fri, 30 Oct 2026 14:22:41 +0000</lastBuildDate>
+    <language>en</language>
+    <sy:updatePeriod>hourly</sy:updatePeriod>
+    <sy:updateFrequency>1</sy:updateFrequency>
+    <image>
+      <title>Cointelegraph.com News</title>
+      <link>https://cointelegraph.com</link>
+      <url>https://s3.cointelegraph.com/storage/uploads/view/b9ea15d46738b4df64e6e100ab59b373.png</url>
+      <description>Cointelegraph covers fintech, blockchain and Bitcoin bringing you the latest crypto news and analyses on the future of money.</description>
+    </image>
+    <item>
+      <title>Live updates: Binance says $6.34B set aside to cover hack losses</title>
+      <pubDate>Fri, 30 Oct 2026 14:12:26 +0000</pubDate>
+      <atom:updated>Fri, 30 Oct 2026 14:20:22 +0000</atom:updated>
+      <guid isPermaLink="true">https://cointelegraph.com/news/live-updates-binance-63b-hack-linked-to-north-koreas-tradertraitor</guid>
+      <link><![CDATA[https://cointelegraph.com/news/live-updates-binance-63b-hack-linked-to-north-koreas-tradertraitor?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound]]></link>
+      <description><![CDATA[<p style="float:right; margin:0 0 10px 15px; width:240px;"><img src="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M65VKEHPWZPADDH0AZM1CR3Q/trying-to-open-monitor-1.jpg" alt="Live updates: Binance says $6.34B set aside to cover hack losses" class="type:primaryImage"></p><p>Follow live updates as Binance says $6.3 billion in assets have been stolen in a major hack. Around $3 billion in stolen funds have been frozen. </p>]]></description>
+      <dc:creator>Cointelegraph by Felix Ng</dc:creator>
+      <media:content url="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M65VKEHPWZPADDH0AZM1CR3Q/trying-to-open-monitor-1.jpg" fileSize="504911" type="image/jpeg" medium="image" height="966" width="1450">
+        <credit>Cointelegraph</credit>
+        <media:credit role="publishing company">Cointelegraph</media:credit>
+      </media:content>
+      <enclosure url="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M65VKEHPWZPADDH0AZM1CR3Q/trying-to-open-monitor-1.jpg" length="504911" type="image/jpeg"/>
+      <category>Latest News</category>
+    </item>
+<item>
+      <title>Here’s what happened in crypto today</title>
+      <pubDate>Fri, 30 Oct 2026 14:07:42 +0000</pubDate>
+      <atom:updated>Fri, 30 Oct 2026 14:17:44 +0000</atom:updated>
+      <guid isPermaLink="true">https://cointelegraph.com/news/what-happened-in-crypto-today</guid>
+      <link><![CDATA[https://cointelegraph.com/news/what-happened-in-crypto-today?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound]]></link>
+      <description><![CDATA[<p style="float:right; margin:0 0 10px 15px; width:240px;"><img src="https://s3-images.ctmedia.io/media/article-covers/article-covers-110589-what-happened-in-crypto-today.jpg" alt="Here’s what happened in crypto today" class="type:primaryImage"></p><p>Need to know what happened in crypto today? Here is the latest news on daily trends and events impacting Bitcoin price, blockchain, DeFi, Web3 and crypto regulation.</p>]]></description>
+      <dc:creator>Cointelegraph by Yohan Yun</dc:creator>
+      <media:content url="https://s3-images.ctmedia.io/media/article-covers/article-covers-110589-what-happened-in-crypto-today.jpg" fileSize="848525" type="image/jpeg" medium="image" height="966" width="1450">
+        <credit>Cointelegraph</credit>
+        <media:credit role="publishing company">Cointelegraph</media:credit>
+      </media:content>
+      <enclosure url="https://s3-images.ctmedia.io/media/article-covers/article-covers-110589-what-happened-in-crypto-today.jpg" length="848525" type="image/jpeg"/>
+      <category>Latest News</category>
+    </item>
+<item>
+      <title>Will gold’s ‘infinite mint bug’ make Bitcoin more valuable?</title>
+      <pubDate>Fri, 30 Oct 2026 13:30:00 +0000</pubDate>
+      <atom:updated>Fri, 30 Oct 2026 00:05:22 +0000</atom:updated>
+      <guid isPermaLink="true">https://cointelegraph.com/magazine/will-golds-infinite-mint-bug-make-bitcoin-more-valuable</guid>
+      <link><![CDATA[https://cointelegraph.com/magazine/will-golds-infinite-mint-bug-make-bitcoin-more-valuable?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound]]></link>
+      <description><![CDATA[<p style="float:right; margin:0 0 10px 15px; width:240px;"><img src="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M63WZ15V7ZF12NWAD2K229V7/hi-magazine-unexpected-crypto-millionaires.png" alt="Will gold’s ‘infinite mint bug’ make Bitcoin more valuable?" class="type:primaryImage"></p><p>A US fusion startup says it has turned mercury into gold. Could a potential increase in the gold supply strengthen Bitcoin’s claim to be a better form of digital gold?</p>]]></description>
+      <dc:creator>Cointelegraph by Christina Comben</dc:creator>
+      <media:content url="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M63WZ15V7ZF12NWAD2K229V7/hi-magazine-unexpected-crypto-millionaires.png" fileSize="1724084" type="image/png" medium="image" height="768" width="1376">
+        <credit>Cointelegraph</credit>
+        <media:credit role="publishing company">Cointelegraph</media:credit>
+      </media:content>
+      <enclosure url="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M63WZ15V7ZF12NWAD2K229V7/hi-magazine-unexpected-crypto-millionaires.png" length="1724084" type="image/png"/>
+      <category>Magazine</category>
+    </item>
+<item>
+      <title>Binance working with FBI to recover assets following $6.3B hack</title>
+      <pubDate>Fri, 30 Oct 2026 13:11:10 +0000</pubDate>
+      <atom:updated>Fri, 30 Oct 2026 13:11:28 +0000</atom:updated>
+      <guid isPermaLink="true">https://cointelegraph.com/news/binance-fbi-recover-assets-hack</guid>
+      <link><![CDATA[https://cointelegraph.com/news/binance-fbi-recover-assets-hack?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound]]></link>
+      <description><![CDATA[<p style="float:right; margin:0 0 10px 15px; width:240px;"><img src="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M66DY7634YFAY00EZKKKTQV0/hi-crypto-crime-investigation-regulation-police-cybercrime-criminal-detective-token.jpg" alt="Binance working with FBI to recover assets following $6.3B hack" class="type:primaryImage"></p><p>Binance is working with law enforcement to recover $3 billion that is frozen, after setting aside more than $6.3 billion from the company’s funds to cover the shortfall.</p>]]></description>
+      <dc:creator>Cointelegraph by Zoltan Vardai</dc:creator>
+      <media:content url="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M66DY7634YFAY00EZKKKTQV0/hi-crypto-crime-investigation-regulation-police-cybercrime-criminal-detective-token.jpg" fileSize="518227" type="image/jpeg" medium="image" height="966" width="1450">
+        <credit>Cointelegraph</credit>
+        <media:credit role="publishing company">Cointelegraph</media:credit>
+      </media:content>
+      <enclosure url="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M66DY7634YFAY00EZKKKTQV0/hi-crypto-crime-investigation-regulation-police-cybercrime-criminal-detective-token.jpg" length="518227" type="image/jpeg"/>
+      <category>Latest News</category>
+    </item>
+<item>
+      <title>Binance says it holds $5B in matching tokens to cover hack losses</title>
+      <pubDate>Fri, 30 Oct 2026 12:41:43 +0000</pubDate>
+      <atom:updated>Fri, 30 Oct 2026 13:33:27 +0000</atom:updated>
+      <guid isPermaLink="true">https://cointelegraph.com/news/binance-5-billion-replacement-crypto-in-custody</guid>
+      <link><![CDATA[https://cointelegraph.com/news/binance-5-billion-replacement-crypto-in-custody?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound]]></link>
+      <description><![CDATA[<p style="float:right; margin:0 0 10px 15px; width:240px;"><img src="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M66BRB3N5FEXF6ZJA32PXWYM/hi-binance-is-now-accumulating-btc-at-an-even-faster-rate.jpg" alt="Binance says it holds $5B in matching tokens to cover hack losses" class="type:primaryImage"></p><p>The exchange said it set aside more than $6.34 billion to cover losses and would include the assets in its next proof-of-reserves report.</p>]]></description>
+      <dc:creator>Cointelegraph by Helen Partz</dc:creator>
+      <media:content url="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M66BRB3N5FEXF6ZJA32PXWYM/hi-binance-is-now-accumulating-btc-at-an-even-faster-rate.jpg" fileSize="810954" type="image/jpeg" medium="image" height="966" width="1450">
+        <credit>Cointelegraph</credit>
+        <media:credit role="publishing company">Cointelegraph</media:credit>
+      </media:content>
+      <enclosure url="https://s3-images.ctmedia.io/media/article-covers/2026/10/01M66BRB3N5FEXF6ZJA32PXWYM/hi-binance-is-now-accumulating-btc-at-an-even-faster-rate.jpg" length="810954" type="image/jpeg"/>
+      <category>Latest News</category>
+    </item>
+  </channel>
+</rss>

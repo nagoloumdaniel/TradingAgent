@@ -51,6 +51,7 @@ risk:
     max_drawdown_pct: 20
     max_open_positions: 2
     max_positions_per_market: 1
+    max_trades_per_day: null
 """
 
 

@@ -50,8 +50,8 @@ from tradingagent.reporting.exports import (
     export_trades_json,
 )
 from tradingagent.storage.engine import create_database_engine
+from tradingagent.web import calendar_view, paging, queries
 from tradingagent.web import format as display
-from tradingagent.web import paging, queries
 from tradingagent.web.auth import (
     ACCESS_ENV_VAR,
     SESSION_COOKIE,
@@ -141,6 +141,7 @@ PAGES: tuple[tuple[str, str], ...] = (
     ("/risk", "Risque"),
     ("/system", "Système"),
     ("/reports", "Rapports"),
+    ("/calendar", "Calendrier"),
 )
 
 
@@ -376,8 +377,10 @@ def create_app(
             rows=[position_list_cells(position) for position in positions.rows],
             columns=POSITION_TABLE_COLUMNS,
             numeric=POSITION_NUMERIC_COLUMNS,
-            alerts=queries.recent_events(engine, minimum=Severity.WARNING, limit=20),
-            alert_columns=ALERT_COLUMNS,
+            # The alerts live on /system; this page only keeps today's count, live.
+            alert_count=queries.event_count(
+                engine, day=paging.resolve_day(None, at), minimum=Severity.WARNING
+            ),
             interval=stream.interval_seconds,
         )
 
@@ -516,6 +519,7 @@ def create_app(
         proposals: str | None = None,
         validations: str | None = None,
         backtests: str | None = None,
+        day: str | None = None,
     ) -> HTMLResponse:
         """The four lists of the laboratory, each with its own page and a shared market.
 
@@ -523,6 +527,7 @@ def create_app(
         and bounded on its own, and its own query parameter keeps the other three still.
         """
         markets = queries.ai_markets(engine)
+        window = _day(day, clock(), q)
         lab = queries.ai_lab_pages(
             engine,
             market=paging.resolve_market(market, markets),
@@ -531,18 +536,36 @@ def create_app(
             proposals_page=paging.page_number(proposals),
             validations_page=paging.page_number(validations),
             backtests_page=paging.page_number(backtests),
+            day=window,
         )
-        calls = queries.ai_call_health(engine)
+        calls = queries.ai_call_health(engine, day=window)
         return page(
             request,
             "ai_lab",
             lab=lab,
+            day=window,
             charts=queries.ai_chart(calls, lab),
             # The journal of the model calls, read from `ai_calls`: without it an empty
             # laboratory and a filter that never answered look exactly the same. Deliberately
             # not scoped by market — a refused key or an empty balance is not an instrument.
             ai_calls=calls,
         )
+
+    @app.get("/calendar", response_class=HTMLResponse)
+    def calendar_page(
+        request: Request, day: str | None = None, month: str | None = None
+    ) -> HTMLResponse:
+        """The economic calendar: month grid, next seven days, today's timeline, day panel.
+
+        ``day`` (AAAA-MM-JJ) picks the day of the panel and ``month`` (AAAA-MM) the month of
+        the grid; both are links, so the page works without JavaScript. A malformed value is
+        a 400 that says what was expected, never a silent fallback to another day.
+        """
+        try:
+            view = calendar_view.build_calendar(engine, clock(), day=day, month=month)
+        except calendar_view.BadCalendarRequest as error:
+            return error_response(400, request, headline="Date invalide", explanation=str(error))
+        return page(request, "calendar", cal=view)
 
     @app.get("/risk", response_class=HTMLResponse)
     def risk_page(
@@ -551,6 +574,7 @@ def create_app(
         market: str | None = None,
         page_number: str | None = Query(default=None, alias="page"),
         hpage: str | None = None,
+        day: str | None = None,
     ) -> HTMLResponse:
         """The risk state, and the two append-only logs it carries.
 
@@ -560,6 +584,7 @@ def create_app(
         history is paged and searched only.
         """
         at = clock()
+        window = _day(day, at, q)
         data = queries.risk_view(
             engine,
             at,
@@ -569,11 +594,13 @@ def create_app(
             query=q or "",
             events_page=paging.page_number(page_number),
             history_page=paging.page_number(hpage),
+            day=window,
         )
         return page(
             request,
             "risk",
             data=data,
+            day=window,
             charts={
                 "gauges": queries.risk_gauges(
                     engine, at, data, queries.account_figures(engine, at)
@@ -582,6 +609,7 @@ def create_app(
             },
             markets=queries.event_markets(engine),
             ea_halted=queries.ea_halted(data.ea),
+            daily_stop=queries.daily_stop(engine, at, data),
         )
 
     @app.get("/system", response_class=HTMLResponse)
@@ -591,6 +619,7 @@ def create_app(
         market: str | None = None,
         page_number: str | None = Query(default=None, alias="page"),
         epage: str | None = None,
+        day: str | None = None,
     ) -> HTMLResponse:
         """The health page: the probes, the paged logs, and a bounded EA journal.
 
@@ -601,19 +630,29 @@ def create_app(
         bridge's JSON reports rather than from a table: it is bounded to one display and
         says how many lines were read.
         """
+        at = clock()
+        window = _day(day, at, q)
+        selected = paging.resolve_market(market, queries.event_markets(engine))
         data = queries.system_view(
             engine,
-            clock(),
+            at,
             ea_reports_dir=reports_dir,
-            market=paging.resolve_market(market, queries.event_markets(engine)),
+            market=selected,
             query=q or "",
             page=paging.page_number(page_number),
             errors_page=paging.page_number(epage),
+            day=window,
         )
         return page(
             request,
             "system",
             data=data,
+            day=window,
+            # The card above the list counts the same window, the same severity, the same
+            # market rule: it can never disagree with the table it introduces.
+            error_count=queries.event_count(
+                engine, day=window, minimum=Severity.WARNING, market=selected
+            ),
             charts=queries.system_chart(data),
             markets=queries.event_markets(engine),
             ea_halted=queries.ea_halted(data.ea),
@@ -741,6 +780,11 @@ def _filtered(
         market=market or None, strategy=strategy or None, mode=_mode(mode)
     )
     return filters.apply(queries.all_trades(engine))
+
+
+def _day(requested: str | None, at: datetime, query: str | None) -> paging.DayScope:
+    """The window the error lists read: today, unless a day or a search says otherwise."""
+    return paging.resolve_day(requested, at, searching=bool((query or "").strip()))
 
 
 def _mode(value: str | None) -> TradingMode | None:

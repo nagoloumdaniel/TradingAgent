@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from tradingagent.config._yaml import Problem, read_yaml, render, validation_problems
 from tradingagent.config.errors import ConfigError
 from tradingagent.core.mode import TradingMode, mode_rank
+from tradingagent.news.config import NewsConfig
 from tradingagent.strategies.manifest import StrategyManifest, parse_ref
 
 LIVE_RISK_PER_TRADE_CAP = Decimal(5)
@@ -38,12 +39,17 @@ class RiskProfile(_Strict):
     daily_loss_pct: Percent
     weekly_loss_pct: Percent
     max_drawdown_pct: Percent
-    max_open_positions: int = Field(ge=1)
-    max_positions_per_market: int = Field(ge=1)
-    # Defaults chosen by the operator on 2026-10-04, to revisit after market analysis.
-    max_trades_per_day: int = Field(default=4, ge=1)
+    # Operator decision 2026-10-30: these three counts are no longer caps by default. None
+    # (YAML `null`, or the key omitted) means unlimited; the risk engine still counts and
+    # reports them. A value, when given, stays a hard limit and must be at least 1.
+    max_open_positions: int | None = Field(default=None, ge=1)
+    max_positions_per_market: int | None = Field(default=None, ge=1)
+    max_trades_per_day: int | None = Field(default=None, ge=1)
     cooldown_after_losses: int = Field(default=3, ge=1)
     cooldown_hours: Decimal = Field(default=Decimal(4), ge=0)
+    # Operator decision 2026-10-30: after this many consecutive losing trades closed within
+    # the same UTC day, no new trade until the next 00:00 UTC. None disables the rule.
+    stop_after_consecutive_losses_per_day: int | None = Field(default=3, ge=1)
     max_spread_stop_pct: Percent = Decimal(10)
     margin_usage_pct: Percent = Decimal(50)
     max_volume: Decimal | None = Field(default=None, gt=0)
@@ -66,14 +72,41 @@ class RiskProfile(_Strict):
                 "expected risk_per_trade_pct <= daily_loss_pct <= weekly_loss_pct"
                 " <= max_drawdown_pct"
             )
-        if self.max_positions_per_market > self.max_open_positions:
+        if (
+            self.max_positions_per_market is not None
+            and self.max_open_positions is not None
+            and self.max_positions_per_market > self.max_open_positions
+        ):
             raise ValueError("max_positions_per_market cannot exceed max_open_positions")
         return self
+
+
+#: The three counts that are unlimited when null. In live they must be written down.
+EXPLICIT_LIVE_CAPS = ("max_open_positions", "max_positions_per_market", "max_trades_per_day")
 
 
 class LiveRiskProfile(RiskProfile):
     reference_capital: Decimal = Field(gt=0)
     currency: str = Field(pattern=r"^[A-Z]{3}$")
+    # Real money: "unlimited" is a decision, not an oversight. The simulated profile defaults
+    # these to None (unlimited); the live one has no default, so a forgotten key (a typo, a
+    # copy-paste from an older file) is a config error instead of silently uncapped trading.
+    # Write an integer >= 1, or `null` to say unlimited on purpose.
+    max_open_positions: int | None = Field(ge=1)
+    max_positions_per_market: int | None = Field(ge=1)
+    max_trades_per_day: int | None = Field(ge=1)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _caps_are_explicit(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            missing = [key for key in EXPLICIT_LIVE_CAPS if key not in data]
+            if missing:
+                raise ValueError(
+                    f"risk.live : {', '.join(missing)} obligatoire(s) en mode réel : écrire un "
+                    "entier >= 1, ou null pour « illimité » (choix explicite, jamais un oubli)"
+                )
+        return data
 
     @field_validator("risk_per_trade_pct")
     @classmethod
@@ -93,6 +126,8 @@ class RiskConfig(_Strict):
 class AgentConfig(_Strict):
     markets: tuple[MarketConfig, ...] = Field(min_length=1)
     risk: RiskConfig
+    # Optional: economic-calendar blackout and AI reading. Defaults apply without the section.
+    news: NewsConfig = NewsConfig()
 
 
 def load_agent_config(

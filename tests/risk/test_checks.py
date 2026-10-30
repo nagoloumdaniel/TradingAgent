@@ -1,7 +1,7 @@
 """Each control has a passing case (the base context) and at least one refusal."""
 
 from dataclasses import replace
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal as D
 from typing import Any
 
@@ -13,7 +13,8 @@ from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.data.market_calendar import SlotStatus
 from tradingagent.risk.checks import CHECKS, RiskContext
-from tradingagent.risk.model import OpenPosition
+from tradingagent.risk.model import OpenPosition, PortfolioState
+from tradingagent.risk.streak import DayLossRun
 
 
 def run(name: str, ctx: RiskContext):
@@ -66,6 +67,7 @@ REFUSALS = {
     "trading_hours/closed": context(market=SlotStatus.CLOSED),
     "trading_hours/uncertain": context(market=SlotStatus.UNCERTAIN),
     "cooldown/paused": portfolio(consecutive_losses=3, last_loss_at=NOW - timedelta(hours=3)),
+    "daily_loss_streak/three_today": portfolio(losses_today=DayLossRun(3, NOW.date())),
     "live_eligibility/gold_at_100_eur": context(
         TradingMode.LIVE, account=replace(context(TradingMode.LIVE).account, equity=D(100))
     ),
@@ -258,3 +260,113 @@ def test_a_missing_slippage_estimate_does_not_block_but_says_so() -> None:
     result = run("slippage", context())
     assert result.passed
     assert "entry zone" in result.reason
+
+
+# --- Operator decision 2026-10-30: counts are reported, never capped by default -----------
+
+UNLIMITED: dict[str, Any] = {
+    "max_open_positions": None,
+    "max_positions_per_market": None,
+    "max_trades_per_day": None,
+}
+
+
+def unlimited(ctx: RiskContext) -> RiskContext:
+    return replace(ctx, limits=replace(ctx.limits, **UNLIMITED))
+
+
+def test_open_positions_never_refuse_when_unlimited_but_report_the_count() -> None:
+    crowded = tuple(OpenPosition("EURUSD", D("0.01")) for _ in range(3))
+    ctx = unlimited(portfolio(open_positions=crowded))
+    result = run("open_positions", ctx)
+    assert result.passed
+    assert result.reason == "3 open, unlimited"
+
+
+def test_market_positions_never_refuse_when_unlimited_but_report_the_count() -> None:
+    gold = tuple(OpenPosition("XAUUSD", D("0.01")) for _ in range(2))
+    ctx = unlimited(portfolio(open_positions=(*gold, OpenPosition("BTCUSD", D("0.01")))))
+    result = run("market_positions", ctx)
+    assert result.passed
+    assert result.reason == "2 open on XAUUSD, unlimited"
+
+
+def test_trades_today_never_refuse_when_unlimited_but_report_the_count() -> None:
+    result = run("trades_today", unlimited(portfolio(trades_today=57)))
+    assert result.passed
+    assert result.reason == "57 today, unlimited"
+
+
+def test_a_given_limit_still_refuses() -> None:
+    ctx = replace(portfolio(trades_today=2), limits=replace(context().limits, max_trades_per_day=2))
+    assert not run("trades_today", ctx).passed
+
+
+# --- Operator rule: three consecutive losses on one UTC day lock the day -------------------
+
+
+def streak(
+    count: int, *, day: date | None = None, mode: TradingMode = TradingMode.DEMO, **changes: Any
+) -> RiskContext:
+    day = day or NOW.date()
+    base = context(mode)
+    return replace(
+        base, portfolio=replace(base.portfolio, losses_today=DayLossRun(count, day), **changes)
+    )
+
+
+@pytest.mark.parametrize("mode", [TradingMode.DEMO, TradingMode.LIVE])
+def test_two_losses_today_do_not_stop_the_day(mode: TradingMode) -> None:
+    assert run("daily_loss_streak", streak(2, mode=mode)).passed
+
+
+@pytest.mark.parametrize("mode", [TradingMode.DEMO, TradingMode.LIVE])
+def test_three_losses_today_stop_the_day_with_a_clear_motif(mode: TradingMode) -> None:
+    result = run("daily_loss_streak", streak(3, mode=mode))
+    assert not result.passed
+    assert result.reason == (
+        "3 pertes consécutives aujourd'hui, trades arrêtés jusqu'à demain 00:00 UTC"
+    )
+
+
+def test_the_day_stop_holds_even_when_a_later_trade_closed_in_profit() -> None:
+    # The run ending now is broken (no recent loss at all), but the lock was reached earlier.
+    locked = streak(3, consecutive_losses=0, last_loss_at=None)
+    assert not run("daily_loss_streak", locked).passed
+
+
+def test_the_day_stop_lifts_when_the_clock_passes_midnight_utc() -> None:
+    stopped = streak(3)
+    assert not run("daily_loss_streak", stopped).passed
+    next_day = replace(stopped, now=NOW + timedelta(hours=12))  # 00:00 UTC the next day
+    assert run("daily_loss_streak", next_day).passed
+
+
+def test_a_snapshot_measured_for_another_day_counts_for_nothing() -> None:
+    yesterday = streak(5, day=NOW.date() - timedelta(days=1))
+    assert run("daily_loss_streak", yesterday).passed
+
+
+def test_a_portfolio_without_the_daily_measure_cannot_be_built() -> None:
+    # Fail-safe: the daily lock can never be skipped by forgetting to measure it.
+    base = context().portfolio
+    fields = {
+        name: getattr(base, name)
+        for name in base.__dataclass_fields__
+        if name not in {"losses_today"}
+    }
+    with pytest.raises(TypeError):
+        PortfolioState(**fields)
+
+
+def test_a_disabled_rule_never_stops_but_reports_the_streak() -> None:
+    ctx = streak(5)
+    off = replace(ctx, limits=replace(ctx.limits, stop_after_losses_per_day=None))
+    result = run("daily_loss_streak", off)
+    assert result.passed
+    assert "5 consecutive" in result.reason
+
+
+def test_the_limit_comes_from_the_configuration() -> None:
+    assert context().limits.stop_after_losses_per_day == 3
+    assert context(TradingMode.LIVE).limits.stop_after_losses_per_day == 3

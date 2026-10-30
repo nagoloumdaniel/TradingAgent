@@ -181,7 +181,8 @@ def test_risk_limits_are_read_from_the_agent_configuration(
     profiles = {entry.profile: entry for entry in limits}
     assert set(profiles) == {"simulé", "réel"}
     assert profiles["simulé"].risk_per_trade_pct == Decimal("0.5")
-    assert profiles["simulé"].max_open_positions == 2
+    # The shipped profiles no longer cap open positions: None means unlimited.
+    assert profiles["simulé"].max_open_positions is None
     assert profiles["réel"].risk_per_trade_pct == Decimal("2")
     assert profiles["réel"].currency == "EUR"
     assert profiles["réel"].reference_capital == Decimal("100")

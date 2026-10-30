@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon, head, fold, badge, nothing %}
-{% from "_macros.html" import pager, search_field, market_select, dot %}
+{% from "_macros.html" import pager, search_field, market_select, dot, day_control %}
 {% block title %}Système{% endblock %}
 {% block content %}
 
@@ -15,7 +15,8 @@
     <div class="label">{{ icon("ban") }}Arrêt en cours</div>
     <div class="value sm">{% if data.halt.halted %}oui{% else %}non{% endif %}</div></div>
   <div class="card" title="Positions, bougies et télémétrie confondues"><div class="label">{{ icon("layers") }}Marchés connus</div><div class="value">{{ data.markets | length }}</div></div>
-  <div class="card" title="Avertissements et critiques"><div class="label">{{ icon("alert-triangle") }}Erreurs récentes</div><div class="value">{{ data.errors.total }}</div></div>
+  <div class="card" title="Avertissements et critiques, sur la fenêtre affichée ({{ day.label }}) ; le journal complet reste consultable par date"><div class="label">{{ icon("alert-triangle") }}{% if day.is_today %}Erreurs du jour{% elif day.is_history %}Erreurs (historique){% else %}Erreurs du {{ day.day.strftime('%d/%m') }}{% endif %}</div><div class="value">{{ error_count }}</div>
+    <div class="note">{% if day.is_today %}depuis 00:00 UTC{% else %}{{ day.label }}{% endif %}</div></div>
 </div>
 
 {% if not data.database.ok %}
@@ -178,7 +179,8 @@
 </table>
 </div>
 {% endcall %}
-{% call fold("h-errors", "alert-triangle", "Dernières erreurs et avertissements", data.errors.total, "wide", false, "") %}
+{% call fold("h-errors", "alert-triangle", "Erreurs et avertissements", data.errors.total, "wide", false, "") %}
+{{ day_control(day, "/system", {"q": data.telemetry.query, "market": data.telemetry.market}, "erreurs") }}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Erreurs et avertissements, marché {{ data.errors.market or 'tous' }} : {{ data.errors.total }}, {{ data.errors.showing }}. Les événements sans marché concernent le compte entier et restent affichés.</caption>

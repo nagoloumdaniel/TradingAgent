@@ -34,6 +34,7 @@ from tradingagent.execution.simulator import SimulatedTerminal, decimal
 from tradingagent.execution.tracking import PositionTracker
 from tradingagent.risk.checks import check_daily_loss
 from tradingagent.risk.model import OrderRequest, PortfolioState, limits_for
+from tradingagent.risk.streak import DayLossRun
 from tradingagent.storage.halts import HaltCommand, HaltStore
 from tradingagent.storage.models import OrderRow, PositionRow, TradeRow
 from tradingagent.storage.signals import SignalRecord, SignalRepository, idempotency_key
@@ -417,6 +418,7 @@ def _portfolio_in_loss() -> PortfolioState:
         equity_peak=Decimal(1000),
         consecutive_losses=2,
         last_loss_at=NOW,
+        losses_today=DayLossRun(2, NOW.date()),
     )
 
 
@@ -437,6 +439,7 @@ def _limits() -> object:
             max_drawdown_pct=Decimal(20),
             max_open_positions=2,
             max_positions_per_market=1,
+            max_trades_per_day=None,
             reference_capital=Decimal(100),
             currency="EUR",
         ),

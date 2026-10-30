@@ -290,7 +290,7 @@ def test_every_navigation_entry_carries_an_icon(client: TestClient) -> None:
 
     assert nav is not None
     links = re.findall(r"<a\b.*?</a>", nav.group(0), re.S)
-    assert len(links) == 9
+    assert len(links) == 10
     for link in links:
         assert '<use href="#i-' in link, link
 

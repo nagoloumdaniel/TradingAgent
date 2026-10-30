@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
 
@@ -106,6 +107,97 @@ def resolve_market(requested: str | None, markets: Sequence[str]) -> str:
     return default_market(markets)
 
 
+DAY_PARAM = "day"
+ALL_DAYS = "all"
+"""The value of ``day`` meaning "the whole history"."""
+
+
+@dataclass(frozen=True)
+class DayScope:
+    """One UTC day, or the whole history: the window every error list is read through.
+
+    Errors are shown a day at a time so a page starts clean each morning; yesterday's are one
+    gesture away (a date, the arrows, a search, "tout l'historique"). The journal itself is
+    append-only and never rewritten — this only narrows what a page *reads*. ``start`` is
+    inclusive and ``end`` exclusive, both UTC; both are ``None`` for the whole history.
+    """
+
+    day: date | None
+    today: date
+
+    @property
+    def is_history(self) -> bool:
+        return self.day is None
+
+    @property
+    def is_today(self) -> bool:
+        return self.day == self.today
+
+    @property
+    def start(self) -> datetime | None:
+        if self.day is None:
+            return None
+        return datetime(self.day.year, self.day.month, self.day.day, tzinfo=UTC)
+
+    @property
+    def end(self) -> datetime | None:
+        start = self.start
+        return None if start is None else start + timedelta(days=1)
+
+    @property
+    def param(self) -> str:
+        """The ``day`` query value; empty for today, which is what a bare URL means."""
+        if self.day is None:
+            return ALL_DAYS
+        return "" if self.is_today else self.day.isoformat()
+
+    @property
+    def label(self) -> str:
+        if self.day is None:
+            return "tout l'historique"
+        if self.is_today:
+            return "aujourd'hui"
+        return f"le {self.day:%d/%m/%Y}"
+
+    @property
+    def previous(self) -> date | None:
+        return None if self.day is None else self.day - timedelta(days=1)
+
+    @property
+    def following(self) -> date | None:
+        """The next day, if it already exists: nobody pages into the future."""
+        if self.day is None or self.day >= self.today:
+            return None
+        return self.day + timedelta(days=1)
+
+    def contains(self, moment: datetime) -> bool:
+        start, end = self.start, self.end
+        if start is None or end is None:
+            return True
+        stamp = moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+        return start <= stamp < end
+
+
+def resolve_day(requested: str | None, at: datetime, *, searching: bool = False) -> DayScope:
+    """The window a request asks for, read defensively like every other parameter.
+
+    ``all`` is the whole history; ``YYYY-MM-DD`` is that day (never after today); anything
+    else is today. A search without a day reaches the history: looking for something is
+    exactly how the operator asks for the days that were hidden.
+    """
+    today = (at if at.tzinfo else at.replace(tzinfo=UTC)).astimezone(UTC).date()
+    cleaned = (requested or "").strip()
+    if cleaned == ALL_DAYS:
+        return DayScope(day=None, today=today)
+    if cleaned:
+        try:
+            chosen = date.fromisoformat(cleaned)
+        except ValueError:
+            return DayScope(day=today, today=today)
+        return DayScope(day=min(chosen, today), today=today)
+    return DayScope(day=None if searching else today, today=today)
+
+
 @dataclass(frozen=True)
 class Page[T]:
     """One page of rows plus everything the pager and the empty state need.
@@ -126,6 +218,10 @@ class Page[T]:
     filters: tuple[tuple[str, str], ...] = ()
     noun: str = "ligne"
     feminine: bool = False
+    scope: str = ""
+    """The window the rows were read through ("aujourd'hui", "le 05/10/2026"), for the empty
+    message: an empty list that does not say *which day* it is empty for reads as a silent
+    hole."""
     page_param: str = "page"
     """The query parameter this page answers to.
 
@@ -154,10 +250,16 @@ class Page[T]:
         """An empty table must say why it is empty, not just sit there mute."""
         article = "Aucune" if self.feminine else "Aucun"
         past = "enregistrée" if self.feminine else "enregistré"
+        # "aujourd'hui" and "le 05/10/2026" stand alone; "tout l'historique" needs its preposition.
+        window = ""
+        if self.scope:
+            window = f" dans {self.scope}" if self.scope.startswith("tout") else f" {self.scope}"
         if self.query:
-            return f"{article} {self.noun} pour « {self.query} »."
+            return f"{article} {self.noun} pour « {self.query} »{window}."
         if self.market:
-            return f"{article} {self.noun} pour {self.market}."
+            return f"{article} {self.noun} pour {self.market}{window}."
+        if self.scope:
+            return f"{article} {self.noun}{window}."
         return f"{article} {self.noun} {past}."
 
     @property
@@ -183,14 +285,18 @@ class Page[T]:
 
 
 __all__ = [
+    "ALL_DAYS",
     "ALL_MARKETS",
+    "DAY_PARAM",
     "MARKET_PREFERENCE",
     "PAGE_SIZE",
+    "DayScope",
     "Page",
     "default_market",
     "like_pattern",
     "page_bounds",
     "page_number",
+    "resolve_day",
     "resolve_market",
     "text_search",
 ]

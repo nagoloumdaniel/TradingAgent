@@ -46,7 +46,13 @@ from tradingagent.resilience import (
 from tradingagent.risk.model import BrokerPosition, ClosedPosition, limits_for
 from tradingagent.runtime.pipeline import ProcessOutcome, SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
-from tradingagent.runtime.ports import BrokerPort, DailyLabPort, MarketPort, NotifierPort
+from tradingagent.runtime.ports import (
+    BrokerPort,
+    DailyLabPort,
+    MarketPort,
+    NewsPort,
+    NotifierPort,
+)
 from tradingagent.runtime.sessions import MarketSessionGuard
 from tradingagent.signals.generator import GenerationStatus, SignalGenerator
 from tradingagent.storage.account import AccountStore
@@ -112,6 +118,7 @@ class AgentLoop:
         ea_directory: Path | None = None,
         ea_magic: int = 0,
         lab: "DailyLabPort | None" = None,
+        news: NewsPort | None = None,
         poll_seconds: float = DEFAULT_POLL_SECONDS,
         connection_threshold: timedelta = timedelta(minutes=DEFAULT_CONNECTION_THRESHOLD_MINUTES),
         now: Callable[[], datetime],
@@ -157,6 +164,9 @@ class AgentLoop:
         # The AI Lab pass is idempotent per UTC day; checking hourly keeps the loop simple.
         self._lab = lab
         self._lab_last_check: datetime | None = None
+        # The economic calendar refreshes in the background: a slow feed never delays a cycle.
+        self._news = news
+        self._news_task: asyncio.Task[object] | None = None
         self._snapshots = AccountStore(engine)
         self._events = SystemEventStore(engine)
         self._telemetry = ExecutionEventStore(engine)
@@ -347,6 +357,7 @@ class AgentLoop:
         await self._reconcile(now, report)
         await self._sync_eas(now)
         await self._run_lab(now)
+        self._run_news(now)
         await self._check_limits(now, report)
         if self._cycles % SNAPSHOT_EVERY_CYCLES == 0:
             await self._snapshot(now)
@@ -553,6 +564,18 @@ class AgentLoop:
             log.warning("AI Lab pass failed: %s", error)
             self._events.record("ai_lab_failed", Severity.WARNING, {"detail": repr(error)}, now)
 
+    def _run_news(self, now: datetime) -> None:
+        """Refresh the economic calendar when it is due, without waiting for the feeds.
+
+        `NewsPort.tick` throttles itself, never raises and records its own failures; the loop
+        only makes sure one refresh runs at a time.
+        """
+        if self._news is None:
+            return
+        if self._news_task is not None and not self._news_task.done():
+            return
+        self._news_task = asyncio.create_task(self._news.tick(now))
+
     async def _sync_eas(self, now: datetime) -> None:
         """Publish the expected state to the Guardian EAs and watch their heartbeat.
 
@@ -603,7 +626,11 @@ class AgentLoop:
                 magic=self._ea_magic,
                 positions=expected,
                 kill_switch=halted,
-                max_positions=self._config.risk.simulated.max_positions_per_market,
+                max_positions=(
+                    self._config.risk.live
+                    if self._mode is TradingMode.LIVE
+                    else self._config.risk.simulated
+                ).max_positions_per_market,
                 now=self._now,
             )
 

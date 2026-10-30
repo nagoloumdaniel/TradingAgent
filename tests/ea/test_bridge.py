@@ -145,6 +145,20 @@ def test_publish_round_trips_through_read_reports(tmp_path: Path) -> None:
     assert state["kill_switch"] is False
 
 
+def test_unlimited_positions_are_published_as_zero_for_the_ea(tmp_path: Path) -> None:
+    publish_state(tmp_path, "BTCUSD", magic=3031, max_positions=None, now=frozen(NOW))
+    state = read_json(state_path(tmp_path, "BTCUSD"))
+    assert state is not None
+    assert state["limits"]["max_positions"] == 0
+
+
+def test_a_position_cap_is_published_unchanged(tmp_path: Path) -> None:
+    publish_state(tmp_path, "BTCUSD", magic=3031, max_positions=3, now=frozen(NOW))
+    state = read_json(state_path(tmp_path, "BTCUSD"))
+    assert state is not None
+    assert state["limits"]["max_positions"] == 3
+
+
 def test_publish_state_writes_under_the_state_directory(tmp_path: Path) -> None:
     written = publish_state(tmp_path, "XAUUSD", magic=3031, now=frozen(NOW))
     assert written == tmp_path / "state" / "XAUUSD_state.json"

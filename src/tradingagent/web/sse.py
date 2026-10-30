@@ -24,7 +24,7 @@ from tradingagent.core.states import Severity
 from tradingagent.storage import models
 from tradingagent.web import format as display
 from tradingagent.web import paging
-from tradingagent.web.queries import open_positions, recent_events
+from tradingagent.web.queries import event_count, open_positions, recent_events
 from tradingagent.web.views import (
     ALERT_COLUMNS,
     POSITION_COLUMNS,
@@ -58,14 +58,19 @@ _WATCHED: tuple[tuple[Any, Any], ...] = (
     (models.ExecutionEventRow, None),
     (models.DailyPerformanceRow, None),
     (models.CandleRow, models.CandleRow.ingested_at),
+    # The economic calendar page: a refresh, a reading or a brief changes what it shows.
+    (models.EconomicEventRow, models.EconomicEventRow.updated_at),
+    (models.NewsAnalysisRow, None),
+    (models.NewsBriefRow, None),
+    (models.NewsFetchRow, None),
 )
 
 
 def fingerprint(engine: Engine) -> str:
     """A short digest that changes whenever the agent has written something the pages show.
 
-    Twelve aggregate reads, no row transferred: cheap enough to run every few seconds for
-    every open tab. The browser compares digests and reloads only when one differs.
+    One aggregate read per watched table, no row transferred: cheap enough to run every few
+    seconds for every open tab. The browser compares digests and reloads only when one differs.
     """
     parts: list[str] = []
     with engine.connect() as connection:
@@ -131,8 +136,15 @@ class EventStream:
         on page load and the line pushed a second later read identically.
         """
         positions = open_positions(self._engine, at, market=market)
+        # Today's alerts only: a stream that has just connected must start the day clean, not
+        # replay last week's failures. History stays reachable on /system (day=, q=).
+        today = paging.resolve_day(None, at)
         alerts = recent_events(
-            self._engine, since=since, minimum=Severity.WARNING, limit=self._alert_limit
+            self._engine,
+            since=since,
+            minimum=Severity.WARNING,
+            limit=self._alert_limit,
+            day=today,
         )
         # Stored newest-first; the frame is sent oldest-first, because the client inserts a
         # frame at the top in reverse and the list then reads newest-first throughout.
@@ -156,6 +168,7 @@ class EventStream:
                     {
                         "at": rendered_at,
                         "columns": list(ALERT_COLUMNS),
+                        "count": event_count(self._engine, day=today, minimum=Severity.WARNING),
                         "rows": [alert_cells(event) for event in ordered],
                         # The badge class travels with the row: the browser colours what the
                         # server decided, it does not map a label back to a severity.

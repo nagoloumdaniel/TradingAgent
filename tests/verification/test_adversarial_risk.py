@@ -29,6 +29,7 @@ from tradingagent.risk.model import (
     TradeIntent,
     limits_for,
 )
+from tradingagent.risk.streak import DayLossRun
 
 NOW = datetime(2026, 10, 7, 12, 0, 5, tzinfo=UTC)
 LOGIN = 40123456
@@ -50,6 +51,7 @@ RISK = RiskConfig(
         max_drawdown_pct=Decimal(20),
         max_open_positions=2,
         max_positions_per_market=1,
+        max_trades_per_day=None,
         reference_capital=Decimal(100),
         currency="EUR",
     ),
@@ -83,6 +85,7 @@ def context(mode: TradingMode = TradingMode.DEMO, **changes: Any) -> RiskContext
             equity_peak=EQUITY,
             consecutive_losses=0,
             last_loss_at=None,
+            losses_today=DayLossRun(0, NOW.date()),
         ),
         market=SlotStatus.OPEN,
         limits=limits_for(mode, RISK),
@@ -165,6 +168,7 @@ def test_the_cooldown_after_a_losing_streak_is_enforced() -> None:
         context().portfolio,
         consecutive_losses=3,
         last_loss_at=NOW,
+        losses_today=DayLossRun(0, NOW.date()),
     )
     assert "cooldown" in refusal_names(context(portfolio=portfolio))
 
