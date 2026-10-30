@@ -65,26 +65,31 @@
   <p class="cal-summary">{{ e.summary }}</p>
   {% endif %}
 
-  <div class="cal-verdicts">
+  <details class="cal-read-more">
+    <summary>
+      <span class="cal-read-sum">{% for v in e.verdicts %}<span class="cal-mini" data-bias="{{ v.bias }}"><strong>{{ v.symbol }}</strong> {{ bias_chip(v) }} {{ stance_chip(v.stance, v.stance_label) }}</span>{% endfor %}</span>
+      <span class="cal-read-toggle">Détail{{ icon("chevron-down") }}</span>
+    </summary>
+    <div class="cal-verdicts">
     {% for v in e.verdicts %}
     <section class="cal-verdict" data-bias="{{ v.bias }}" aria-label="Lecture {{ v.symbol }}">
       <h4 class="cal-symbol">{{ v.symbol }}</h4>
-      <p class="cal-chips">{{ bias_chip(v) }}{{ stance_chip(v.stance, v.stance_label) }}</p>
       <ul class="cal-facts">
         <li><span>Confiance</span><span class="num">{{ v.confidence }} %</span></li>
         <li><span>Influence</span><span class="num">{{ v.influence }} / 100</span></li>
         <li><span>Unités de temps</span><span class="num">{{ v.timeframes }}</span></li>
         <li><span>Fenêtre d'effet</span><span class="num">{{ v.window }}</span></li>
       </ul>
-      <details class="cal-why"><summary>Pourquoi</summary><p>{{ v.rationale }}</p></details>
+      <p class="cal-why">{{ v.rationale }}</p>
     </section>
     {% endfor %}
-  </div>
+    </div>
+  </details>
 
   <footer class="cal-event-foot">
     <span class="badge cal-reading" data-reading="{{ e.reading }}">{{ e.reading_label }}</span>
     {% if e.blackout %}<span class="badge cal-blackout" title="Aucun nouveau signal n'est accepté dans cette fenêtre">{{ icon("ban") }}Signaux bloqués {{ e.blackout }}</span>{% endif %}
-    {% if e.url %}<a class="cal-source" href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">Source : {{ e.host }}</a>{% endif %}
+    {% if e.url %}<a class="cal-source" href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">Source : {{ e.source_label or e.host }}{{ icon("arrow-up-right") }}</a>{% endif %}
   </footer>
 </article>
 {% endmacro %}
@@ -96,7 +101,7 @@
   <div class="cal-line-main">
     <p class="cal-line-title">{% if e.url %}<a href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}</p>
     <p class="cal-tags">{{ flag(e) }}{{ impact_chip(e) }}
-      {% if e.host %}<span class="badge cal-kind">{{ e.host }}</span>{% endif %}
+      {% if e.url %}<a class="cal-source cal-source-chip" href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ e.source_label or e.host }}{{ icon("arrow-up-right") }}</a>{% endif %}
       <span class="badge cal-reading" data-reading="{{ e.reading }}">{{ e.reading_label }}</span></p>
     <div class="cal-line-verdicts">
       {% for v in e.verdicts %}

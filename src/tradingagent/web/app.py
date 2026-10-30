@@ -37,6 +37,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.gzip import GZipMiddleware
+from starlette.types import Scope
 
 from tradingagent.analytics import Trade, compute_performance
 from tradingagent.config.errors import ConfigError
@@ -149,6 +151,20 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+class RevalidatedStatic(StaticFiles):
+    """Static files the browser keeps but re-checks with its ETag: a 304 costs no body.
+
+    The URLs carry no version, so a long ``max-age`` would pin a stale stylesheet after an
+    update; ``no-cache`` keeps the copy and asks first.
+    """
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path, scope)
+        if response.status_code in (200, 304):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 def create_app(
     engine: Engine,
     *,
@@ -192,7 +208,9 @@ def create_app(
     app.state.read_only = READ_ONLY
     # StaticFiles answers GET and HEAD only, which keeps the dashboard's "nothing but
     # reads" promise true even for the brand mark.
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    app.mount("/static", RevalidatedStatic(directory=str(STATIC_DIR)), name="static")
+    # Pages are 150-400 KB of repetitive HTML: compressed they are a fifth of that.
+    app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
     app.state.engine = engine
     app.state.access_protected = access is not None
 

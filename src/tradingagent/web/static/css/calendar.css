@@ -257,3 +257,69 @@ section[class^="cal-"], div.cal-split { margin-bottom: 26px; }
   .cal-day.is-selected, .cal-impact[data-impact="high"], .cal-major { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .cal-gauge::before { background: linear-gradient(90deg, Highlight calc(var(--s) * 10%), GrayText 0); }
 }
+
+/* -- v2 : un jour d'abord, le reste se déplie ------------------------------------------- */
+section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom: 14px; }
+.cal-fresh-more { margin-top: 6px; font-size: 13px; }
+.cal-fresh-more summary { cursor: pointer; min-height: 28px; display: inline-flex; align-items: center; }
+.cal-fresh-more ul { margin: 6px 0 0; padding-left: 18px; }
+
+/* Les jours défilent d'un côté à l'autre sur mobile (accroche au doigt), grille sur écran large. */
+.cal-strip-wrap { margin-bottom: 18px; }
+.cal-strip { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+@media (max-width: 899px) {
+  .cal-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-inline: -4px; padding-inline: 4px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+  .cal-strip .cal-day { flex: 0 0 92px; scroll-snap-align: start; }
+}
+@media (max-width: 480px) { .cal-strip { grid-template-columns: none; } .cal-strip .cal-day { flex-basis: 84px; } }
+
+.cal-layout { display: grid; gap: 20px; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); align-items: start; margin-bottom: 18px; }
+.cal-layout > .cal-panel, .cal-layout > .cal-aside { margin-bottom: 0; min-width: 0; }
+.cal-aside { display: grid; gap: 14px; position: sticky; top: calc(var(--topbar-h, 56px) + 12px); }
+.cal-aside > section { margin: 0; padding: 14px 16px 16px; border-radius: var(--radius); }
+@media (max-width: 1099px) {
+  .cal-layout { grid-template-columns: minmax(0, 1fr); }
+  .cal-aside { position: static; order: -1; }
+}
+.cal-brief-markets { grid-template-columns: minmax(0, 1fr); }
+.cal-next-title { margin: 0 0 8px; font-size: 16px; font-weight: 600; line-height: 1.35; letter-spacing: -0.02em; }
+.cal-next-title a { color: var(--text); text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
+.cal-next { border-top: 0; display: block; padding-top: 14px; }
+
+/* Panneau : plus d'air, titre de l'annonce d'abord. */
+.cal-panel { padding: 16px 16px 18px; }
+.cal-event { background: var(--surface-2); }
+.cal-event-head { grid-template-columns: auto minmax(0, 1fr) auto; }
+.cal-read-more { margin-top: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--glass); }
+.cal-read-more summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 8px 12px; min-height: var(--touch); cursor: pointer; list-style: none; }
+.cal-read-more summary::-webkit-details-marker { display: none; }
+.cal-read-more summary:focus-visible, .cal-fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.cal-read-sum { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.cal-read-toggle { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.cal-read-toggle .icon { width: 14px; height: 14px; transition: transform var(--dur-1) var(--ease-out); }
+.cal-read-more[open] .cal-read-toggle .icon, .cal-fold[open] > summary > .icon:last-child { transform: rotate(180deg); }
+.cal-read-more .cal-verdicts { margin: 0; padding: 0 12px 12px; }
+.cal-why { margin: 8px 0 0; font-size: 13px; line-height: 1.5; }
+.cal-source { display: inline-flex; align-items: center; gap: 4px; }
+.cal-source .icon { width: 13px; height: 13px; }
+.cal-source-chip { margin-left: 0; font-size: 12px; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--text); text-decoration: none; }
+@media (hover: hover) { .cal-source:hover { color: var(--text); } }
+
+.cal-fold { margin-bottom: 12px; border: 1px solid var(--glass-line); border-radius: var(--radius); background: var(--glass); }
+.cal-fold > summary { display: flex; align-items: center; gap: 10px; min-height: var(--touch); padding: 10px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 15px; }
+.cal-fold > summary::-webkit-details-marker { display: none; }
+.cal-fold > summary > span { flex: 1; }
+.cal-fold > summary .icon { width: 18px; height: 18px; color: var(--muted); flex: none; transition: transform var(--dur-1) var(--ease-out); }
+.cal-fold > section { margin: 0; padding: 4px 16px 16px; border-radius: 0; background: none; border: 0; }
+
+/* Mobile : un seul bloc de lecture, les chiffres passent sous le titre. */
+@media (max-width: 640px) {
+  .cal-panel { padding: 12px 10px 14px; }
+  .cal-event { padding: 12px 12px 12px 14px; }
+  .cal-time { font-size: 19px; }
+  .cal-figures { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .cal-figures div { padding: 6px 8px; }
+  .cal-figures dd { font-size: 14px; }
+  .cal-source { margin-left: 0; }
+  .cal-fold > section { padding-inline: 10px; }
+}
