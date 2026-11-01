@@ -48,7 +48,7 @@
       <span class="cal-time-sub">{{ e.time_paris }} Paris</span>
     </div>
     <div class="cal-what">
-      <h3 class="cal-title">{{ e.title }}</h3>
+      <h3 class="cal-title">{% if e.url %}<a href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ e.title }}<span class="sr-only"> (nouvel onglet)</span></a>{% else %}{{ e.title }}{% endif %}</h3>
       <p class="cal-tags">
         {{ flag(e) }}{{ impact_chip(e) }}
         <span class="badge cal-kind">{{ e.kind_label }}</span>
@@ -99,11 +99,11 @@
     </div>
   </details>
 
+  {% if e.blackout %}
   <footer class="cal-event-foot">
-    <span class="badge cal-reading" data-reading="{{ e.reading }}">{{ e.reading_label }}</span>
-    {% if e.blackout %}<span class="badge cal-blackout" title="Aucun nouveau signal n'est accepté dans cette fenêtre">{{ icon("ban") }}Signaux bloqués {{ e.blackout }}</span>{% endif %}
-    {% if e.url %}<a class="cal-source" href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">Source : {{ e.source_label or e.host }}<span class="sr-only"> (nouvel onglet)</span>{{ icon("arrow-up-right") }}</a>{% endif %}
+    <span class="badge cal-blackout" title="Aucun nouveau signal n'est accepté dans cette fenêtre">{{ icon("ban") }}Signaux bloqués {{ e.blackout }}</span>
   </footer>
+  {% endif %}
 </article>
 {% endmacro %}
 

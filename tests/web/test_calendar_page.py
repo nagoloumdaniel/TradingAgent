@@ -149,13 +149,13 @@ def test_the_page_shows_the_seeded_events_with_utc_and_paris_times(
     assert 'data-reading="live"' not in html  # every shown event has a stored analysis
 
 
-def test_an_event_with_no_stored_analysis_is_read_by_the_rules_and_labelled(
+def test_an_event_with_no_stored_analysis_is_read_by_the_rules_without_a_reading_badge(
     engine: Engine, client: TestClient
 ) -> None:
     store_events(engine, event("Core CPI m/m", CPI_AT), analyse=False)
     html = page(client, "/calendar")
-    assert "Règles, calculées à l'affichage" in html
-    assert 'data-reading="live"' in html
+    day = html.split('id="day-panel"', 1)[1].split("</aside>", 1)[0]
+    assert 'class="cal-event"' in day and "cal-reading" not in day.split('class="cal-aside"')[0]
 
 
 def test_the_actual_figure_is_never_invented(client: TestClient, filled: NewsStore) -> None:
@@ -418,7 +418,8 @@ def test_every_event_card_links_to_its_source(client: TestClient, filled: NewsSt
     html = page(client, "/calendar")
     # the CPI row has no link of its own: it falls back to the public page of its feed
     assert 'href="https://www.forexfactory.com/calendar"' in html
-    assert "Source : Forex Factory" in html
+    assert "Source : Forex Factory" not in html  # the title carries the link, no source badge
+    assert 'class="cal-title"><a href="https://www.forexfactory.com/calendar"' in html
     # the speech keeps its own link, opened safely
     assert 'href="https://www.federalreserve.gov/newsevents/speech/powell.htm"' in html
     assert 'rel="noopener noreferrer nofollow"' in html
