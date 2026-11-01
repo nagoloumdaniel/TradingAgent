@@ -327,3 +327,22 @@
 
   Array.prototype.forEach.call(document.querySelectorAll("select[data-custom-select]"), enhanceSelect);
 })();
+
+/* Loading state: a thin progress bar and a dimmed, busy <main> from the click until the next
+   page paints. Pure enhancement: without it the browser still navigates. */
+(function () {
+  "use strict";
+  var root = document.documentElement;
+  function start() { root.classList.add("is-loading"); var m = document.getElementById("main"); if (m) { m.setAttribute("aria-busy", "true"); } }
+  function stop() { root.classList.remove("is-loading"); var m = document.getElementById("main"); if (m) { m.removeAttribute("aria-busy"); } }
+  document.addEventListener("click", function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) { return; }
+    var a = e.target.closest ? e.target.closest("a[href]") : null;
+    if (!a || a.target === "_blank" || a.hasAttribute("download") || a.hasAttribute("data-day-link")) { return; }
+    var u = new URL(a.href, location.href);
+    if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search)) { return; }
+    start();
+  });
+  document.addEventListener("submit", function (e) { if (!e.defaultPrevented) { start(); } });
+  window.addEventListener("pageshow", stop);
+})();

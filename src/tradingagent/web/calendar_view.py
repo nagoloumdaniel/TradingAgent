@@ -217,6 +217,7 @@ class EventView:
     verdicts: tuple[VerdictView, ...]
     url: str
     host: str
+    source_label: str
     summary: str
     top_stance: str
 
@@ -392,6 +393,23 @@ def _safe_url(url: str | None) -> str:
     return url if url and _host(url) else ""
 
 
+#: Public page behind a feed that carries no link per item (the weekly calendar export).
+#: A link to the page the data comes from, never a deep link made up for one event.
+SOURCE_PAGES: Mapping[str, tuple[str, str]] = {
+    "faireconomy": ("Forex Factory", "https://www.forexfactory.com/calendar"),
+    "faireconomy_next": ("Forex Factory", "https://www.forexfactory.com/calendar"),
+}
+
+
+def _source_link(event: EconomicEvent) -> tuple[str, str]:
+    """(url, label) of where an announcement can be checked: its own link, else its feed's page."""
+    own = _safe_url(event.url)
+    if own:
+        return own, _host(own).removeprefix("www.")
+    label, page = SOURCE_PAGES.get(event.source, ("", ""))
+    return page, label
+
+
 def _month_href(year: int, month: int, selected: date | None) -> str:
     query = f"month={year:04d}-{month:02d}"
     if selected is not None:
@@ -450,6 +468,7 @@ def _event_view(
         "live": "Règles, calculées à l'affichage",
     }
     first = next((v for v in verdicts if v.symbol == XAUUSD), None)
+    source_url, source_label = _source_link(event)
     return EventView(
         key=event.key,
         time_utc=_hm(event.starts_at),
@@ -475,8 +494,9 @@ def _event_view(
         reading=reading,
         reading_label=labels[reading],
         verdicts=verdicts,
-        url=_safe_url(event.url),
-        host=_host(event.url),
+        url=source_url,
+        host=_host(source_url),
+        source_label=source_label,
         summary=(event.summary or "")[:400],
         top_stance=first.stance if first is not None else "wait",
     )

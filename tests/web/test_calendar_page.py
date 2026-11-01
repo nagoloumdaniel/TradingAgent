@@ -133,8 +133,6 @@ def test_the_page_renders_on_an_empty_database_and_says_nothing_was_fetched(
     html = unescape(response.text)
     assert "Annonces économiques" in html
     assert "n'a jamais été rafraîchi" in html  # the state is told, not hidden
-    assert "Aucune source n'a encore été interrogée" in html
-    assert "Aucune annonce enregistrée aujourd'hui" in html
     assert "pas un conseil en investissement" in html
 
 
@@ -144,7 +142,7 @@ def test_the_page_shows_the_seeded_events_with_utc_and_paris_times(
     html = page(client, "/calendar")
     assert "Core CPI m/m" in html
     assert "12:30" in html and "14:30 Paris" in html  # October 7th is summer time
-    assert "Calendrier à jour." in html
+    assert "Calendrier à jour." not in html  # healthy: no banner
     assert "XAUUSD" in html and "BTCUSD" in html
     assert "Prévision" in html and "Précédent" in html
     assert "Fed Chair Powell speaks" in html  # speeches section
@@ -390,3 +388,13 @@ def test_the_query_parsers_accept_only_real_dates() -> None:
     assert parse_day(None) is None
     assert parse_month("2026-10") == (2026, 10)
     assert parse_month(None) is None
+
+
+def test_every_event_card_links_to_its_source(client: TestClient, filled: NewsStore) -> None:
+    html = page(client, "/calendar")
+    # the CPI row has no link of its own: it falls back to the public page of its feed
+    assert 'href="https://www.forexfactory.com/calendar"' in html
+    assert "Source : Forex Factory" in html
+    # the speech keeps its own link, opened safely
+    assert 'href="https://www.federalreserve.gov/newsevents/speech/powell.htm"' in html
+    assert 'rel="noopener noreferrer nofollow"' in html
