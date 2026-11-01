@@ -61,7 +61,7 @@
     </div>
     <dl class="cal-parts">
       <div><dt>Technique</dt><dd class="num">{{ m.technical_text }}</dd><dd class="cal-part-note">{{ m.trend_label }} · vol. {{ m.volatility_label }}</dd></div>
-      <div><dt>Fondamental</dt><dd class="num">{{ m.fundamental_text }}</dd><dd class="cal-part-note">{{ "annonces du jour" if m.has_fundamental else "aucune lecture" }}</dd></div>
+      <div><dt>Fondamental</dt><dd class="num">{{ m.fundamental_text }}</dd><dd class="cal-part-note">{{ "annonces du jour" if m.has_fundamental else "aucune annonce lue" }}</dd></div>
     </dl>
     <p class="cal-prediction">{{ m.prediction }}</p>
     {% if m.summary %}<p class="cal-market-sum">{{ m.summary }}</p>{% endif %}

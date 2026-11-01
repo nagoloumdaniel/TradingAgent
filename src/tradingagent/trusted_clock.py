@@ -235,11 +235,8 @@ def now() -> datetime:
     return _CLOCK.now()
 
 
-def start() -> None:
+def start_trusted_clock() -> None:
     _CLOCK.start()
-
-
-start_trusted_clock = start
 
 
 def system_now() -> datetime:

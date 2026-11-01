@@ -27,6 +27,11 @@ _SETTLE_SECONDS = 3.0
 
 
 def is_running() -> bool:
+    """True when any `terminal64.exe` runs, whichever install it comes from.
+
+    Matched by image name on purpose: a terminal the operator opened by hand from another
+    install is left alone rather than shadowed by a second, hidden one.
+    """
     if sys.platform != "win32":
         return False
     try:
