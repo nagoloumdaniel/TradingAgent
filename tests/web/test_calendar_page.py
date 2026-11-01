@@ -190,12 +190,13 @@ def test_the_month_grid_and_the_speech_fold_are_gone(client: TestClient, filled:
     assert "Discours, déclarations" not in html
 
 
-def test_the_page_carries_a_global_score_and_a_scored_outlook_per_market(
+def test_the_page_carries_a_scored_outlook_per_market(
     client: TestClient, filled: NewsStore
 ) -> None:
     html = page(client, "/calendar")
     overview = html.split('id="cal-overview"', 1)[1].split("</section>", 1)[0]
-    assert "Score global" in overview
+    assert "Score global" not in overview
+    assert overview.count("cal-global-score") == 2
     assert overview.count('class="cal-outlook"') == 2
     assert "XAUUSD" in overview and "BTCUSD" in overview
     assert "Technique" in overview and "Fondamental" in overview

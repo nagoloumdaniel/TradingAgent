@@ -266,7 +266,11 @@ section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom:
 .cal-heat[data-heat="chargé"] { color: var(--warn); border-color: var(--warn-line); background: var(--warn-bg); }
 .cal-outlook header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .cal-outlook h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.01em; }
-.cal-outlook-score { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
+.cal-outlook-score { display: flex; align-items: center; gap: 8px 18px; }
+.cal-outlook-gauge { display: grid; gap: 8px; min-width: 0; flex: 1; }
+.cal-outlook-score .cal-global-score { margin: 0; flex: none; }
+.cal-outlook[data-bias="bullish"] .cal-global-score { color: var(--up); }
+.cal-outlook[data-bias="bearish"] .cal-global-score { color: var(--down); }
 .cal-parts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0 0; }
 .cal-parts > div { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
 .cal-parts dt { color: var(--muted); font-size: 12px; }
@@ -275,7 +279,6 @@ section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom:
 .cal-part-note { color: var(--muted); font-size: 12px; }
 .cal-prediction { margin: 12px 0 0; font-size: 14px; line-height: 1.55; max-width: 62ch; }
 .cal-outlook .cal-market-sum { color: var(--muted); font-size: 13px; }
-@media (max-width: 1099px) { .cal-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cal-global { grid-column: 1 / -1; } }
 @media (max-width: 640px) { .cal-overview { grid-template-columns: minmax(0, 1fr); } .cal-score-bar { width: 90px; } }
 
 /* Le jour : cartes en colonnes qui remplissent la largeur ; la presse en colonnes aussi. */
@@ -313,10 +316,61 @@ section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom:
 @media (prefers-reduced-motion: reduce) { .cal-overview[aria-busy="true"], .cal-panel[aria-busy="true"] { transition: none; } }
 
 /* Compact overview: the day's news must be reachable without scrolling past three tall cards. */
-.cal-overview { align-items: start; }
-.cal-prediction { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-top: 10px; }
-.cal-outlook .cal-market-sum { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 6px; }
-.cal-outlook:hover .cal-prediction, .cal-outlook:focus-within .cal-prediction,
-.cal-outlook:hover .cal-market-sum, .cal-outlook:focus-within .cal-market-sum { -webkit-line-clamp: unset; line-clamp: unset; }
+.cal-overview { align-items: stretch; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cal-prediction { margin-top: 10px; }
 .cal-global .cal-meta { margin-top: 8px; }
 @media (min-width: 1100px) { .cal-parts { margin-top: 8px; } }
+
+/* ---- One card language for the whole page ------------------------------------------------
+   Outer cards (score, markets, day, aside) share the glass surface, hairline and depth.
+   Inner cards (announcement, press line, verdict) are one step flatter and share one radius.
+   The impact colour is always a 3px rail on the left edge. */
+.cal-global, .cal-outlook, .cal-panel, .cal-aside > section {
+  border: 1px solid var(--glass-line); border-radius: var(--radius); background: var(--glass);
+  box-shadow: inset 0 1px 0 var(--glass-top), var(--shadow);
+}
+.cal-event, .cal-line, .cal-impact-row, .cal-verdict, .cal-parts > div {
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2);
+  box-shadow: inset 0 1px 0 var(--glass-top);
+}
+.cal-h2 { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.cal-h2 > .icon { flex: none; box-sizing: content-box; width: 16px; height: 16px; padding: 6px; border-radius: 9px; background: var(--glass-hover); color: var(--text); }
+.cal-panel-head { padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.cal-h3 { display: flex; align-items: center; gap: 10px; margin: 22px 0 12px; font-size: 15px; font-weight: 600; color: var(--text); }
+.cal-h3::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* Press line: time rail, title and tags, influence gauge, then both markets side by side. */
+.cal-lines { gap: 12px; }
+.cal-line {
+  position: relative; display: grid; gap: 10px 14px; padding: 14px 16px 14px 18px; overflow: hidden;
+  grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "when main gauge" "verdicts verdicts verdicts";
+  align-items: start;
+}
+.cal-line::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--line-strong); }
+.cal-line[data-impact="high"]::before { background: var(--text); }
+.cal-line[data-impact="medium"]::before { background: var(--warn); }
+.cal-line[data-impact="high"], .cal-line[data-impact="medium"] { border-left: 1px solid var(--line); }
+.cal-line-when { grid-area: when; min-width: 54px; padding-right: 14px; border-right: 1px solid var(--line); gap: 1px; }
+.cal-line-when .num { font-size: 18px; letter-spacing: -0.02em; }
+.cal-line-tz { font-size: 11px; color: var(--faint); }
+.cal-line-main { grid-area: main; min-width: 0; }
+.cal-line-title { margin: 0 0 8px; font-size: 15px; font-weight: 600; line-height: 1.35; letter-spacing: -0.01em; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cal-line .cal-influence { grid-area: gauge; }
+.cal-line-verdicts { grid-area: verdicts; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.cal-mini { justify-content: space-between; gap: 6px 8px; padding: 6px 10px; border-radius: 8px; background: var(--glass); font-size: 12px; }
+@media (max-width: 560px) {
+  .cal-line { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "when gauge" "main main" "verdicts verdicts"; }
+  .cal-line .cal-influence { justify-self: end; }
+  .cal-line-verdicts { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Fill the row: one headline spans the card, several share it. */
+.cal-lines { grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); }
+.cal-line-main .cal-tags { margin: 0; }
+.cal-read-head { align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+.cal-read-head .badge { max-width: 100%; white-space: normal; }
+.cal-source-list li { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
+@media (max-width: 640px) {
+  .cal-overview { grid-template-columns: minmax(0, 1fr); }
+  .cal-outlook-score { flex-wrap: wrap; }
+}

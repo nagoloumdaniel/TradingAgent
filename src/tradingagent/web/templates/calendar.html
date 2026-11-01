@@ -40,15 +40,7 @@
 
 {# --- le jour en un coup d'œil : score global + une carte par marché ---------------------- #}
 {% set o = cal.outlook %}
-<section class="cal-overview" id="cal-overview" aria-labelledby="h-over">
-  <article class="cal-global" data-bias="{{ o.bias }}">
-    <h2 id="h-over" class="cal-h2">{{ icon("gauge") }}Score global</h2>
-    <p class="cal-global-score num">{{ o.score_text }}</p>
-    {{ score_meter(o.score, o.score_text, o.score_abs, "Score global") }}
-    <p class="cal-chips">{{ bias_chip(o) }}<span class="badge cal-heat" data-heat="{{ o.heat_label | lower }}" title="Influence de l'annonce la plus forte : {{ o.heat }} / 100">{{ o.heat_label }}</span></p>
-    <p class="cal-meta">{{ o.headline }}</p>
-  </article>
-
+<section class="cal-overview" id="cal-overview" aria-label="Prévisions par marché">
   {% for m in o.markets %}
   <article class="cal-outlook" data-bias="{{ m.bias }}" aria-label="Prévision {{ m.symbol }}">
     <header>
@@ -56,15 +48,17 @@
       <span class="num cal-price">{{ m.last_price }}</span>
     </header>
     <div class="cal-outlook-score">
-      {{ score_meter(m.score, m.score_text, m.score_abs, "Score " ~ m.symbol) }}
-      <p class="cal-chips">{{ bias_chip(m) }}{{ stance_chip(m.stance, m.stance_label) }}</p>
+      <p class="cal-global-score num" aria-label="Score {{ m.symbol }}">{{ m.score_text }}</p>
+      <div class="cal-outlook-gauge">
+        {{ score_meter(m.score, m.score_text, m.score_abs, "Score " ~ m.symbol) }}
+        <p class="cal-chips">{{ bias_chip(m) }}{{ stance_chip(m.stance, m.stance_label) }}</p>
+      </div>
     </div>
     <dl class="cal-parts">
       <div><dt>Technique</dt><dd class="num">{{ m.technical_text }}</dd><dd class="cal-part-note">{{ m.trend_label }} · vol. {{ m.volatility_label }}</dd></div>
       <div><dt>Fondamental</dt><dd class="num">{{ m.fundamental_text }}</dd><dd class="cal-part-note">{{ "annonces du jour" if m.has_fundamental else "aucune annonce lue" }}</dd></div>
     </dl>
     <p class="cal-prediction">{{ m.prediction }}</p>
-    {% if m.summary %}<p class="cal-market-sum">{{ m.summary }}</p>{% endif %}
   </article>
   {% endfor %}
 </section>

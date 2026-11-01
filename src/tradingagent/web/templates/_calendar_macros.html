@@ -110,19 +110,17 @@
 {# Une annonce en une ligne : titres de presse. #}
 {% macro event_line(e) %}
 <li class="cal-line" data-impact="{{ e.impact }}" data-state="{{ e.state }}">
-  <div class="cal-line-when"><time class="num" datetime="{{ e.at_iso }}">{{ e.time_utc }}</time><span>{{ e.date_label }} UTC</span></div>
+  <div class="cal-line-when"><time class="num" datetime="{{ e.at_iso }}">{{ e.time_utc }}</time><span>{{ e.date_label }}</span><span class="cal-line-tz">UTC</span></div>
   <div class="cal-line-main">
     <p class="cal-line-title">{% if e.url %}<a href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ e.title }}<span class="sr-only"> (nouvel onglet)</span></a>{% else %}{{ e.title }}{% endif %}</p>
-    <p class="cal-tags">{{ flag(e) }}{{ impact_chip(e) }}
-      {% if e.url %}<a class="cal-source cal-source-chip" href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ e.source_label or e.host }}<span class="sr-only"> (nouvel onglet)</span>{{ icon("arrow-up-right") }}</a>{% endif %}
-      <span class="badge cal-reading" data-reading="{{ e.reading }}">{{ e.reading_label }}</span></p>
-    <div class="cal-line-verdicts">
-      {% for v in e.verdicts %}
-      <span class="cal-mini" data-bias="{{ v.bias }}"><strong>{{ v.symbol }}</strong> {{ score_meter(v.score, v.score_text, v.score_abs, "Impact " ~ v.symbol) }} {{ bias_chip(v) }}</span>
-      {% endfor %}
-    </div>
+    <p class="cal-tags">{{ flag(e) }}{{ impact_chip(e) }}</p>
   </div>
   <div class="cal-influence">{{ gauge(e.influence, "Influence maximale") }}</div>
+  <div class="cal-line-verdicts">
+    {% for v in e.verdicts %}
+    <span class="cal-mini" data-bias="{{ v.bias }}"><strong>{{ v.symbol }}</strong>{{ score_meter(v.score, v.score_text, v.score_abs, "Impact " ~ v.symbol) }}{{ bias_chip(v) }}</span>
+    {% endfor %}
+  </div>
 </li>
 {% endmacro %}
 

@@ -761,27 +761,13 @@ def _market_outlook(
             stance = Stance.SELL
 
     parts: list[str] = []
-    if state.known:
-        parts.append(
-            f"Technique : tendance {TREND_LABELS[state.trend]}, "
-            f"volatilité {VOLATILITY_LABELS[state.volatility]}."
-        )
-    else:
-        parts.append("Technique : aucune bougie récente, tendance inconnue.")
-    if has_fundamental:
-        lean = BIAS_LABELS[_bias_of(fundamental)].lower()
-        parts.append(f"Annonces du jour : lecture {lean} ({_signed(fundamental)}).")
-    else:
-        parts.append("Annonces du jour : aucune lecture pour ce marché.")
     if state.known and has_fundamental and technical and _bias_of(fundamental) is not Bias.NEUTRAL:
         agree = (technical > 0) == (fundamental > 0)
-        parts.append(
-            "Les deux analyses concordent." if agree else "Les deux analyses divergent : prudence."
-        )
+        parts.append("Analyses concordantes." if agree else "Analyses divergentes : prudence.")
     if imminent is not None:
-        parts.append(f"Annonce forte à {imminent.time_utc} UTC : attendre sa publication.")
+        parts.append(f"Annonce forte à {imminent.time_utc} UTC : attendre.")
     elif stance is Stance.WAIT and bias is not Bias.NEUTRAL:
-        parts.append("La tendance contredit la lecture : on n'agit pas contre elle.")
+        parts.append("Tendance contraire à la lecture : on n'agit pas.")
     parts.append(f"Biais {BIAS_LABELS[bias].lower()}, {STANCE_LABELS[stance].lower()}.")
 
     price = f"{state.last_price:,.2f}".replace(",", " ") if state.last_price else "—"

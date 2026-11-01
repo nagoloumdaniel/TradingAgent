@@ -60,7 +60,7 @@ def main(base: str, out: Path) -> int:
             check(page.locator("header.topbar #keys-btn").count() == 1, f"{tag}: no keys button")
             check(page.locator("#month-grid").count() == 0, f"{tag}: month grid still there")
             check(page.locator("#cal-overview .cal-outlook").count() == 2, f"{tag}: outlook cards")
-            check(page.locator("#cal-overview .cal-global-score").count() == 1, f"{tag}: no score")
+            check(page.locator("#cal-overview .cal-global-score").count() == 2, f"{tag}: no score")
             cards = page.locator("#day-panel .cal-event").count()
             rows = page.locator("#day-panel .cal-impact-row").count()
             check(cards == 0 or rows == 2 * cards, f"{tag}: {rows} score rows for {cards} cards")
