@@ -1277,3 +1277,9 @@ dialog.report-dialog > p { padding: 20px; }
 @media (hover: hover) {
   .card:not(.cards > .card):hover { border-color: var(--line-strong); }
 }
+
+nav.side .nav-group {
+  display: block; margin: 14px 12px 4px; color: var(--faint);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+}
+nav.side .nav-group:first-child { margin-top: 2px; }
