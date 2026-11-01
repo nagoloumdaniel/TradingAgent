@@ -100,6 +100,54 @@ def _demo(engine: Engine) -> None:
         session.commit()
 
 
+def _demo_calendar(engine: Engine) -> None:
+    """A week of announcements, speeches and headlines, so /calendar can be judged full."""
+    from tradingagent.news.fallback import fallback_analysis
+    from tradingagent.news.model import (
+        BTCUSD,
+        XAUUSD,
+        EconomicEvent,
+        EventKind,
+        Impact,
+        MarketState,
+        event_key,
+    )
+    from tradingagent.storage.news import NewsStore
+    from tradingagent.trusted_clock import now as trusted_now
+
+    at = trusted_now().replace(minute=0, second=0, microsecond=0)
+    states = {XAUUSD: MarketState(XAUUSD, "up", "normal", 2650.0, at), BTCUSD: MarketState(BTCUSD)}
+    plan = [
+        (1, "Core CPI m/m", Impact.HIGH, EventKind.RELEASE, "USD"),
+        (3, "Fed Chair speaks", Impact.HIGH, EventKind.SPEECH, "USD"),
+        (5, "Unemployment Claims", Impact.MEDIUM, EventKind.RELEASE, "USD"),
+        (7, "ECB President speaks", Impact.MEDIUM, EventKind.SPEECH, "EUR"),
+        (-2, "Gold slips as the dollar firms", Impact.MEDIUM, EventKind.HEADLINE, "USD"),
+        (26, "Non-Farm Employment Change", Impact.HIGH, EventKind.RELEASE, "USD"),
+        (50, "FOMC Statement", Impact.HIGH, EventKind.RELEASE, "USD"),
+    ]
+    store = NewsStore(engine)
+    events = [
+        EconomicEvent(
+            key=event_key("demo", cur, title, at + timedelta(hours=h)),
+            starts_at=at + timedelta(hours=h),
+            currency=cur,
+            title=title,
+            impact=impact,
+            kind=kind,
+            country=cur,
+            forecast="0.3%" if kind is EventKind.RELEASE else None,
+            previous="0.2%" if kind is EventKind.RELEASE else None,
+            source="faireconomy",
+            url="https://www.forexfactory.com/calendar",
+        )
+        for h, title, impact, kind, cur in plan
+    ]
+    store.upsert_events(events, at)
+    for one in events:
+        store.save_analysis(fallback_analysis(one, states, at))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="preview_dashboard", description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
@@ -118,6 +166,7 @@ def main(argv: list[str] | None = None) -> int:
     seed(engine)
     if args.demo:
         _demo(engine)
+        _demo_calendar(engine)
     print(f"preview database: {database}")
     print(f"dashboard: http://{args.host}:{args.port}/")
     uvicorn.run(create_app(engine), host=args.host, port=args.port, log_level="warning")

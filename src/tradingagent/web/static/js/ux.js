@@ -229,13 +229,8 @@
     }
   });
 
-  var foot = document.querySelector("footer");
-  if (foot) {
-    var hint = el("button", "keys-hint", "Raccourcis ?", foot);
-    hint.type = "button";
-    hint.setAttribute("aria-label", "Afficher les raccourcis clavier");
-    hint.addEventListener("click", help);
-  }
+  var hint = document.getElementById("keys-btn");
+  if (hint) { hint.addEventListener("click", help); }
 
   /* -- phone length : folded modules, capped lists, tap-for-detail rows, sticky summary ----
      Everything here only changes what is shown at first sight; no figure is dropped and the

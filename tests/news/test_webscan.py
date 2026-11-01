@@ -104,3 +104,28 @@ def test_without_model_nothing_is_read() -> None:
 def test_parse_ignores_garbage() -> None:
     assert parse_events({"events": "x"}, PAGE, "", NOW, 7) == ()
     assert parse_events([], PAGE, "", NOW, 7) == ()
+
+
+class FlakyModel:
+    """First reply has no JSON (a refusal), the second is good."""
+
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+
+    async def complete(self, system: str, user: str, *, max_tokens: int) -> AiReply:
+        self.prompts.append(user)
+        text = "Sorry, I cannot help." if len(self.prompts) == 1 else REPLY
+        return AiReply(text=text, model="deepseek-chat", input_tokens=10, output_tokens=10)
+
+
+def test_a_reply_without_json_is_retried_once_asking_for_the_object_alone() -> None:
+    model = FlakyModel()
+    source = WebScanSource(PAGE, FakeHttp(), model, Journal(), model="deepseek-chat")
+    result = asyncio.run(source.fetch(NOW))
+    assert result.report.ok and len(result.events) == 1
+    assert len(model.prompts) == 2
+    assert model.prompts[1].endswith("Reply with the JSON object only.")
+
+
+def test_web_te_is_no_longer_scanned() -> None:
+    assert "web_te" not in {page.name for page in SCAN_PAGES}

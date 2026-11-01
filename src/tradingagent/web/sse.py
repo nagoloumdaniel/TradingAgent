@@ -15,13 +15,14 @@ import json
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Engine, func, select
 
 from tradingagent.core.states import Severity
 from tradingagent.storage import models
+from tradingagent.trusted_clock import now as trusted_now
 from tradingagent.web import format as display
 from tradingagent.web import paging
 from tradingagent.web.queries import event_count, open_positions, recent_events
@@ -40,7 +41,7 @@ DEFAULT_ALERT_LIMIT = 30
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 # What the agent writes and the pages show. A table contributes its row count and its newest

@@ -21,6 +21,13 @@
 <span class="cal-gauge" role="img" aria-label="{{ label }} {{ value }} sur 100" style="--s: {{ segments }}"><span class="cal-gauge-num">{{ value }}</span></span>
 {%- endmacro %}
 
+{# Score signé -100..100 : la barre part du centre, vers la droite (haussier) ou la gauche
+   (baissier). Le signe et le chiffre disent la même chose que la couleur. #}
+{% macro score_meter(score, text, magnitude, label) -%}
+<span class="cal-score" data-sign="{{ 'up' if score > 0 else ('down' if score < 0 else 'flat') }}" role="img" aria-label="{{ label }} : {{ text }} sur 100"
+      style="--m: {{ magnitude }}"><span class="cal-score-bar"><i></i></span><span class="cal-score-num num">{{ text }}</span></span>
+{%- endmacro %}
+
 {% macro bias_chip(v) -%}
 {% set glyph = {"bullish": "trending-up", "bearish": "trending-down"}.get(v.bias, "activity") %}
 <span class="badge cal-bias" data-bias="{{ v.bias }}">{{ icon(glyph) }}{{ v.bias_label }}</span>
@@ -65,11 +72,17 @@
   <p class="cal-summary">{{ e.summary }}</p>
   {% endif %}
 
+  <div class="cal-impacts" aria-label="Impact scoré par marché">
+    {% for v in e.verdicts %}
+    <div class="cal-impact-row" data-bias="{{ v.bias }}">
+      <strong class="cal-symbol">{{ v.symbol }}</strong>
+      {{ score_meter(v.score, v.score_text, v.score_abs, "Impact " ~ v.symbol) }}
+      {{ bias_chip(v) }}{{ stance_chip(v.stance, v.stance_label) }}
+    </div>
+    {% endfor %}
+  </div>
   <details class="cal-read-more">
-    <summary>
-      <span class="cal-read-sum">{% for v in e.verdicts %}<span class="cal-mini" data-bias="{{ v.bias }}"><strong>{{ v.symbol }}</strong> {{ bias_chip(v) }} {{ stance_chip(v.stance, v.stance_label) }}</span>{% endfor %}</span>
-      <span class="cal-read-toggle">Détail{{ icon("chevron-down") }}</span>
-    </summary>
+    <summary><span class="cal-read-toggle">Pourquoi ce score{{ icon("chevron-down") }}</span></summary>
     <div class="cal-verdicts">
     {% for v in e.verdicts %}
     <section class="cal-verdict" data-bias="{{ v.bias }}" aria-label="Lecture {{ v.symbol }}">
@@ -105,7 +118,7 @@
       <span class="badge cal-reading" data-reading="{{ e.reading }}">{{ e.reading_label }}</span></p>
     <div class="cal-line-verdicts">
       {% for v in e.verdicts %}
-      <span class="cal-mini" data-bias="{{ v.bias }}"><strong>{{ v.symbol }}</strong> {{ bias_chip(v) }} {{ stance_chip(v.stance, v.stance_label) }}</span>
+      <span class="cal-mini" data-bias="{{ v.bias }}"><strong>{{ v.symbol }}</strong> {{ score_meter(v.score, v.score_text, v.score_abs, "Impact " ~ v.symbol) }} {{ bias_chip(v) }}</span>
       {% endfor %}
     </div>
   </div>
@@ -116,7 +129,7 @@
 {# Une case : un lien, donc une page qui fonctionne sans JavaScript. #}
 {% macro day_link(c, compact=false) %}
 {% set peak = "high" if c.high else ("medium" if c.medium else ("low" if c.low else "")) %}
-<a class="cal-day{% if c.is_today %} is-today{% endif %}{% if c.is_selected %} is-selected{% endif %}{% if not c.in_month %} is-outside{% endif %}{% if c.is_weekend %} is-weekend{% endif %}"
+<a class="cal-day{% if c.is_today %} is-today{% endif %}{% if c.is_selected %} is-selected{% endif %}{% if c.is_weekend %} is-weekend{% endif %}"
    href="{{ c.href }}" data-day-link data-day="{{ c.iso }}"{% if peak %} data-peak="{{ peak }}"{% endif %}
    aria-label="{{ c.aria }}{% if c.is_selected %}, jour affiché{% endif %}"
    {% if c.is_today %}aria-current="date"{% endif %}>

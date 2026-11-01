@@ -42,7 +42,7 @@ log = logging.getLogger(__name__)
 
 PURPOSE = "news_web_scan"
 MAX_TEXT_CHARS = 28_000
-MAX_EVENTS_PER_PAGE = 60
+MAX_EVENTS_PER_PAGE = 40
 WINDOW_PAST = timedelta(hours=12)
 
 
@@ -63,7 +63,6 @@ SCAN_PAGES: tuple[ScanPage, ...] = (
         "Banque centrale européenne",
     ),
     ScanPage("web_bea", "https://www.bea.gov/news/schedule", "Bureau of Economic Analysis"),
-    ScanPage("web_te", "https://tradingeconomics.com/calendar", "Trading Economics"),
 )
 
 _SYSTEM = (
@@ -238,14 +237,26 @@ class WebScanSource:
             return self._report(now, False, error="page vide ou illisible")
         prompt = _prompt(self._page, text, now, self._horizon)
         started = time.monotonic()
-        try:
-            reply = await asyncio.wait_for(
-                self._client.complete(_SYSTEM, prompt, max_tokens=4000), self._ai_timeout
-            )
-            raw = _json_body(reply.text)
-        except (Exception, json.JSONDecodeError) as error:
-            await self._journal(now, prompt, None, one_line(error), started, None)
-            return self._report(now, False, error=f"lecture IA : {one_line(error)}")
+        # A reply with no JSON (refusal, empty or cut-off answer) is retried once, asking for
+        # the object alone; a second failure is reported as is.
+        reply = None
+        raw: object = None
+        failure: Exception | None = None
+        for attempt in range(2):
+            ask = prompt if attempt == 0 else prompt + "\n\nReply with the JSON object only."
+            try:
+                reply = await asyncio.wait_for(
+                    self._client.complete(_SYSTEM, ask, max_tokens=6000), self._ai_timeout
+                )
+                raw = _json_body(reply.text)
+                failure = None
+                break
+            except (Exception, json.JSONDecodeError) as error:
+                failure = error
+        if failure is not None or reply is None:
+            message = one_line(failure) if failure is not None else "aucune réponse"
+            await self._journal(now, prompt, None, message, started, None)
+            return self._report(now, False, error=f"lecture IA : {message}")
         await self._journal(now, prompt, reply.text, None, started, _cost_eur(reply))
         events = parse_events(raw, self._page, text, now, self._horizon)
         return FetchResult(events, SourceReport(self.name, True, len(events), now))
