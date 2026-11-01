@@ -17,7 +17,7 @@ and through the bar when a candle is given.
 import asyncio
 import logging
 from collections.abc import Callable, Mapping
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from tradingagent.core.halt import HaltStatus
@@ -44,13 +44,14 @@ from tradingagent.risk.model import (
     OrderRequest,
     OrderResult,
 )
+from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 ONE = Decimal(1)
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 class _PaperPosition:

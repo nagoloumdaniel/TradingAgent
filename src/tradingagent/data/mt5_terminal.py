@@ -7,6 +7,7 @@ import MetaTrader5 as mt5
 
 from tradingagent.core.market import Direction
 from tradingagent.core.timeframe import Timeframe
+from tradingagent.data.mt5_launcher import start_hidden
 from tradingagent.data.terminal import (
     MAGIC,
     AccountFunds,
@@ -22,6 +23,7 @@ from tradingagent.data.terminal import (
     TradeRequest,
     TradeResult,
 )
+from tradingagent.trusted_clock import now as trusted_now
 
 _TIMEFRAMES = {
     Timeframe.M1: mt5.TIMEFRAME_M1,
@@ -48,6 +50,7 @@ class Mt5Terminal:
             "timeout": 60_000,
         }
         path = credentials.terminal_path
+        start_hidden(path)
         ok = mt5.initialize(str(path), **kwargs) if path else mt5.initialize(**kwargs)
         if not ok:
             raise TerminalError(f"initialize failed: {mt5.last_error()}")
@@ -198,7 +201,7 @@ class Mt5Terminal:
 
     def deals_since(self, server_epoch: int) -> tuple[DealInfo, ...]:
         date_from = datetime.fromtimestamp(server_epoch, tz=UTC)
-        raw = mt5.history_deals_get(date_from, datetime.now(UTC))
+        raw = mt5.history_deals_get(date_from, trusted_now())
         if raw is None:
             return ()
         return tuple(

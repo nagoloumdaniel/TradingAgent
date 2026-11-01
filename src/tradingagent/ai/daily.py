@@ -45,6 +45,7 @@ from tradingagent.storage.models import (
     SystemEventRow,
     TradeRow,
 )
+from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ SESSIONS = (
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 def day_floor(at: datetime) -> datetime:

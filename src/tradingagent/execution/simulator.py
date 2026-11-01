@@ -8,7 +8,7 @@ It ships in production code because the recovery suite runs the real executors a
 
 import threading
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from tradingagent.core.market import Direction
@@ -28,6 +28,7 @@ from tradingagent.data.terminal import (
     TradeRequest,
     TradeResult,
 )
+from tradingagent.trusted_clock import now as trusted_now
 
 RETCODE_DONE = 10009
 RETCODE_PLACED = 10008
@@ -397,7 +398,7 @@ class SimulatedTerminal:
 
 
 def utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 def decimal(value: float) -> Decimal:

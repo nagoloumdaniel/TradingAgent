@@ -12,7 +12,6 @@ import logging
 import os
 import sys
 from collections.abc import Callable, Coroutine
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +62,8 @@ from tradingagent.storage.audit import AuditStore
 from tradingagent.storage.candles import CandleStore
 from tradingagent.storage.engine import create_database_engine
 from tradingagent.storage.halts import HaltStore
+from tradingagent.trusted_clock import now as trusted_now
+from tradingagent.trusted_clock import start_trusted_clock
 
 log = logging.getLogger(__name__)
 
@@ -145,6 +146,7 @@ def main() -> int:
     logging.getLogger("httpx").setLevel(logging.WARNING)  # its request lines carry the token
     # This machine's TLS chain is only trusted through the Windows certificate store.
     truststore.inject_into_ssl()
+    start_trusted_clock()
     try:
         settings = load_bot_settings(Path(".env"))
     except ConfigError as error:
@@ -180,9 +182,7 @@ def main() -> int:
     router.register("signals", "derniers signaux", signals_handler(engine))
     router.register("positions", "positions ouvertes", positions_handler(engine))
     router.register("performance", "trades clôturés", performance_handler(engine))
-    router.register(
-        "report", "rapport à la demande", report_handler(engine, lambda: datetime.now(UTC))
-    )
+    router.register("report", "rapport à la demande", report_handler(engine, lambda: trusted_now()))
     router.register("pause", "suspend les ordres", pause_handler(halts))
     router.register("resume", "reprend les ordres", resume_handler(halts))
     router.register("close_all", "ferme les positions", close_all_handler(halts))

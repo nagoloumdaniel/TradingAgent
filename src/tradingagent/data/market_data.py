@@ -5,7 +5,7 @@ import logging
 from collections.abc import Awaitable, Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from functools import partial
 from typing import TypeVar
 
@@ -22,6 +22,7 @@ from tradingagent.data.terminal import (
     Terminal,
     TerminalError,
 )
+from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -73,7 +74,7 @@ class Subscription:
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 class MarketDataClient:

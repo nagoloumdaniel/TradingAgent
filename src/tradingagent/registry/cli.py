@@ -16,7 +16,7 @@ import getpass
 import json
 import sys
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import Engine
@@ -26,6 +26,7 @@ from tradingagent.config.settings import load_database_settings
 from tradingagent.core.states import ValidationStage
 from tradingagent.registry.store import RegistryError, StrategyRegistry
 from tradingagent.storage.engine import create_database_engine
+from tradingagent.trusted_clock import now as trusted_now
 
 
 def _engine_from_environment() -> Engine:
@@ -63,7 +64,7 @@ def _parser() -> argparse.ArgumentParser:
 def main(
     argv: Sequence[str] | None = None,
     engine_factory: Callable[[], Engine] = _engine_from_environment,
-    clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    clock: Callable[[], datetime] = lambda: trusted_now(),
 ) -> int:
     args = _parser().parse_args(argv)
     try:

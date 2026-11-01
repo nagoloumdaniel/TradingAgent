@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Any
 
 from tradingagent.core.market import Direction
+from tradingagent.trusted_clock import system_now
 
 #: Version of the file contract. Bumped whenever a field changes meaning, never when one
 #: is merely added; the EA refuses a state file whose version it does not know.
@@ -75,7 +76,7 @@ STATE_REPLACE_RETRY_SECONDS = 0.02
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return system_now()
 
 
 class EaStatus(StrEnum):

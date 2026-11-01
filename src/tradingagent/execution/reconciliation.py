@@ -12,13 +12,14 @@ turns a non-empty result into a global halt through the guardian.
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from tradingagent.control.guardian import Guardian
 from tradingagent.core.mode import TradingMode
 from tradingagent.execution.ports import LocalPosition, TradeLog
 from tradingagent.risk.model import BrokerPosition
+from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ VOLUME_TOLERANCE = Decimal("0.000001")
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 @dataclass(frozen=True)

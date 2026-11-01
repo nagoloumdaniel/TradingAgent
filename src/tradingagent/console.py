@@ -28,6 +28,7 @@ from datetime import UTC, datetime
 from typing import Any, TextIO
 
 from tradingagent.observability import CollapseNetworkTracebacks
+from tradingagent.trusted_clock import now as trusted_now
 
 # --- ANSI, enabled properly on Windows ------------------------------------------------
 
@@ -167,7 +168,7 @@ class ConsoleNotifier:
     ) -> None:
         self._inner = inner
         self._stream = stream if stream is not None else sys.stdout
-        self._now = now if now is not None else lambda: datetime.now(UTC)
+        self._now = now if now is not None else lambda: trusted_now()
 
     async def send(self, text: str, *, parse_mode: str | None = None) -> bool:
         try:

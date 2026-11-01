@@ -7,7 +7,7 @@ RM-013 is lifted automatically, once the data is healthy again.
 
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from tradingagent.core.account import AccountModeMismatchError
@@ -16,6 +16,7 @@ from tradingagent.core.states import HaltAction, HaltSource
 from tradingagent.risk.breaches import hard_limit_breaches
 from tradingagent.risk.model import PortfolioState, RiskLimits
 from tradingagent.storage.halts import HaltCommand, HaltStore
+from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ AGENT = "agent"
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 class Guardian:
