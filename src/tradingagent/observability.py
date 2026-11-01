@@ -23,6 +23,7 @@ from typing import Any
 
 from tradingagent.config.redaction import install_secret_redaction, redact
 from tradingagent.resilience import is_transient, one_line
+from tradingagent.trusted_clock import now as trusted_now
 
 Now = Callable[[], datetime]
 
@@ -61,7 +62,7 @@ _REDACTION_INSTALLED: set[frozenset[str]] = set()
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 def upgrade_level(level: int | str) -> int:

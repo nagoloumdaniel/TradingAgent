@@ -20,7 +20,7 @@ import os
 import sys
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -143,6 +143,8 @@ from tradingagent.storage.news import NewsStore
 from tradingagent.storage.signals import SignalRepository
 from tradingagent.strategies.manifest import StrategyManifest
 from tradingagent.strategies.registry import REGISTRY
+from tradingagent.trusted_clock import now as trusted_now
+from tradingagent.trusted_clock import start_trusted_clock
 
 log = logging.getLogger(__name__)
 
@@ -200,7 +202,7 @@ COST_KEYS = (
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 def _supervised() -> bool:
@@ -1238,6 +1240,7 @@ def _parse(argv: Sequence[str] | None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse(argv)
     truststore.inject_into_ssl()
+    start_trusted_clock()
     try:
         settings = load_settings(ENV_FILE)
     except ConfigError as error:

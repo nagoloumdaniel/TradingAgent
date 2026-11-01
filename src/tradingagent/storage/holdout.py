@@ -21,13 +21,14 @@ d'idempotence et les tables d'historique.
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import Engine, insert, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from tradingagent.storage.models import HoldoutUnlockRow
+from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class HoldoutLedger:
     def __init__(self, engine: Engine, *, actor: str, now: Callable[[], datetime] | None = None):
         self._engine = engine
         self._actor = actor
-        self._now = now or (lambda: datetime.now(UTC))
+        self._now = now or (lambda: trusted_now())
 
     def record(self, *, identity: str, start: datetime, end: datetime, size: int) -> None:
         """Journal one opening, or refuse because this holdout has already been spent.

@@ -15,7 +15,7 @@ import argparse
 import getpass
 import sys
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import Engine, text
@@ -28,6 +28,7 @@ from tradingagent.core.states import HaltAction, HaltSource
 from tradingagent.storage.engine import create_database_engine
 from tradingagent.storage.halts import HaltCommand, HaltStore
 from tradingagent.storage.migrate import head_revision
+from tradingagent.trusted_clock import now as trusted_now
 
 ENV_FILE = Path(".env")
 
@@ -145,7 +146,7 @@ def _report_schema(engine: Engine) -> None:
 def main(
     argv: Sequence[str] | None = None,
     engine_factory: Callable[[], Engine] = _engine_from_environment,
-    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    now: Callable[[], datetime] = lambda: trusted_now(),
     env_path: Path = ENV_FILE,
 ) -> int:
     args = _parser().parse_args(argv)

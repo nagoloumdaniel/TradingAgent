@@ -11,7 +11,6 @@ the very function the pipeline uses (`blackout_window`), with the default window
 operator reads is what the gate does unless the operator tuned `news.blackout` in the config.
 """
 
-import calendar as pycalendar
 import logging
 import re
 from collections.abc import Iterable, Mapping, Sequence
@@ -27,6 +26,7 @@ from tradingagent.news.config import DEFAULT_NEWS_CONFIG
 from tradingagent.news.fallback import fallback_analysis
 from tradingagent.news.market_state import MarketStateReader
 from tradingagent.news.model import (
+    BTCUSD,
     XAUUSD,
     Bias,
     DailyBrief,
@@ -43,22 +43,22 @@ from tradingagent.news.ports import EMPTY_CALENDAR, SourceReport
 from tradingagent.news.stance import market_phrase
 from tradingagent.storage.candles import CandleStore
 from tradingagent.storage.news import NewsStore
+from tradingagent.trusted_clock import paris_offset
+from tradingagent.trusted_clock import status as clock_status
 
 log = logging.getLogger(__name__)
 
 #: The strip: today and the seven days after.
 STRIP_DAYS = 8
-#: The headlines and speeches shown under the timeline.
-HEADLINE_LOOKBACK = timedelta(hours=48)
-HEADLINES_SHOWN = 14
+#: The press headlines listed for one day.
+HEADLINES_SHOWN = 40
 #: An announcement this close is "imminent".
 SOON = timedelta(minutes=60)
 #: The week-ahead feed is published by the host later in the week: past this many days ahead
 #: the page says the sources do not cover the day yet, instead of reading it as "nothing planned".
 COVERED_DAYS_AHEAD = STRIP_DAYS
 
-DAY_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-MONTH_PATTERN = re.compile(r"^\d{4}-\d{2}$")
+DAY_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 IMPACT_LABELS = {Impact.HIGH: "Fort", Impact.MEDIUM: "Moyen", Impact.LOW: "Faible"}
 KIND_LABELS = {
@@ -138,32 +138,10 @@ NOT_ADVICE = (
 
 
 class BadCalendarRequest(ValueError):
-    """A `day` or `month` parameter that is not a real date: the route answers 400."""
+    """A `day` parameter that is not a real date: the route answers 400."""
 
 
 # --- time ---------------------------------------------------------------------------------
-
-
-def _last_sunday(year: int, month: int) -> date:
-    last = date(year, month, pycalendar.monthrange(year, month)[1])
-    return last - timedelta(days=(last.weekday() + 1) % 7)
-
-
-def paris_offset(moment: datetime) -> timedelta:
-    """Paris is UTC+1, and UTC+2 from the last Sunday of March to the last of October (01:00 UTC).
-
-    The European rule is written out rather than read from the tz database: the dashboard must
-    not depend on the host shipping `tzdata`, and a wrong hour on an economic calendar is worse
-    than a missing one. Valid for the whole period the EU rule has held (1996 onward).
-    """
-    utc = moment.astimezone(UTC)
-    begins = datetime.combine(_last_sunday(utc.year, 3), datetime.min.time(), UTC) + timedelta(
-        hours=1
-    )
-    ends = datetime.combine(_last_sunday(utc.year, 10), datetime.min.time(), UTC) + timedelta(
-        hours=1
-    )
-    return timedelta(hours=2) if begins <= utc < ends else timedelta(hours=1)
 
 
 def to_paris(moment: datetime) -> datetime:
@@ -187,6 +165,9 @@ class VerdictView:
     timeframes: str
     window: str
     rationale: str
+    score: int  # signed, -100..100: direction x confidence x influence
+    score_text: str
+    score_abs: int
 
 
 @dataclass(frozen=True)
@@ -228,7 +209,6 @@ class DayCell:
     number: int
     weekday: str
     month_label: str
-    in_month: bool
     is_today: bool
     is_selected: bool
     is_weekend: bool
@@ -280,37 +260,64 @@ class Freshness:
 
 
 @dataclass(frozen=True)
-class MonthNav:
-    label: str
-    iso: str
-    previous_href: str
-    next_href: str
-    today_href: str
-    is_current: bool
+class MarketOutlook:
+    """One market for the day: the candles' trend, the announcements' lean, and the two combined."""
+
+    symbol: str
+    last_price: str
+    state_known: bool
+    trend: str
+    trend_label: str
+    volatility_label: str
+    technical: int
+    technical_text: str
+    fundamental: int
+    fundamental_text: str
+    has_fundamental: bool
+    score: int
+    score_text: str
+    score_abs: int
+    bias: str
+    bias_label: str
+    stance: str
+    stance_label: str
+    prediction: str
+    summary: str  # the morning brief's sentence for this market, "" when none is stored
+
+
+@dataclass(frozen=True)
+class Outlook:
+    markets: tuple[MarketOutlook, ...]
+    score: int
+    score_text: str
+    score_abs: int
+    bias: str
+    bias_label: str
+    heat: int
+    heat_label: str
+    headline: str
+    method: str
 
 
 @dataclass(frozen=True)
 class CalendarView:
     now_label: str
     paris_label: str
+    clock_synced: bool
+    clock_label: str
     freshness: Freshness
     brief: BriefView | None
+    outlook: Outlook
     next_major: EventView | None
-    month: MonthNav
-    weeks: tuple[tuple[DayCell, ...], ...]
     strip: tuple[DayCell, ...]
-    today: tuple[EventView, ...]
-    now_index: int
-    track: tuple[tuple[float, str, str], ...]  # (left %, impact, title) on the 24 h line
-    now_percent: float
     selected: str
     selected_label: str
     selected_is_today: bool
     selected_events: tuple[EventView, ...]
     selected_headlines: tuple[EventView, ...]
+    selected_high: int
+    selected_medium: int
     selected_note: str
-    speeches: tuple[EventView, ...]
-    headlines: tuple[EventView, ...]
     sources: tuple[SourceView, ...]
     ai_note: str
     total_events: int
@@ -324,27 +331,16 @@ class CalendarView:
 def parse_day(text: str | None) -> date | None:
     if text is None or text == "":
         return None
-    if not DAY_PATTERN.match(text):
+    if not DAY_PATTERN.fullmatch(text):
         raise BadCalendarRequest("jour invalide : attendu AAAA-MM-JJ")
     try:
         day = date.fromisoformat(text)
     except ValueError:
         raise BadCalendarRequest("jour invalide : cette date n'existe pas") from None
     if not 1900 <= day.year <= 2200:
-        # Same bounds as `parse_month`: day arithmetic on year 9999 overflows into a 500.
+        # Day arithmetic on year 9999 overflows into a 500.
         raise BadCalendarRequest("jour invalide : cette date n'existe pas")
     return day
-
-
-def parse_month(text: str | None) -> tuple[int, int] | None:
-    if text is None or text == "":
-        return None
-    if not MONTH_PATTERN.match(text):
-        raise BadCalendarRequest("mois invalide : attendu AAAA-MM")
-    year, month = int(text[:4]), int(text[5:])
-    if not 1 <= month <= 12 or not 1900 <= year <= 2200:
-        raise BadCalendarRequest("mois invalide : ce mois n'existe pas")
-    return year, month
 
 
 # --- small formatters ---------------------------------------------------------------------
@@ -410,13 +406,6 @@ def _source_link(event: EconomicEvent) -> tuple[str, str]:
     return page, label
 
 
-def _month_href(year: int, month: int, selected: date | None) -> str:
-    query = f"month={year:04d}-{month:02d}"
-    if selected is not None:
-        query = f"day={selected.isoformat()}&{query}"
-    return f"/calendar?{query}"
-
-
 def _day_href(day: date, today: date) -> str:
     # No `day` for today: the bare URL is the default, and it is the one a bookmark keeps.
     base = "/calendar" if day == today else f"/calendar?day={day.isoformat()}"
@@ -426,7 +415,26 @@ def _day_href(day: date, today: date) -> str:
 # --- verdicts and events ------------------------------------------------------------------
 
 
+BIAS_SIGN = {Bias.BULLISH: 1, Bias.BEARISH: -1, Bias.NEUTRAL: 0}
+#: A combined score past this (either way) is a lean, below it the picture is mixed.
+LEAN_THRESHOLD = 15
+#: A trend the candles show counts for this much of the technical half of the score.
+TREND_WEIGHT = 50
+#: Busiest announcement of the day (max influence): below `CALM`, calm; from `BUSY`, loaded.
+HEAT_CALM, HEAT_BUSY = 35, 65
+
+
+def _signed(value: int) -> str:
+    return f"+{value}" if value > 0 else (f"\N{MINUS SIGN}{-value}" if value < 0 else "0")
+
+
+def signed_score(verdict: MarketVerdict) -> int:
+    """Direction x confidence x influence, as a whole number from -100 to 100."""
+    return round(BIAS_SIGN[verdict.bias] * verdict.confidence * verdict.influence)
+
+
 def _verdict_view(verdict: MarketVerdict) -> VerdictView:
+    score = signed_score(verdict)
     start, end = verdict.window_start, verdict.window_end
     window = f"{_hm(start)} à {_hm(end)} UTC"
     if start.date() != end.date():
@@ -442,6 +450,9 @@ def _verdict_view(verdict: MarketVerdict) -> VerdictView:
         timeframes=" · ".join(verdict.timeframes),
         window=window,
         rationale=verdict.rationale,
+        score=score,
+        score_text=_signed(score),
+        score_abs=abs(score),
     )
 
 
@@ -526,9 +537,7 @@ def _cell(
     *,
     today: date,
     selected: date,
-    in_month: bool,
     by_day: Mapping[date, list[EconomicEvent]],
-    with_titles: bool = False,
 ) -> DayCell:
     events = by_day.get(day, [])
     high = sum(1 for e in events if e.impact is Impact.HIGH)
@@ -542,16 +551,13 @@ def _cell(
         if events
         else "aucune annonce enregistrée"
     )
-    titles: tuple[str, ...] = ()
-    if with_titles:
-        strongest = sorted(events, key=lambda e: (-e.impact.rank, e.starts_at))[:2]
-        titles = tuple(f"{_hm(e.starts_at)} {e.currency} {e.title}" for e in strongest)
+    strongest = sorted(events, key=lambda e: (-e.impact.rank, e.starts_at))[:2]
+    titles = tuple(f"{_hm(e.starts_at)} {e.currency} {e.title}" for e in strongest)
     return DayCell(
         iso=day.isoformat(),
         number=day.day,
         weekday=WEEKDAYS[day.weekday()],
         month_label=MONTHS_SHORT[day.month - 1],
-        in_month=in_month,
         is_today=day == today,
         is_selected=day == selected,
         is_weekend=day.weekday() >= 5,
@@ -563,24 +569,6 @@ def _cell(
         aria=", ".join(parts),
         top_titles=titles,
     )
-
-
-def _month_weeks(
-    year: int, month: int, today: date, selected: date, by_day: Mapping[date, list[EconomicEvent]]
-) -> tuple[tuple[DayCell, ...], ...]:
-    weeks = pycalendar.Calendar(firstweekday=0).monthdatescalendar(year, month)
-    return tuple(
-        tuple(
-            _cell(day, today=today, selected=selected, in_month=day.month == month, by_day=by_day)
-            for day in week
-        )
-        for week in weeks
-    )
-
-
-def _shift_month(year: int, month: int, step: int) -> tuple[int, int]:
-    index = year * 12 + (month - 1) + step
-    return index // 12, index % 12 + 1
 
 
 # --- freshness, sources, brief ------------------------------------------------------------
@@ -726,9 +714,151 @@ def _brief_view(brief: DailyBrief, origin: str, states: Mapping[str, MarketState
 # --- the page -----------------------------------------------------------------------------
 
 
-def _percent_of_day(moment: datetime) -> float:
-    utc = moment.astimezone(UTC)
-    return round((utc.hour * 60 + utc.minute) / 1440 * 100, 2)
+def _heat_label(heat: int) -> str:
+    return "Calme" if heat < HEAT_CALM else ("Actif" if heat < HEAT_BUSY else "Chargé")
+
+
+def _bias_of(score: int) -> Bias:
+    if score >= LEAN_THRESHOLD:
+        return Bias.BULLISH
+    return Bias.BEARISH if score <= -LEAN_THRESHOLD else Bias.NEUTRAL
+
+
+def _market_outlook(
+    symbol: str,
+    state: MarketState,
+    items: Sequence[EventView],
+    imminent: EventView | None,
+    brief_summary: str,
+) -> MarketOutlook:
+    """Technical (the candles' trend) and fundamental (the day's announcements) in one reading.
+
+    Fundamental = mean of the signed verdict scores of the day. Each score already carries its
+    influence, so one payrolls outweighs ten minor releases. Both halves count equally when
+    both are known.
+    Pure rules over data already shown on the page: it creates no signal and moves no stop.
+    """
+    scores = [v.score for item in items for v in item.verdicts if v.symbol == symbol]
+    fundamental = round(sum(scores) / len(scores)) if scores else 0
+    has_fundamental = bool(scores)
+    technical = (
+        {"up": TREND_WEIGHT, "down": -TREND_WEIGHT}.get(state.trend, 0) if state.known else 0
+    )
+    # A flat trend is a real reading (technical 0), not a missing one: it still weighs half and
+    # pulls the score toward neutral. Only an unknown trend drops the technical half.
+    if state.known and has_fundamental:
+        score = round((technical + fundamental) / 2)
+    elif state.known:
+        score = technical
+    else:
+        score = fundamental
+    bias = _bias_of(score)
+    stance = Stance.WAIT
+    if imminent is None:
+        if bias is Bias.BULLISH and state.trend != "down":
+            stance = Stance.BUY
+        elif bias is Bias.BEARISH and state.trend != "up":
+            stance = Stance.SELL
+
+    parts: list[str] = []
+    if state.known:
+        parts.append(
+            f"Technique : tendance {TREND_LABELS[state.trend]}, "
+            f"volatilité {VOLATILITY_LABELS[state.volatility]}."
+        )
+    else:
+        parts.append("Technique : aucune bougie récente, tendance inconnue.")
+    if has_fundamental:
+        lean = BIAS_LABELS[_bias_of(fundamental)].lower()
+        parts.append(f"Annonces du jour : lecture {lean} ({_signed(fundamental)}).")
+    else:
+        parts.append("Annonces du jour : aucune lecture pour ce marché.")
+    if state.known and has_fundamental and technical and _bias_of(fundamental) is not Bias.NEUTRAL:
+        agree = (technical > 0) == (fundamental > 0)
+        parts.append(
+            "Les deux analyses concordent." if agree else "Les deux analyses divergent : prudence."
+        )
+    if imminent is not None:
+        parts.append(f"Annonce forte à {imminent.time_utc} UTC : attendre sa publication.")
+    elif stance is Stance.WAIT and bias is not Bias.NEUTRAL:
+        parts.append("La tendance contredit la lecture : on n'agit pas contre elle.")
+    parts.append(f"Biais {BIAS_LABELS[bias].lower()}, {STANCE_LABELS[stance].lower()}.")
+
+    price = f"{state.last_price:,.2f}".replace(",", " ") if state.last_price else "—"
+    return MarketOutlook(
+        symbol=symbol,
+        last_price=price,
+        state_known=state.known,
+        trend=state.trend,
+        trend_label=TREND_LABELS[state.trend] if state.known else "inconnue",
+        volatility_label=VOLATILITY_LABELS[state.volatility] if state.known else "inconnue",
+        technical=technical,
+        technical_text=_signed(technical) if state.known else "—",
+        fundamental=fundamental,
+        fundamental_text=_signed(fundamental) if has_fundamental else "—",
+        has_fundamental=has_fundamental,
+        score=score,
+        score_text=_signed(score),
+        score_abs=abs(score),
+        bias=bias.value,
+        bias_label=BIAS_LABELS[bias],
+        stance=stance.value,
+        stance_label=STANCE_LABELS[stance],
+        prediction=" ".join(parts),
+        summary=brief_summary,
+    )
+
+
+def _outlook(
+    symbols: Sequence[str],
+    states: Mapping[str, MarketState],
+    items: Sequence[EventView],
+    brief: DailyBrief | None,
+) -> Outlook:
+    imminent = next((i for i in items if i.state == "soon" and i.impact == "high"), None)
+    summaries = {m.symbol: m.summary for m in brief.markets} if brief is not None else {}
+    markets = tuple(
+        _market_outlook(
+            symbol,
+            states.get(symbol, MarketState(symbol)),
+            items,
+            imminent,
+            summaries.get(symbol, ""),
+        )
+        for symbol in symbols
+    )
+    score = round(sum(m.score for m in markets) / len(markets)) if markets else 0
+    heat = max((i.influence for i in items), default=0)
+    strong = sum(1 for i in items if i.impact == "high")
+    return Outlook(
+        markets=markets,
+        score=score,
+        score_text=_signed(score),
+        score_abs=abs(score),
+        bias=_bias_of(score).value,
+        bias_label=BIAS_LABELS[_bias_of(score)],
+        heat=heat,
+        heat_label=_heat_label(heat),
+        headline=(
+            f"Journée {_heat_label(heat).lower()} : {strong} annonce(s) à fort impact "
+            f"sur {len(items)} élément(s)."
+            if items
+            else "Aucune annonce enregistrée : la lecture repose sur la technique seule."
+        ),
+        method=(
+            "Score = moyenne de la tendance des bougies (±50) et de la lecture des annonces du "
+            "jour pondérée par leur influence. Calcul par règles sur les lectures affichées "
+            "(modèle ou règles) : un repère, pas une prévision."
+        ),
+    )
+
+
+def _clock_label() -> tuple[bool, str]:
+    state = clock_status()
+    if not state.synced:
+        return False, "Heure du PC (horloge en ligne injoignable, non vérifiée)"
+    gap = state.offset_seconds or 0.0
+    return True, f"Heure en ligne ({state.source_count} source(s)), PC décalé de {gap:+.0f} s"
 
 
 def build_calendar(
@@ -736,27 +866,22 @@ def build_calendar(
     at: datetime,
     *,
     day: str | None = None,
-    month: str | None = None,
     stale_after: timedelta | None = None,
 ) -> CalendarView:
     """Read the calendar for the page. Raises `BadCalendarRequest` on a malformed parameter."""
     chosen = parse_day(day)
-    chosen_month = parse_month(month)
     at = at.astimezone(UTC)
     today = at.date()
     selected = chosen or today
-    year, mon = chosen_month or (selected.year, selected.month)
     stale = stale_after or timedelta(minutes=DEFAULT_NEWS_CONFIG.max_staleness_minutes)
 
     store = NewsStore(engine)
-    weeks_dates = pycalendar.Calendar(firstweekday=0).monthdatescalendar(year, mon)
-    grid_start = weeks_dates[0][0]
-    grid_end = weeks_dates[-1][-1] + timedelta(days=1)
-    lo = min(grid_start, today - timedelta(days=2), selected)
-    hi = max(grid_end, today + timedelta(days=STRIP_DAYS + 1), selected + timedelta(days=1))
-    start = datetime.combine(lo, datetime.min.time(), UTC)
-    end = datetime.combine(hi, datetime.min.time(), UTC)
-    stored = store.events_between(start, end)
+    lo = min(today, selected)
+    hi = max(today + timedelta(days=STRIP_DAYS + 1), selected + timedelta(days=1))
+    stored = store.events_between(
+        datetime.combine(lo, datetime.min.time(), UTC),
+        datetime.combine(hi, datetime.min.time(), UTC),
+    )
 
     scheduled = [e for e in stored if e.kind is not EventKind.HEADLINE]
     by_day: dict[date, list[EconomicEvent]] = {}
@@ -765,70 +890,52 @@ def build_calendar(
 
     states = MarketStateReader(CandleStore(engine)).read(at)
 
-    day_events = by_day.get(selected, [])
-    today_events = by_day.get(today, [])
-    day_headlines = [
-        e
-        for e in stored
-        if e.kind is EventKind.HEADLINE and e.starts_at.astimezone(UTC).date() == selected
-    ]
-    recent = sorted(
+    day_events = sorted(by_day.get(selected, []), key=lambda e: (e.starts_at, e.title))
+    day_headlines = sorted(
         (
             e
             for e in stored
-            if e.kind is EventKind.HEADLINE and at - HEADLINE_LOOKBACK <= e.starts_at <= at
+            if e.kind is EventKind.HEADLINE and e.starts_at.astimezone(UTC).date() == selected
         ),
         key=lambda e: e.starts_at,
         reverse=True,
     )[:HEADLINES_SHOWN]
-    speeches = [
-        e
-        for e in scheduled
-        if e.kind is EventKind.SPEECH
-        and at - timedelta(hours=24) <= e.starts_at <= at + timedelta(days=STRIP_DAYS)
-    ]
     upcoming_majors = sorted(
         (
             e
             for e in scheduled
-            if e.impact is Impact.HIGH
-            and e.kind is not EventKind.HEADLINE
-            and at <= e.starts_at <= at + timedelta(days=STRIP_DAYS)
+            if e.impact is Impact.HIGH and at <= e.starts_at <= at + timedelta(days=STRIP_DAYS)
         ),
         key=lambda e: e.starts_at,
     )
 
-    shown = {
-        e.key: e
-        for e in (
-            *day_events,
-            *today_events,
-            *day_headlines[:HEADLINES_SHOWN],
-            *recent,
-            *speeches,
-            *upcoming_majors[:1],
-        )
-    }
+    shown = {e.key: e for e in (*day_events, *day_headlines, *upcoming_majors[:1])}
     analyses = store.latest_analyses(shown)
 
     selected_views = _views(day_events, analyses, states, at)
-    today_views = _views(today_events, analyses, states, at)
-    speech_views = _views(sorted(speeches, key=lambda e: e.starts_at), analyses, states, at)
-    headline_views = _views(recent, analyses, states, at)
-    day_headline_views = _views(day_headlines[:HEADLINES_SHOWN], analyses, states, at)
+    day_headline_views = _views(day_headlines, analyses, states, at)
     next_major = _views(upcoming_majors[:1], analyses, states, at)[0] if upcoming_majors else None
 
     # The morning brief: stored if the service wrote one for today, otherwise the rules' own.
     today_iso = today.isoformat()
     stored_brief = store.latest_brief(today_iso)
     brief: BriefView | None
+    brief_model: DailyBrief | None = None
     if stored_brief is not None:
+        brief_model = stored_brief
         brief = _brief_view(stored_brief, "ai" if stored_brief.source == "ai" else "rules", states)
     elif stored:
-        live = fallback_brief(today_iso, today_events, analyses, states, at)
-        brief = _brief_view(live, "live", states)
+        brief_model = fallback_brief(today_iso, by_day.get(today, []), analyses, states, at)
+        brief = _brief_view(brief_model, "live", states)
     else:
         brief = None
+
+    outlook = _outlook(
+        (XAUUSD, BTCUSD),
+        states,
+        [*selected_views, *day_headline_views],
+        brief_model if selected == today else None,
+    )
 
     reports = store.latest_fetches()
     # Freshness is the primary calendar's alone: the optional next-week feed answers on its own.
@@ -864,56 +971,28 @@ def build_calendar(
         else:
             note = "Aucune annonce enregistrée pour ce jour."
 
-    track = tuple(
-        (_percent_of_day(e.starts_at), e.impact.value, f"{_hm(e.starts_at)} {e.title}")
-        for e in today_events
-        if e.impact is not Impact.LOW
-    )
-    now_index = sum(1 for e in today_events if e.starts_at <= at)
-
-    prev_year, prev_month = _shift_month(year, mon, -1)
-    next_year, next_month = _shift_month(year, mon, 1)
-    keep = chosen
-    month_nav = MonthNav(
-        label=f"{MONTHS[mon - 1]} {year}",
-        iso=f"{year:04d}-{mon:02d}",
-        previous_href=_month_href(prev_year, prev_month, keep) + "#month-grid",
-        next_href=_month_href(next_year, next_month, keep) + "#month-grid",
-        today_href="/calendar",
-        is_current=(year, mon) == (today.year, today.month),
-    )
-
+    synced, clock_label = _clock_label()
     return CalendarView(
         now_label=f"{at:%H:%M} UTC",
         paris_label=f"{to_paris(at):%H:%M} Paris",
+        clock_synced=synced,
+        clock_label=clock_label,
         freshness=freshness,
         brief=brief,
+        outlook=outlook,
         next_major=next_major,
-        month=month_nav,
-        weeks=_month_weeks(year, mon, today, selected, by_day),
         strip=tuple(
-            _cell(
-                today + timedelta(days=offset),
-                today=today,
-                selected=selected,
-                in_month=True,
-                by_day=by_day,
-                with_titles=True,
-            )
+            _cell(today + timedelta(days=offset), today=today, selected=selected, by_day=by_day)
             for offset in range(STRIP_DAYS)
         ),
-        today=tuple(today_views),
-        now_index=now_index,
-        track=track,
-        now_percent=_percent_of_day(at),
         selected=selected.isoformat(),
         selected_label=_day_label(selected),
         selected_is_today=selected == today,
         selected_events=tuple(selected_views),
         selected_headlines=tuple(day_headline_views),
+        selected_high=sum(1 for e in day_events if e.impact is Impact.HIGH),
+        selected_medium=sum(1 for e in day_events if e.impact is Impact.MEDIUM),
         selected_note=note,
-        speeches=tuple(speech_views),
-        headlines=tuple(headline_views),
         sources=_sources(reports, at),
         ai_note=ai_note,
         total_events=len(scheduled),
@@ -926,6 +1005,5 @@ __all__ = [
     "build_calendar",
     "paris_offset",
     "parse_day",
-    "parse_month",
     "to_paris",
 ]

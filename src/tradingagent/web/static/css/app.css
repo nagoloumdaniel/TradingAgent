@@ -210,7 +210,7 @@ body {
 /* Web approximation of a frosted material: translucent fill, blur, a thin translucent
    edge and a brighter top edge where the light catches. Not an Apple asset. */
 .card, .cards, .mod, .panel, .table-wrap, .banner, nav.side, .replay-chart, .empty, pre,
-.cal-read, .cal-month, .cal-panel, .cal-media, .cal-sources {
+.cal-read, .cal-panel, .cal-sources {
   background: var(--glass);
   border: 1px solid var(--glass-line);
   -webkit-backdrop-filter: var(--blur);
@@ -246,6 +246,22 @@ body {
 
 .icon { width: 1.15em; height: 1.15em; display: block; flex: 0 0 auto; }
 .sprite { display: none; }
+
+/* Shortcuts help: a pill in the top bar, label hidden on a phone where only the "?" fits. */
+.keys-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: var(--touch); padding: 0 12px 0 14px;
+  border: 1px solid var(--glass-line); border-radius: 999px; background: var(--glass);
+  color: var(--text); font-size: var(--fs-sm, 13px); cursor: pointer;
+}
+.keys-btn:hover { border-color: var(--accent-line); background: var(--glass-hover); }
+.keys-btn:active { transform: scale(0.96); }
+.keys-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.keys-btn kbd {
+  display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px;
+  border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface-2);
+  font: 600 12px var(--font-mono); color: var(--muted);
+}
+@media (max-width: 640px) { .keys-btn { padding: 0 8px; } .keys-btn-label { display: none; } }
 
 .theme-toggle {
   position: relative; display: grid; place-items: center;
@@ -959,7 +975,7 @@ dialog.keys h2 { margin: 0 0 10px; }
 /* Users who ask for less transparency get opaque surfaces; contrast never depends on blur. */
 @media (prefers-reduced-transparency: reduce) {
   .mod, .cards, .seg, .chart-tip, .card, .panel, .table-wrap, .banner, nav.side, .replay-chart, .empty, pre, .topbar, .tabbar,
-  .cal-read, .cal-month, .cal-panel, .cal-media, .cal-sources,
+  .cal-read, .cal-panel, .cal-sources,
   .actions a, button, select, .pager-link, .filters input[type="search"] {
     -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface);
   }

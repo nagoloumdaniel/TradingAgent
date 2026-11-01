@@ -64,6 +64,7 @@ from tradingagent.risk.model import (
     OrderRequest,
     OrderResult,
 )
+from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ def key_comment(idempotency_key: str, prefix: str = "ta") -> str:
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 class MT5Broker:

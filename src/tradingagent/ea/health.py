@@ -7,7 +7,7 @@ fail is worse than no monitoring at all.
 """
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 from tradingagent.ea.bridge import (
@@ -17,10 +17,11 @@ from tradingagent.ea.bridge import (
     parse_utc,
     read_json,
 )
+from tradingagent.trusted_clock import system_now
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return system_now()
 
 
 def ea_health(

@@ -21,7 +21,7 @@ import hashlib
 import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -32,6 +32,7 @@ from tradingagent.core.halt import GLOBAL
 from tradingagent.core.states import HaltAction, HaltSource, Severity
 from tradingagent.storage.events import SystemEventStore
 from tradingagent.storage.halts import HaltCommand, HaltStore
+from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ AGENT = "agent"
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 # --- credentials: compared, never stored ----------------------------------------

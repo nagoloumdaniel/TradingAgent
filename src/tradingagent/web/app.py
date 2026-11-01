@@ -52,6 +52,8 @@ from tradingagent.reporting.exports import (
     export_trades_json,
 )
 from tradingagent.storage.engine import create_database_engine
+from tradingagent.trusted_clock import now as trusted_now
+from tradingagent.trusted_clock import start_trusted_clock
 from tradingagent.web import calendar_view, paging, queries
 from tradingagent.web import format as display
 from tradingagent.web.auth import (
@@ -148,7 +150,7 @@ PAGES: tuple[tuple[str, str], ...] = (
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 class RevalidatedStatic(StaticFiles):
@@ -570,17 +572,15 @@ def create_app(
         )
 
     @app.get("/calendar", response_class=HTMLResponse)
-    def calendar_page(
-        request: Request, day: str | None = None, month: str | None = None
-    ) -> HTMLResponse:
-        """The economic calendar: month grid, next seven days, today's timeline, day panel.
+    def calendar_page(request: Request, day: str | None = None) -> HTMLResponse:
+        """The economic calendar: next seven days, market outlook, the chosen day's news.
 
-        ``day`` (AAAA-MM-JJ) picks the day of the panel and ``month`` (AAAA-MM) the month of
-        the grid; both are links, so the page works without JavaScript. A malformed value is
-        a 400 that says what was expected, never a silent fallback to another day.
+        ``day`` (AAAA-MM-JJ) picks the day of the panel; each day is a link, so the page works
+        without JavaScript. A malformed value is a 400 that says what was expected, never a
+        silent fallback to another day.
         """
         try:
-            view = calendar_view.build_calendar(engine, clock(), day=day, month=month)
+            view = calendar_view.build_calendar(engine, clock(), day=day)
         except calendar_view.BadCalendarRequest as error:
             return error_response(400, request, headline="Date invalide", explanation=str(error))
         return page(request, "calendar", cal=view)
@@ -936,6 +936,7 @@ def _parse(argv: Sequence[str] | None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point of ``uv run tradingagent-web``. Reads the database, never the broker."""
     args = _parse(argv)
+    start_trusted_clock()
     try:
         settings = load_database_settings(ENV_FILE)
     except ConfigError as error:

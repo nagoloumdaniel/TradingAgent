@@ -1,4 +1,4 @@
-"""The economic calendar page: GET /calendar, its day and month selection, and its honesty.
+"""The economic calendar page: GET /calendar, its day selection, and its honesty.
 
 No network: events, analyses and fetch reports are written straight into a migrated test
 database, the way the news service would have left them.
@@ -30,7 +30,6 @@ from tradingagent.web.calendar_view import (
     BadCalendarRequest,
     paris_offset,
     parse_day,
-    parse_month,
     to_paris,
 )
 from tradingagent.web.sse import fingerprint
@@ -145,7 +144,7 @@ def test_the_page_shows_the_seeded_events_with_utc_and_paris_times(
     assert "Calendrier à jour." not in html  # healthy: no banner
     assert "XAUUSD" in html and "BTCUSD" in html
     assert "Prévision" in html and "Précédent" in html
-    assert "Fed Chair Powell speaks" in html  # speeches section
+    assert "Fed Chair Powell speaks" in html  # a speech is an announcement of its day
     assert "Gold slips as the dollar firms" in html  # headlines section
     assert 'data-reading="live"' not in html  # every shown event has a stored analysis
 
@@ -185,10 +184,38 @@ def test_a_day_without_announcements_says_so_and_why_it_may_be_empty(
     assert "Core CPI" not in panel
 
 
-def test_a_month_can_be_browsed(client: TestClient, filled: NewsStore) -> None:
-    html = page(client, "/calendar?month=2026-11")
-    assert "Novembre 2026" in html
-    assert "/calendar?month=2026-10" in html and "/calendar?month=2026-12" in html
+def test_the_month_grid_and_the_speech_fold_are_gone(client: TestClient, filled: NewsStore) -> None:
+    html = page(client, "/calendar")
+    assert "Voir le mois" not in html and 'id="month-grid"' not in html
+    assert "Discours, déclarations" not in html
+
+
+def test_the_page_carries_a_global_score_and_a_scored_outlook_per_market(
+    client: TestClient, filled: NewsStore
+) -> None:
+    html = page(client, "/calendar")
+    overview = html.split('id="cal-overview"', 1)[1].split("</section>", 1)[0]
+    assert "Score global" in overview
+    assert overview.count('class="cal-outlook"') == 2
+    assert "XAUUSD" in overview and "BTCUSD" in overview
+    assert "Technique" in overview and "Fondamental" in overview
+
+
+def test_every_announcement_shows_its_score_on_both_markets(
+    client: TestClient, filled: NewsStore
+) -> None:
+    html = page(client, "/calendar")
+    panel = html.split('id="day-panel"', 1)[1].split("<aside", 1)[0]
+    events = panel.count('class="cal-event"')
+    assert events >= 1
+    assert panel.count('class="cal-impact-row"') == 2 * events  # XAUUSD and BTCUSD each
+    assert 'aria-label="Impact XAUUSD' in panel and 'aria-label="Impact BTCUSD' in panel
+
+
+def test_the_shortcuts_button_lives_in_the_nav_bar(client: TestClient) -> None:
+    html = page(client, "/calendar")
+    header = html.split("<header", 1)[1].split("</header>", 1)[0]
+    assert 'id="keys-btn"' in header and "Raccourcis" in header
 
 
 @pytest.mark.parametrize(
@@ -197,8 +224,6 @@ def test_a_month_can_be_browsed(client: TestClient, filled: NewsStore) -> None:
         "day=not-a-date",
         "day=2026-02-30",
         "day=2026-13-01",
-        "month=2026-13",
-        "month=garbage",
         "day=%3Cscript%3E",
     ],
 )
@@ -321,7 +346,7 @@ def test_an_out_of_range_year_is_a_400_like_a_malformed_date(
     assert "Date invalide" in unescape(response.text)
 
 
-def test_parse_day_bounds_the_year_like_parse_month() -> None:
+def test_parse_day_bounds_the_year() -> None:
     with pytest.raises(BadCalendarRequest):
         parse_day("9999-12-31")
     assert parse_day("2200-12-31") is not None
@@ -386,8 +411,6 @@ def test_paris_summer_time_switches_at_01_utc_on_the_last_sunday() -> None:
 def test_the_query_parsers_accept_only_real_dates() -> None:
     assert parse_day("2026-10-07") is not None
     assert parse_day(None) is None
-    assert parse_month("2026-10") == (2026, 10)
-    assert parse_month(None) is None
 
 
 def test_every_event_card_links_to_its_source(client: TestClient, filled: NewsStore) -> None:
@@ -398,3 +421,20 @@ def test_every_event_card_links_to_its_source(client: TestClient, filled: NewsSt
     # the speech keeps its own link, opened safely
     assert 'href="https://www.federalreserve.gov/newsevents/speech/powell.htm"' in html
     assert 'rel="noopener noreferrer nofollow"' in html
+
+
+# --- the outlook -----------------------------------------------------------------------
+
+
+def test_the_signed_score_is_direction_times_confidence_times_influence() -> None:
+    from tradingagent.news.model import Bias, MarketVerdict, Stance
+    from tradingagent.web.calendar_view import signed_score
+
+    def verdict(bias: Bias) -> MarketVerdict:
+        return MarketVerdict(
+            "XAUUSD", bias, 0.8, 50, Stance.WAIT, ("M15",), NOW, NOW + timedelta(hours=1), "x"
+        )
+
+    assert signed_score(verdict(Bias.BULLISH)) == 40
+    assert signed_score(verdict(Bias.BEARISH)) == -40
+    assert signed_score(verdict(Bias.NEUTRAL)) == 0

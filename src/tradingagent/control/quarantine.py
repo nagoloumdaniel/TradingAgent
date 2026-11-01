@@ -1,15 +1,16 @@
 """Strategy quarantine kept in the database, so a restart does not lift it."""
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 
 from tradingagent.core.halt import pair_scope
 from tradingagent.core.states import HaltAction, HaltSource
 from tradingagent.storage.halts import HaltCommand, HaltStore
+from tradingagent.trusted_clock import now as trusted_now
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 class PersistentQuarantine:

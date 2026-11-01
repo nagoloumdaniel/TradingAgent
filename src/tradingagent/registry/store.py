@@ -22,7 +22,7 @@ takes an explicit UTC timestamp. A naive datetime is refused.
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import Engine, insert, select, update
@@ -41,6 +41,7 @@ from tradingagent.storage.models import (
     StrategyRegistryRow,
     ValidationRunRow,
 )
+from tradingagent.trusted_clock import now as trusted_now
 
 #: Where a version comes from. The AI may propose, only validation puts a version in production.
 ORIGINS = frozenset({"human", "ai", "research"})
@@ -109,7 +110,7 @@ class StrategyRegistry:
 
     def __init__(self, engine: Engine, clock: Callable[[], datetime] | None = None) -> None:
         self._engine = engine
-        self._clock = clock or (lambda: datetime.now(UTC))
+        self._clock = clock or (lambda: trusted_now())
 
     # -----------------------------------------------------------------------------------
     # Registration and reads

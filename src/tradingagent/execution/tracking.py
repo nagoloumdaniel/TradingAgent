@@ -12,7 +12,7 @@ broker: both satisfy `ports.TradeLog`.
 
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import Engine
@@ -20,6 +20,7 @@ from sqlalchemy import Engine
 from tradingagent.core.market import Candle
 from tradingagent.execution.journal import ZERO, OrderJournal
 from tradingagent.risk.model import ClosedPosition
+from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ BROKER = "broker"
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 class PositionTracker(OrderJournal):

@@ -17,6 +17,7 @@ from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.market_calendar import MarketCalendar
 from tradingagent.data.quality import missing_bars
 from tradingagent.storage.candles import CandleStore
+from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class SyncResult:
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 class HistorySync:

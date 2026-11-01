@@ -1,5 +1,5 @@
 {# Pièces du calendrier économique. Une seule définition par élément, pour que la frise du
-   jour, le panneau du jour et la liste des discours ne puissent pas diverger.
+   jour, le panneau du jour et la liste des titres ne puissent pas diverger.
 
    Ce que ces macros ne font jamais : calculer un chiffre. Tout arrive formaté de
    `web/calendar_view.py` ; la couleur ne porte jamais seule un sens (forme + texte). #}
@@ -19,6 +19,13 @@
 {% macro gauge(value, label) -%}
 {% set segments = (((value | int) / 10) | round(0, 'ceil') | int) %}
 <span class="cal-gauge" role="img" aria-label="{{ label }} {{ value }} sur 100" style="--s: {{ segments }}"><span class="cal-gauge-num">{{ value }}</span></span>
+{%- endmacro %}
+
+{# Score signé -100..100 : la barre part du centre, vers la droite (haussier) ou la gauche
+   (baissier). Le signe et le chiffre disent la même chose que la couleur. #}
+{% macro score_meter(score, text, magnitude, label) -%}
+<span class="cal-score" data-sign="{{ 'up' if score > 0 else ('down' if score < 0 else 'flat') }}" role="img" aria-label="{{ label }} : {{ text }} sur une échelle de −100 à 100"
+      style="--m: {{ magnitude }}"><span class="cal-score-bar"><i></i></span><span class="cal-score-num num">{{ text }}</span></span>
 {%- endmacro %}
 
 {% macro bias_chip(v) -%}
@@ -65,11 +72,17 @@
   <p class="cal-summary">{{ e.summary }}</p>
   {% endif %}
 
+  <div class="cal-impacts" role="group" aria-label="Impact scoré par marché">
+    {% for v in e.verdicts %}
+    <div class="cal-impact-row" data-bias="{{ v.bias }}">
+      <strong class="cal-symbol">{{ v.symbol }}</strong>
+      {{ score_meter(v.score, v.score_text, v.score_abs, "Impact " ~ v.symbol) }}
+      {{ bias_chip(v) }}{{ stance_chip(v.stance, v.stance_label) }}
+    </div>
+    {% endfor %}
+  </div>
   <details class="cal-read-more">
-    <summary>
-      <span class="cal-read-sum">{% for v in e.verdicts %}<span class="cal-mini" data-bias="{{ v.bias }}"><strong>{{ v.symbol }}</strong> {{ bias_chip(v) }} {{ stance_chip(v.stance, v.stance_label) }}</span>{% endfor %}</span>
-      <span class="cal-read-toggle">Détail{{ icon("chevron-down") }}</span>
-    </summary>
+    <summary><span class="cal-read-toggle">Pourquoi ce score{{ icon("chevron-down") }}</span></summary>
     <div class="cal-verdicts">
     {% for v in e.verdicts %}
     <section class="cal-verdict" data-bias="{{ v.bias }}" aria-label="Lecture {{ v.symbol }}">
@@ -89,23 +102,23 @@
   <footer class="cal-event-foot">
     <span class="badge cal-reading" data-reading="{{ e.reading }}">{{ e.reading_label }}</span>
     {% if e.blackout %}<span class="badge cal-blackout" title="Aucun nouveau signal n'est accepté dans cette fenêtre">{{ icon("ban") }}Signaux bloqués {{ e.blackout }}</span>{% endif %}
-    {% if e.url %}<a class="cal-source" href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">Source : {{ e.source_label or e.host }}{{ icon("arrow-up-right") }}</a>{% endif %}
+    {% if e.url %}<a class="cal-source" href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">Source : {{ e.source_label or e.host }}<span class="sr-only"> (nouvel onglet)</span>{{ icon("arrow-up-right") }}</a>{% endif %}
   </footer>
 </article>
 {% endmacro %}
 
-{# Une annonce en une ligne : discours et titres de presse. #}
+{# Une annonce en une ligne : titres de presse. #}
 {% macro event_line(e) %}
 <li class="cal-line" data-impact="{{ e.impact }}" data-state="{{ e.state }}">
   <div class="cal-line-when"><time class="num" datetime="{{ e.at_iso }}">{{ e.time_utc }}</time><span>{{ e.date_label }} UTC</span></div>
   <div class="cal-line-main">
-    <p class="cal-line-title">{% if e.url %}<a href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}</p>
+    <p class="cal-line-title">{% if e.url %}<a href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ e.title }}<span class="sr-only"> (nouvel onglet)</span></a>{% else %}{{ e.title }}{% endif %}</p>
     <p class="cal-tags">{{ flag(e) }}{{ impact_chip(e) }}
-      {% if e.url %}<a class="cal-source cal-source-chip" href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ e.source_label or e.host }}{{ icon("arrow-up-right") }}</a>{% endif %}
+      {% if e.url %}<a class="cal-source cal-source-chip" href="{{ e.url }}" target="_blank" rel="noopener noreferrer nofollow">{{ e.source_label or e.host }}<span class="sr-only"> (nouvel onglet)</span>{{ icon("arrow-up-right") }}</a>{% endif %}
       <span class="badge cal-reading" data-reading="{{ e.reading }}">{{ e.reading_label }}</span></p>
     <div class="cal-line-verdicts">
       {% for v in e.verdicts %}
-      <span class="cal-mini" data-bias="{{ v.bias }}"><strong>{{ v.symbol }}</strong> {{ bias_chip(v) }} {{ stance_chip(v.stance, v.stance_label) }}</span>
+      <span class="cal-mini" data-bias="{{ v.bias }}"><strong>{{ v.symbol }}</strong> {{ score_meter(v.score, v.score_text, v.score_abs, "Impact " ~ v.symbol) }} {{ bias_chip(v) }}</span>
       {% endfor %}
     </div>
   </div>
@@ -116,10 +129,10 @@
 {# Une case : un lien, donc une page qui fonctionne sans JavaScript. #}
 {% macro day_link(c, compact=false) %}
 {% set peak = "high" if c.high else ("medium" if c.medium else ("low" if c.low else "")) %}
-<a class="cal-day{% if c.is_today %} is-today{% endif %}{% if c.is_selected %} is-selected{% endif %}{% if not c.in_month %} is-outside{% endif %}{% if c.is_weekend %} is-weekend{% endif %}"
+<a class="cal-day{% if c.is_today %} is-today{% endif %}{% if c.is_selected %} is-selected{% endif %}{% if c.is_weekend %} is-weekend{% endif %}"
    href="{{ c.href }}" data-day-link data-day="{{ c.iso }}"{% if peak %} data-peak="{{ peak }}"{% endif %}
    aria-label="{{ c.aria }}{% if c.is_selected %}, jour affiché{% endif %}"
-   {% if c.is_today %}aria-current="date"{% endif %}>
+   {% if c.is_today %}aria-current="date"{% elif c.is_selected %}aria-current="true"{% endif %}>
   {% if compact %}<span class="cal-wd">{{ c.weekday }}</span>{% endif %}
   <span class="cal-dn num">{{ c.number }}</span>
   {% if compact %}<span class="cal-mo">{{ c.month_label }}</span>{% endif %}

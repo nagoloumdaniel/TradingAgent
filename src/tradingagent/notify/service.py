@@ -11,12 +11,13 @@ same audit row before execution, and reaches the same handler as the typed comma
 import asyncio
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 
 from tradingagent.notify.access import AccessGate, Verdict
 from tradingagent.notify.commands import CommandRequest, CommandRouter
 from tradingagent.notify.replies import Reply, as_reply, decode_callback, is_fresh
 from tradingagent.storage.audit import AuditStore
+from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ STALE_CALLBACK_REPLY = (
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return trusted_now()
 
 
 def parse_command(text: str) -> tuple[str, tuple[str, ...]] | None:

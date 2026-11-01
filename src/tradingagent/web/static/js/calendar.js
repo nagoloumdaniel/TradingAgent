@@ -1,16 +1,16 @@
 /* Calendrier économique : amélioration progressive uniquement.
    La page est complète et correcte sans ce fichier : chaque jour est un vrai lien
-   (?day=YYYY-MM-DD, ?month=YYYY-MM). Ici on ajoute trois choses, et rien d'autre :
+   (?day=YYYY-MM-DD). Ici on ajoute deux choses, et rien d'autre :
      1. les comptes à rebours (« dans 12 min ») avancent sans recharger ;
-     2. un clic sur un jour ou sur la navigation du mois remplace le panneau du jour et la
-        grille sans recharger la page entière (history.pushState, focus géré) ;
-     3. les flèches déplacent le focus dans la grille du mois.
+     2. un clic sur un jour remplace la bande, la lecture et le panneau du jour sans recharger
+        la page entière (history.pushState, focus géré).
    Si le fetch échoue, ou si la réponse n'a pas la forme attendue, on laisse le navigateur
    faire une navigation normale : jamais d'état intermédiaire cassé. */
 (function () {
   "use strict";
 
-  var REGIONS = ["day-panel", "month-grid", "week-strip"];
+  var REGIONS = ["day-panel", "cal-overview", "week-strip"];
+  var BUSY = REGIONS;
 
   /* -- 1. comptes à rebours ---------------------------------------------------------- */
   function words(ms) {
@@ -65,6 +65,12 @@
     var panel = document.getElementById("day-panel");
     if (panel) { panel.setAttribute("data-swap", "in"); }
     if (doc.title) { document.title = doc.title; }
+    var heading = document.getElementById("day-title");
+    var count = panel ? panel.querySelector(".cal-count") : null;
+    var status = document.getElementById("cal-status");
+    if (status && heading) {
+      status.textContent = heading.textContent.trim() + (count ? ", " + count.textContent.trim() : "");
+    }
     tick();
     return true;
   }
@@ -75,7 +81,8 @@
     var controller = window.AbortController ? new AbortController() : null;
     inflight = controller;
     var panel = document.getElementById("day-panel");
-    if (panel) { panel.setAttribute("aria-busy", "true"); }
+    BUSY.forEach(function (id) { var n = document.getElementById(id); if (n) { n.setAttribute("aria-busy", "true"); } });
+    document.documentElement.classList.add("is-loading");
     return fetch(url.href, {
       credentials: "same-origin",
       headers: { "Accept": "text/html" },
@@ -86,10 +93,12 @@
     }).then(function (html) {
       var doc = new DOMParser().parseFromString(html, "text/html");
       if (!swap(doc)) { throw new Error("shape"); }
-      if (push) { window.history.pushState({ cal: true }, "", url.pathname + url.search); }
-      if (focusPanel) {
-        var title = document.getElementById("day-title");
-        if (title) { title.focus({ preventScroll: true }); }
+      if (push) { window.history.pushState({ cal: true }, "", url.pathname + url.search + url.hash); }
+      var title = document.getElementById("day-title");
+      if (title) { title.focus({ preventScroll: true }); }
+      if (url.hash && document.querySelector(url.hash)) {
+        document.querySelector(url.hash).scrollIntoView({ block: "center" });
+      } else if (focusPanel) {
         var target = document.getElementById("day-panel");
         if (target && target.getBoundingClientRect().top > window.innerHeight * 0.8) {
           target.scrollIntoView({ block: "start" });
@@ -100,8 +109,8 @@
       window.location.assign(url.href);  // repli : navigation normale
     }).then(function () {
       if (inflight === controller) { inflight = null; }
-      var again = document.getElementById("day-panel");
-      if (again) { again.removeAttribute("aria-busy"); }
+      if (inflight === null) { document.documentElement.classList.remove("is-loading"); }
+      BUSY.forEach(function (id) { var n = document.getElementById(id); if (n) { n.removeAttribute("aria-busy"); } });
     });
   }
 
@@ -117,16 +126,5 @@
 
   window.addEventListener("popstate", function () {
     if (sameCalendar(new URL(window.location.href))) { go(window.location.href, false, false); }
-  });
-
-  /* -- 3. flèches dans la grille ----------------------------------------------------- */
-  document.addEventListener("keydown", function (event) {
-    var keys = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
-    if (!(event.key in keys) || event.altKey || event.ctrlKey || event.metaKey) { return; }
-    var current = document.activeElement;
-    if (!current || !current.matches || !current.matches("#month-grid .cal-day")) { return; }
-    var cells = Array.prototype.slice.call(document.querySelectorAll("#month-grid .cal-day"));
-    var next = cells[cells.indexOf(current) + keys[event.key]];
-    if (next) { event.preventDefault(); next.focus(); }
   });
 })();
