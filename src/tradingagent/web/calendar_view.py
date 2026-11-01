@@ -48,15 +48,17 @@ from tradingagent.trusted_clock import status as clock_status
 
 log = logging.getLogger(__name__)
 
-#: The strip: today and the seven days after.
-STRIP_DAYS = 8
+#: The strip: the week of the chosen day (the current one by default), Monday to Sunday.
+STRIP_DAYS = 7
+#: How far ahead announcements are looked up for the "next major" card and the day lookup.
+LOOKAHEAD_DAYS = 8
 #: The press headlines listed for one day.
 HEADLINES_SHOWN = 40
 #: An announcement this close is "imminent".
 SOON = timedelta(minutes=60)
 #: The week-ahead feed is published by the host later in the week: past this many days ahead
 #: the page says the sources do not cover the day yet, instead of reading it as "nothing planned".
-COVERED_DAYS_AHEAD = STRIP_DAYS
+COVERED_DAYS_AHEAD = LOOKAHEAD_DAYS
 
 DAY_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
 
@@ -761,27 +763,13 @@ def _market_outlook(
             stance = Stance.SELL
 
     parts: list[str] = []
-    if state.known:
-        parts.append(
-            f"Technique : tendance {TREND_LABELS[state.trend]}, "
-            f"volatilité {VOLATILITY_LABELS[state.volatility]}."
-        )
-    else:
-        parts.append("Technique : aucune bougie récente, tendance inconnue.")
-    if has_fundamental:
-        lean = BIAS_LABELS[_bias_of(fundamental)].lower()
-        parts.append(f"Annonces du jour : lecture {lean} ({_signed(fundamental)}).")
-    else:
-        parts.append("Annonces du jour : aucune lecture pour ce marché.")
     if state.known and has_fundamental and technical and _bias_of(fundamental) is not Bias.NEUTRAL:
         agree = (technical > 0) == (fundamental > 0)
-        parts.append(
-            "Les deux analyses concordent." if agree else "Les deux analyses divergent : prudence."
-        )
+        parts.append("Analyses concordantes." if agree else "Analyses divergentes : prudence.")
     if imminent is not None:
-        parts.append(f"Annonce forte à {imminent.time_utc} UTC : attendre sa publication.")
+        parts.append(f"Annonce forte à {imminent.time_utc} UTC : attendre.")
     elif stance is Stance.WAIT and bias is not Bias.NEUTRAL:
-        parts.append("La tendance contredit la lecture : on n'agit pas contre elle.")
+        parts.append("Tendance contraire à la lecture : on n'agit pas.")
     parts.append(f"Biais {BIAS_LABELS[bias].lower()}, {STANCE_LABELS[stance].lower()}.")
 
     price = f"{state.last_price:,.2f}".replace(",", " ") if state.last_price else "—"
@@ -876,8 +864,13 @@ def build_calendar(
     stale = stale_after or timedelta(minutes=DEFAULT_NEWS_CONFIG.max_staleness_minutes)
 
     store = NewsStore(engine)
-    lo = min(today, selected)
-    hi = max(today + timedelta(days=STRIP_DAYS + 1), selected + timedelta(days=1))
+    week_start = selected - timedelta(days=selected.weekday())
+    lo = min(today, week_start)
+    hi = max(
+        week_start + timedelta(days=STRIP_DAYS + 1),
+        today + timedelta(days=LOOKAHEAD_DAYS + 1),
+        selected + timedelta(days=1),
+    )
     stored = store.events_between(
         datetime.combine(lo, datetime.min.time(), UTC),
         datetime.combine(hi, datetime.min.time(), UTC),
@@ -904,7 +897,7 @@ def build_calendar(
         (
             e
             for e in scheduled
-            if e.impact is Impact.HIGH and at <= e.starts_at <= at + timedelta(days=STRIP_DAYS)
+            if e.impact is Impact.HIGH and at <= e.starts_at <= at + timedelta(days=LOOKAHEAD_DAYS)
         ),
         key=lambda e: e.starts_at,
     )
@@ -982,7 +975,9 @@ def build_calendar(
         outlook=outlook,
         next_major=next_major,
         strip=tuple(
-            _cell(today + timedelta(days=offset), today=today, selected=selected, by_day=by_day)
+            _cell(
+                week_start + timedelta(days=offset), today=today, selected=selected, by_day=by_day
+            )
             for offset in range(STRIP_DAYS)
         ),
         selected=selected.isoformat(),

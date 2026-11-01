@@ -4,7 +4,8 @@ No network: events, analyses and fetch reports are written straight into a migra
 database, the way the news service would have left them.
 """
 
-from datetime import UTC, datetime, timedelta
+import re
+from datetime import UTC, date, datetime, timedelta
 from html import unescape
 
 import pytest
@@ -149,13 +150,13 @@ def test_the_page_shows_the_seeded_events_with_utc_and_paris_times(
     assert 'data-reading="live"' not in html  # every shown event has a stored analysis
 
 
-def test_an_event_with_no_stored_analysis_is_read_by_the_rules_and_labelled(
+def test_an_event_with_no_stored_analysis_is_read_by_the_rules_without_a_reading_badge(
     engine: Engine, client: TestClient
 ) -> None:
     store_events(engine, event("Core CPI m/m", CPI_AT), analyse=False)
     html = page(client, "/calendar")
-    assert "Règles, calculées à l'affichage" in html
-    assert 'data-reading="live"' in html
+    day = html.split('id="day-panel"', 1)[1].split("</aside>", 1)[0]
+    assert 'class="cal-event"' in day and "cal-reading" not in day.split('class="cal-aside"')[0]
 
 
 def test_the_actual_figure_is_never_invented(client: TestClient, filled: NewsStore) -> None:
@@ -190,12 +191,13 @@ def test_the_month_grid_and_the_speech_fold_are_gone(client: TestClient, filled:
     assert "Discours, déclarations" not in html
 
 
-def test_the_page_carries_a_global_score_and_a_scored_outlook_per_market(
+def test_the_page_carries_a_scored_outlook_per_market(
     client: TestClient, filled: NewsStore
 ) -> None:
     html = page(client, "/calendar")
     overview = html.split('id="cal-overview"', 1)[1].split("</section>", 1)[0]
-    assert "Score global" in overview
+    assert "Score global" not in overview
+    assert overview.count("cal-global-score") == 2
     assert overview.count('class="cal-outlook"') == 2
     assert "XAUUSD" in overview and "BTCUSD" in overview
     assert "Technique" in overview and "Fondamental" in overview
@@ -417,7 +419,8 @@ def test_every_event_card_links_to_its_source(client: TestClient, filled: NewsSt
     html = page(client, "/calendar")
     # the CPI row has no link of its own: it falls back to the public page of its feed
     assert 'href="https://www.forexfactory.com/calendar"' in html
-    assert "Source : Forex Factory" in html
+    assert "Source : Forex Factory" not in html  # the title carries the link, no source badge
+    assert 'class="cal-title"><a href="https://www.forexfactory.com/calendar"' in html
     # the speech keeps its own link, opened safely
     assert 'href="https://www.federalreserve.gov/newsevents/speech/powell.htm"' in html
     assert 'rel="noopener noreferrer nofollow"' in html
@@ -438,3 +441,14 @@ def test_the_signed_score_is_direction_times_confidence_times_influence() -> Non
     assert signed_score(verdict(Bias.BULLISH)) == 40
     assert signed_score(verdict(Bias.BEARISH)) == -40
     assert signed_score(verdict(Bias.NEUTRAL)) == 0
+
+
+def test_the_strip_shows_the_whole_week_monday_to_sunday(
+    client: TestClient, filled: NewsStore
+) -> None:
+    html = page(client, "/calendar")
+    strip = html.split('id="week-strip"', 1)[1].split("</nav>", 1)[0]
+    days = re.findall(r'data-day="(\d{4}-\d{2}-\d{2})"', strip)
+    assert len(set(days)) == 7
+    first = date.fromisoformat(min(days))
+    assert first.weekday() == 0 and max(days) == (first + timedelta(days=6)).isoformat()
