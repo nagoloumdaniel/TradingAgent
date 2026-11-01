@@ -4,7 +4,8 @@ No network: events, analyses and fetch reports are written straight into a migra
 database, the way the news service would have left them.
 """
 
-from datetime import UTC, datetime, timedelta
+import re
+from datetime import UTC, date, datetime, timedelta
 from html import unescape
 
 import pytest
@@ -440,3 +441,14 @@ def test_the_signed_score_is_direction_times_confidence_times_influence() -> Non
     assert signed_score(verdict(Bias.BULLISH)) == 40
     assert signed_score(verdict(Bias.BEARISH)) == -40
     assert signed_score(verdict(Bias.NEUTRAL)) == 0
+
+
+def test_the_strip_shows_the_whole_week_monday_to_sunday(
+    client: TestClient, filled: NewsStore
+) -> None:
+    html = page(client, "/calendar")
+    strip = html.split('id="week-strip"', 1)[1].split("</nav>", 1)[0]
+    days = re.findall(r'data-day="(\d{4}-\d{2}-\d{2})"', strip)
+    assert len(set(days)) == 7
+    first = date.fromisoformat(min(days))
+    assert first.weekday() == 0 and max(days) == (first + timedelta(days=6)).isoformat()

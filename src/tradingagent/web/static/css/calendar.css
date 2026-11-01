@@ -374,3 +374,6 @@ section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom:
   .cal-overview { grid-template-columns: minmax(0, 1fr); }
   .cal-outlook-score { flex-wrap: wrap; }
 }
+
+/* The sources card is desktop-only: on a phone it only pushes the day's content down. */
+@media (max-width: 899px) { .cal-sources { display: none; } }
