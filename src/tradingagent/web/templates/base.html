@@ -110,7 +110,9 @@
 
 <div class="shell">
   <nav class="side" id="side-nav" aria-label="Navigation principale">
+    {% set nav_groups = {"/": "Suivi", "/calendar": "Marché", "/ai-lab": "Analyse", "/system": "Pilotage"} %}
     {% for path, label in pages %}
+      {% if path in nav_groups %}<span class="nav-group" role="presentation">{{ nav_groups[path] }}</span>{% endif %}
       {% set active = request.url.path == path or (path != '/' and request.url.path.startswith(path + '/')) %}
       <a href="{{ path }}" title="{{ label }}" {% if active %}class="active" aria-current="page"{% endif %}>
         {{ icons.icon(nav_icons.get(path, "activity")) }}<span>{{ label }}</span>
