@@ -238,26 +238,33 @@ class WebScanSource:
         prompt = _prompt(self._page, text, now, self._horizon)
         started = time.monotonic()
         # A reply with no JSON (refusal, empty or cut-off answer) is retried once, asking for
-        # the object alone; a second failure is reported as is.
-        reply = None
+        # the object alone. A timeout or a transport error is not retried. Every attempt is
+        # journaled with its cost.
         raw: object = None
-        failure: Exception | None = None
+        reply = None
+        message = "aucune réponse"
         for attempt in range(2):
             ask = prompt if attempt == 0 else prompt + "\n\nReply with the JSON object only."
+            started = time.monotonic()
             try:
                 reply = await asyncio.wait_for(
                     self._client.complete(_SYSTEM, ask, max_tokens=6000), self._ai_timeout
                 )
-                raw = _json_body(reply.text)
-                failure = None
+            except Exception as error:
+                message = one_line(error)
+                await self._journal(now, ask, None, message, started, None)
                 break
-            except (Exception, json.JSONDecodeError) as error:
-                failure = error
-        if failure is not None or reply is None:
-            message = one_line(failure) if failure is not None else "aucune réponse"
-            await self._journal(now, prompt, None, message, started, None)
+            try:
+                raw = _json_body(reply.text)
+            except (ValueError, json.JSONDecodeError) as error:
+                message = one_line(error)
+                await self._journal(now, ask, reply.text, message, started, _cost_eur(reply))
+                reply = None
+                continue
+            await self._journal(now, ask, reply.text, None, started, _cost_eur(reply))
+            break
+        if reply is None:
             return self._report(now, False, error=f"lecture IA : {message}")
-        await self._journal(now, prompt, reply.text, None, started, _cost_eur(reply))
         events = parse_events(raw, self._page, text, now, self._horizon)
         return FetchResult(events, SourceReport(self.name, True, len(events), now))
 

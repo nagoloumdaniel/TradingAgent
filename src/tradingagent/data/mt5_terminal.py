@@ -1,7 +1,7 @@
 """The only module allowed to import MetaTrader5 (tests/test_architecture.py)."""
 
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import MetaTrader5 as mt5
 
@@ -201,7 +201,10 @@ class Mt5Terminal:
 
     def deals_since(self, server_epoch: int) -> tuple[DealInfo, ...]:
         date_from = datetime.fromtimestamp(server_epoch, tz=UTC)
-        raw = mt5.history_deals_get(date_from, trusted_now())
+        # date_from is server wall time (the cursor is a server epoch); the library reads both
+        # bounds in that same frame. UTC "now" would end the window hours before the newest
+        # deals when the server is ahead of UTC, so the upper bound is padded by a day.
+        raw = mt5.history_deals_get(date_from, trusted_now() + timedelta(days=1))
         if raw is None:
             return ()
         return tuple(

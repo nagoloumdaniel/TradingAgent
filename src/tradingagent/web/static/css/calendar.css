@@ -223,7 +223,7 @@ section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom:
 .cal-why { margin: 8px 0 0; font-size: 13px; line-height: 1.5; }
 .cal-source { display: inline-flex; align-items: center; gap: 4px; }
 .cal-source .icon { width: 13px; height: 13px; }
-.cal-source-chip { margin-left: 0; font-size: 12px; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--text); text-decoration: none; }
+.cal-source-chip { margin-left: 0; font-size: 12px; padding: 3px 10px; min-height: 24px; display: inline-flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--text); text-decoration: none; }
 @media (hover: hover) { .cal-source:hover { color: var(--text); } }
 
 /* Mobile : un seul bloc de lecture, les chiffres passent sous le titre. */
@@ -238,7 +238,7 @@ section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom:
 }
 
 /* -- v3 : score global, prévision par marché, jour en colonnes --------------------------- */
-.cal-clock-src { font-size: 11px; }
+.cal-clock-src { font-size: 12px; }
 .cal-clock-src[data-synced="yes"] { color: var(--up); border-color: var(--up-line); }
 .cal-clock-src[data-synced="no"] { color: var(--warn); border-color: var(--warn-line); background: var(--warn-bg); }
 
@@ -264,7 +264,7 @@ section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom:
 .cal-global .cal-chips { margin-top: 12px; }
 .cal-heat[data-heat="chargé"] { color: var(--warn); border-color: var(--warn-line); background: var(--warn-bg); }
 .cal-outlook header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-.cal-outlook h3 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.01em; }
+.cal-outlook h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.01em; }
 .cal-outlook-score { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
 .cal-parts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0 0; }
 .cal-parts > div { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
@@ -307,3 +307,6 @@ section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom:
 @media (min-width: 1100px) and (min-height: 700px) {
   .cal-aside { max-height: calc(100vh - var(--topbar-h, 56px) - 24px); overflow-y: auto; }
 }
+
+.cal-overview[aria-busy="true"], .cal-strip-wrap [aria-busy="true"], .cal-panel[aria-busy="true"] { opacity: 0.6; transition: opacity 0.15s; }
+@media (prefers-reduced-motion: reduce) { .cal-overview[aria-busy="true"], .cal-panel[aria-busy="true"] { transition: none; } }

@@ -58,7 +58,7 @@ SOON = timedelta(minutes=60)
 #: the page says the sources do not cover the day yet, instead of reading it as "nothing planned".
 COVERED_DAYS_AHEAD = STRIP_DAYS
 
-DAY_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+DAY_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 IMPACT_LABELS = {Impact.HIGH: "Fort", Impact.MEDIUM: "Moyen", Impact.LOW: "Faible"}
 KIND_LABELS = {
@@ -331,7 +331,7 @@ class CalendarView:
 def parse_day(text: str | None) -> date | None:
     if text is None or text == "":
         return None
-    if not DAY_PATTERN.match(text):
+    if not DAY_PATTERN.fullmatch(text):
         raise BadCalendarRequest("jour invalide : attendu AAAA-MM-JJ")
     try:
         day = date.fromisoformat(text)
@@ -744,6 +744,8 @@ def _market_outlook(
     technical = (
         {"up": TREND_WEIGHT, "down": -TREND_WEIGHT}.get(state.trend, 0) if state.known else 0
     )
+    # A flat trend is a real reading (technical 0), not a missing one: it still weighs half and
+    # pulls the score toward neutral. Only an unknown trend drops the technical half.
     if state.known and has_fundamental:
         score = round((technical + fundamental) / 2)
     elif state.known:

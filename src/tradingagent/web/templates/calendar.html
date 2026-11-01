@@ -5,7 +5,7 @@
 {% block heading %}
 <div class="cal-heading">
   <h1 class="page-title">Annonces économiques</h1>
-  <p class="cal-clock" aria-label="Heure actuelle">
+  <p class="cal-clock"><span class="sr-only">Heure actuelle : </span>
     {{ icon("clock") }}<span class="num" id="cal-now" data-now="{{ now_iso | default('') }}">{{ cal.now_label }}</span>
     <span class="cal-clock-sep" aria-hidden="true">·</span><span class="num">{{ cal.paris_label }}</span>
     <span class="badge cal-clock-src" data-synced="{{ 'yes' if cal.clock_synced else 'no' }}" title="{{ cal.clock_label }}">{{ "Horloge en ligne" if cal.clock_synced else "Horloge du PC" }}</span>
@@ -30,7 +30,7 @@
   <nav class="cal-strip" id="week-strip" aria-label="Jours à venir">
     {% for c in cal.strip %}{{ day_link(c, true) }}{% endfor %}
   </nav>
-  <p class="cal-legend" aria-label="Légende des impacts">
+  <p class="cal-legend"><span class="sr-only">Légende des impacts : </span>
     <span class="cal-n" data-impact="high"><i></i>fort</span>
     <span class="cal-n" data-impact="medium"><i></i>moyen</span>
     <span class="cal-n" data-impact="low"><i></i>faible</span>
@@ -52,7 +52,7 @@
   {% for m in o.markets %}
   <article class="cal-outlook" data-bias="{{ m.bias }}" aria-label="Prévision {{ m.symbol }}">
     <header>
-      <h3>{{ m.symbol }}</h3>
+      <h2>{{ m.symbol }}</h2>
       <span class="num cal-price">{{ m.last_price }}</span>
     </header>
     <div class="cal-outlook-score">

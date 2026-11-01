@@ -22,7 +22,8 @@ _CANDIDATES = (
     r"C:\Program Files\MetaTrader 5\terminal64.exe",
     r"C:\Program Files (x86)\MetaTrader 5\terminal64.exe",
 )
-_BOOT_SECONDS = 8.0
+_BOOT_POLLS = 20  # one second each
+_SETTLE_SECONDS = 3.0
 
 
 def is_running() -> bool:
@@ -76,5 +77,11 @@ def start_hidden(configured: Path | None) -> bool:
     except OSError as error:
         log.warning("hidden MT5 launch failed (%s): MetaTrader5 will start it itself", error)
         return False
-    time.sleep(_BOOT_SECONDS)  # initialize() would otherwise race the terminal's own start-up
+    # initialize() would otherwise race the terminal's own start-up: wait for the process to
+    # appear, then let it settle.
+    for _ in range(_BOOT_POLLS):
+        time.sleep(1.0)
+        if is_running():
+            time.sleep(_SETTLE_SECONDS)
+            break
     return True

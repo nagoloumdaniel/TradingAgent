@@ -210,7 +210,7 @@ body {
 /* Web approximation of a frosted material: translucent fill, blur, a thin translucent
    edge and a brighter top edge where the light catches. Not an Apple asset. */
 .card, .cards, .mod, .panel, .table-wrap, .banner, nav.side, .replay-chart, .empty, pre,
-.cal-read, .cal-month, .cal-panel, .cal-media, .cal-sources {
+.cal-read, .cal-panel, .cal-sources {
   background: var(--glass);
   border: 1px solid var(--glass-line);
   -webkit-backdrop-filter: var(--blur);
@@ -975,7 +975,7 @@ dialog.keys h2 { margin: 0 0 10px; }
 /* Users who ask for less transparency get opaque surfaces; contrast never depends on blur. */
 @media (prefers-reduced-transparency: reduce) {
   .mod, .cards, .seg, .chart-tip, .card, .panel, .table-wrap, .banner, nav.side, .replay-chart, .empty, pre, .topbar, .tabbar,
-  .cal-read, .cal-month, .cal-panel, .cal-media, .cal-sources,
+  .cal-read, .cal-panel, .cal-sources,
   .actions a, button, select, .pager-link, .filters input[type="search"] {
     -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface);
   }

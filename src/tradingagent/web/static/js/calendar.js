@@ -10,6 +10,7 @@
   "use strict";
 
   var REGIONS = ["day-panel", "cal-overview", "week-strip"];
+  var BUSY = REGIONS;
 
   /* -- 1. comptes à rebours ---------------------------------------------------------- */
   function words(ms) {
@@ -80,7 +81,8 @@
     var controller = window.AbortController ? new AbortController() : null;
     inflight = controller;
     var panel = document.getElementById("day-panel");
-    if (panel) { panel.setAttribute("aria-busy", "true"); }
+    BUSY.forEach(function (id) { var n = document.getElementById(id); if (n) { n.setAttribute("aria-busy", "true"); } });
+    document.documentElement.classList.add("is-loading");
     return fetch(url.href, {
       credentials: "same-origin",
       headers: { "Accept": "text/html" },
@@ -107,8 +109,8 @@
       window.location.assign(url.href);  // repli : navigation normale
     }).then(function () {
       if (inflight === controller) { inflight = null; }
-      var again = document.getElementById("day-panel");
-      if (again) { again.removeAttribute("aria-busy"); }
+      if (inflight === null) { document.documentElement.classList.remove("is-loading"); }
+      BUSY.forEach(function (id) { var n = document.getElementById(id); if (n) { n.removeAttribute("aria-busy"); } });
     });
   }
 

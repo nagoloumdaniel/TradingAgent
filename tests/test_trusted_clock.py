@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import ClassVar
 
 from tradingagent.trusted_clock import TrustedClock, paris_offset
 
@@ -133,3 +134,39 @@ def test_paris_offset_follows_the_eu_rule() -> None:
     assert paris_offset(datetime(2026, 11, 1, 12, tzinfo=UTC)) == timedelta(hours=1)
     assert paris_offset(datetime(2026, 10, 25, 0, 59, tzinfo=UTC)) == timedelta(hours=2)
     assert paris_offset(datetime(2026, 10, 25, 1, 0, tzinfo=UTC)) == timedelta(hours=1)
+
+
+def test_a_small_backward_correction_never_makes_time_go_back() -> None:
+    mono, pc = Mono(), Pc(ONLINE)
+    answers: dict[str, datetime | Exception] = {"a": ONLINE, "b": ONLINE}
+    clock = _clock(answers, mono, pc)
+    assert clock.sync()
+    mono.value += 100
+    before = clock.now()
+    behind = ONLINE + timedelta(seconds=90)  # online says 10 s earlier than the running clock
+    answers.update(a=behind, b=behind)
+    assert clock.sync()
+    assert clock.now() >= before
+    mono.value += 20  # online has caught up with the floor
+    assert clock.now() == behind + timedelta(seconds=20)
+
+
+def test_a_cached_answer_is_corrected_by_its_age() -> None:
+    from tradingagent import trusted_clock
+
+    class Response:
+        headers: ClassVar[dict[str, str]] = {"Date": "Sun, 01 Nov 2026 18:00:00 GMT", "Age": "40"}
+
+        def __enter__(self) -> "Response":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+    original = trusted_clock.urllib.request.urlopen
+    trusted_clock.urllib.request.urlopen = lambda *a, **k: Response()
+    try:
+        stamp = trusted_clock._http_date("https://example.test", 1.0)
+    finally:
+        trusted_clock.urllib.request.urlopen = original
+    assert abs((stamp - ONLINE).total_seconds() - 40) < 1

@@ -20,6 +20,7 @@ import threading
 import time
 import urllib.request
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
@@ -41,6 +42,12 @@ MAX_SPREAD = timedelta(seconds=3)
 QUORUM = 2
 #: A reading further than this from the running clock waits for a second round to confirm it.
 MAX_JUMP = timedelta(seconds=30)
+#: A change of the offset larger than this between two accepted syncs is logged.
+OFFSET_STEP_ALERT = 2.0
+#: The loop wakes this often to compare the wall clock with the monotonic one.
+WATCH_EVERY_SECONDS = 5.0
+#: A wall/monotonic gap above this (PC suspended, clock edited) triggers an early re-sync.
+WATCH_GAP_SECONDS = 15.0
 
 Fetch = Callable[[str, float], datetime]
 
@@ -51,13 +58,19 @@ def _http_date(url: str, timeout: float) -> datetime:
     sent = time.monotonic()
     with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
         header = response.headers["Date"]
+        age_header = response.headers.get("Age")
     rtt = time.monotonic() - sent
     if not header:
         raise ValueError("no Date header")
     stamp = parsedate_to_datetime(header)
     if stamp.tzinfo is None:  # "-0000" means UTC; astimezone() would read it as PC local time
         stamp = stamp.replace(tzinfo=UTC)
-    return stamp.astimezone(UTC) + timedelta(seconds=rtt / 2)
+    # A cached answer carries the origin's `Date`; `Age` says how long ago that was.
+    try:
+        age = min(max(float(age_header), 0.0), 3600.0) if age_header else 0.0
+    except ValueError:
+        age = 0.0
+    return stamp.astimezone(UTC) + timedelta(seconds=rtt / 2 + age)
 
 
 @dataclass(frozen=True)
@@ -87,6 +100,7 @@ class TrustedClock:
         self._offset: float | None = None
         self._used = 0
         self._pending: float | None = None  # a jump waiting for confirmation (UTC timestamp)
+        self._floor: datetime | None = None  # now() never reads below this after a correction
         self._detail = "pas encore synchronisée : heure du PC utilisée"
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -97,17 +111,25 @@ class TrustedClock:
         if anchor is None:
             return self._system_now()
         online, mono = anchor
-        return online + timedelta(seconds=self._mono() - mono)
+        current = online + timedelta(seconds=self._mono() - mono)
+        with self._lock:
+            floor = self._floor
+        # A small backward correction is absorbed: time stands still until it catches up.
+        return current if floor is None or current > floor else floor
 
     def sync(self) -> bool:
         """One round over every source. True when a quorum agreed and the reading was accepted."""
         answers: list[datetime] = []
         failures: list[str] = []
-        for url in self._sources:
-            try:
-                answers.append(self._fetch(url, TIMEOUT_SECONDS))
-            except Exception as error:  # a host down is routine; the others decide
-                failures.append(f"{url}: {type(error).__name__}")
+        with ThreadPoolExecutor(max_workers=max(len(self._sources), 1)) as pool:
+            futures = [
+                (url, pool.submit(self._fetch, url, TIMEOUT_SECONDS)) for url in self._sources
+            ]
+            for url, future in futures:
+                try:
+                    answers.append(future.result())
+                except Exception as error:  # a host down is routine; the others decide
+                    failures.append(f"{url}: {type(error).__name__}")
         if not answers:
             with self._lock:
                 self._detail = "aucune source d'heure joignable : " + "; ".join(failures)
@@ -144,8 +166,21 @@ class TrustedClock:
                     )
                     return False
             self._pending = None
+            offset = (online - self._system_now()).total_seconds()
+            if self._offset is not None and abs(offset - self._offset) > OFFSET_STEP_ALERT:
+                log.warning(
+                    "trusted clock: PC clock offset moved by %.1f s (%.1f -> %.1f)",
+                    offset - self._offset,
+                    self._offset,
+                    offset,
+                )
+            self._floor = None
+            if self._anchor is not None:
+                running = self._anchor[0] + timedelta(seconds=mono - self._anchor[1])
+                if timedelta(0) < running - online <= MAX_JUMP:
+                    self._floor = running  # never step back: hold still until online catches up
             self._anchor = (online, mono)
-            self._offset = (online - self._system_now()).total_seconds()
+            self._offset = offset
             self._used = len(kept)
             self._detail = f"synchronisée sur {len(kept)} source(s) en ligne"
         return True
@@ -173,15 +208,23 @@ class TrustedClock:
         self._stop.set()
 
     def _loop(self) -> None:
-        while not self._stop.is_set():
-            ok = self.status().synced
-            wait = SYNC_EVERY_SECONDS if ok else RETRY_EVERY_SECONDS
-            if self._stop.wait(wait):
-                return
+        due = self._mono() + SYNC_EVERY_SECONDS
+        last_wall, last_mono = self._system_now(), self._mono()
+        while not self._stop.wait(WATCH_EVERY_SECONDS):
+            wall, mono = self._system_now(), self._mono()
+            gap = abs((wall - last_wall).total_seconds() - (mono - last_mono))
+            last_wall, last_mono = wall, mono
+            if gap > WATCH_GAP_SECONDS:  # PC suspended or its clock edited: do not wait
+                log.info("trusted clock: wall/monotonic gap of %.0f s, re-syncing now", gap)
+                due = mono
+            if mono < due:
+                continue
             try:
                 self.sync()
             except Exception:
                 log.exception("trusted clock sync crashed")
+            retry = SYNC_EVERY_SECONDS if self.status().synced else RETRY_EVERY_SECONDS
+            due = self._mono() + retry
 
 
 _CLOCK = TrustedClock()
