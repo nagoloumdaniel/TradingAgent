@@ -998,7 +998,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-066 — Volume de marché de bout en bout
 
-- [ ] Statut : **EN COURS au 2026-10-08.** Le champ `volume` a été ajouté à `Candle` (keyword-only, défaut `None`), la règle de sommation à l'agrégation est écrite et testée (« tout ou `None` »), et la propagation depuis `copy_rates_from_pos` est faite. **Défaut trouvé en chemin :** `mt5_terminal.rates()` lisait `r["time"]`, `r["open"]`, `r["high"]`, `r["low"]`, `r["close"]` et **jetait `r["tick_volume"]`** depuis l'origine du projet. La demande de l'opérateur du 2026-10-08 (stratégie BTC à VWAP) a rendu ce gaspillage visible : **un VWAP ne peut pas exister sans volume.**
+- [x] Statut : **DONE le 2026-11-03.** Le champ `volume` a été ajouté à `Candle` (keyword-only, défaut `None`), la règle de sommation à l'agrégation est écrite et testée (« tout ou `None` »), et la propagation depuis `copy_rates_from_pos` est faite. **Défaut trouvé en chemin :** `mt5_terminal.rates()` lisait `r["time"]`, `r["open"]`, `r["high"]`, `r["low"]`, `r["close"]` et **jetait `r["tick_volume"]`** depuis l'origine du projet. La demande de l'opérateur du 2026-10-08 (stratégie BTC à VWAP) a rendu ce gaspillage visible : **un VWAP ne peut pas exister sans volume.**
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-060 · **Couvre :** F-001, F-002, F-006
 - **Décision d'opérateur du 2026-10-08 :** le tick volume est retenu comme mesure de volume. Ce n'est pas le volume réel échangé, qui n'est pas disponible sur ce courtier ; c'est un **décompte de ticks**, et tout indicateur pondéré par ce volume doit le dire.
 - **Actions :**
@@ -1014,7 +1014,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - [x] l'adaptateur MT5 ne jette plus `tick_volume` — prouvé par `tests/data/test_market_data.py`
   - [x] un jeu gelé avec volume se relit à l'identique et son empreinte change avec le volume — prouvé par `tests/backtest/test_datasets.py`
   - [x] la base conserve le volume : colonne `tick_volume` ajoutée par la migration `0008`, `NULL` pour tout l'historique antérieur (jamais `0`, qui serait une mesure inventée) — prouvé par `tests/storage/test_candles.py`, et le contrôle de dérive modèle/migration `test_models_and_migration_do_not_drift` refuse un type qui divergent. **La migration est appliquée automatiquement au démarrage de l'agent** (`app.py:744` appelle `upgrade`).
-  - [ ] **re-geler un jeu de données avec volume** : les 8 jeux existants restent sans volume, par construction. À faire lors du prochain téléchargement (TASK-067 en a besoin pour le VWAP).
+  - [x] **re-geler un jeu de données avec volume** — fait le 2026-11-03 : BTCUSD M15 (59 999 bougies, jusqu'au 2026-11-02 23:30 UTC, empreinte `f73d0375…`) et BTCUSD H1 (59 999 bougies depuis 2019-12-28, empreinte `64afc7dc…`) dans `docs/research/datasets-volume/{M15,H1}/`, 0 bougie sans volume, relus à l'identique. Les jeux du 2026-10-09 restent intacts. Volume = tick volume (décision d'opérateur du 2026-10-08)
 - **Skills :** `test-driven-development`, `market-data`
 
 ### TASK-067 — Stratégie de base BTCUSD : VWAP, momentum, pullback/retest
