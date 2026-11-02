@@ -202,12 +202,21 @@ async def market_line(
     )
 
 
+async def _connection_label(connection: Callable[[], bool]) -> str:
+    """The terminal link as the operator reads it; a probe that fails is reported, not raised."""
+    try:
+        return "connecté" if await asyncio.to_thread(connection) else "HORS LIGNE"
+    except Exception:
+        return "illisible"
+
+
 def status_handler(
     halts: HaltStore,
     mode: TradingMode,
     markets: Sequence[tuple[str, bool]] = (),
     candles: CandleStore | None = None,
     timeframe: Timeframe = Timeframe.M15,
+    connection: Callable[[], bool] | None = None,
 ) -> Handler:
     async def status(request: CommandRequest) -> str:
         halt = await asyncio.to_thread(halts.status)
@@ -217,6 +226,8 @@ def status_handler(
         except Exception:
             quarantine_lines = ["  illisibles"]
         lines = [f"Mode : {MODE_LABELS[mode]}"]
+        if connection is not None:
+            lines.append(f"Connexion MT5 : {await _connection_label(connection)}")
         if halt.halted:
             lines.append("État : ARRÊT ACTIF, aucun nouvel ordre")
             if halt.close_positions:

@@ -417,8 +417,8 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 - **Reste à faire au branchement :** les essais manuels consignés, avec une base d'un mois pour le critère « moins de deux secondes » ; les requêtes sont déjà indexées (`ix_signals_symbol_generated_at`, PK sur toutes les lectures).
 - **Objectif :** `/status`, `/markets`, `/signals`, `/positions`, `/performance`, `/help`. Regroupées car elles partagent le même module, le même contrôle d'accès et le même contrôle qualité.
 - **Critères d'acceptation :**
-  - [ ] chaque commande répond en moins de deux secondes sur une base contenant un mois de données — en attente : essai manuel sur une base d'un mois non exécuté ; les requêtes sont testées fonctionnellement (tests/notify/test_read_commands.py) mais la latence n'a pas été mesurée
-  - [ ] `/status` affiche l'état des connexions, le mode, les marchés et l'état de santé des séries — à vérifier : le mode, les marchés et la santé des séries sont affichés et testés (tests/notify/test_read_commands.py), l'état des connexions MT5 n'était pas exposé au moment de la rédaction
+  - [x] chaque commande répond en moins de deux secondes sur une base contenant un mois de données — prouvé par tests/notify/test_read_commands.py (test_every_read_command_answers_in_under_two_seconds_on_a_month_of_data : 2 marchés × 30 jours de M15 et 300 trades clos, SQLite local ; la latence réseau vers Supabase n'est pas mesurée)
+  - [x] `/status` affiche l'état des connexions, le mode, les marchés et l'état de santé des séries — prouvé par tests/notify/test_read_commands.py (test_status_shows_the_terminal_connection et deux tests voisins) ; la connexion MT5 vient de `Mt5Terminal.is_connected`, câblée dans `app.py`. L'entrée `telegram_app.py` n'a pas de terminal : elle n'affiche pas la ligne
 - **Validation :** essais manuels consignés.
 
 ### TASK-023 — Commandes sensibles avec confirmation
@@ -718,7 +718,7 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 - **Critères d'acceptation :**
   - [x] le test de réponse malveillante passe, aucun effet observé — prouvé par tests/ai/test_ai_layer.py (test_a_malicious_response_cannot_create_a_signal_or_change_any_level)
   - [x] **en mode `shadow`, un verdict de rejet est enregistré et le signal part quand même**, vérifié par test — prouvé par tests/ai/test_ai_layer.py (test_in_shadow_mode_a_rejection_is_recorded_and_the_signal_still_goes)
-  - [ ] aucun appel n'est émis en l'absence de signal candidat, vérifié par compteur — à vérifier : aucun test à compteur ne couvre explicitement l'absence d'appel IA hors candidat ; le compteur n'est exercé que pour le plafond de budget (tests/ai/test_ai_layer.py::test_no_call_is_issued_once_the_budget_is_spent)
+  - [x] aucun appel n'est émis en l'absence de signal candidat, vérifié par compteur — prouvé par tests/runtime/test_pipeline.py (test_the_model_is_never_called_without_a_candidate_signal, test_a_signal_already_processed_is_not_reviewed_again). Un signal refusé par le risque est bien relu par l'IA : la revue précède le risque, par construction
   - [x] un modèle simulé lent n'allonge pas le traitement au-delà du plafond — prouvé par tests/ai/test_ai_layer.py (test_a_slow_model_does_not_stretch_the_processing_beyond_the_cap)
   - [x] le comportement en panne correspond au paramètre `ai_filter` déclaré — prouvé par tests/ai/test_ai_layer.py (test_a_model_failure_in_shadow_emits_with_a_local_fallback, ..._advisory_..., ..._required_refuses_fail_closed)
   - [x] le coût cumulé est consultable — prouvé par tests/ai/test_ai_layer.py (test_the_cumulated_cost_is_consultable)
