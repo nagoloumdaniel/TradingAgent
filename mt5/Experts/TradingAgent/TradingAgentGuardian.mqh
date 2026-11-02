@@ -44,6 +44,9 @@
 #define TA_TIMER_SECONDS      1     // une passe par seconde
 #define TA_REPORT_SECONDS     2     // un battement de coeur toutes les deux secondes
 #define TA_STATE_STALE_SECONDS 30   // backend silencieux au-dela : arret local
+#define TA_STATE_READ_ATTEMPTS 8    // lectures du fichier d'etat avant de le croire absent
+#define TA_STATE_READ_RETRY_MS 25   // pause entre deux lectures (le remplacement dure quelques ms)
+#define TA_STATE_LOST_GRACE_SECONDS 5 // absence continue tolerée avant l'arret local
 #define TA_DIVERGENCE_GRACE_SECONDS 90 // divergence tolerée le temps que le backend republie (stop/TP touche)
 #define TA_EVENTS_IN_MEMORY   25    // evenements rappeles dans le rapport
 #define TA_COMMENT_LIMIT      31    // limite imposee par le serveur MT5
@@ -607,6 +610,7 @@ private:
    //--- dernier etat publie
    bool     m_haveState;
    bool     m_stateValid;
+   datetime m_stateLostSince;      // debut d'une absence/illisibilite continue, 0 si l'etat se lit
    long     m_revision;
    datetime m_publishedAt;
    bool     m_killSwitch;
@@ -671,6 +675,7 @@ private:
    string            HaltFilePath() const;
    //--- etat
    bool              ReadState();
+   bool              StateLostLongEnough();
    void              CheckStateFreshness(const datetime now);
    bool              IsBackendSilenceHalt() const;
    void              Resume();
@@ -731,6 +736,7 @@ CTradingAgentGuardian::CTradingAgentGuardian()
    m_lastReport     = 0;
    m_haveState      = false;
    m_stateValid     = false;
+   m_stateLostSince = 0;
    m_revision       = -1;
    m_publishedAt    = 0;
    m_killSwitch     = false;
@@ -987,19 +993,44 @@ bool CTradingAgentGuardian::AppendLine(const string path, const string line)
 
 
 //+------------------------------------------------------------------+
+//| Vrai quand l'etat est introuvable/illisible sans interruption     |
+//| depuis TA_STATE_LOST_GRACE_SECONDS.                               |
+//+------------------------------------------------------------------+
+bool CTradingAgentGuardian::StateLostLongEnough()
+{
+   datetime now = TimeLocal();
+   if(m_stateLostSince == 0)
+      m_stateLostSince = now;
+   return (now - m_stateLostSince) >= TA_STATE_LOST_GRACE_SECONDS;
+}
+
+
+//+------------------------------------------------------------------+
 //| Chargement du fichier d'etat publie par le backend.               |
 //+------------------------------------------------------------------+
 bool CTradingAgentGuardian::ReadState()
 {
-   string text = ReadText(m_stateFile);
+   //--- Le backend remplace le fichier a chaque cycle (os.replace). Sous Windows, FileOpen
+   //--- echoue pendant une fraction de seconde au moment du remplacement : un echec isole
+   //--- n'est pas une disparition. On reessaie, puis on exige une absence continue avant
+   //--- de verrouiller l'arret local (verrou persistant, leve seulement par l'operateur).
+   string text = "";
+   for(int attempt = 0; attempt < TA_STATE_READ_ATTEMPTS; attempt++)
+   {
+      text = ReadText(m_stateFile);
+      if(StringLen(text) > 0)
+         break;
+      Sleep(TA_STATE_READ_RETRY_MS);
+   }
    if(StringLen(text) == 0)
    {
       //--- Aucun etat encore publie : rien a executer, rien a comparer. Si un etat a deja
-      //--- ete lu puis disparait, c'est une divergence et l'arret local s'applique.
+      //--- ete lu puis disparait durablement, c'est une divergence et l'arret local s'applique.
       if(m_haveState)
       {
          m_stateValid = false;
-         Halt("fichier d'etat " + m_symbol + " disparu", TA_EV_STATE);
+         if(StateLostLongEnough())
+            Halt("fichier d'etat " + m_symbol + " disparu", TA_EV_STATE);
       }
       return false;
    }
@@ -1013,10 +1044,12 @@ bool CTradingAgentGuardian::ReadState()
       if(m_haveState)
       {
          m_stateValid = false;
-         Halt("fichier d'etat " + m_symbol + " illisible", TA_EV_STATE);
+         if(StateLostLongEnough())
+            Halt("fichier d'etat " + m_symbol + " illisible", TA_EV_STATE);
       }
       return false;
    }
+   m_stateLostSince = 0;
 
    long revision = root.Get("revision") != NULL ? root.Get("revision").AsLong(-1) : -1;
    CTaJson *protocol = root.Get("protocol_version");
