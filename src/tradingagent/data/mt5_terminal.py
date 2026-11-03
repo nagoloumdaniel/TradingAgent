@@ -40,6 +40,8 @@ _HISTORY_READS = 4
 
 
 _SWAP_MODE_POINTS = 1  # SYMBOL_SWAP_MODE_POINTS
+# SYMBOL_SWAP_MODE_INTEREST_CURRENT / _INTEREST_OPEN: a yearly percentage of the price.
+_SWAP_MODES_INTEREST = (5, 6)
 
 
 class Mt5Terminal:
@@ -147,6 +149,8 @@ class Mt5Terminal:
             digits=int(info.digits),
             swap_long=_swap_in_price(info, info.swap_long),
             swap_short=_swap_in_price(info, info.swap_short),
+            swap_rate_long=_swap_as_rate(info, info.swap_long),
+            swap_rate_short=_swap_as_rate(info, info.swap_short),
         )
 
     def order_check(self, request: TradeRequest) -> TradeCheck:
@@ -280,6 +284,13 @@ class Mt5Terminal:
         if request.position_ticket is not None:
             fields["position"] = request.position_ticket
         return fields
+
+
+def _swap_as_rate(info: Any, swap: float) -> float | None:
+    """The swap as a yearly fraction of the price, or None when it is not quoted as interest."""
+    if int(info.swap_mode) not in _SWAP_MODES_INTEREST:
+        return None
+    return float(swap) / 100.0
 
 
 def _swap_in_price(info: Any, swap: float) -> float | None:
