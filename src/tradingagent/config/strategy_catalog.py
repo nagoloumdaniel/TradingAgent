@@ -1,7 +1,7 @@
 import re
 import unicodedata
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +11,7 @@ from tradingagent.config._yaml import Problem, read_yaml, render, validation_pro
 from tradingagent.config.errors import ConfigError
 from tradingagent.core.mode import TradingMode, mode_rank
 from tradingagent.core.states import ValidationStage
+from tradingagent.core.timeframe import Timeframe
 from tradingagent.strategies.base import Strategy
 from tradingagent.strategies.manifest import StrategyManifest
 
@@ -29,6 +30,12 @@ _WHITESPACE = re.compile(r"\s+")
 class LoadedStrategy:
     manifest: StrategyManifest
     strategy: Strategy[Any]
+    #: One strategy instance per scanned timeframe that has its own parameters; the others
+    #: use `strategy` unchanged.
+    by_timeframe: Mapping[Timeframe, Strategy[Any]] = field(default_factory=dict)
+
+    def strategy_for(self, timeframe: Timeframe) -> Strategy[Any]:
+        return self.by_timeframe.get(timeframe, self.strategy)
 
 
 def header_banner(text: str) -> str:
@@ -122,6 +129,7 @@ def load_strategy_catalog(
             )
         strategy_class = registry.get(manifest.strategy_id)
         parameters = None
+        per_timeframe: dict[Timeframe, Strategy[Any]] = {}
         if strategy_class is None:
             problems.append(
                 (("strategy_id",), f"strategy {manifest.strategy_id!r} is not registered in code")
@@ -131,11 +139,22 @@ def load_strategy_catalog(
                 parameters = strategy_class.parameters_model.model_validate(manifest.parameters)
             except ValidationError as error:
                 problems += validation_problems(error, prefix=("parameters",))
+            for timeframe in manifest.timeframe_parameters:
+                try:
+                    own = strategy_class.parameters_model.model_validate(
+                        manifest.parameters_for(timeframe)
+                    )
+                except ValidationError as error:
+                    problems += validation_problems(
+                        error, prefix=("timeframe_parameters", str(timeframe))
+                    )
+                else:
+                    per_timeframe[timeframe] = strategy_class(own)
 
         if problems or strategy_class is None or parameters is None:
             lines += document.locate(problems)
             continue
-        catalog[manifest.ref] = LoadedStrategy(manifest, strategy_class(parameters))
+        catalog[manifest.ref] = LoadedStrategy(manifest, strategy_class(parameters), per_timeframe)
 
     if lines:
         raise ConfigError(render("Invalid strategy manifests", lines))

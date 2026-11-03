@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from tradingagent.core.states import RiskOutcome, SignalState
 from tradingagent.risk.engine import RiskDecision
+from tradingagent.risk.explain import explain_refusal, refusal_causes
 from tradingagent.storage.models import RiskDecisionRow, SignalEventRow, SignalRow
 
 
@@ -78,6 +79,31 @@ class RiskDecisionStore:
                 if not verdict["passed"] and not verdict.get("blocked_by")
             )
         return RefusalSummary(len(rows), refused, dict(by_check))
+
+    def refusal_digest(self, start: datetime, end: datetime, limit: int = 8) -> str:
+        """The refusals of [start, end) by plain-French cause, most frequent first, with one
+        explicit example each. Data for the AI Lab's prompts: "" when nothing was refused."""
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                select(RiskDecisionRow.reason)
+                .where(
+                    RiskDecisionRow.outcome == RiskOutcome.REFUSED,
+                    RiskDecisionRow.decided_at >= start,
+                    RiskDecisionRow.decided_at < end,
+                )
+                .order_by(RiskDecisionRow.decided_at.desc())
+            ).all()
+        counts: Counter[str] = Counter()
+        example: dict[str, str] = {}
+        for (reason,) in rows:
+            full = explain_refusal(reason)
+            for cause in refusal_causes(reason):
+                counts[cause] += 1
+                example.setdefault(cause, full)
+        return "\n".join(
+            f"- {cause} : {count} refus (ex. {example[cause]})"
+            for cause, count in counts.most_common(limit)
+        )
 
 
 def latest_risk_eur(engine: Engine, signal_id: int) -> Decimal:

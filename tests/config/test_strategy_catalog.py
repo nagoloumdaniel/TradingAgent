@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from tradingagent.config.errors import ConfigError
 from tradingagent.config.strategy_catalog import load_strategy_catalog
 from tradingagent.core.signal import SignalCandidate
+from tradingagent.core.timeframe import Timeframe
 from tradingagent.strategies.base import Strategy, StrategyContext
 from tradingagent.strategies.registry import build_registry
 
@@ -123,3 +124,38 @@ def test_empty_directory_gives_an_empty_catalog(tmp_path: Path) -> None:
 def test_missing_directory_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="not found"):
         load_strategy_catalog(tmp_path / "absent", REGISTRY)
+
+
+SCANNED = VALID.replace("timeframes: [M15, H1]", "timeframes: [M15]\nscan_timeframes: [M1, M15]")
+
+
+def test_a_timeframe_without_override_keeps_the_base_strategy(tmp_path: Path) -> None:
+    write(tmp_path, "trend@1.0.0.yaml", SCANNED)
+    loaded = load_strategy_catalog(tmp_path, REGISTRY)["trend@1.0.0"]
+    assert loaded.by_timeframe == {}
+    assert loaded.strategy_for(Timeframe.M1) is loaded.strategy
+
+
+def test_a_timeframe_override_gets_its_own_strategy_and_the_others_stay_untouched(
+    tmp_path: Path,
+) -> None:
+    text = SCANNED + "timeframe_parameters:\n  M1:\n    ema_fast: 9\n"
+    write(tmp_path, "trend@1.0.0.yaml", text)
+    loaded = load_strategy_catalog(tmp_path, REGISTRY)["trend@1.0.0"]
+    assert loaded.strategy_for(Timeframe.M1).parameters == TrendParameters(ema_fast=9, ema_slow=50)
+    assert loaded.strategy_for(Timeframe.M15) is loaded.strategy
+    assert loaded.strategy.parameters == TrendParameters(ema_fast=20, ema_slow=50)
+    scanned = loaded.manifest.for_timeframe(Timeframe.M1)
+    assert scanned.parameters == {"ema_fast": 9, "ema_slow": 50}
+
+
+def test_an_invalid_override_stops_the_load_with_the_timeframe_named(tmp_path: Path) -> None:
+    write(tmp_path, "trend@1.0.0.yaml", SCANNED + "timeframe_parameters:\n  M1:\n    ema_fast: 1\n")
+    assert "M1" in error_of(tmp_path)
+
+
+def test_an_override_for_an_unscanned_timeframe_is_refused(tmp_path: Path) -> None:
+    write(
+        tmp_path, "trend@1.0.0.yaml", SCANNED + "timeframe_parameters:\n  M30:\n    ema_fast: 9\n"
+    )
+    assert "scan_timeframes" in error_of(tmp_path)

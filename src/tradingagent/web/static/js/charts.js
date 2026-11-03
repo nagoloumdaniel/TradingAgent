@@ -814,6 +814,13 @@
       var rh = html("div", "chart-host", null, box);
       renderBars(rh, data.reasons.map(function (r) { return { name: r.name, value: r.value }; }), "int", {});
     }
+    if (data.recent && data.recent.length) {
+      html("div", "sub-title", "Derniers refus, expliqués", box);
+      var list = html("ul", "refusal-list", null, box);
+      data.recent.forEach(function (r) {
+        html("li", null, r.at + " — " + r.text, list);
+      });
+    }
   }
 
   function bucketsChart(box) {

@@ -130,7 +130,10 @@ class SignalGenerator:
                 continue
             # Scalping: each scan timeframe is evaluated on its own series, never mixed.
             scanned = (
-                LoadedStrategy(manifest.for_timeframe(trigger.timeframe), loaded.strategy)
+                LoadedStrategy(
+                    manifest.for_timeframe(trigger.timeframe),
+                    loaded.strategy_for(trigger.timeframe),
+                )
                 if manifest.scan_timeframes
                 else loaded
             )

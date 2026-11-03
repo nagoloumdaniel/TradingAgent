@@ -139,6 +139,7 @@ from tradingagent.storage.events import SystemEventStore
 from tradingagent.storage.halts import HaltStore
 from tradingagent.storage.migrate import upgrade
 from tradingagent.storage.news import NewsStore
+from tradingagent.storage.risk_decisions import RiskDecisionStore
 from tradingagent.storage.signals import SignalRepository
 from tradingagent.strategies.manifest import StrategyManifest
 from tradingagent.strategies.registry import REGISTRY
@@ -507,10 +508,18 @@ def _build_lab(
     upcoming = (
         (lambda: news.upcoming_summary(now(), hours=72, limit=10)) if news is not None else None
     )
+    decisions = RiskDecisionStore(engine)
+
+    def refusals() -> str:
+        end = now()
+        return decisions.refusal_digest(end - timedelta(days=30), end)
+
     return DailyLab(
         engine,
-        analyst=TradeAnalyst(store, client, model=model, upcoming=upcoming),
-        researcher=StrategyResearcher(store, client, model=model, upcoming=upcoming),
+        analyst=TradeAnalyst(store, client, model=model, upcoming=upcoming, refusals=refusals),
+        researcher=StrategyResearcher(
+            store, client, model=model, upcoming=upcoming, refusals=refusals
+        ),
         notifier=notifier,
         cycle=DailyImprovement(engine),
         now=now,
