@@ -240,7 +240,7 @@ body {
 :root[data-theme="light"] .brand .brand-mark-dark { display: none; }
 :root[data-theme="light"] .brand .brand-mark-light { display: block; }
 .brand .sub { color: var(--muted); font-weight: 450; }
-@media (max-width: 479px) { .brand .sub { display: none; } }
+@media (max-width: 639px) { .brand .name { display: none; } }
 
 .topbar-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 
