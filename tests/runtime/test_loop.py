@@ -42,7 +42,11 @@ from tradingagent.notify.health_alerts import HealthAlerter
 from tradingagent.notify.sensitive_commands import RESTART_EVENT
 from tradingagent.reporting.service import ReportService
 from tradingagent.risk.model import ClosedPosition
-from tradingagent.runtime.loop import AgentLoop
+from tradingagent.runtime.loop import (
+    DEFAULT_POLL_SECONDS,
+    SNAPSHOT_INTERVAL_SECONDS,
+    AgentLoop,
+)
 from tradingagent.runtime.pipeline import SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
 from tradingagent.signals.generator import SignalGenerator
@@ -574,7 +578,9 @@ def test_the_loop_keeps_going_after_a_failed_cycle(engine: Engine) -> None:
 
 def test_the_snapshot_is_written_periodically(engine: Engine) -> None:
     loop, _, _, _ = build_loop(engine)
-    loop._cycles = loop._cycles + 14  # the next cycle hits the snapshot cadence
+    loop._cycles = (
+        round(SNAPSHOT_INTERVAL_SECONDS / DEFAULT_POLL_SECONDS) - 1
+    )  # next cycle hits the cadence
     asyncio.run(loop.run_once())
     snapshots = loop._snapshots.latest_before(NOW)
     assert snapshots is not None
@@ -676,9 +682,8 @@ def test_a_dropped_link_never_ends_the_loop_and_the_wait_backs_off(engine: Engin
 
     delays = run_forever_for(loop, cycles=5)
 
-    assert delays == [20.0, 40.0, 80.0, 20.0, 20.0], (
-        "back off while failing, then go back to normal"
-    )
+    P = DEFAULT_POLL_SECONDS
+    assert delays == [P, 2 * P, 4 * P, P, P], "back off while failing, then go back to normal"
 
 
 def test_a_long_outage_is_one_line_per_doubling_and_no_traceback_flood(
@@ -732,7 +737,7 @@ def test_a_start_notice_that_cannot_be_recorded_does_not_prevent_the_loop(engine
 
     cast(Any, loop._alerts).process_started = boom
 
-    assert run_forever_for(loop, cycles=1) == [20.0]
+    assert run_forever_for(loop, cycles=1) == [DEFAULT_POLL_SECONDS]
 
 
 def test_a_signal_the_broker_already_closed_is_not_closed_twice(

@@ -170,7 +170,7 @@ class RevalidatedStatic(StaticFiles):
 def create_app(
     engine: Engine,
     *,
-    interval_seconds: float = 2.0,
+    interval_seconds: float = 1.0,
     now: Callable[[], datetime] | None = None,
     templates_dir: Path | None = None,
     agent_config_path: Path | None = None,
@@ -921,7 +921,7 @@ def _parse(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--interval",
         type=float,
-        default=2.0,
+        default=1.0,
         help="intervalle de rafraîchissement SSE, en secondes",
     )
     parser.add_argument(

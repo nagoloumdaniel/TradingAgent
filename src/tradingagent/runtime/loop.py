@@ -68,13 +68,15 @@ log = logging.getLogger(__name__)
 
 # The calendar learns over eight weeks of quarter-hour slots: 8 * 7 * 96.
 CALENDAR_BARS = 8 * 7 * 96 + 96
-DEFAULT_POLL_SECONDS = 20.0
+# A bar is acted on at most this long after it closes. The terminal answers in under a
+# millisecond and the database in ~15 ms, so a short cycle costs little (measured 2026-11-03).
+DEFAULT_POLL_SECONDS = 3.0
 DEFAULT_CONNECTION_THRESHOLD_MINUTES = 10
 # The Guardian EAs stop trading after 30 s without a heartbeat (EA_PROTOCOL §6).
 EA_PUBLISH_INTERVAL = timedelta(seconds=20)
 # The AI Lab pass is idempotent per UTC day; checking hourly is enough and keeps the loop free.
 LAB_CHECK_INTERVAL = timedelta(hours=1)
-SNAPSHOT_EVERY_CYCLES = 15  # one account snapshot every five minutes at 20 s per cycle
+SNAPSHOT_INTERVAL_SECONDS = 300.0  # one account snapshot every five minutes
 # Two cycles are seconds apart. A bigger gap, or a negative one, is the wall clock that moved
 # (a resync, a resume from sleep), not time that passed: durations measured across it are void.
 MAX_CYCLE_GAP = timedelta(hours=1)
@@ -359,7 +361,7 @@ class AgentLoop:
         await self._run_lab(now)
         self._run_news(now)
         await self._check_limits(now, report)
-        if self._cycles % SNAPSHOT_EVERY_CYCLES == 0:
+        if self._cycles % max(1, round(SNAPSHOT_INTERVAL_SECONDS / self._poll_seconds)) == 0:
             await self._snapshot(now)
         await self._run_reports(now)
         return report

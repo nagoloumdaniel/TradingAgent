@@ -8,15 +8,12 @@ The rules this module enforces, in order, for every single order:
 2. The idempotency key is looked up first. If the order already exists — accepted, refused
    or of unknown outcome — nothing is ever sent again. A lost answer is recovered by the
    hash of the key carried in the order comment, never by resending.
-3. `order_check` runs for information only. It approves orders the server later refuses for
-   jurisdiction (measured on this account, section 12.1): only the `order_send` return code
-   counts.
-4. The volume is validated against the broker's own step, minimum and maximum before the
+3. The volume is validated against the broker's own step, minimum and maximum before the
    send: the terminal is never asked to refuse an order this layer could refuse itself.
-5. The stop and the target are sent natively, then **read back from the position** with a
+4. The stop and the target are sent natively, then **read back from the position** with a
    bounded retry (a terminal can answer the fill before its position list shows it); once the
    retries are spent, a stop that is still not there triggers an immediate close and an alert.
-6. Requested price, executed price and the gap between them are recorded, and the order,
+5. Requested price, executed price and the gap between them are recorded, and the order,
    the fill and the position are journalled by the executor (the single writer of `orders`,
    `positions`, `executions` and `trades`, PAPER and DEMO alike). `reconcile` collects the
    closures the broker made on its own before comparing states, so a stop-out is a trade to
@@ -339,14 +336,6 @@ class MT5Broker:
             deviation=self._deviation,
             magic=self._magic,
         )
-        check = await self._call(self._terminal.order_check, trade)
-        log.info(
-            "order_check %s retcode=%s margin=%s (informative only)",
-            request.symbol,
-            check.retcode,
-            check.margin,
-        )
-
         try:
             raw = await self._call(self._terminal.order_send, trade)
         except TerminalError as error:
