@@ -1307,3 +1307,45 @@ nav.side .nav-group {
   font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
 }
 nav.side .nav-group:first-child { margin-top: 2px; }
+
+/* Icon rail (tablet, or desktop collapsed): group labels become hairline separators. */
+@media (min-width: 768px) and (max-width: 1099.98px) {
+  nav.side .nav-group {
+    height: 1px; margin: 8px 10px; padding: 0; overflow: hidden; font-size: 0; line-height: 0;
+    background: var(--line);
+  }
+  nav.side .nav-group:first-child { display: none; }
+  nav.side a { min-height: 42px; }
+  nav.side a::before { top: 9px; bottom: 9px; }
+}
+@media (min-width: 1100px) {
+  html[data-rail="min"] nav.side .nav-group {
+    height: 1px; margin: 8px 10px; padding: 0; overflow: hidden; font-size: 0; line-height: 0;
+    background: var(--line);
+  }
+  html[data-rail="min"] nav.side .nav-group:first-child { display: none; }
+  html[data-rail="min"] nav.side a { min-height: 42px; }
+  html[data-rail="min"] nav.side a::before { top: 9px; bottom: 9px; }
+  html[data-rail="min"] .rail-toggle { margin-top: 8px; border-radius: var(--radius-sm); }
+}
+
+/* -- no visible scrollbar anywhere : everything still scrolls ---------------------------------- */
+*, *::before, *::after { scrollbar-width: none !important; -ms-overflow-style: none; }
+*::-webkit-scrollbar, *::-webkit-scrollbar-thumb { display: none !important; width: 0 !important; height: 0 !important; background: transparent !important; }
+
+/* -- footer : one quiet line -------------------------------------------------------------------- */
+footer {
+  justify-content: space-between; gap: 6px 16px; margin-top: 8px;
+  padding: 18px var(--gutter) 26px; border-top: 1px solid var(--line);
+  color: var(--faint); font-size: var(--fs-xs); letter-spacing: 0.01em;
+}
+footer .foot-brand { color: var(--muted); font-weight: 600; }
+footer .foot-brand span { color: var(--faint); font-weight: 450; }
+
+/* -- modules in a row share the row's height; their chart is centred in the space ---------------- */
+.dash { align-items: stretch; }
+.mod { display: flex; flex-direction: column; }
+.mod > .chart, .mod > .chart-host { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; }
+.mod > .chart > * { width: 100%; }
+.donut-wrap { justify-content: center; }
+.donut-host svg.donut { width: min(100%, 170px) !important; height: auto !important; aspect-ratio: 1; }

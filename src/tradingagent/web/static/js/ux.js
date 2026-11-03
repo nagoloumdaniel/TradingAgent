@@ -96,29 +96,6 @@
       });
     });
 
-    /* filter: only worth a field when there is something to search through */
-    if (real().length >= 8) {
-      var tools = el("div", "tbl-tools");
-      wrap.parentNode.insertBefore(tools, wrap);
-      var input = el("input", null, null, tools);
-      input.type = "search";
-      input.placeholder = "Filtrer les lignes affichées";
-      input.setAttribute("aria-label", "Filtrer les lignes affichées du tableau");
-      input.autocomplete = "off";
-      var count = el("span", "tbl-count", null, tools);
-      count.setAttribute("aria-live", "polite");
-      input.addEventListener("input", function () {
-        var needle = input.value.trim().toLowerCase();
-        var shown = 0, rows = real();
-        rows.forEach(function (row) {
-          var hit = !needle || row.textContent.toLowerCase().indexOf(needle) !== -1;
-          row.hidden = !hit;
-          if (hit) { shown += 1; }
-        });
-        count.textContent = needle ? shown + " / " + rows.length + " ligne(s)" : "";
-      });
-    }
-
     /* copy: identifiers get a one-click button */
     Array.prototype.forEach.call(headRow.cells, function (th, index) {
       if (!COPY_HEADER.test(th.textContent)) { return; }

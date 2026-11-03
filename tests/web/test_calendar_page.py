@@ -132,7 +132,6 @@ def test_the_page_renders_on_an_empty_database_and_says_nothing_was_fetched(
     html = unescape(response.text)
     assert "Annonces économiques" in html
     assert "n'a jamais été rafraîchi" in html  # the state is told, not hidden
-    assert "pas un conseil en investissement" in html
 
 
 def test_the_page_shows_the_seeded_events_with_utc_and_paris_times(

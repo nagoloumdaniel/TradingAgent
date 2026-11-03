@@ -59,7 +59,6 @@
     <div class="note">{{ ai_calls.scope or "tout l'historique" }}</div></div>
   <div class="card" title="Somme de cost_eur, appels facturés seulement"><div class="label">{{ icon("euro") }}Coût</div><div class="value sm">{{ display.money(ai_calls.cost_eur) }}</div>
     <div class="note">{{ ai_calls.scope or "cumulé" }}</div></div>
-  <div class="card"><div class="label">{{ icon("clock") }}Dernier appel</div><div class="value sm">{{ display.precise(ai_calls.last_called_at) if ai_calls.last_called_at else "jamais" }}</div></div>
   <div class="card" title="Lu dans ai_calls, pas dans la configuration"><div class="label">{{ icon("bot") }}Mode effectif</div>
     <div class="value sm">{{ ai_calls.filters | join(', ') or "-" }}</div>
     <div class="note">{{ ai_calls.models | join(', ') or "-" }}</div></div>

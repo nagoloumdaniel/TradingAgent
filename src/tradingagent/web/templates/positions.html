@@ -13,7 +13,6 @@
     </span>
     <div class="label">{{ icon("layers") }}Positions ouvertes</div>
     <div class="value" id="open-count">{{ open_count }}</div>
-    <div class="meta" title="Dernière mise à jour du flux (UTC)"><span id="positions-at">{{ display.precise(at) }}</span> UTC</div>
   </div>
   <div class="card" title="Avertissements et critiques de la journée UTC en cours. Le détail, jour par jour, est sur la page Système.">
     <div class="label">{{ icon("alert-triangle") }}Alertes du jour</div>
@@ -27,11 +26,7 @@
 </div>
 
 <div class="dash">
-  <section class="mod" aria-labelledby="h-expo">
-    {{ head("h-expo", "pie", "Exposition par marché et sens") }}
-    <div class="chart is-loading" data-chart="exposure" aria-busy="true"></div>
-  </section>
-  <section class="mod span-2" aria-labelledby="h-open-n">
+  <section class="mod wide" aria-labelledby="h-open-n">
     {{ head("h-open-n", "layers", "Notionnel par position ouverte") }}
     <div class="chart is-loading" data-chart="hbars" data-key="open" data-fmt="money" aria-busy="true"></div>
   </section>
@@ -92,7 +87,6 @@
     streamText.textContent = text;
     status.setAttribute("title", text + ". " + streamTitle);
   }
-  var at = document.getElementById("positions-at");
 
   // The alerts themselves live on /system, one day at a time. This page only keeps their
   // number for today live, so the tile above never disagrees with the list it links to.
@@ -110,7 +104,6 @@
   source.addEventListener("positions", function (message) {
     var payload = JSON.parse(message.data);
     openCount.textContent = payload.rows.length;
-    at.textContent = payload.at;
   });
   source.addEventListener("alerts", function (message) {
     var payload = JSON.parse(message.data);

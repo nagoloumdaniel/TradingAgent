@@ -5,11 +5,6 @@
 {% block heading %}
 <div class="cal-heading">
   <h1 class="page-title">Annonces économiques</h1>
-  <p class="cal-clock"><span class="sr-only">Heure actuelle : </span>
-    {{ icon("clock") }}<span class="num" id="cal-now" data-now="{{ now_iso | default('') }}">{{ cal.now_label }}</span>
-    <span class="cal-clock-sep" aria-hidden="true">·</span><span class="num">{{ cal.paris_label }}</span>
-    <span class="badge cal-clock-src" data-synced="{{ 'yes' if cal.clock_synced else 'no' }}" title="{{ cal.clock_label }}">{{ "Horloge en ligne" if cal.clock_synced else "Horloge du PC" }}</span>
-  </p>
 </div>
 {% endblock %}
 {% block content %}
@@ -40,6 +35,7 @@
 
 {# --- le jour en un coup d'œil : score global + une carte par marché ---------------------- #}
 {% set o = cal.outlook %}
+<div class="cal-top">
 <section class="cal-overview" id="cal-overview" aria-label="Prévisions par marché">
   {% for m in o.markets %}
   <article class="cal-outlook" data-bias="{{ m.bias }}" aria-label="Prévision {{ m.symbol }}">
@@ -62,32 +58,6 @@
   </article>
   {% endfor %}
 </section>
-
-<div class="cal-layout">
-  {# --- le jour choisi : toutes les annonces, discours et titres, chacun scoré ------------- #}
-  <section class="cal-panel" id="day-panel" aria-labelledby="day-title">
-    <header class="cal-panel-head">
-      <h2 id="day-title" class="cal-h2" tabindex="-1">{{ icon("list") }}<span>{{ cal.selected_label | capitalize }}</span>{% if cal.selected_is_today %}<span class="badge cal-today-tag">aujourd'hui</span>{% endif %}</h2>
-      <p class="cal-counts-head">
-        <span class="badge cal-count">{{ cal.selected_events | length }} annonce(s)</span>
-        {% if cal.selected_high %}<span class="cal-n" data-impact="high"><i></i>{{ cal.selected_high }} fort</span>{% endif %}
-        {% if cal.selected_medium %}<span class="cal-n" data-impact="medium"><i></i>{{ cal.selected_medium }} moyen</span>{% endif %}
-      </p>
-    </header>
-    {% if cal.selected_events %}
-      <div class="cal-events">
-        {% for e in cal.selected_events %}{{ event_card(e) }}{% endfor %}
-      </div>
-    {% else %}
-      {{ nothing(cal.selected_note) }}
-    {% endif %}
-    {% if cal.selected_headlines %}
-      <h3 class="cal-h3">Titres de presse de ce jour ({{ cal.selected_headlines | length }})</h3>
-      <ul class="cal-lines">{% for e in cal.selected_headlines %}{{ event_line(e) }}{% endfor %}</ul>
-    {% endif %}
-  </section>
-
-  {# --- à côté : prochaine annonce forte, synthèse du matin, sources ----------------------- #}
   <aside class="cal-aside" aria-label="Contexte">
     {% if cal.next_major %}
     {% set n = cal.next_major %}
@@ -128,5 +98,29 @@
   </aside>
 </div>
 
-<p class="cal-notice" role="note">{{ icon("info") }}<span>{{ cal.notice }}</span></p>
+<div class="cal-layout">
+  {# --- le jour choisi : toutes les annonces, discours et titres, chacun scoré ------------- #}
+  <section class="cal-panel" id="day-panel" aria-labelledby="day-title">
+    <header class="cal-panel-head">
+      <h2 id="day-title" class="cal-h2" tabindex="-1">{{ icon("list") }}<span>{{ cal.selected_label | capitalize }}</span>{% if cal.selected_is_today %}<span class="badge cal-today-tag">aujourd'hui</span>{% endif %}</h2>
+      <p class="cal-counts-head">
+        <span class="badge cal-count">{{ cal.selected_events | length }} annonce(s)</span>
+        {% if cal.selected_high %}<span class="cal-n" data-impact="high"><i></i>{{ cal.selected_high }} fort</span>{% endif %}
+        {% if cal.selected_medium %}<span class="cal-n" data-impact="medium"><i></i>{{ cal.selected_medium }} moyen</span>{% endif %}
+      </p>
+    </header>
+    {% if cal.selected_events %}
+      <div class="cal-events">
+        {% for e in cal.selected_events %}{{ event_card(e) }}{% endfor %}
+      </div>
+    {% else %}
+      {{ nothing(cal.selected_note) }}
+    {% endif %}
+    {% if cal.selected_headlines %}
+      <h3 class="cal-h3">Titres de presse de ce jour ({{ cal.selected_headlines | length }})</h3>
+      <ul class="cal-lines">{% for e in cal.selected_headlines %}{{ event_line(e) }}{% endfor %}</ul>
+    {% endif %}
+  </section>
+
+</div>
 {% endblock %}

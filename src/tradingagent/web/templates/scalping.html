@@ -4,14 +4,12 @@
 {% block title %}Scalping{% endblock %}
 {% block content %}
 
+{% if markets and markets | length > 1 %}
 <form class="filters" method="get" action="/scalping">
-  {% if markets %}
-    {{ market_select(view.hours, markets) }}
-  {% else %}
-    <p class="muted">Aucun marché en base.</p>
-  {% endif %}
+  {{ market_select(view.hours, markets) }}
   <div><button type="submit">{{ icon("filter") }}Filtrer</button></div>
 </form>
+{% endif %}
 
 {% if view.trades == 0 %}
   <div class="empty nothing">{{ icon("inbox") }}Aucun trade clôturé pour {{ view.market or 'cette base' }}.</div>
