@@ -29,6 +29,7 @@ from tradingagent.analytics.scalping import (
     by_session,
     by_size,
     by_spread,
+    by_timeframe,
     by_volatility,
     by_weekday,
     cost_summary,
@@ -48,12 +49,13 @@ def a_trade(
     pnl: str = "10",
     slippage: float | None = None,
     spread: float | None = None,
+    timeframe: Timeframe = Timeframe.M15,
 ) -> Trade:
     return Trade(
         symbol="XAUUSD",
         strategy_ref="witness@1.0.0",
         direction=Direction.BUY,
-        timeframe=Timeframe.M15,
+        timeframe=timeframe,
         mode=TradingMode.DEMO,
         opened_at=opened_at if opened_at is not None else closed_at - timedelta(minutes=5),
         closed_at=closed_at,
@@ -373,3 +375,15 @@ def test_cost_summary_on_an_empty_series_is_all_none() -> None:
         cost_sample=0,
         average_cost_eur=None,
     )
+
+
+def test_timeframes_are_shortest_first_and_only_those_traded() -> None:
+    trades = [
+        a_trade(timeframe=Timeframe.M30, pnl="5"),
+        a_trade(timeframe=Timeframe.M1, pnl="-2"),
+        a_trade(timeframe=Timeframe.M1, pnl="4"),
+    ]
+    buckets = by_timeframe(trades)
+    assert [b.key for b in buckets] == ["M1", "M30"]
+    assert [b.sample for b in buckets] == [2, 1]
+    assert buckets[0].net_profit == Decimal(2)

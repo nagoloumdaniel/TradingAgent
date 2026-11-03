@@ -87,6 +87,7 @@
                 "Où la stratégie gagne et où elle perd, heure par heure.",
                 view.hours.rows, "hours-body", "span-2") }}
 {{ pager(view.hours, "Pagination des découpes horaires") }}
+{{ bucket_table("Par unité de temps", "Scalping parallèle : chaque unité (M1, M5, M15, M30) est scannée indépendamment.", view.timeframes, "timeframes-body") }}
 {{ bucket_table("Par session", "Sessions conventionnelles déduites de l'heure UTC, pas les horaires du courtier.", view.sessions, "sessions-body") }}
 {{ bucket_table("Par jour de la semaine", "L'or ne cote pas le week-end.", view.weekdays, "weekdays-body") }}
 {{ bucket_table("Par spread", "Bandes de spread au moment du signal, uniquement quand la donnée existe.", view.spreads, "spreads-body") }}

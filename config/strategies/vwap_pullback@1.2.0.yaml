@@ -1,0 +1,34 @@
+# DEROGATION OPERATEUR du 2026-11-03 : scalping XAUUSD en parallele sur M1, M5, M15 et M30.
+#
+# Meme regle que vwap_pullback@1.1.0 (memes parametres, stops en ATR donc adaptes a chaque
+# unite), evaluee SEPAREMENT a la cloture de chaque bougie M1, M5, M15 et M30. Plafond DEMO,
+# aucune validation hors echantillon : la regle n'a franchi aucune des neuf portes, et la
+# version 1.1.0 mesure un profit factor net de 0.5454 sur M15 (voir son manifeste). Aucune
+# mesure n'existe sur M1, M5 ou M30. Le compte reel reste ferme : `max_mode: DEMO` est borne.
+#
+# Le nombre de positions n'est pas plafonne (decision operateur) ; la perte journaliere, la
+# perte hebdomadaire, le drawdown et le plafond d'exposition totale restent les seules limites.
+strategy_id: vwap_pullback
+version: 1.2.0
+max_mode: DEMO
+allowed_symbols: [XAUUSD]
+timeframes: [M15]
+scan_timeframes: [M1, M5, M15, M30]
+# 8 x ema_slow : l'EMA(50) et le VWAP lisse sont recursifs et doivent etre chauffes a
+# l'identique entre le backtest et la production. 400 barres couvrent la fenetre de pente (10),
+# le VWAP lisse (20) et l'EMA lente (50) avec une marge confortable.
+history_bars: 400
+expiry_bars: 2
+ai_filter: shadow
+parameters:
+  ema_fast: 20
+  ema_slow: 50
+  vwap_period: 20
+  atr_period: 14
+  stop_atr_multiplier: 1.5
+  first_target_rr: 0.8
+  final_target_rr: 1.5
+  pullback_atr: 0.4
+  entry_zone_atr: 0.1
+  min_slope_atr: 0.005
+  slope_window: 10

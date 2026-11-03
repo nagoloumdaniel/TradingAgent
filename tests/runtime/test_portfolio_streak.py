@@ -6,6 +6,7 @@ from decimal import Decimal
 from sqlalchemy import Engine
 from tests.reporting.test_campaign import _chain
 
+from tradingagent.core.timeframe import Timeframe
 from tradingagent.risk.model import AccountState, PortfolioState
 from tradingagent.risk.streak import DayLossRun
 from tradingagent.runtime.portfolio import PortfolioBuilder
@@ -80,3 +81,42 @@ def test_the_lock_sees_every_trade_of_the_day_beyond_the_streak_lookback(engine:
             pnl=Decimal(pnl),
         )
     assert build(engine).losses_today.longest == 3
+
+
+def closed_on(engine: Engine, trades: list[tuple[Timeframe, str, float]]) -> None:
+    """Trades as (timeframe, pnl, hours before NOW), oldest first."""
+    for index, (timeframe, pnl, hours_ago) in enumerate(trades):
+        _chain(
+            engine,
+            index=index,
+            market="XAUUSD",
+            ref="vwap_pullback@1.2.0",
+            closed_at=NOW - timedelta(hours=hours_ago),
+            pnl=Decimal(pnl),
+            timeframe=timeframe,
+        )
+
+
+def test_each_timeframe_keeps_its_own_loss_run_today(engine: Engine) -> None:
+    # Four M1 losses interleaved with an M5 win and two M5 losses: M1 hit 4, M5 only 2.
+    closed_on(
+        engine,
+        [
+            (Timeframe.M1, "-1", 6),
+            (Timeframe.M5, "5", 5),
+            (Timeframe.M1, "-1", 4),
+            (Timeframe.M5, "-1", 3),
+            (Timeframe.M1, "-1", 2),
+            (Timeframe.M5, "-1", 2),
+            (Timeframe.M1, "-1", 1),
+        ],
+    )
+    by_timeframe = build(engine).losses_today_by_timeframe
+    assert by_timeframe[Timeframe.M1] == DayLossRun(4, NOW.date())
+    assert by_timeframe[Timeframe.M5] == DayLossRun(2, NOW.date())
+    assert Timeframe.M15 not in by_timeframe
+
+
+def test_a_timeframe_run_ignores_yesterday(engine: Engine) -> None:
+    closed_on(engine, [(Timeframe.M1, "-1", 17), (Timeframe.M1, "-1", 16), (Timeframe.M1, "-1", 1)])
+    assert build(engine).losses_today_by_timeframe[Timeframe.M1].longest == 1
