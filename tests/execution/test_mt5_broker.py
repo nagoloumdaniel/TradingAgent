@@ -16,7 +16,7 @@ from tradingagent.core.mode import TradingMode
 from tradingagent.data.terminal import SymbolSpec
 from tradingagent.execution.mt5_broker import MT5Broker, key_comment
 from tradingagent.execution.ports import OrderRefusedError
-from tradingagent.execution.simulator import RETCODE_BLOCKED, SimulatedTerminal
+from tradingagent.execution.simulator import DEFAULT_EPOCH, RETCODE_BLOCKED, SimulatedTerminal
 from tradingagent.execution.tracking import STOP_MISSING
 from tradingagent.risk.model import OrderResult
 
@@ -291,3 +291,88 @@ def test_result_dataclass_is_the_shared_risk_model_one() -> None:
     terminal, log = demo_terminal(), FakeLog()
     result = asyncio.run(broker(terminal, log).place(request()))
     assert isinstance(result, OrderResult)
+
+
+# --- TASK-067: the quote carries the broker's real commission and swap -----------------------
+
+
+def _deal(ticket: int, position: int, *, entry: bool, commission: float, volume: float = 0.1):
+    from tradingagent.data.terminal import DealInfo
+
+    return DealInfo(
+        ticket=ticket,
+        position_ticket=position,
+        order_ticket=ticket,
+        symbol="XAUUSD",
+        is_entry=entry,
+        is_buy=entry,
+        volume=volume,
+        price=2400.0,
+        profit=0.0,
+        comment="",
+        server_epoch=DEFAULT_EPOCH + ticket,
+        commission=commission,
+    )
+
+
+def _quote(terminal: SimulatedTerminal, direction=None):
+    from tradingagent.core.market import Direction
+
+    instance = broker(terminal, FakeLog())
+    return asyncio.run(instance.quote("XAUUSD", direction or Direction.BUY, Decimal("2390")))
+
+
+def test_the_swap_of_the_trade_side_becomes_a_positive_cost_per_day() -> None:
+    from dataclasses import replace
+
+    from tradingagent.core.market import Direction
+
+    terminal = demo_terminal()
+    terminal.specs["XAUUSD"] = replace(terminal.specs["XAUUSD"], swap_long=-3.0, swap_short=-0.5)
+
+    assert _quote(terminal, Direction.BUY).swap_per_day == Decimal("3.0")
+    assert _quote(terminal, Direction.SELL).swap_per_day == Decimal("0.5")
+
+
+def test_a_swap_credit_is_not_counted_as_a_saving() -> None:
+    from dataclasses import replace
+
+    terminal = demo_terminal()
+    terminal.specs["XAUUSD"] = replace(terminal.specs["XAUUSD"], swap_long=1.5)
+
+    assert _quote(terminal).swap_per_day == Decimal(0)
+
+
+def test_an_unreported_swap_stays_unknown() -> None:
+    assert _quote(demo_terminal()).swap_per_day is None
+
+
+def test_commission_comes_from_a_closed_position_round_trip() -> None:
+    terminal = demo_terminal()
+    # 0.1 lot, 0.7 EUR charged on entry and 0.7 on exit: 14 EUR per lot round trip. Contract 100,
+    # EUR profit currency: 0.14 per unit of price.
+    terminal._deals.extend(
+        [_deal(1, 10, entry=True, commission=-0.7), _deal(2, 10, entry=False, commission=-0.7)]
+    )
+
+    assert _quote(terminal).commission == pytest.approx(Decimal("0.14"))
+
+
+def test_an_entry_only_history_doubles_the_entry_commission() -> None:
+    terminal = demo_terminal()
+    terminal._deals.append(_deal(1, 10, entry=True, commission=-0.7))
+
+    assert _quote(terminal).commission == pytest.approx(Decimal("0.14"))
+
+
+def test_a_history_of_commission_free_deals_is_a_real_zero() -> None:
+    terminal = demo_terminal()
+    terminal._deals.extend(
+        [_deal(1, 10, entry=True, commission=0.0), _deal(2, 10, entry=False, commission=0.0)]
+    )
+
+    assert _quote(terminal).commission == Decimal(0)
+
+
+def test_no_history_leaves_the_commission_unknown() -> None:
+    assert _quote(demo_terminal()).commission is None

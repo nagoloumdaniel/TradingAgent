@@ -34,7 +34,6 @@ $RequiredVariables = @(
     'MT5_PASSWORD',
     'TELEGRAM_BOT_TOKEN',
     'TELEGRAM_ALLOWED_USER_IDS',
-    'ANTHROPIC_API_KEY',
     'DATABASE_URL'
 )
 

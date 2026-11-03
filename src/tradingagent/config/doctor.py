@@ -1,9 +1,8 @@
 """What the configuration needs, where each value comes from, and what is missing.
 
 An operator who has just cloned the repository should not have to read the source to learn
-that `MT5_SERVER` is on their Deriv account card, or that `TEST_DATABASE_URL` must point at
-a *different* database. This module carries that knowledge as data, and `tradingagent
-doctor` prints it.
+that `MT5_SERVER` is on their Deriv account card. This module carries that knowledge as data, and
+`tradingagent doctor` prints it.
 
 Two rules it never breaks:
 
@@ -16,7 +15,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from tradingagent.ai.provider import DEFAULT_ANTHROPIC_MODEL, DEFAULT_DEEPSEEK_MODEL
+from tradingagent.ai.provider import DEFAULT_DEEPSEEK_MODEL
 from tradingagent.config.settings import Settings
 
 GENERATE_WITH = 'uv run python -c "import secrets; print(secrets.token_urlsafe(32))"'
@@ -89,24 +88,17 @@ KEYS: tuple[KeySpec, ...] = (
         required=True,
     ),
     KeySpec(
-        "ANTHROPIC_API_KEY",
-        "commentaire du modèle sur les verdicts de l'AI Lab",
-        "console.anthropic.com → Settings → API Keys → Create Key. OPTIONNELLE : sans elle "
-        "l'agent tourne et l'analyse reste déterministe",
-        required=False,
-    ),
-    KeySpec(
         "DEEPSEEK_API_KEY",
-        "fournisseur de modèle attendu sur ce projet",
-        "platform.deepseek.com → API Keys. DeepSeek sert un point d'entrée compatible "
-        "Anthropic : le même client dessert les deux fournisseurs",
+        "clé du modèle (DeepSeek, seul fournisseur)",
+        "platform.deepseek.com → API Keys. OPTIONNELLE : sans elle l'agent tourne et "
+        "l'analyse reste déterministe (RM-011)",
         required=False,
     ),
     KeySpec(
         "AI_PROVIDER",
-        "quel fournisseur répond : auto, deepseek, anthropic ou none",
-        "Défaut auto : DeepSeek si sa clé est présente, sinon Anthropic, sinon aucun — et "
-        "l'analyse reste déterministe (RM-011)",
+        "le modèle répond-il : auto, deepseek ou none",
+        "Défaut auto : DeepSeek si sa clé est présente, sinon aucun — et l'analyse reste "
+        "déterministe (RM-011)",
         required=False,
     ),
     KeySpec(
@@ -114,12 +106,6 @@ KEYS: tuple[KeySpec, ...] = (
         "nom du modèle DeepSeek",
         f"Défaut {DEFAULT_DEEPSEEK_MODEL}. Les fournisseurs retirent des noms : voir leur "
         "page tarifs avant de changer",
-        required=False,
-    ),
-    KeySpec(
-        "ANTHROPIC_MODEL",
-        "nom du modèle Anthropic",
-        f"Défaut {DEFAULT_ANTHROPIC_MODEL}",
         required=False,
     ),
     KeySpec(
@@ -145,13 +131,6 @@ KEYS: tuple[KeySpec, ...] = (
         "répertoire d'échange avec les deux Expert Advisors",
         r"%APPDATA%\MetaQuotes\Terminal\<instance>\MQL5\Files\TradingAgent — PAS sous "
         "MT5_TERMINAL_PATH. Vide = l'agent tourne sans EA, état valide",
-        required=False,
-    ),
-    KeySpec(
-        "TEST_DATABASE_URL",
-        "base des tests PostgreSQL (RLS, immuabilité, concurrence)",
-        "Un SECOND projet Supabase (ou une seconde base) dont le nom FINIT PAR _test. "
-        "⚠️ Ces tests détruisent toutes les tables : jamais la base de production",
         required=False,
     ),
     KeySpec(

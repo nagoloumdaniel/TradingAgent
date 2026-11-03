@@ -51,12 +51,11 @@ maintenir correct, sans rien apporter.
 
 | `AI_PROVIDER` | Effet |
 |---|---|
-| `auto` (défaut) | DeepSeek si `DEEPSEEK_API_KEY` est présente, sinon Anthropic, sinon aucun |
+| `auto` (défaut) | DeepSeek si `DEEPSEEK_API_KEY` est présente, sinon aucun |
 | `deepseek` | DeepSeek, ou **rien** si la clé manque — pas de repli silencieux |
-| `anthropic` | Anthropic, ou rien |
 | `none` | Aucun modèle, même avec des clés : le mode déterministe est complet, pas dégradé |
 
-Les noms de modèles sont de la configuration (`DEEPSEEK_MODEL`, `ANTHROPIC_MODEL`) : les
+Les noms de modèles sont de la configuration (`DEEPSEEK_MODEL`) : les
 fournisseurs en retirent, et un renommage ne doit pas demander une livraison de code.
 
 Le tarif sert au suivi de budget, jamais à une décision de trade. Les prix DeepSeek de

@@ -56,7 +56,7 @@ réel, **aucun candidat ne survit** à la correction — c'est le résultat honn
 | 21 Risk management (11 points) | ✅ | `risk/checks.py` : **17 contrôles**, dont exposition totale BTC+XAU et slippage |
 | 22 Kill switch | ✅ | `control/guardian.py`, arrêt d'urgence persistant, `ExecutionEventKind.STOP_MISSING` |
 
-**Reste (§18)** : installation des deux EA dans le terminal par l'opérateur (procédure écrite).
+**Reste (§18)** : les deux EA sont installés par l'opérateur (confirmé le 2026-11-03).
 
 ## 23 à 34 — Dashboard, analytics, source de vérité
 
@@ -127,14 +127,27 @@ signature de conformité.
 
 1. **Opérateur, décision** : signer `docs/legal/2026-10-07-verification-operateur.md`.
 2. **Opérateur, infrastructure** : provisionner le serveur Windows (TASK-051).
-3. **Temps** : faire tourner la campagne paper 30 jours (`scripts/paper_campaign.py` la mesure).
-4. **Opérateur, clés** : `TEST_DATABASE_URL` (second projet Supabase en `_test`) et
-   `ANTHROPIC_API_KEY` (optionnelle). `BACKUP_PASSPHRASE` et `TRADINGAGENT_WEB_TOKEN` sont
+3. **Temps** : la campagne paper 30 jours **court** (au 2026-11-03 : BTCUSD vwap_pullback@1.2.0 et
+   XAUUSD 1.1.0 en ÉCHEC sur le drawdown, BTCUSD 1.4.0 en cours, 4 jours). Un échec renvoie à
+   TASK-064, sans promotion. `scripts/paper_campaign.py` la mesure.
+4. **Opérateur, clés** : `DEEPSEEK_API_KEY` (optionnelle, seul fournisseur du filtre IA). Plus de
+   `TEST_DATABASE_URL` ni de clé Anthropic dans `.env` (décision du 2026-11-03). `BACKUP_PASSPHRASE` et `TRADINGAGENT_WEB_TOKEN` sont
    désormais générés et renseignés.
-5. **Opérateur, terminal** : installer les deux EA (procédure dans `docs/ea/README.md`).
+5. ~~Opérateur, terminal : installer les deux EA~~ — fait par l'opérateur (2026-11-03). Le serveur
+   Windows est reporté (point 2).
 6. **Fait mais à confirmer par un tiers** : restauration sur machine vierge, validation de la
    documentation d'exploitation.
 
 État vérifié le 2026-10-07 par `uv run tradingagent doctor` : base joignable, schéma **à jour
 (0006)**, répertoire des EA présent, toutes les clés obligatoires renseignées. Aucune de ces
 lignes n'est un blocage technique : ce sont des décisions, des clés, du temps ou une machine.
+
+## Vitesse d'exécution (2026-11-03)
+
+Mesuré sur le poste : terminal MT5 < 1 ms par lecture, base ~13 ms par aller-retour. Le goulot
+n'était donc ni l'un ni l'autre mais le rythme de la boucle (20 s) : une bougie close attendait
+jusqu'à 20 s avant d'être traitée. Changements : boucle à 3 s (`DEFAULT_POLL_SECONDS`), instantané
+de compte toujours toutes les 5 minutes (désormais en secondes), `order_check` retiré du chemin
+d'envoi (aller-retour inutile, résultat purement informatif), flux SSE du tableau de bord à 1 s.
+Seuil de coût total `max_cost_to_target` = 0.5, commission et swap réels branchés dans les
+cotations MT5 (le swap BTCUSD est un taux annuel de -20 %, mode non supporté : reste inconnu).

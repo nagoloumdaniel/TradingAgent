@@ -172,7 +172,7 @@ def test_the_bot_registers_every_documented_command(tmp_path) -> None:
 
 def test_the_ai_key_stays_optional() -> None:
     # RM-011: a missing or blank model key must not stop the agent (the AI is not wired).
-    assert _settings().anthropic_api_key is None
+    assert _settings().deepseek_api_key is None
 
 
 def _configured(tmp_path):

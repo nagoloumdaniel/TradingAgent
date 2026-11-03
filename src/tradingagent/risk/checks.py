@@ -296,6 +296,36 @@ def check_spread(ctx: RiskContext) -> CheckResult:
     return _verdict("spread", spread <= limit, f"spread {spread}, limit {limit}")
 
 
+def check_total_cost(ctx: RiskContext) -> CheckResult:
+    """TASK-067: spread, commission and a day of swap, against the distance to the first target.
+
+    Like every check it can only refuse. An unknown commission or swap counts as zero and the
+    reason says so: a figure the broker has not given is not invented.
+    """
+    quote, limit = ctx.quote, ctx.limits.max_cost_to_target
+    unknown = [
+        name
+        for name, value in (("commission", quote.commission), ("swap", quote.swap_per_day))
+        if value is None
+    ]
+    cost = quote.spread + (quote.commission or Decimal(0)) + (quote.swap_per_day or Decimal(0))
+    note = f" ({', '.join(unknown)} unknown)" if unknown else ""
+    if limit is None:
+        return _verdict("total_cost", True, f"cost {cost}{note}, ceiling not enforced")
+    target = ctx.intent.take_profit
+    sign = 1 if ctx.intent.direction is Direction.BUY else -1
+    reach = None if target is None else (target - ctx.entry_price) * sign
+    if reach is None or reach <= 0:
+        return CheckResult(
+            "total_cost",
+            False,
+            "no valid first target to compare the cost with",
+            blocked_by="take_profit",
+        )
+    allowed = limit * reach
+    return _verdict("total_cost", cost <= allowed, f"cost {cost}{note}, limit {allowed}")
+
+
 def check_margin(ctx: RiskContext) -> CheckResult:
     """RM-012: the free margin, under its usage cap, must carry at least the minimum lot."""
     margin_one_lot = ctx.quote.margin_one_lot
@@ -395,6 +425,7 @@ CHECKS: tuple[Callable[[RiskContext], CheckResult], ...] = (
     check_total_exposure,
     check_trades_today,
     check_spread,
+    check_total_cost,
     check_margin,
     check_account_currency,
     check_trading_hours,

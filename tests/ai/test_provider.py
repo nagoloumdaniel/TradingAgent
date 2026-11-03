@@ -26,24 +26,14 @@ from tradingagent.ai.provider import (
 from tradingagent.storage.ai_calls import AiReply
 
 DEEPSEEK_KEY = "sk-deepseek-key-value"
-ANTHROPIC_KEY = "sk-ant-key-value"
 
 
-def test_auto_prefers_deepseek_when_both_keys_exist() -> None:
-    target = resolve_target(deepseek_key=DEEPSEEK_KEY, anthropic_key=ANTHROPIC_KEY)
+def test_auto_picks_deepseek_when_its_key_exists() -> None:
+    target = resolve_target(deepseek_key=DEEPSEEK_KEY)
     assert target is not None
     assert target.provider is AiProvider.DEEPSEEK
     assert target.base_url == DEEPSEEK_BASE_URL
     assert target.model == DEFAULT_DEEPSEEK_MODEL
-
-
-def test_auto_uses_whichever_key_is_present() -> None:
-    only_deepseek = resolve_target(anthropic_key=None, deepseek_key=DEEPSEEK_KEY)
-    only_anthropic = resolve_target(deepseek_key=None, anthropic_key=ANTHROPIC_KEY)
-    assert only_deepseek is not None and only_deepseek.provider is AiProvider.DEEPSEEK
-    assert only_anthropic is not None and only_anthropic.provider is AiProvider.ANTHROPIC
-    # Anthropic is the native protocol: no base URL override.
-    assert only_anthropic.base_url is None
 
 
 def test_auto_without_any_key_means_no_model() -> None:
@@ -52,20 +42,19 @@ def test_auto_without_any_key_means_no_model() -> None:
 
 def test_a_blank_key_counts_as_absent() -> None:
     """`KEY=` is what a half-filled template looks like; it must not build a client."""
-    assert resolve_target(deepseek_key="   ", anthropic_key="") is None
+    assert resolve_target(deepseek_key="   ") is None
 
 
-def test_an_explicit_provider_without_its_key_does_not_fall_back() -> None:
-    """Choosing DeepSeek and having no DeepSeek key is a configuration mistake, not an
-    invitation to quietly spend on the other provider."""
-    assert resolve_target(provider=AiProvider.DEEPSEEK, anthropic_key=ANTHROPIC_KEY) is None
-    assert resolve_target(provider=AiProvider.ANTHROPIC, deepseek_key=DEEPSEEK_KEY) is None
+def test_an_explicit_provider_without_its_key_means_no_model() -> None:
+    assert resolve_target(provider=AiProvider.DEEPSEEK) is None
+
+
+def test_anthropic_is_no_longer_a_provider() -> None:
+    assert {provider.value for provider in AiProvider} == {"auto", "deepseek", "none"}
 
 
 def test_none_disables_the_model_even_with_keys() -> None:
-    target = resolve_target(
-        provider=AiProvider.NONE, deepseek_key=DEEPSEEK_KEY, anthropic_key=ANTHROPIC_KEY
-    )
+    target = resolve_target(provider=AiProvider.NONE, deepseek_key=DEEPSEEK_KEY)
     assert target is None
 
 

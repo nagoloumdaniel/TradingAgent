@@ -8,15 +8,12 @@ The rules this module enforces, in order, for every single order:
 2. The idempotency key is looked up first. If the order already exists — accepted, refused
    or of unknown outcome — nothing is ever sent again. A lost answer is recovered by the
    hash of the key carried in the order comment, never by resending.
-3. `order_check` runs for information only. It approves orders the server later refuses for
-   jurisdiction (measured on this account, section 12.1): only the `order_send` return code
-   counts.
-4. The volume is validated against the broker's own step, minimum and maximum before the
+3. The volume is validated against the broker's own step, minimum and maximum before the
    send: the terminal is never asked to refuse an order this layer could refuse itself.
-5. The stop and the target are sent natively, then **read back from the position** with a
+4. The stop and the target are sent natively, then **read back from the position** with a
    bounded retry (a terminal can answer the fill before its position list shows it); once the
    retries are spent, a stop that is still not there triggers an immediate close and an alert.
-6. Requested price, executed price and the gap between them are recorded, and the order,
+5. Requested price, executed price and the gap between them are recorded, and the order,
    the fill and the position are journalled by the executor (the single writer of `orders`,
    `positions`, `executions` and `trades`, PAPER and DEMO alike). `reconcile` collects the
    closures the broker made on its own before comparing states, so a stop-out is a trade to
@@ -28,7 +25,7 @@ import hashlib
 import logging
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import ROUND_FLOOR, Decimal
 from typing import TypeVar
 
@@ -68,6 +65,32 @@ from tradingagent.trusted_clock import now as trusted_now
 
 log = logging.getLogger(__name__)
 
+
+def commission_per_lot(deals: tuple[DealInfo, ...], symbol: str) -> Decimal | None:
+    """Round-trip commission for one lot, account currency, from the latest usable position.
+
+    A position with an entry and an exit deal gives the real round trip. With only an entry
+    on record, the exit is assumed to cost the same. No deal at all means unknown (None);
+    deals that carry no commission are a real zero.
+    """
+    by_position: dict[int, list[DealInfo]] = {}
+    for deal in deals:
+        if deal.symbol == symbol and deal.volume > 0:
+            by_position.setdefault(deal.position_ticket, []).append(deal)
+    for _, group in sorted(
+        by_position.items(), key=lambda item: -max(d.server_epoch for d in item[1])
+    ):
+        entries = [d for d in group if d.is_entry]
+        if not entries:
+            continue
+        volume = Decimal(str(sum(d.volume for d in entries)))
+        paid = -sum((Decimal(str(d.commission)) for d in group), Decimal(0))
+        if not any(not d.is_entry for d in group):
+            paid *= 2
+        return max(paid, Decimal(0)) / volume
+    return None
+
+
 # The longest comment the MetaTrader5 *Python* module accepts, measured on 2026-10-09 against
 # version 5.0.6231 with `order_check` (which routes nothing to the market): 0 to 29 characters
 # pass, 30 and above come back as (-2, 'Invalid "comment" argument') before any IPC. An order
@@ -76,6 +99,8 @@ log = logging.getLogger(__name__)
 # module must respect. Raw output: tools/evidence-comment-probe.txt in
 # `docs/research/execution-diagnostic/`.
 COMMENT_LIMIT = 29
+# How far back the deal history is read to learn the commission the broker really charges.
+COMMISSION_LOOKBACK = timedelta(days=60)
 # 64 bits of SHA-256. Out of reach of this project's order volume (a few thousand a year), and
 # short enough that a "ta-" + digest comment survives the EA's 31-character truncation whole.
 HASH_LENGTH = 16
@@ -209,7 +234,36 @@ class MT5Broker:
                 rate = loss_one_lot / independent
         margin = await self._call(self._terminal.calc_margin, direction, symbol, 1.0, float(entry))
         margin_one_lot = None if margin is None else Decimal(str(margin))
-        return MarketQuote(bid, ask, loss_one_lot, margin_one_lot, rate)
+        commission = await self._commission(symbol, spec, rate)
+        swap = await self._swap_per_day(symbol, direction)
+        return MarketQuote(
+            bid, ask, loss_one_lot, margin_one_lot, rate, commission=commission, swap_per_day=swap
+        )
+
+    async def _commission(
+        self, symbol: str, spec: InstrumentSpec, profit_to_eur: Decimal | None
+    ) -> Decimal | None:
+        """Round-trip commission in price units, read from the account's own deal history."""
+        if not profit_to_eur:
+            return None
+        since = int((trusted_now() - COMMISSION_LOOKBACK).timestamp())
+        deals = await self._call(self._terminal.deals_since, since)
+        per_lot = commission_per_lot(deals, symbol)
+        if per_lot is None:
+            return None
+        return per_lot / (spec.contract_size * profit_to_eur)
+
+    async def _swap_per_day(self, symbol: str, direction: Direction) -> Decimal | None:
+        """One day of swap as an adverse price distance; a credit counts for nothing."""
+        raw = await self._call(self._terminal.symbol_spec, symbol)
+        value = (
+            None
+            if raw is None
+            else (raw.swap_long if direction is Direction.BUY else raw.swap_short)
+        )
+        if value is None:
+            return None
+        return max(-Decimal(str(value)), Decimal(0))
 
     async def open_positions(self) -> tuple[OpenPosition, ...]:
         positions = await self.positions()
@@ -282,14 +336,6 @@ class MT5Broker:
             deviation=self._deviation,
             magic=self._magic,
         )
-        check = await self._call(self._terminal.order_check, trade)
-        log.info(
-            "order_check %s retcode=%s margin=%s (informative only)",
-            request.symbol,
-            check.retcode,
-            check.margin,
-        )
-
         try:
             raw = await self._call(self._terminal.order_send, trade)
         except TerminalError as error:

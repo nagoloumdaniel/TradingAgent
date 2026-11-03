@@ -33,6 +33,7 @@ RISK = RiskConfig(
         max_open_positions=2,
         max_positions_per_market=1,
         max_trades_per_day=4,
+        max_cost_to_target=None,  # unenforced here; the shipped ceiling has its own tests
     ),
     live=LiveRiskProfile(
         risk_per_trade_pct=D(2),
@@ -42,6 +43,7 @@ RISK = RiskConfig(
         max_open_positions=2,
         max_positions_per_market=1,
         max_trades_per_day=4,
+        max_cost_to_target=None,
         reference_capital=D(100),
         currency="EUR",
     ),

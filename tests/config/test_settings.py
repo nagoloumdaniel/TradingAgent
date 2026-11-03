@@ -8,7 +8,7 @@ from tradingagent.core.mode import TradingMode
 # credential-looking literal; the values are meaningless placeholders.
 MT5_SECRET = "Zq8wR3tY" + "6uI9oP2"  # pragma: allowlist secret
 TELEGRAM_TOKEN = "9876543210:" + "BBHdqTcvCH1vGWJxfSeofSAs0K5PALDsawZ"  # pragma: allowlist secret
-ANTHROPIC_KEY = "sk-ant-api03-" + "Xk9pQ2rT7vLm4nB8wZ1cY6hJ3dF5gS0aE"  # pragma: allowlist secret
+DEEPSEEK_KEY = "sk-" + "Xk9pQ2rT7vLm4nB8wZ1cY6hJ3dF5gS0aE"  # pragma: allowlist secret
 
 BASE_DB_PASSWORD = "Bas3" + "Passw0rd99"  # pragma: allowlist secret
 
@@ -19,7 +19,7 @@ VALID_ENV = {
     "MT5_PASSWORD": MT5_SECRET,
     "TELEGRAM_BOT_TOKEN": TELEGRAM_TOKEN,
     "TELEGRAM_ALLOWED_USER_IDS": "111, 222",
-    "ANTHROPIC_API_KEY": ANTHROPIC_KEY,
+    "DEEPSEEK_API_KEY": DEEPSEEK_KEY,
 }
 MANAGED = (
     *VALID_ENV,
@@ -81,10 +81,10 @@ def test_missing_variable_blocks_startup_and_is_named(env: pytest.MonkeyPatch, n
 
 def test_the_ai_key_is_optional_so_the_agent_runs_without_it(env: pytest.MonkeyPatch) -> None:
     # RM-011: an unavailable model must not stop the agent; the deterministic rules decide.
-    env.delenv("ANTHROPIC_API_KEY")
+    env.delenv("DEEPSEEK_API_KEY")
     settings = load_settings()
-    assert settings.anthropic_api_key is None
-    assert ANTHROPIC_KEY not in settings.secret_values()
+    assert settings.deepseek_api_key is None
+    assert DEEPSEEK_KEY not in settings.secret_values()
 
 
 @pytest.mark.parametrize("blank", ["", "   "])
@@ -122,14 +122,14 @@ def test_error_message_never_contains_a_secret(env: pytest.MonkeyPatch) -> None:
     env.setenv("MT5_LOGIN", "not-a-number")
     env.setenv("TRADING_MODE", "LIVE")
     message = error_of(env)
-    for secret in (MT5_SECRET, TELEGRAM_TOKEN, ANTHROPIC_KEY):
+    for secret in (MT5_SECRET, TELEGRAM_TOKEN, DEEPSEEK_KEY):
         assert secret not in message
 
 
 def test_settings_repr_never_contains_a_secret(env: pytest.MonkeyPatch) -> None:
     settings = load_settings()
     rendered = f"{settings!r} {settings!s}"
-    for secret in (MT5_SECRET, TELEGRAM_TOKEN, ANTHROPIC_KEY):
+    for secret in (MT5_SECRET, TELEGRAM_TOKEN, DEEPSEEK_KEY):
         assert secret not in rendered
 
 
@@ -137,7 +137,7 @@ def test_secret_values_exposes_every_secret_for_redaction(env: pytest.MonkeyPatc
     assert set(load_settings().secret_values()) == {
         MT5_SECRET,
         TELEGRAM_TOKEN,
-        ANTHROPIC_KEY,
+        DEEPSEEK_KEY,
         BASE_DB_PASSWORD,
     }
 

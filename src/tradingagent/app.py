@@ -343,12 +343,13 @@ def _build_command_service(
     markets: Sequence[tuple[str, bool]],
     now: Any,
     calendars: Mapping[str, MarketCalendar] | None = None,
+    connection: Callable[[], bool] | None = None,
 ) -> CommandService:
     router = CommandRouter()
     router.register(
         "status",
         "mode, arrêt d'urgence et quarantaines",
-        status_handler(halts, settings.trading_mode, markets, candles),
+        status_handler(halts, settings.trading_mode, markets, candles, connection=connection),
     )
     router.register(
         "markets", "marchés suivis et fraîcheur des données", markets_handler(markets, candles)
@@ -432,13 +433,10 @@ def _model_target(settings: Settings) -> ModelTarget | None:
     the answer.
     """
     deepseek = settings.deepseek_api_key
-    anthropic = settings.anthropic_api_key
     target = resolve_target(
         provider=settings.ai_provider,
         deepseek_key=deepseek.get_secret_value() if deepseek is not None else None,
-        anthropic_key=anthropic.get_secret_value() if anthropic is not None else None,
         deepseek_model=settings.deepseek_model,
-        anthropic_model=settings.anthropic_model,
     )
     if target is None:
         log.warning(
@@ -930,6 +928,7 @@ async def _build(
             tuple((market_.symbol, market_.enabled) for market_ in config.markets),
             now,
             calendars,
+            connection=terminal.is_connected,
         )
         application = _build_telegram(settings, service)
         operator_id = settings.telegram_allowed_user_ids[0]

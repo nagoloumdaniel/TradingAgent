@@ -10,6 +10,7 @@ Aucune promotion, aucun manifeste ecrit : c'est une lecture.
 """
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 
 from tradingagent.backtest.costs import CostModel, campaign_costs
@@ -51,10 +52,16 @@ def dataset_for(symbol: str) -> tuple[CandleDataset, Path]:
     return best
 
 
-def cost_model(dataset: CandleDataset, multiplier: float = 1.0) -> CostModel:
-    """Le modele du depot (`run_campaign.config_for`), au facteur demande."""
+def cost_model(
+    dataset: CandleDataset, multiplier: float = 1.0, swap_per_day: float = 0.0
+) -> CostModel:
+    """Le modele du depot (`run_campaign.config_for`), au facteur demande.
+
+    `swap_per_day` est le financement du courtier, en distance de prix par jour (valeur
+    positive = cout). Zero tant que l'appelant n'en fournit pas : rien n'est suppose.
+    """
     price = dataset.candles[0].close
-    return campaign_costs(price).stressed(multiplier)
+    return replace(campaign_costs(price), swap_per_day=swap_per_day).stressed(multiplier)
 
 
 def report(label: str, result, *, bars: int) -> dict[str, float]:
@@ -89,7 +96,7 @@ def report(label: str, result, *, bars: int) -> dict[str, float]:
     }
 
 
-def measure(ref: str, symbol: str, catalogue) -> None:
+def measure(ref: str, symbol: str, catalogue, swap_per_day: float = 0.0) -> None:
     if ref not in catalogue:
         print(f"\n### {ref} : absent du catalogue (config/strategies), ignore")
         return
@@ -111,7 +118,7 @@ def measure(ref: str, symbol: str, catalogue) -> None:
 
     series = {dataset.timeframe: dataset.candles}
     for multiplier, label in ((0.0, "SANS COUTS"), (1.0, "COUTS DU DEPOT"), (2.0, "COUTS x2")):
-        costs = CostModel() if multiplier == 0.0 else cost_model(dataset, multiplier)
+        costs = CostModel() if multiplier == 0.0 else cost_model(dataset, multiplier, swap_per_day)
         config = BacktestConfig(
             symbol=symbol,
             costs=costs,
@@ -129,6 +136,12 @@ def measure(ref: str, symbol: str, catalogue) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--symbol", default=None, help="limiter a un symbole")
+    parser.add_argument(
+        "--swap-per-day",
+        type=float,
+        default=0.0,
+        help="swap du courtier, distance de prix par jour (positif = cout), defaut 0",
+    )
     args = parser.parse_args()
 
     catalogue = load_catalogue()
@@ -139,7 +152,7 @@ def main() -> int:
     selected = {args.symbol: assignments[args.symbol]} if args.symbol else assignments
     print(f"strategies de production mesurees : {selected}")
     for symbol, ref in selected.items():
-        measure(ref, symbol, catalogue)
+        measure(ref, symbol, catalogue, args.swap_per_day)
     print(
         "\nRappel : aucune de ces mesures n'est une promotion. Le plafond reste SIGNAL ou DEMO "
         "selon la derogation du manifeste, et les 9 portes n'ont pas ete franchies."

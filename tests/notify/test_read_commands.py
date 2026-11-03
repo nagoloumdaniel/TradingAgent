@@ -1,4 +1,5 @@
 import asyncio
+import time
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -12,7 +13,7 @@ from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.states import OrderState, PositionState, SignalState
 from tradingagent.core.timeframe import Timeframe
-from tradingagent.notify.commands import CommandRequest
+from tradingagent.notify.commands import CommandRequest, status_handler
 from tradingagent.notify.read_commands import (
     markets_handler,
     performance_handler,
@@ -21,6 +22,7 @@ from tradingagent.notify.read_commands import (
 )
 from tradingagent.storage.candles import CandleStore
 from tradingagent.storage.engine import create_database_engine
+from tradingagent.storage.halts import HaltStore
 from tradingagent.storage.migrate import upgrade
 from tradingagent.storage.models import (
     CandleRow,
@@ -108,7 +110,7 @@ def seed_position(
     signal = seed_signal(
         session,
         version,
-        f"witness@1.0.0:{symbol}:M15:2026-10-06T1{ticket % 10}:00Z",
+        f"witness@1.0.0:{symbol}:M15:ticket-{ticket}",
         generated_at=T0 - timedelta(hours=ticket),
     )
     order = OrderRow(
@@ -294,3 +296,83 @@ def test_performance_sums_the_closed_trades(engine: Engine) -> None:
     assert "66.7" in answer  # win rate
     assert "8.50" in answer  # total pnl
     assert "PAPER" in answer  # the losing mode is identified
+
+
+# --- /status ----------------------------------------------------------------
+
+
+def test_status_shows_the_terminal_connection(engine: Engine) -> None:
+    halts = HaltStore(engine)
+    up = run(status_handler(halts, TradingMode.DEMO, connection=lambda: True), a_request("status"))
+    down = run(
+        status_handler(halts, TradingMode.DEMO, connection=lambda: False), a_request("status")
+    )
+
+    assert "Connexion MT5 : connecté" in up
+    assert "Connexion MT5 : HORS LIGNE" in down
+
+
+def test_status_reports_an_unreadable_connection_instead_of_failing(engine: Engine) -> None:
+    def broken() -> bool:
+        raise RuntimeError("terminal gone")
+
+    answer = run(
+        status_handler(HaltStore(engine), TradingMode.DEMO, connection=broken), a_request("status")
+    )
+
+    assert "Connexion MT5 : illisible" in answer
+
+
+def test_status_without_a_probe_does_not_claim_a_connection_state(engine: Engine) -> None:
+    answer = run(status_handler(HaltStore(engine), TradingMode.DEMO), a_request("status"))
+
+    assert "Connexion MT5" not in answer
+
+
+# --- latency on a month of data (TASK-043 criterion: under two seconds) -------
+
+
+def test_every_read_command_answers_in_under_two_seconds_on_a_month_of_data(engine: Engine) -> None:
+    month = timedelta(days=30)
+    bars = int(month / timedelta(minutes=15))
+    with Session(engine) as session:
+        session.add_all(
+            CandleRow(
+                symbol=symbol,
+                timeframe=Timeframe.M15,
+                open_time=T0 - timedelta(minutes=15 * (i + 1)),
+                open=100.0,
+                high=101.0,
+                low=99.0,
+                close=100.5,
+                source="mt5",
+                ingested_at=T0,
+            )
+            for symbol in ("XAUUSD", "BTCUSD")
+            for i in range(bars)
+        )
+        version = seed_version(session)
+        for n in range(1, 301):
+            position = seed_position(session, version, n, state=PositionState.CLOSED)
+            seed_trade(session, position, Decimal("1.00"), T0 - timedelta(hours=n))
+        session.commit()
+    markets = (("XAUUSD", True), ("BTCUSD", True))
+    handlers = {
+        "status": status_handler(
+            HaltStore(engine),
+            TradingMode.DEMO,
+            markets,
+            CandleStore(engine),
+            connection=lambda: True,
+        ),
+        "markets": markets_handler(markets, CandleStore(engine)),
+        "signals": signals_handler(engine),
+        "positions": positions_handler(engine),
+        "performance": performance_handler(engine),
+    }
+
+    for name, handler in handlers.items():
+        started = time.perf_counter()
+        run(handler, a_request(name))
+        elapsed = time.perf_counter() - started
+        assert elapsed < 2.0, f"/{name} took {elapsed:.2f}s"

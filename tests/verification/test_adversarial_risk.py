@@ -43,6 +43,7 @@ RISK = RiskConfig(
         max_drawdown_pct=Decimal(10),
         max_open_positions=2,
         max_positions_per_market=1,
+        max_cost_to_target=None,  # these intents carry no target
     ),
     live=LiveRiskProfile(
         risk_per_trade_pct=Decimal(2),
@@ -52,6 +53,7 @@ RISK = RiskConfig(
         max_open_positions=2,
         max_positions_per_market=1,
         max_trades_per_day=None,
+        max_cost_to_target=None,
         reference_capital=Decimal(100),
         currency="EUR",
     ),

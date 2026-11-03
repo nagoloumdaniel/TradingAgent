@@ -365,3 +365,23 @@ def test_a_closed_gold_market_never_stops_bitcoin(engine: Engine) -> None:
     assert bitcoin_outcome.kind == "notified"
     assert state_of(engine, bitcoin_id) is SignalState.SENT
     assert any(BTC in message for message in parts.notifier.messages)
+
+
+def test_the_model_is_never_called_without_a_candidate_signal(engine: Engine) -> None:
+    parts = Parts(engine)
+
+    assert parts.run(999).kind == "missing"
+    assert asyncio.run(parts.pipeline.retry_pending()) == 0
+
+    assert parts.ai.calls == 0
+
+
+def test_a_signal_already_processed_is_not_reviewed_again(engine: Engine) -> None:
+    parts = Parts(engine)
+    signal_id = record_signal(engine)
+    assert parts.run(signal_id).kind == "notified"
+    assert parts.ai.calls == 1
+
+    assert parts.run(signal_id).kind == "already_processed"
+
+    assert parts.ai.calls == 1

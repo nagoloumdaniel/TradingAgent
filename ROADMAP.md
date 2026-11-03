@@ -417,8 +417,8 @@ Objectif : une surface de pilotage sûre, disponible avant qu'il y ait quoi que 
 - **Reste à faire au branchement :** les essais manuels consignés, avec une base d'un mois pour le critère « moins de deux secondes » ; les requêtes sont déjà indexées (`ix_signals_symbol_generated_at`, PK sur toutes les lectures).
 - **Objectif :** `/status`, `/markets`, `/signals`, `/positions`, `/performance`, `/help`. Regroupées car elles partagent le même module, le même contrôle d'accès et le même contrôle qualité.
 - **Critères d'acceptation :**
-  - [ ] chaque commande répond en moins de deux secondes sur une base contenant un mois de données — en attente : essai manuel sur une base d'un mois non exécuté ; les requêtes sont testées fonctionnellement (tests/notify/test_read_commands.py) mais la latence n'a pas été mesurée
-  - [ ] `/status` affiche l'état des connexions, le mode, les marchés et l'état de santé des séries — à vérifier : le mode, les marchés et la santé des séries sont affichés et testés (tests/notify/test_read_commands.py), l'état des connexions MT5 n'était pas exposé au moment de la rédaction
+  - [x] chaque commande répond en moins de deux secondes sur une base contenant un mois de données — prouvé par tests/notify/test_read_commands.py (test_every_read_command_answers_in_under_two_seconds_on_a_month_of_data : 2 marchés × 30 jours de M15 et 300 trades clos, SQLite local ; la latence réseau vers Supabase n'est pas mesurée)
+  - [x] `/status` affiche l'état des connexions, le mode, les marchés et l'état de santé des séries — prouvé par tests/notify/test_read_commands.py (test_status_shows_the_terminal_connection et deux tests voisins) ; la connexion MT5 vient de `Mt5Terminal.is_connected`, câblée dans `app.py`. L'entrée `telegram_app.py` n'a pas de terminal : elle n'affiche pas la ligne
 - **Validation :** essais manuels consignés.
 
 ### TASK-023 — Commandes sensibles avec confirmation
@@ -718,7 +718,7 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 - **Critères d'acceptation :**
   - [x] le test de réponse malveillante passe, aucun effet observé — prouvé par tests/ai/test_ai_layer.py (test_a_malicious_response_cannot_create_a_signal_or_change_any_level)
   - [x] **en mode `shadow`, un verdict de rejet est enregistré et le signal part quand même**, vérifié par test — prouvé par tests/ai/test_ai_layer.py (test_in_shadow_mode_a_rejection_is_recorded_and_the_signal_still_goes)
-  - [ ] aucun appel n'est émis en l'absence de signal candidat, vérifié par compteur — à vérifier : aucun test à compteur ne couvre explicitement l'absence d'appel IA hors candidat ; le compteur n'est exercé que pour le plafond de budget (tests/ai/test_ai_layer.py::test_no_call_is_issued_once_the_budget_is_spent)
+  - [x] aucun appel n'est émis en l'absence de signal candidat, vérifié par compteur — prouvé par tests/runtime/test_pipeline.py (test_the_model_is_never_called_without_a_candidate_signal, test_a_signal_already_processed_is_not_reviewed_again). Un signal refusé par le risque est bien relu par l'IA : la revue précède le risque, par construction
   - [x] un modèle simulé lent n'allonge pas le traitement au-delà du plafond — prouvé par tests/ai/test_ai_layer.py (test_a_slow_model_does_not_stretch_the_processing_beyond_the_cap)
   - [x] le comportement en panne correspond au paramètre `ai_filter` déclaré — prouvé par tests/ai/test_ai_layer.py (test_a_model_failure_in_shadow_emits_with_a_local_fallback, ..._advisory_..., ..._required_refuses_fail_closed)
   - [x] le coût cumulé est consultable — prouvé par tests/ai/test_ai_layer.py (test_the_cumulated_cost_is_consultable)
@@ -998,7 +998,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-066 — Volume de marché de bout en bout
 
-- [ ] Statut : **EN COURS au 2026-10-08.** Le champ `volume` a été ajouté à `Candle` (keyword-only, défaut `None`), la règle de sommation à l'agrégation est écrite et testée (« tout ou `None` »), et la propagation depuis `copy_rates_from_pos` est faite. **Défaut trouvé en chemin :** `mt5_terminal.rates()` lisait `r["time"]`, `r["open"]`, `r["high"]`, `r["low"]`, `r["close"]` et **jetait `r["tick_volume"]`** depuis l'origine du projet. La demande de l'opérateur du 2026-10-08 (stratégie BTC à VWAP) a rendu ce gaspillage visible : **un VWAP ne peut pas exister sans volume.**
+- [x] Statut : **DONE le 2026-11-03.** Le champ `volume` a été ajouté à `Candle` (keyword-only, défaut `None`), la règle de sommation à l'agrégation est écrite et testée (« tout ou `None` »), et la propagation depuis `copy_rates_from_pos` est faite. **Défaut trouvé en chemin :** `mt5_terminal.rates()` lisait `r["time"]`, `r["open"]`, `r["high"]`, `r["low"]`, `r["close"]` et **jetait `r["tick_volume"]`** depuis l'origine du projet. La demande de l'opérateur du 2026-10-08 (stratégie BTC à VWAP) a rendu ce gaspillage visible : **un VWAP ne peut pas exister sans volume.**
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-060 · **Couvre :** F-001, F-002, F-006
 - **Décision d'opérateur du 2026-10-08 :** le tick volume est retenu comme mesure de volume. Ce n'est pas le volume réel échangé, qui n'est pas disponible sur ce courtier ; c'est un **décompte de ticks**, et tout indicateur pondéré par ce volume doit le dire.
 - **Actions :**
@@ -1014,22 +1014,24 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - [x] l'adaptateur MT5 ne jette plus `tick_volume` — prouvé par `tests/data/test_market_data.py`
   - [x] un jeu gelé avec volume se relit à l'identique et son empreinte change avec le volume — prouvé par `tests/backtest/test_datasets.py`
   - [x] la base conserve le volume : colonne `tick_volume` ajoutée par la migration `0008`, `NULL` pour tout l'historique antérieur (jamais `0`, qui serait une mesure inventée) — prouvé par `tests/storage/test_candles.py`, et le contrôle de dérive modèle/migration `test_models_and_migration_do_not_drift` refuse un type qui divergent. **La migration est appliquée automatiquement au démarrage de l'agent** (`app.py:744` appelle `upgrade`).
-  - [ ] **re-geler un jeu de données avec volume** : les 8 jeux existants restent sans volume, par construction. À faire lors du prochain téléchargement (TASK-067 en a besoin pour le VWAP).
+  - [x] **re-geler un jeu de données avec volume** — fait le 2026-11-03 : BTCUSD M15 (59 999 bougies, jusqu'au 2026-11-02 23:30 UTC, empreinte `f73d0375…`) et BTCUSD H1 (59 999 bougies depuis 2019-12-28, empreinte `64afc7dc…`) dans `docs/research/datasets-volume/{M15,H1}/`, 0 bougie sans volume, relus à l'identique. Les jeux du 2026-10-09 restent intacts. Volume = tick volume (décision d'opérateur du 2026-10-08)
 - **Skills :** `test-driven-development`, `market-data`
 
 ### TASK-067 — Stratégie de base BTCUSD : VWAP, momentum, pullback/retest
 
-- [ ] Statut : **SPÉCIFICATION REÇUE le 2026-10-08, non implémentée.** Spécification d'opérateur : régime par unité de temps (H1 → régime, M15 → structure et VWAP, M5 → setup, M1 → exécution), filtre de tendance à trois conditions, entrée sur **retracement vers le VWAP suivi d'un rejet confirmé**, sortie en trois temps (TP1 0,8 R avec 50 % de clôture puis stop à break-even, TP2 1,5 R, puis trailing), et six filtres avant entrée (structure, momentum, volume, volatilité, spread, coût).
-- **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-066, TASK-060, TASK-063
-- **Ce que la spec exige et que le dépôt ne sait pas encore faire — à ne pas découvrir en cours de route :**
-  1. **Le trailing sur structure est structurellement impossible aujourd'hui.** `SignalCandidate` fige entrée, stop et objectifs au moment de la décision, et une stratégie est une fonction pure sans mémoire (`strategies/base.py:53`). Suivre les *higher lows* après l'entrée demande que la position se souvienne de la structure. `harness.py:74` ne sait faire qu'un trailing à **distance fixe** (`trailing_stop_atr`). C'est un chantier d'architecture, pas un paramètre ;
-  2. **`funding` n'existe pas sur ce courtier** : c'est du **swap** (financement overnight), et `CostModel` ne connaît que spread, slippage et commission. **Aucun backtest du dépôt n'a jamais payé de swap.** Pour une stratégie qui garde des positions, c'est un angle mort à combler avant de juger ;
-  3. **le filtre de coût appartient au moteur de risque**, pas à la stratégie (décision d'opérateur du 2026-10-08) : une stratégie n'a pas accès au courtier, au spread courant ni à la commission, et l'invariant « seul `risk` engage du capital » doit rester vrai ;
-  4. **l'unité d'exécution M1 ne peut pas porter un backtest** : le courtier sert ~12 000 bougies M1 (8,4 jours pour le BTC). Le walk-forward doit se faire en **H1 et M15**, où l'historique est profond (BTCUSD H1 depuis 2011-03-23, 87 573 bougies).
+- [x] Statut : **DONE le 2026-11-03.** Le texte d'origine (« spécification reçue, non implémentée ») était **périmé** : la roadmap n'avait pas suivi le code. Le VWAP ancré à 00:00 UTC (TASK-068), la stratégie `vwap_pullback@1.4.0` (retracement vers le VWAP suivi d'un rejet confirmé, TP1 0,8 R avec clôture partielle puis stop à break-even, TP2 1,5 R), le trailing sur structure du harnais (`trailing_stop_swing_strength`) et les filtres de session, de tendance et de volume existaient déjà ; la dérogation d'opérateur du 2026-10-09 l'active en démonstration (commit `4cac7f2`). Les deux derniers écarts, **swap** et **coût total**, sont comblés par cette tâche.
+- **Priorité :** P0 · **Complexité :** L (réduite à M après relecture du code) · **Dépendances :** TASK-066, TASK-060, TASK-063
+- **Ce qui a été livré ici :**
+  1. **Swap dans le backtest.** `CostModel.swap_per_day` (distance de prix par jour de détention, proratisée à la seconde, **0 par défaut** : les chiffres publiés ne bougent pas, test à l'appui). `SymbolSpec.swap_long/swap_short` est lu sur `symbol_info` du terminal, **uniquement en mode points** ; tout autre mode reste `None`, jamais une valeur supposée ;
+  2. **Contrôle de coût total dans le moteur de risque**, pas dans la stratégie (décision d'opérateur du 2026-10-08) : `check_total_cost` compare spread + commission + un jour de swap à la distance jusqu'à TP1. Il ne peut que **refuser** (C-002). Plafond `max_cost_to_target`, **livré à 0,5** (décision d'opérateur du 2026-11-03, `config/agent.yaml`) : le coût total ne peut pas dépasser la moitié de la distance jusqu'à TP1, donc un trade qui n'atteint que son premier objectif garde au moins 50 % de cette distance en gain net (au-delà de 1, TP1 perdrait de l'argent). `null` désactive. Valeur de principe, pas calibrée sur une mesure de coûts réels ; à recaler après la campagne papier. Commission et swap inconnus comptent pour zéro et la raison le dit ;
+  3. **TP1 porté par l'intention de trade** (`TradeIntent.take_profit`), alimenté par le pipeline.
+- **Ce qui reste hors périmètre, et pourquoi :** le seuil est posé (0,5) et `MT5Broker.quote` renseigne désormais `commission` (historique de deals des 60 derniers jours, aller-retour par lot converti en prix) et `swap_per_day` (swap du sens du trade, un crédit compte pour zéro) ; sans historique ou sans swap en points, la valeur reste inconnue. Le `PaperBroker` ne les renseigne pas (aucune valeur réelle) ; l'efficacité du filtre de tendance relève d'une campagne de recherche distincte. L'unité M1 ne peut pas porter un backtest (~12 000 bougies, 8,4 jours pour le BTC) : le walk-forward se fait en H1 et M15.
 - **Critères d'acceptation :**
-  - [ ] le VWAP ancré à 00:00 UTC existe, testé, et **refuse de produire une valeur sur une série sans volume** plutôt que d'en inventer une — **à faire**
-  - [ ] la règle d'entrée est un candidat de recherche mesuré par les 9 portes, jamais promue directement
-  - [ ] l'écart entre la spec et le code est consigné (ci-dessus) avant toute implémentation
+  - [x] le VWAP ancré à 00:00 UTC existe, testé, et **refuse de produire une valeur sur une série sans volume** (`tests/indicators/test_vwap.py`)
+  - [x] la règle d'entrée est un candidat de recherche mesuré par les 9 portes, jamais promu directement
+  - [x] l'écart entre la spec et le code est consigné (ci-dessus)
+  - [x] le swap est modélisé, désactivé par défaut, et ne change aucun chiffre publié
+  - [x] un contrôle de coût total existe côté risque et ne peut que refuser
 - **Skills :** `test-driven-development`, `market-data`, `crypto`
 
 ### TASK-068 — VWAP de session ancré à 00:00 UTC

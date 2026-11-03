@@ -36,7 +36,7 @@ from tradingagent.web.views import (
 
 # Sent once, first: it tells EventSource how long to wait before reconnecting.
 RETRY_HINT = "retry: 3000\n\n"
-DEFAULT_INTERVAL_SECONDS = 2.0
+DEFAULT_INTERVAL_SECONDS = 1.0
 DEFAULT_ALERT_LIMIT = 30
 
 
