@@ -14,7 +14,6 @@
     {% if data.halt.halted %}{{ dot("bad", "Trading arrêté") }}{% else %}{{ dot("ok", "Aucun arrêt en cours") }}{% endif %}
     <div class="label">{{ icon("ban") }}Arrêt en cours</div>
     <div class="value sm">{% if data.halt.halted %}oui{% else %}non{% endif %}</div></div>
-  <div class="card" title="Positions, bougies et télémétrie confondues"><div class="label">{{ icon("layers") }}Marchés connus</div><div class="value">{{ data.markets | length }}</div></div>
   <div class="card" title="Avertissements et critiques, sur la fenêtre affichée ({{ day.label }}) ; le journal complet reste consultable par date"><div class="label">{{ icon("alert-triangle") }}{% if day.is_today %}Erreurs du jour{% elif day.is_history %}Erreurs (historique){% else %}Erreurs du {{ day.day.strftime('%d/%m') }}{% endif %}</div><div class="value">{{ error_count }}</div>
     <div class="note">{% if day.is_today %}depuis 00:00 UTC{% else %}{{ day.label }}{% endif %}</div></div>
 </div>
@@ -31,7 +30,7 @@
 {% for guardian in data.ea %}{% set _ = guardians.update({guardian.symbol: guardian}) %}{% endfor %}
 <div class="dash">
   <section class="mod" aria-labelledby="h-pills">
-    {{ head("h-pills", "radio", "Santé des marchés", (data.markets | length) ~ " marché(s)") }}
+    {{ head("h-pills", "radio", "Santé", "") }}
     <ul class="health">
       {% for market in data.markets %}
         {% set guardian = guardians.get(market.symbol) %}
@@ -132,7 +131,7 @@
 </table>
 </div>
 {% endcall %}
-{% call fold("h-data", "database", "Données de marché", (data.markets | length) ~ " marché(s)", "", false, "") %}
+{% call fold("h-data", "database", "Données de marché", "", "", false, "") %}
 <div class="table-wrap">
 <table>
   <caption class="sr-only">Dernière bougie stockée et dernier événement d'exécution par marché</caption>

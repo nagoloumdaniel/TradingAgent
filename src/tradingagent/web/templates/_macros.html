@@ -27,8 +27,11 @@
 {% endmacro %}
 
 {# The market is a query parameter, never a client-side hide. There is deliberately no
-   "all markets" option: a table that mixes two instruments is the defect being removed. #}
+   "all markets" option: a table that mixes two instruments is the defect being removed.
+   With a single market (gold only) there is nothing to choose: the control is not drawn and
+   the page resolves to that market on its own. #}
 {% macro market_select(page, markets) %}
+  {% if markets | length > 1 %}
   <div class="field">
     <label for="market">Marché</label>
     <select id="market" name="market" data-custom-select>
@@ -37,6 +40,7 @@
       {% endfor %}
     </select>
   </div>
+  {% endif %}
 {% endmacro %}
 
 {# The native <select> is the control: it carries the name, the value and the submission.
