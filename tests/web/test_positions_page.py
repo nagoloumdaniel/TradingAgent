@@ -7,6 +7,7 @@ bound as a parameter), and an empty result that says so instead of showing a mut
 
 import re
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,7 +22,6 @@ from tradingagent.web import queries
 from tradingagent.web.app import create_app
 
 PAGE_SIZE = 10
-TOKEN = "jeton-de-test-0123456789abcdef"  # pragma: allowlist secret
 
 
 def _stack(engine: Engine, count: int = 13) -> list[int]:
@@ -270,15 +270,17 @@ def test_the_search_text_is_escaped(seeded_client: TestClient) -> None:
 
 
 def test_a_protected_page_stays_protected_when_it_is_paginated(
-    engine: Engine, populated: seed.Seeded
+    engine: Engine, populated: seed.Seeded, tmp_path: Path
 ) -> None:
     del populated
     with TestClient(
-        create_app(engine, now=lambda: seed.NOW, access_token=TOKEN), follow_redirects=False
+        create_app(engine, now=lambda: seed.NOW, pin_file=tmp_path / "web_pin.json"),
+        follow_redirects=False,
     ) as client:
         response = client.get("/positions", params={"page": 2, "q": "xau"})
 
-    assert response.status_code == 401
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"
 
 
 # ---------------------------------------------------------------------------------------

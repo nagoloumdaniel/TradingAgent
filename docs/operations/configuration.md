@@ -111,7 +111,6 @@ l'agent) :
 | Variable | Utilisée par | Rôle |
 |---|---|---|
 | `BACKUP_PASSPHRASE` | `scripts/backup.ps1`, `scripts/restore.ps1` | Mot de passe de chiffrement des sauvegardes. **À générer** et à garder hors du serveur |
-| `TRADINGAGENT_WEB_TOKEN` | `tradingagent-web` | Protection optionnelle du tableau de bord (§43), 16 caractères minimum. Absente : écoute locale sans authentification |
 | `BACKUP_DIR` | `scripts/backup.ps1` | Répertoire des sauvegardes (défaut : `<dépôt>\backups`) |
 | `TRADINGAGENT_ROOT` | tous les scripts | Racine du dépôt si elle diffère du dossier des scripts |
 

@@ -20,6 +20,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 import uvicorn
 from dotenv import dotenv_values
@@ -36,6 +37,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.types import Scope
@@ -57,11 +59,15 @@ from tradingagent.trusted_clock import start_trusted_clock
 from tradingagent.web import calendar_view, paging, queries
 from tradingagent.web import format as display
 from tradingagent.web.auth import (
-    ACCESS_ENV_VAR,
+    MAX_ATTEMPTS,
+    PIN_LENGTH,
     SESSION_COOKIE,
-    AccessControl,
-    configured_token,
+    SESSION_SECONDS,
+    Outcome,
+    PinGate,
+    PinStore,
     exposure_problem,
+    valid_pin,
 )
 from tradingagent.web.sse import SSE_HEADERS, EventStream
 from tradingagent.web.views import (
@@ -79,6 +85,8 @@ from tradingagent.web.views import (
 ROOT = Path(__file__).resolve().parents[3]
 ENV_FILE = ROOT / ".env"
 AGENT_CONFIG = ROOT / "config" / "agent.yaml"
+# The hashed PIN. `data/` is git-ignored; deleting the file resets the PIN.
+PIN_FILE = ROOT / "data" / "web_pin.json"
 
 log = logging.getLogger(__name__)
 
@@ -89,8 +97,8 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 # Error pages. A monitoring tool that says "Internal Server Error" in JSON has told the
 # operator nothing they can act on: each of these says what happened, what it does NOT mean,
-# and where to go next. The 401 is deliberately absent — it is rendered by `auth.py` as a
-# standalone page that reveals neither the navigation nor the existence of any figure.
+# and where to go next. The 401 is deliberately absent: a visitor without a session is sent
+# to the PIN page, which reveals neither the navigation nor the existence of any figure.
 ERROR_TEXT: dict[int, tuple[str, str]] = {
     400: (
         "Requête invalide",
@@ -176,22 +184,21 @@ def create_app(
     agent_config_path: Path | None = None,
     ea_reports_dir: Path | None = None,
     stream_cycles: int | None = None,
-    access_token: str | None = None,
+    pin_file: Path | None = None,
 ) -> FastAPI:
     """Build the read-only dashboard around an already-migrated database engine.
 
     ``now`` is injected so every page is reproducible in a test; the production entry point
     passes the real UTC clock. ``ea_reports_dir`` points at the bridge's ``reports/``
     directory — when it is absent, the EA sections say so instead of inventing a status.
-    ``access_token`` is the optional access protection of §43: ``None`` reads
-    ``TRADINGAGENT_WEB_TOKEN`` from the environment, and an absent or blank variable leaves
-    the dashboard exactly as it was — local, unauthenticated, read-only.
+    ``pin_file`` is where the hashed PIN of §43 lives. The entry point always passes it, so
+    the dashboard it serves always asks for the PIN; ``None`` builds an open app for tests
+    and embedders that hand the application to something already trusted.
     """
     clock = now if now is not None else _utc_now
     limits_path = agent_config_path if agent_config_path is not None else AGENT_CONFIG
     reports_dir = ea_reports_dir if ea_reports_dir is not None else _env_reports_dir()
-    credential = configured_token(access_token)
-    access = None if credential is None else AccessControl(credential)
+    gate = None if pin_file is None else PinGate(PinStore(pin_file), clock)
     templates = Jinja2Templates(directory=str(templates_dir or TEMPLATES_DIR))
     templates.env.globals.update(
         display=display.TemplateDisplay(), pages=PAGES, state_label=state_label
@@ -214,7 +221,7 @@ def create_app(
     # Pages are 150-400 KB of repetitive HTML: compressed they are a fifth of that.
     app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
     app.state.engine = engine
-    app.state.access_protected = access is not None
+    app.state.access_protected = gate is not None
 
     stream = EventStream(engine, interval_seconds=interval_seconds, now=clock)
 
@@ -233,40 +240,8 @@ def create_app(
             },
         )
 
-    if access is not None:
-
-        @app.middleware("http")
-        async def require_access(
-            request: Request, call_next: Callable[[Request], Awaitable[Response]]
-        ) -> Response:
-            """Every page and the SSE feed sit behind the token (§43).
-
-            The refusal is a standalone 401 with no navigation, no figure and no echo of
-            what was presented: a request without a valid credential learns nothing about
-            the dashboard. The token itself is never logged, here or anywhere else.
-            """
-            if not access.granted(request):
-                return access.denial()
-            return await call_next(request)
-
-        @app.get("/session")
-        def open_session() -> RedirectResponse:
-            """Trade a valid bearer token for the signed session cookie.
-
-            A browser cannot set a header on a top-level navigation, and ``EventSource``
-            cannot set one at all, so the cookie exists for those two flows. It is minted
-            only from an already-authorized request; the middleware has answered 401
-            otherwise. The cookie carries ``HMAC-SHA256(token, …)``, never the token.
-            """
-            response = RedirectResponse("/", status_code=303)
-            response.set_cookie(
-                SESSION_COOKIE,
-                access.session_value,
-                httponly=True,
-                samesite="strict",
-                path="/",
-            )
-            return response
+    if gate is not None:
+        _install_pin_login(app, gate, templates)
 
     def error_response(
         status: int,
@@ -791,6 +766,148 @@ def create_app(
     return app
 
 
+# Reachable without a session: the PIN page itself, the logout that only clears a cookie, the
+# liveness probe a supervisor calls (it carries no figure) and the assets the PIN page needs.
+_OPEN_PATHS = frozenset({"/login", "/logout", "/healthz"})
+# A PIN form is a few bytes; anything bigger is not one and is never buffered.
+_FORM_LIMIT = 1024
+
+
+def _install_pin_login(app: FastAPI, gate: PinGate, templates: Jinja2Templates) -> None:
+    """Put the whole dashboard behind the PIN (§43) and add the two routes that manage it.
+
+    These are the only POST routes of the application, and they write nothing to the trading
+    database: one sets a cookie (and, on the very first visit, the local PIN file), the other
+    clears it.
+    """
+
+    @app.middleware("http")
+    async def require_session(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        path = request.url.path
+        if request.method == "POST" and _cross_origin(request):
+            return PlainTextResponse("Origine refusée.", status_code=403)
+        if path in _OPEN_PATHS or path.startswith("/static/") or gate.granted(request):
+            return await call_next(request)
+        headers = {"Cache-Control": "no-store"}
+        # The SSE feed cannot follow a redirect to an HTML page: it gets a plain refusal.
+        if request.method in ("GET", "HEAD") and path != "/events":
+            return RedirectResponse("/login", status_code=303, headers=headers)
+        return PlainTextResponse("Session requise.", status_code=401, headers=headers)
+
+    def login_page(
+        request: Request, *, status: int = 200, error: str | None = None, retry_after: int = 0
+    ) -> HTMLResponse:
+        response = templates.TemplateResponse(
+            request,
+            "login.html",
+            {
+                "request": request,
+                "setup": not gate.store.configured,
+                "error": error,
+                "retry_after": retry_after,
+                "pin_length": PIN_LENGTH,
+                "pin_pattern": f"[0-9]{{{PIN_LENGTH}}}",
+            },
+            status_code=status,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        if retry_after:
+            response.headers["Retry-After"] = str(retry_after)
+        return response
+
+    @app.get("/login", response_class=HTMLResponse)
+    def login_form(request: Request) -> Response:
+        if gate.granted(request):
+            return RedirectResponse("/", status_code=303)
+        return login_page(request)
+
+    @app.post("/login", response_class=HTMLResponse)
+    async def login_submit(request: Request) -> Response:
+        form = await _read_form(request)
+        pin = form.get("pin", "")
+        if gate.store.damaged:
+            return login_page(
+                request,
+                status=503,
+                error="Fichier du code illisible. Supprimez data/web_pin.json pour le refaire.",
+            )
+        if not gate.store.configured:
+            # First visit: the operator chooses the code. Loopback only, so whoever reaches
+            # this page first is the operator.
+            if not valid_pin(pin):
+                return login_page(
+                    request, status=400, error=f"Le code doit comporter {PIN_LENGTH} chiffres."
+                )
+            if pin != form.get("confirm", ""):
+                return login_page(request, status=400, error="Les deux codes sont différents.")
+            await run_in_threadpool(gate.store.choose, pin)
+        else:
+            attempt = await run_in_threadpool(gate.attempt, pin)
+            if attempt.outcome is Outcome.LOCKED:
+                minutes = -(-attempt.retry_after // 60)
+                return login_page(
+                    request,
+                    status=429,
+                    error=f"Trop d'essais. Réessayez dans {minutes} min.",
+                    retry_after=attempt.retry_after,
+                )
+            if attempt.outcome is Outcome.WRONG:
+                left = attempt.remaining
+                return login_page(
+                    request,
+                    status=401,
+                    error=f"Code incorrect. {left} essai{'s' if left > 1 else ''} restant"
+                    f"{'s' if left > 1 else ''} avant verrouillage ({MAX_ATTEMPTS} au total).",
+                )
+        cookie = gate.issue_cookie()
+        if cookie is None:  # the PIN file vanished between the check and now
+            return login_page(request, status=500, error="Code non enregistré. Réessayez.")
+        response = RedirectResponse("/", status_code=303)
+        response.set_cookie(
+            SESSION_COOKIE,
+            cookie,
+            max_age=SESSION_SECONDS,
+            httponly=True,
+            samesite="strict",
+            path="/",
+        )
+        return response
+
+    @app.post("/logout")
+    def logout() -> RedirectResponse:
+        response = RedirectResponse("/login", status_code=303)
+        response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, samesite="strict")
+        return response
+
+
+def _cross_origin(request: Request) -> bool:
+    """A POST that a page of another origin (or another local port) caused.
+
+    ``SameSite=Strict`` separates sites, not ports: any other local web page is "same-site".
+    Browsers tell the truth in ``Sec-Fetch-Site`` and ``Origin``; a client that sends neither
+    (curl, a test) is not a browser page and is let through.
+    """
+    if request.headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none"):
+        return True
+    origin = request.headers.get("origin")
+    if origin is None or origin == "null":
+        return origin == "null"
+    return urlsplit(origin).netloc != request.headers.get("host", "")
+
+
+async def _read_form(request: Request) -> dict[str, str]:
+    """A urlencoded form body, capped. Parsed by hand: no multipart dependency for 2 fields."""
+    received = bytearray()
+    async for chunk in request.stream():
+        received.extend(chunk)
+        if len(received) > _FORM_LIMIT:
+            return {}
+    parsed = parse_qs(received.decode("utf-8", "replace"), keep_blank_values=True)
+    return {name: values[0] for name, values in parsed.items()}
+
+
 def _filtered(
     engine: Engine, market: str | None, strategy: str | None, mode: str | None
 ) -> list[Trade]:
@@ -912,10 +1029,7 @@ def _parse(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--host",
         default=DEFAULT_HOST,
-        help=(
-            "adresse d'écoute (locale par défaut ; toute autre exige "
-            f"{ACCESS_ENV_VAR}, sinon le démarrage est refusé)"
-        ),
+        help="adresse d'écoute (locale uniquement : toute autre adresse est refusée)",
     )
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="port d'écoute")
     parser.add_argument(
@@ -942,15 +1056,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ConfigError as error:
         print(error, file=sys.stderr)
         return 2
-    # The token comes from the same `.env` as everything else. Reading it from `os.environ`
-    # alone would have left the dashboard unprotected while the operator believed otherwise:
-    # pydantic-settings parses `.env` into a model, it does not export it to the process.
-    declared = settings.tradingagent_web_token
-    access_token = declared.get_secret_value() if declared is not None else None
     # Checked before the database is opened: a dashboard that must not be published should
-    # not read a row either. Without a token the bind address IS the access control, so a
-    # routable one is refused outright rather than warned about.
-    exposure = exposure_problem(args.host, access_token)
+    # not read a row either. Four digits protect against a neighbouring tab, not a network,
+    # so a routable bind address is refused outright rather than warned about.
+    exposure = exposure_problem(args.host)
     if exposure is not None:
         print(exposure, file=sys.stderr)
         return 2
@@ -964,7 +1073,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 engine,
                 interval_seconds=args.interval,
                 ea_reports_dir=reports_dir,
-                access_token=access_token,
+                pin_file=PIN_FILE,
             ),
             host=args.host,
             port=args.port,
@@ -980,12 +1089,12 @@ if __name__ == "__main__":
 
 
 __all__ = [
-    "ACCESS_ENV_VAR",
     "ALERT_COLUMNS",
     "DEFAULT_HOST",
     "DEFAULT_PORT",
     "EA_REPORTS_ENV_VAR",
     "PAGES",
+    "PIN_FILE",
     "POSITION_COLUMNS",
     "READ_ONLY",
     "SESSION_COOKIE",

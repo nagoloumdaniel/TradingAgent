@@ -101,6 +101,12 @@
             aria-pressed="true" title="Mise à jour en direct">
       <span class="live-dot" aria-hidden="true"></span><span class="live-label">…</span>
     </button>
+    {# Déconnexion : n'existe que si l'application est protégée par le code (page /login). #}
+    {% if request.app.state.access_protected %}
+      <form method="post" action="/logout" class="logout-form">
+        <button type="submit" class="keys-btn" title="Se déconnecter">Déconnexion</button>
+      </form>
+    {% endif %}
     {# Un seul bouton, deux icônes, et un état annoncé. aria-pressed vaut vrai quand le
        thème clair est actif ; le nom accessible dit ce que le clic fera. #}
     <button type="button" class="theme-toggle" id="theme-toggle"

@@ -139,13 +139,6 @@ KEYS: tuple[KeySpec, ...] = (
         f"À générer et à garder HORS du serveur : {GENERATE_WITH}",
         required=False,
     ),
-    KeySpec(
-        "TRADINGAGENT_WEB_TOKEN",
-        "protection de l'accès au tableau de bord",
-        f"À générer (16 caractères minimum) : {GENERATE_WITH}. Sans elle, le dashboard "
-        "écoute en local sans authentification",
-        required=False,
-    ),
 )
 
 SPECS: dict[str, KeySpec] = {spec.name: spec for spec in KEYS}

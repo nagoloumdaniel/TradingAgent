@@ -262,6 +262,8 @@ body {
   font: 600 12px var(--font-mono); color: var(--muted);
 }
 @media (max-width: 640px) { .keys-btn { padding: 0 8px; } .keys-btn-label { display: none; } }
+.logout-form { margin: 0; }
+.logout-form .keys-btn { padding: 0 14px; }
 
 .theme-toggle {
   position: relative; display: grid; place-items: center;
