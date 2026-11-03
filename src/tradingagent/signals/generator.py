@@ -126,10 +126,16 @@ class SignalGenerator:
             manifest = loaded.manifest
             if symbol not in manifest.allowed_symbols:
                 continue
-            if manifest.primary_timeframe is not trigger.timeframe:
+            if trigger.timeframe not in manifest.trigger_timeframes:
                 continue
+            # Scalping: each scan timeframe is evaluated on its own series, never mixed.
+            scanned = (
+                LoadedStrategy(manifest.for_timeframe(trigger.timeframe), loaded.strategy)
+                if manifest.scan_timeframes
+                else loaded
+            )
             try:
-                result = self._run(loaded, symbol, trigger, calendar, now, last_tick_at)
+                result = self._run(scanned, symbol, trigger, calendar, now, last_tick_at)
             except Exception as error:
                 # Infrastructure failure (database, data): contained so other markets go on.
                 log.exception("%s on %s failed", manifest.ref, symbol)

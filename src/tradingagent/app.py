@@ -276,10 +276,9 @@ def _subscriptions(config: AgentConfig, catalog: StrategyCatalog) -> tuple[Subsc
         if not market.enabled:
             continue
         manifest = loaded[market.strategy].manifest
-        subscriptions += [
-            Subscription(market.symbol, timeframe) for timeframe in manifest.timeframes
-        ]
-    return tuple(subscriptions)
+        timeframes = dict.fromkeys((*manifest.timeframes, *manifest.scan_timeframes))
+        subscriptions += [Subscription(market.symbol, timeframe) for timeframe in timeframes]
+    return tuple(dict.fromkeys(subscriptions))
 
 
 async def _known_symbols(terminal: Mt5Terminal, declared: Sequence[str]) -> set[str]:

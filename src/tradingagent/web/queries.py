@@ -39,6 +39,7 @@ from tradingagent.analytics.scalping import (
     by_session,
     by_size,
     by_spread,
+    by_timeframe,
     by_weekday,
     cost_summary,
 )
@@ -3389,6 +3390,7 @@ class ScalpingView:
     market: str
     trades: int
     hours: Page[Bucket]
+    timeframes: tuple[Bucket, ...]
     sessions: tuple[Bucket, ...]
     weekdays: tuple[Bucket, ...]
     spreads: tuple[Bucket, ...]
@@ -3445,6 +3447,7 @@ def scalping_view(
             noun="découpe horaire",
             feminine=True,
         ),
+        timeframes=by_timeframe(trades),
         sessions=by_session(trades),
         weekdays=by_weekday(trades),
         spreads=by_spread(trades, SPREAD_EDGES),
@@ -3752,19 +3755,31 @@ def risk_gauges(
     )
     gauges.append(_count_gauge("Trades du jour", day.trades, limits.max_trades_per_day))
     if limits.stop_after_losses_per_day is not None:
-        streak = _losses_today(engine, at)
+        per_timeframe = _losses_today_by_timeframe(engine, at)
         gauges.append(
-            _count_gauge("Pertes consécutives du jour", streak, limits.stop_after_losses_per_day)
+            _count_gauge(
+                "Pertes consécutives du jour",
+                max((count for _, count in per_timeframe), default=0),
+                limits.stop_after_losses_per_day,
+                parts=per_timeframe,
+            )
         )
     return gauges
 
 
 @dataclass(frozen=True)
 class DailyStop:
-    """The "N losses in a day, stop until 00:00 UTC" rule and where today stands against it."""
+    """The "N losses in a row on one timeframe, that timeframe stops until 00:00 UTC" rule
+    and where today stands against it."""
 
     losses: int
     limit: int
+    #: Longest loss run today per timeframe traded today, shortest timeframe first.
+    timeframes: tuple[tuple[str, int], ...] = ()
+
+    @property
+    def stopped(self) -> tuple[str, ...]:
+        return tuple(name for name, count in self.timeframes if count >= self.limit)
 
     @property
     def triggered(self) -> bool:
@@ -3775,15 +3790,23 @@ def daily_stop(engine: Engine, at: datetime, view: RiskView) -> DailyStop | None
     """The first profile's daily-loss-streak stop, or ``None`` when the rule is off."""
     if not view.limits or view.limits[0].stop_after_losses_per_day is None:
         return None
-    return DailyStop(_losses_today(engine, at), view.limits[0].stop_after_losses_per_day)
+    per_timeframe = _losses_today_by_timeframe(engine, at)
+    return DailyStop(
+        max((count for _, count in per_timeframe), default=0),
+        view.limits[0].stop_after_losses_per_day,
+        tuple(per_timeframe),
+    )
 
 
-def _losses_today(engine: Engine, at: datetime) -> int:
-    """The longest run of losses reached today (UTC): the figure the daily lock is read on."""
-    closed = [
-        (trade.pnl_eur, trade.closed_at) for trade in trades_between(engine, day_start(at), at)
+def _losses_today_by_timeframe(engine: Engine, at: datetime) -> list[tuple[str, int]]:
+    """The longest run of losses reached today (UTC) on each timeframe: the daily lock's figure."""
+    grouped: dict[Timeframe, list[tuple[Decimal, datetime]]] = defaultdict(list)
+    for trade in trades_between(engine, day_start(at), at):
+        grouped[trade.timeframe].append((trade.pnl_eur, trade.closed_at))
+    return [
+        (timeframe.value, longest_loss_run_today(grouped[timeframe], at).longest)
+        for timeframe in sorted(grouped, key=lambda tf: tf.seconds)
     ]
-    return longest_loss_run_today(closed, at).longest
 
 
 def positions_chart(positions: Sequence[OpenPositionView]) -> dict[str, Any]:
@@ -3835,6 +3858,7 @@ def scalping_chart(view: ScalpingView) -> dict[str, list[dict[str, Any]]]:
         ]
 
     sets = {
+        "Unité": items(view.timeframes),
         "Heure": items(view.hours.rows),
         "Session": items(view.sessions),
         "Jour": items(view.weekdays),

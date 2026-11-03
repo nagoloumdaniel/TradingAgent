@@ -13,9 +13,16 @@ from decimal import Decimal
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
+from tradingagent.core.timeframe import Timeframe
 from tradingagent.risk.model import AccountState, OpenPosition, PortfolioState
-from tradingagent.risk.streak import longest_loss_run_today, losing_streak
-from tradingagent.storage.models import AccountSnapshotRow, PositionRow, TradeRow
+from tradingagent.risk.streak import DayLossRun, longest_loss_run_today, losing_streak
+from tradingagent.storage.models import (
+    AccountSnapshotRow,
+    OrderRow,
+    PositionRow,
+    SignalRow,
+    TradeRow,
+)
 
 STREAK_LOOKBACK = 200
 
@@ -62,6 +69,7 @@ class PortfolioBuilder:
             # The daily stop is a lock over every trade of the UTC day, not over the
             # streak lookback: a run reached this morning must survive a busy afternoon.
             losses_today=longest_loss_run_today(self._closes_since(start_day), at),
+            losses_today_by_timeframe=self._loss_runs_by_timeframe(start_day, at),
             # §21: the notional already committed. None means "not measured", which the
             # risk engine treats as a refusal rather than as zero.
             open_exposure_eur=open_exposure_eur,
@@ -90,6 +98,22 @@ class PortfolioBuilder:
         with Session(self._engine) as session:
             rows = session.execute(statement).all()
         return [(Decimal(pnl), closed_at) for pnl, closed_at in rows]
+
+    def _loss_runs_by_timeframe(self, start: datetime, at: datetime) -> dict[Timeframe, DayLossRun]:
+        """The daily lock measured on each timeframe's own trades (signal -> order -> position)."""
+        statement = (
+            select(TradeRow.pnl_eur, TradeRow.closed_at, SignalRow.timeframe)
+            .join(PositionRow, PositionRow.id == TradeRow.position_id)
+            .join(OrderRow, OrderRow.id == PositionRow.order_id)
+            .join(SignalRow, SignalRow.id == OrderRow.signal_id)
+            .where(TradeRow.closed_at >= start)
+        )
+        with Session(self._engine) as session:
+            rows = session.execute(statement).all()
+        grouped: dict[Timeframe, list[tuple[Decimal, datetime]]] = {}
+        for pnl, closed_at, timeframe in rows:
+            grouped.setdefault(timeframe, []).append((Decimal(pnl), closed_at))
+        return {tf: longest_loss_run_today(trades, at) for tf, trades in grouped.items()}
 
     def _recent_closes(self) -> list[tuple[Decimal, datetime]]:
         """Closed trades, newest first: what the streak functions read."""

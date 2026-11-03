@@ -4,13 +4,15 @@ The caller gathers the snapshot (terminal, store, executor); the engine never re
 clock, the network or the database, so every decision can be replayed from its inputs.
 """
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 
 from tradingagent.config.agent import LiveRiskProfile, RiskConfig, RiskProfile
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
+from tradingagent.core.timeframe import Timeframe
 from tradingagent.risk.streak import DayLossRun
 
 HUNDRED = Decimal(100)
@@ -43,6 +45,8 @@ class TradeIntent:
     stop_loss: Decimal | None
     #: First target (TP1). Only read by `check_total_cost`; None means the caller has none.
     take_profit: Decimal | None = None
+    #: Timeframe the signal fired on. The daily loss stop counts per timeframe when it is set.
+    timeframe: Timeframe | None = None
 
 
 @dataclass(frozen=True)
@@ -195,6 +199,10 @@ class PortfolioState:
     # None means the caller did not measure it. `check_total_exposure` then fails closed
     # as soon as a position is open, so the ceiling is never silently skipped.
     open_exposure_eur: Decimal | None = None
+    # The same lock measured per timeframe: a timeframe stops on its own losses and the
+    # others keep trading. Used when the intent names its timeframe; a timeframe absent
+    # from the mapping has no loss today.
+    losses_today_by_timeframe: Mapping[Timeframe, DayLossRun] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

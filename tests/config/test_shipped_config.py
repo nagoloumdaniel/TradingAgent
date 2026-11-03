@@ -34,7 +34,7 @@ def test_shipped_agent_config_loads_in_signal_mode() -> None:
     refs = [market.strategy for market in config.markets]
     # The gold market runs one pinned `vwap_pullback` version (EF-003 asked for a distinct
     # strategy per market back when there were two; with gold alone the pin is what remains).
-    assert refs == ["vwap_pullback@1.1.0"]
+    assert refs == ["vwap_pullback@1.2.0"]
     # RM-019: with 100 EUR the market is not eligible in live mode; the profile is still
     # declared so the refusal is a decision, not a crash.
     assert config.risk.live.reference_capital == 100

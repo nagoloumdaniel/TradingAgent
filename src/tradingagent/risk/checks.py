@@ -22,6 +22,7 @@ from tradingagent.risk.model import (
     TradeIntent,
 )
 from tradingagent.risk.sizing import SizingError, size_position
+from tradingagent.risk.streak import DayLossRun
 
 ACCOUNT_CURRENCY = "EUR"
 
@@ -380,21 +381,31 @@ def check_daily_loss_streak(ctx: RiskContext) -> CheckResult:
     lock lifts at midnight even on a stale snapshot.
     """
     portfolio, limit = ctx.portfolio, ctx.limits.stop_after_losses_per_day
-    streak = portfolio.losses_today.longest
+    timeframe = ctx.intent.timeframe
+    run = portfolio.losses_today
+    scope = ""
+    if timeframe is not None:
+        # Each timeframe stops on its own losses; the others keep trading.
+        run = portfolio.losses_today_by_timeframe.get(timeframe, DayLossRun(0, ctx.now.date()))
+        scope = f" sur {timeframe.value}"
+    streak = run.longest
     if limit is None:
         return _verdict(
             "daily_loss_streak", True, f"{streak} consecutive loss(es) today, rule disabled"
         )
-    if portfolio.losses_today.day != ctx.now.date():
+    if run.day != ctx.now.date():
         streak = 0
     if streak < limit:
         return _verdict(
-            "daily_loss_streak", True, f"{streak} consecutive loss(es) today, limit {limit}"
+            "daily_loss_streak",
+            True,
+            f"{streak} consecutive loss(es) today{' on ' + timeframe.value if timeframe else ''}, "
+            f"limit {limit}",
         )
     return _verdict(
         "daily_loss_streak",
         False,
-        f"{streak} pertes consécutives aujourd'hui, trades arrêtés jusqu'à demain 00:00 UTC",
+        f"{streak} pertes consécutives aujourd'hui{scope}, trades arrêtés jusqu'à demain 00:00 UTC",
     )
 
 

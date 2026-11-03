@@ -313,6 +313,7 @@ class SignalPipeline:
                 entry_high=Decimal(str(detail.entry_high)),
                 stop_loss=stop,
                 take_profit=(Decimal(str(detail.take_profits[0])) if detail.take_profits else None),
+                timeframe=detail.timeframe,
             ),
             account=account,
             spec=spec,

@@ -112,6 +112,15 @@ def by_session(trades: Iterable[Trade]) -> tuple[Bucket, ...]:
     )
 
 
+def by_timeframe(trades: Iterable[Trade]) -> tuple[Bucket, ...]:
+    """One bucket per timeframe actually traded, shortest first (M1, M5, M15, M30...)."""
+    grouped = _group(trades, lambda trade: trade.timeframe)
+    return tuple(
+        _bucket(timeframe.value, grouped[timeframe])
+        for timeframe in sorted(grouped, key=lambda tf: tf.seconds)
+    )
+
+
 def by_weekday(trades: Iterable[Trade]) -> tuple[Bucket, ...]:
     """One bucket per weekday actually traded, Monday first."""
     grouped = _group(trades, lambda trade: trade.closed_at.weekday())

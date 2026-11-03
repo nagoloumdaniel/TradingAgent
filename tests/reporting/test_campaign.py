@@ -64,6 +64,7 @@ def _chain(
     pnl: Decimal,
     mode: TradingMode = TradingMode.DEMO,
     risk: Decimal = RISK,
+    timeframe: Timeframe = Timeframe.H1,
 ) -> None:
     """One signal → order → position → closed trade, the same chain production writes."""
     with Session(engine) as session:
@@ -84,7 +85,7 @@ def _chain(
             idempotency_key=f"sig:{index}",
             strategy_version_id=version.id,
             symbol=market,
-            timeframe=Timeframe.H1,
+            timeframe=timeframe,
             direction=Direction.BUY,
             mode=mode,
             observed_price=2650.0,

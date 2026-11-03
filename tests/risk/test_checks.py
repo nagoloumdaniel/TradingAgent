@@ -11,6 +11,7 @@ from tests.risk.builders import EQUITY, GOLD, GOLD_BUY, GOLD_QUOTE, NOW, context
 from tradingagent.core.halt import HaltStatus
 from tradingagent.core.market import Direction
 from tradingagent.core.mode import TradingMode
+from tradingagent.core.timeframe import Timeframe
 from tradingagent.data.market_calendar import SlotStatus
 from tradingagent.risk.checks import CHECKS, RiskContext
 from tradingagent.risk.model import OpenPosition, PortfolioState
@@ -335,6 +336,27 @@ def test_three_losses_today_stop_the_day_with_a_clear_motif(mode: TradingMode) -
     assert result.reason == (
         "3 pertes consécutives aujourd'hui, trades arrêtés jusqu'à demain 00:00 UTC"
     )
+
+
+def per_timeframe(runs: dict[Timeframe, int], timeframe: Timeframe | None) -> RiskContext:
+    base = context()
+    return replace(
+        base,
+        intent=replace(base.intent, timeframe=timeframe),
+        portfolio=replace(
+            base.portfolio,
+            losses_today_by_timeframe={tf: DayLossRun(n, NOW.date()) for tf, n in runs.items()},
+        ),
+    )
+
+
+def test_a_timeframe_stops_alone_after_its_own_losses() -> None:
+    runs = {Timeframe.M1: 3, Timeframe.M5: 2}
+    stopped = run("daily_loss_streak", per_timeframe(runs, Timeframe.M1))
+    assert not stopped.passed
+    assert "sur M1" in stopped.reason
+    assert run("daily_loss_streak", per_timeframe(runs, Timeframe.M5)).passed
+    assert run("daily_loss_streak", per_timeframe(runs, Timeframe.M30)).passed
 
 
 def test_the_day_stop_holds_even_when_a_later_trade_closed_in_profit() -> None:

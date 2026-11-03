@@ -78,7 +78,13 @@ def test_each_market_gets_its_own_strategy() -> None:
     )
     subscriptions = _subscriptions(config, catalog)
     assert {subscription.symbol for subscription in subscriptions} == BROKER_SYMBOLS
-    assert all(subscription.timeframe.value == "M15" for subscription in subscriptions)
+    # Scalping: M1, M5, M15 and M30 are scanned in parallel (M15 also learns the calendar).
+    assert {subscription.timeframe.value for subscription in subscriptions} == {
+        "M1",
+        "M5",
+        "M15",
+        "M30",
+    }
     assert len({market.strategy for market in config.markets}) == 1
 
 

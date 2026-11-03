@@ -76,3 +76,28 @@ def test_parse_ref() -> None:
 def test_parse_ref_rejects_malformed_references(ref: str) -> None:
     with pytest.raises(ValueError, match="reference"):
         parse_ref(ref)
+
+
+def test_scan_timeframes_trigger_one_isolated_series_each() -> None:
+    scalper = manifest(timeframes=["M15"], scan_timeframes=["M1", "M5", "M15", "M30"])
+    assert scalper.trigger_timeframes == (
+        Timeframe.M1,
+        Timeframe.M5,
+        Timeframe.M15,
+        Timeframe.M30,
+    )
+    one = scalper.for_timeframe(Timeframe.M5)
+    assert one.timeframes == (Timeframe.M5,)
+    assert one.primary_timeframe is Timeframe.M5
+    assert one.scan_timeframes == ()
+    with pytest.raises(ValueError, match="not a trigger timeframe"):
+        scalper.for_timeframe(Timeframe.H1)
+
+
+def test_without_scan_timeframes_only_the_primary_triggers() -> None:
+    assert manifest().trigger_timeframes == (Timeframe.M15,)
+
+
+def test_scan_timeframes_must_be_unique() -> None:
+    with pytest.raises(ValidationError):
+        manifest(scan_timeframes=["M1", "M1"])
