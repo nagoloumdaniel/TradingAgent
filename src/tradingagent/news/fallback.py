@@ -2,9 +2,9 @@
 
 No model, no network, no clock but the one passed in. The reading is deliberately modest: it
 turns a *figure* into a direction (is it better or worse than expected, and does that favour the
-dollar), and then the dollar into gold and bitcoin (both trade inversely to it, bitcoin less
-reliably). When there is no figure -- a speech, a rate decision whose outcome is unknown -- it
-says "neutral" rather than invent a direction. Confidence is low by construction: a forecast
+dollar), and then the dollar into gold (which trades inversely to it). When there is no figure
+-- a speech, a rate decision whose outcome is unknown -- it says "neutral" rather than invent a
+direction. Confidence is low by construction: a forecast
 against the previous print is an expectation, not a result.
 """
 
@@ -14,7 +14,6 @@ from datetime import datetime
 
 from tradingagent.news.config import DEFAULT_NEWS_CONFIG, BlackoutConfig
 from tradingagent.news.model import (
-    BTCUSD,
     MARKETS,
     XAUUSD,
     Bias,
@@ -107,7 +106,7 @@ def _release_bias(event: EconomicEvent) -> tuple[Bias, float, str]:
     if direction == 0:
         return Bias.NEUTRAL, confidence, wording
     usd_stronger = direction * sign > 0
-    # Dollar stronger -> gold and bitcoin weaker (and the other way round).
+    # Dollar stronger -> gold weaker (and the other way round).
     bias = Bias.BEARISH if usd_stronger else Bias.BULLISH
     flavour = "dollar soutenu" if usd_stronger else "dollar pénalisé"
     return bias, confidence, f"{wording} : {flavour}"
@@ -116,9 +115,7 @@ def _release_bias(event: EconomicEvent) -> tuple[Bias, float, str]:
 def _text_bias(event: EconomicEvent, market: str) -> tuple[Bias, float, str]:
     """Direction for a headline or a speech, from a few unambiguous words."""
     text = f"{event.title} {event.summary}".lower()
-    own_market = (market == BTCUSD and event.currency.upper() in {"BTC", "CRYPTO"}) or (
-        market == XAUUSD and event.currency.upper() == "XAU"
-    )
+    own_market = market == XAUUSD and event.currency.upper() == "XAU"
     if own_market:
         bullish = _BULLISH_WORDS.search(text) is not None
         bearish = _BEARISH_WORDS.search(text) is not None
@@ -139,11 +136,7 @@ def _text_bias(event: EconomicEvent, market: str) -> tuple[Bias, float, str]:
 
 def _bias(event: EconomicEvent, market: str) -> tuple[Bias, float, str]:
     if event.kind is EventKind.RELEASE:
-        bias, confidence, why = _release_bias(event)
-        if market == BTCUSD:
-            # Bitcoin follows the dollar less tightly than gold does.
-            confidence = round(confidence * 0.8, 2)
-        return bias, confidence, why
+        return _release_bias(event)
     return _text_bias(event, market)
 
 

@@ -35,7 +35,7 @@ def two_trades():
             risk_eur=Decimal("100"),
         ),
         Trade(
-            symbol="BTCUSD",
+            symbol="EURUSD",
             strategy_ref="witness@1.0.0",
             direction=Direction.SELL,
             timeframe=Timeframe.M15,

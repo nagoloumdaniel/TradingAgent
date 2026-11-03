@@ -1,6 +1,6 @@
 # Expert Advisors Guardian — compilation et installation
 
-Deux Expert Advisors MQL5, issus du **même include**, exécutent les ordres que le backend
+Un Expert Advisor MQL5, construit sur un **include commun**, exécute les ordres que le backend
 Python autorise, surveillent le compte, protègent les stops et remontent ce qui s'est
 passé. Ils ne décident rien : voir [protocole-pont.md](protocole-pont.md) pour le contrat
 de fichiers et le comportement exact en cas de perte de contact.
@@ -8,8 +8,7 @@ de fichiers et le comportement exact en cas de perte de contact.
 | Fichier | Rôle |
 |---|---|
 | `mt5/Experts/TradingAgent/TradingAgentGuardian.mqh` | le socle commun : lecture du fichier d'état, exécution, vérification, surveillance, protection, kill switch local, journalisation |
-| `mt5/Experts/TradingAgent/BTCUSD_Guardian.mq5` | l'EA du BTC : symbole `BTCUSD`, magic `3031`, fichier `BTCUSD_state.json` |
-| `mt5/Experts/TradingAgent/XAUUSD_Guardian.mq5` | l'EA de l'or : symbole `XAUUSD`, magic `3031`, fichier `XAUUSD_state.json` |
+| `mt5/Experts/TradingAgent/XAUUSD_Guardian.mq5` | l'unique EA, celui de l'or : symbole `XAUUSD`, magic `3031`, fichier `XAUUSD_state.json` |
 | `src/tradingagent/ea/bridge.py` | le côté Python : `publish_state(...)`, `read_reports(...)` |
 | `src/tradingagent/ea/health.py` | `ea_health(reports_dir)`, ce que lit le tableau de bord |
 
@@ -24,17 +23,16 @@ Ajouter un troisième symbole, c'est copier un `.mq5` et changer trois `#define`
 ### Dans MetaEditor (recommandé pour un poste de travail)
 
 1. Ouvrir MetaEditor (F4 depuis le terminal, ou `MetaEditor64.exe`).
-2. `Fichier` > `Ouvrir` et choisir `mt5/Experts/TradingAgent/BTCUSD_Guardian.mq5`.
+2. `Fichier` > `Ouvrir` et choisir `mt5/Experts/TradingAgent/XAUUSD_Guardian.mq5`.
 3. `Compiler` (F7). La fenêtre « Erreurs » doit afficher `0 errors, 0 warnings`.
-4. Répéter avec `XAUUSD_Guardian.mq5`.
-5. Le `.ex5` est produit à côté du `.mq5`.
+4. Le `.ex5` est produit à côté du `.mq5`.
 
 ### En ligne de commande
 
 ```powershell
 $editor = "C:\Program Files\MetaTrader 5 Terminal\MetaEditor64.exe"   # à côté de terminal64.exe
-$file   = (Resolve-Path mt5/Experts/TradingAgent/BTCUSD_Guardian.mq5).Path
-$log    = (Resolve-Path mt5).Path + "\build\BTCUSD_Guardian.log"
+$file   = (Resolve-Path mt5/Experts/TradingAgent/XAUUSD_Guardian.mq5).Path
+$log    = (Resolve-Path mt5).Path + "\build\XAUUSD_Guardian.log"
 & $editor "/compile:$file" "/log:$log"
 Get-Content $log -Encoding Unicode | Select-String 'error|warning|Result'
 ```
@@ -49,10 +47,6 @@ réussit**. C'est la ligne `Result:` du journal qui fait foi, pas `$LASTEXITCODE
 Compilation de référence, exécutée le 2026-10-07 :
 
 ```
-D:\Projets\TradingAgent\mt5\Experts\TradingAgent\BTCUSD_Guardian.mq5 : information: compiling ...
-D:\Projets\TradingAgent\mt5\Experts\TradingAgent\BTCUSD_Guardian.mq5 : information: including ...\TradingAgentGuardian.mqh
-Result: 0 errors, 0 warnings, 8200 ms elapsed, cpu='X64 Regular'
-
 D:\Projets\TradingAgent\mt5\Experts\TradingAgent\XAUUSD_Guardian.mq5 : information: compiling ...
 D:\Projets\TradingAgent\mt5\Experts\TradingAgent\XAUUSD_Guardian.mq5 : information: including ...\TradingAgentGuardian.mqh
 Result: 0 errors, 0 warnings, 16255 ms elapsed, cpu='X64 Regular'
@@ -64,10 +58,10 @@ Les journaux sont en UTF-16 et contiennent, entre autres, la liste complète des
 résolus :
 
 ```powershell
-Get-Content mt5/build/BTCUSD_Guardian.log -Encoding Unicode | Select-String 'error|warning|Result'
+Get-Content mt5/build/XAUUSD_Guardian.log -Encoding Unicode | Select-String 'error|warning|Result'
 ```
 
-Journaux complets : `mt5/build/BTCUSD_Guardian.log` et `mt5/build/XAUUSD_Guardian.log`.
+Journal complet : `mt5/build/XAUUSD_Guardian.log`.
 
 ## 2. Installer
 
@@ -94,18 +88,17 @@ faut faire après toute modification d'un EA.
 
 Ces étapes demandent l'interface, elles ne se scriptent pas :
 
-1. **Ouvrir les graphiques.** Un graphique `BTCUSD` et un graphique `XAUUSD` (n'importe
-   quelle unité de temps : l'EA ne lit aucune bougie).
-2. **Attacher chaque EA au sien.** Glisser `BTCUSD_Guardian` sur `BTCUSD`,
-   `XAUUSD_Guardian` sur `XAUUSD`. Un EA **refuse de démarrer** sur le graphique d'un autre
-   symbole (`INIT_FAILED`) : c'est volontaire.
+1. **Ouvrir le graphique.** Un graphique `XAUUSD` (n'importe quelle unité de temps : l'EA
+   ne lit aucune bougie).
+2. **Attacher l'EA.** Glisser `XAUUSD_Guardian` sur `XAUUSD`. L'EA **refuse de démarrer**
+   sur le graphique d'un autre symbole (`INIT_FAILED`) : c'est volontaire.
 3. **Activer Algo Trading** (le bouton de la barre d'outils). Tant qu'il est désactivé, l'EA
    tourne, remonte `trade_allowed: false`, et n'envoie rien. En démonstration, l'activer est
    sans risque : sans état publié par le backend, il n'y a aucun ordre à exécuter.
 4. **Vérifier le battement de cœur.** Après quelques secondes :
 
    ```powershell
-   Get-Content "$env:APPDATA\MetaQuotes\Terminal\<instance>\MQL5\Files\TradingAgent\reports\BTCUSD_report.json" |
+   Get-Content "$env:APPDATA\MetaQuotes\Terminal\<instance>\MQL5\Files\TradingAgent\reports\XAUUSD_report.json" |
      ConvertFrom-Json | Select-Object symbol, updated_at, connected, trade_allowed, local_halt
    ```
 
@@ -116,12 +109,12 @@ Ces étapes demandent l'interface, elles ne se scriptent pas :
 
 Si vous préférez ne pas utiliser le script : dans MetaEditor, `Fichier` >
 `Ouvrir le dossier de données`, copier le dossier `TradingAgent` de `mt5/Experts/` dans
-`<données terminal>\MQL5\Experts\`, puis compiler (F7) chacun des deux `.mq5` **depuis ce
+`<données terminal>\MQL5\Experts\`, puis compiler (F7) le `.mq5` **depuis ce
 dossier**. Le reste — graphiques, attachement, Algo Trading — est identique.
 
 ## 3. Le paramètre à connaître : le répertoire du pont
 
-Les EAs n'écrivent que dans le bac à sable du terminal :
+L'EA n'écrit que dans le bac à sable du terminal :
 
 ```
 <données terminal>\MQL5\Files\TradingAgent\
@@ -139,14 +132,14 @@ BRIDGE = Path.home() / ("AppData/Roaming/MetaQuotes/Terminal/<instance>/MQL5/Fil
 
 publish_state(
     BRIDGE,
-    "BTCUSD",
+    "XAUUSD",
     magic=3031,
     positions=[
         ExpectedPosition(
             ticket=5001,
             direction=Direction.BUY,
             volume=0.01,
-            stop_loss=62000.0,
+            stop_loss=2640.0,
             comment="ta-0123456789abcdef",
         )
     ],
@@ -156,7 +149,7 @@ publish_state(
             action=OrderAction.OPEN,
             direction=Direction.BUY,
             volume=0.01,
-            stop_loss=62000.0,
+            stop_loss=2640.0,
             comment="ta-0123456789abcdef",
         )
     ],
@@ -165,7 +158,7 @@ publish_state(
 )
 
 print(ea_health(BRIDGE / "reports"))
-# {'BTCUSD': <EaStatus.ONLINE: 'ONLINE'>, 'XAUUSD': <EaStatus.ONLINE: 'ONLINE'>}
+# {'XAUUSD': <EaStatus.ONLINE: 'ONLINE'>}
 ```
 
 Le chemin `<instance>` est une empreinte hexadécimale propre à l'installation. Pour la
@@ -192,9 +185,9 @@ sécurité, pas une dépendance du moteur.
 
 | Geste | Où |
 |---|---|
-| Voir l'état des EAs (tableau de bord) | `ea_health(<bridge>/reports)` → `ONLINE` / `OFFLINE` |
+| Voir l'état de l'EA (tableau de bord) | `ea_health(<bridge>/reports)` → `ONLINE` / `OFFLINE` |
 | Voir le détail d'un EA | `read_reports(<bridge>/reports)` → positions réelles, compteurs, arrêt local |
-| Relire le journal complet | `read_events(<bridge>/reports, "BTCUSD")` ou `reports/BTCUSD_events.jsonl` |
+| Relire le journal complet | `read_events(<bridge>/reports, "XAUUSD")` ou `reports/XAUUSD_events.jsonl` |
 | Arrêter tous les nouveaux ordres depuis Python | `publish_state(..., kill_switch=True)` — immédiat, réversible |
 | Arrêter un EA pour de bon (kill switch local) | créer `control\<SYMBOLE>_halt.txt` avec le motif, ou laisser l'EA le faire lui-même sur divergence |
 | **Repartir** après un arrêt local pour silence | rien à faire : l'EA lève l'arrêt seul dès que le backend republie |
@@ -212,11 +205,11 @@ qu'aucune condition de sécurité ne soit remplie. Le détail et la justificatio
 
 ### Défaut corrigé le 2026-10-07 : le champ `data` rendait le rapport invalide
 
-`LogEvent` reçoit un **fragment** d'objet (`"symbol":"BTCUSD","magic":3031`) ou `"{}"` par
+`LogEvent` reçoit un **fragment** d'objet (`"symbol":"XAUUSD","magic":3031`) ou `"{}"` par
 défaut. Le fragment était écrit tel quel, sans accolades :
 
 ```
-"data":"symbol":"BTCUSD","magic":3031,...
+"data":"symbol":"XAUUSD","magic":3031,...
 ```
 
 Ce n'est pas du JSON. `json.loads` échouait sur **tout le fichier**, `read_json` renvoyait
@@ -236,7 +229,7 @@ redémarrer le terminal.
 
 | Symptôme | Cause probable | Geste |
 |---|---|---|
-| `ea_health` ne renvoie rien | les EAs ne sont pas attachés, ou le mauvais `<instance>` | vérifier le dossier de données, puis les rapports |
+| `ea_health` ne renvoie rien | l'EA n'est pas attaché, ou le mauvais `<instance>` | vérifier le dossier de données, puis les rapports |
 | `ea_health` renvoie `OFFLINE` alors que le rapport vient d'être écrit | rapport **illisible** : `read_json` refuse le fichier entier, donc absent et invalide se ressemblent | ouvrir le `.json` et vérifier qu'il est du JSON valide. C'est le symptôme qu'a produit le défaut `data` corrigé le 2026-10-07 (voir ci-dessous) |
 | `ea_health` renvoie `OFFLINE` | battement de cœur périmé (> 15 s) : EA retiré, terminal fermé, ou rapport corrompu | rouvrir le graphique, regarder l'onglet « Experts » |
 | `local_halt: true`, `halt_reason: divergence d'etat…` | l'état réel ne correspond plus à l'état attendu (RM-014) | réconcilier à la main, puis supprimer `control\<SYMBOLE>_halt.txt` |
@@ -247,7 +240,7 @@ redémarrer le terminal.
 | `PROTECTION` en `CRITICAL` | une position s'est retrouvée sans stop, l'EA l'a fermée | vérifier pourquoi le stop n'a pas été accepté (distance minimale du courtier) |
 | Compilation : `member function not defined` | une méthode déclarée dans la classe n'est pas définie | MetaEditor indique la ligne : déclarer **et** définir, ou retirer la déclaration |
 
-## 6. Vérifier les EAs sans terminal
+## 6. Vérifier l'EA sans terminal
 
 Le côté Python du pont est testable sans MetaTrader 5 :
 

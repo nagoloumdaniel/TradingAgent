@@ -1,7 +1,7 @@
 # L'agent émet des signaux et n'exécute aucun ordre — diagnostic et correctif
 
 **Date :** 2026-10-08 · **Portée :** chemin d'exécution démo, de `strategies` au terminal, sur
-`XAUUSD` et `BTCUSD` · **Aucun seuil de risque, aucune stratégie, aucun manifeste modifié.**
+`XAUUSD` · **Aucun seuil de risque, aucune stratégie, aucun manifeste modifié.**
 
 **En une phrase :** l'agent a produit 10 signaux, ouvert 0 position et clôturé 0 trade ; deux
 causes distinctes l'expliquent, la première est déjà corrigée par le redémarrage de 18:13:52,
@@ -20,7 +20,7 @@ Lecture directe de la base de production (`signals`, `orders`, `positions`, `tra
 | Signaux générés (tout l'historique) | **10** | table `signals` |
 | Fenêtre couverte | 2026-10-08 01:45 → 17:30 UTC | `signals.generated_at` |
 | Décisions de risque | 10 : **8 autorisées**, 2 refusées | `risk_decisions` |
-| Causes de refus | `entry_zone` ×2 (BTCUSD) | `risk_decisions.checks` |
+| Causes de refus | `entry_zone` ×2 | `risk_decisions.checks` |
 | Ordres créés | **4**, tous en état `error` | table `orders` |
 | Positions ouvertes | **0** | table `positions` |
 | Trades clôturés | **0** | table `trades` |
@@ -39,9 +39,9 @@ le compte démo : il n'a **aucune opération** à mesurer.
 Trois des quatre ordres portaient `mode: SIGNAL` alors que l'exécuteur tournait en `DEMO` :
 
 ```
-15:30:10  BTCUSD  order_sent     mode=SIGNAL
-15:30:16  BTCUSD  order_rejected OrderRefusedError('order carries mode SIGNAL,
-                                 this executor runs in DEMO: refused')
+15:30:10  order_sent     mode=SIGNAL
+15:30:16  order_rejected OrderRefusedError('order carries mode SIGNAL,
+                         this executor runs in DEMO: refused')
 ```
 
 Le refus vient de `execution/mt5_broker.py:711` (`_check_mode`). `.env` porte désormais
@@ -83,7 +83,6 @@ Ce n'est pas un bug, c'est un filet de sécurité qui a fonctionné, puis est re
 | Élément | Valeur constatée |
 |---|---|
 | `control\XAUUSD_halt.txt` | `backend silencieux depuis 33 s (limite 30)`, écrit **2026-10-08 19:30:28** |
-| `control\BTCUSD_halt.txt` | même motif, même horodatage |
 | Rapport EA `XAUUSD_report.json` | `local_halt: true`, `kill_switch: false`, `connected: true`, `trade_allowed: true`, `counters.orders_sent: 0` |
 | Pont EA | **fonctionnel** : `applied_revision` 2296, une révision appliquée toutes les ~20 s |
 | Arrêt côté agent | **aucun** : dernière commande `resume` = `market:XAUUSD` le 2026-10-08 13:31 |
@@ -101,9 +100,9 @@ plus de 30 s. Le backend publie de nouveau normalement.
 
 **Procédure (celle de `docs/ea/README.md:200`) :**
 
-1. supprimer `control\XAUUSD_halt.txt` et `control\BTCUSD_halt.txt` ;
-2. redémarrer l'EA sur chacun des deux graphiques (le retirer du graphique et le remettre) ;
-3. vérifier `local_halt: false` dans les deux rapports.
+1. supprimer `control\XAUUSD_halt.txt` ;
+2. redémarrer l'EA sur le graphique (le retirer du graphique et le remettre) ;
+3. vérifier `local_halt: false` dans le rapport.
 
 `trade_allowed: true` prouve déjà que l'AutoTrading est actif : le rapport agrège
 `MQL_TRADE_ALLOWED` **et** le compte **et** l'EA **et** le symbole

@@ -117,11 +117,11 @@ def _prompt(page: ScanPage, text: str, now: datetime, horizon_days: int) -> str:
     return (
         f"Source: {page.label} ({page.url}). Now: {now:%Y-%m-%d %H:%M} UTC.\n"
         f"List the announcements dated between {now:%Y-%m-%d} and {end:%Y-%m-%d} that can move "
-        "gold (XAUUSD) or bitcoin (BTCUSD): central-bank decisions and minutes, speeches and "
+        "gold (XAUUSD): central-bank decisions and minutes, speeches and "
         "press conferences of central-bank chairs or finance ministers, CPI/PCE/jobs/GDP/retail "
-        "releases, treasury auctions, crypto regulation decisions.\n"
+        "releases, treasury auctions.\n"
         'Reply: {"events":[{"starts_at_utc":"YYYY-MM-DDTHH:MM:00Z","currency":"USD|EUR|GBP|JPY|'
-        'CNY|CHF|CAD|AUD|NZD|BTC|XAU","title":"...","impact":"high|medium|low",'
+        'CNY|CHF|CAD|AUD|NZD|XAU","title":"...","impact":"high|medium|low",'
         '"kind":"release|speech","forecast":null,"previous":null,"actual":null}]}\n'
         "Convert the page's time zone to UTC. Skip any event whose time the text does not give. "
         f"At most {MAX_EVENTS_PER_PAGE} events.\n\nPAGE TEXT:\n{text}"

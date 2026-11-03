@@ -2,7 +2,6 @@ from datetime import UTC, datetime, timedelta
 
 from tradingagent.news.fallback import fallback_analysis, fallback_verdict
 from tradingagent.news.model import (
-    BTCUSD,
     XAUUSD,
     Bias,
     EconomicEvent,
@@ -70,14 +69,6 @@ def test_a_published_figure_beats_the_forecast_reading() -> None:
     assert verdict.confidence >= 0.5
 
 
-def test_bitcoin_follows_the_dollar_with_less_conviction() -> None:
-    event = make("Retail Sales m/m", forecast="0.6%", previous="0.2%")
-    gold = fallback_verdict(event, XAUUSD, state(XAUUSD), NOW)
-    bitcoin = fallback_verdict(event, BTCUSD, state(BTCUSD), NOW)
-    assert gold.bias is bitcoin.bias is Bias.BEARISH
-    assert bitcoin.confidence < gold.confidence
-
-
 def test_a_decision_without_figures_is_neutral_and_waits() -> None:
     event = make("FOMC Statement")
     verdict = fallback_verdict(event, XAUUSD, state(XAUUSD), NOW)
@@ -107,25 +98,22 @@ def test_the_stance_follows_the_market_state() -> None:
     assert "inconnu" in unknown.rationale
 
 
-def test_a_crypto_headline_is_read_for_bitcoin_only() -> None:
-    event = make(
-        "SEC approves spot ether ETF as inflows surge",
-        currency="BTC",
-        impact=Impact.MEDIUM,
-        kind=EventKind.HEADLINE,
-    )
-    assert fallback_verdict(event, BTCUSD, state(BTCUSD, "up"), NOW).bias is Bias.BULLISH
-    assert fallback_verdict(event, XAUUSD, state(XAUUSD, "up"), NOW).bias is Bias.NEUTRAL
+def test_a_gold_headline_is_read_for_gold_only() -> None:
+    title = "Gold surges to a record high as safe-haven demand grows"
+    gold_news = make(title, currency="XAU", impact=Impact.MEDIUM, kind=EventKind.HEADLINE)
+    other_news = make(title, currency="USD", impact=Impact.MEDIUM, kind=EventKind.HEADLINE)
+    assert fallback_verdict(gold_news, XAUUSD, state(XAUUSD, "up"), NOW).bias is Bias.BULLISH
+    assert fallback_verdict(other_news, XAUUSD, state(XAUUSD, "up"), NOW).bias is Bias.NEUTRAL
 
 
 def test_a_mixed_headline_is_neutral() -> None:
     event = make(
-        "Bitcoin rallies then crashes",
-        currency="BTC",
+        "Gold rallies then crashes",
+        currency="XAU",
         impact=Impact.MEDIUM,
         kind=EventKind.HEADLINE,
     )
-    assert fallback_verdict(event, BTCUSD, state(BTCUSD), NOW).bias is Bias.NEUTRAL
+    assert fallback_verdict(event, XAUUSD, state(XAUUSD), NOW).bias is Bias.NEUTRAL
 
 
 def test_a_hawkish_fed_speech_is_bearish_for_gold() -> None:
@@ -137,14 +125,14 @@ def test_a_hawkish_fed_speech_is_bearish_for_gold() -> None:
     assert fallback_verdict(event, XAUUSD, state(XAUUSD), NOW).bias is Bias.BEARISH
 
 
-def test_the_analysis_covers_both_markets_and_carries_the_hash() -> None:
+def test_the_analysis_covers_every_market_and_carries_the_hash() -> None:
     event = make("CPI m/m", forecast="0.4%", previous="0.2%")
-    analysis = fallback_analysis(event, {XAUUSD: state(XAUUSD)}, NOW)
-    assert [v.symbol for v in analysis.verdicts] == [XAUUSD, BTCUSD]
+    analysis = fallback_analysis(event, {}, NOW)
+    assert [v.symbol for v in analysis.verdicts] == [XAUUSD]
     assert analysis.source == "fallback"
     assert analysis.input_hash == input_hash(event)
     assert analysis.event_key == event.key
     # A market with no state reading is "unknown", not an error.
-    assert analysis.verdicts[1].stance is Stance.WAIT
+    assert analysis.verdicts[0].stance is Stance.WAIT
     assert all(v.window_end > v.window_start for v in analysis.verdicts)
     assert all(0 <= v.influence <= 100 for v in analysis.verdicts)

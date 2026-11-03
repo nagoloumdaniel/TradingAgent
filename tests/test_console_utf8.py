@@ -58,7 +58,7 @@ def test_a_character_the_legacy_code_page_cannot_encode_survives() -> None:
     with mock.patch.object(sys, "stdout", out), mock.patch.object(sys, "stderr", err):
         use_utf8_console()
 
-    line = "Ordre refusé par le courtier · BTCUSD ACHAT"
+    line = "Ordre refusé par le courtier · XAUUSD ACHAT"
     assert out.encoding == "utf-8"
     line.encode(out.encoding)  # ne lève pas : c'est toute la garantie
 

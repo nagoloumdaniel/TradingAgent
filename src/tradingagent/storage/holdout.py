@@ -3,7 +3,7 @@
 **Le defaut que ce module repare.** `research/protocol.SealedSet` comptait ses ouvertures en
 memoire. Un nouveau `split_dataset` rendait un jeu scelle neuf, compteur a zero : le meme holdout
 pouvait donc etre ouvert indefiniment, et rien ne l'enregistrait. Verifie le 2026-10-10 — apres
-avoir ouvert celui du BTCUSD pour valider `vwap_pullback@1.3.0`, `audit_log` ne contenait pas une
+avoir ouvert un holdout pour valider `vwap_pullback@1.3.0`, `audit_log` ne contenait pas une
 seule ligne le mentionnant. Une regle que personne ne peut relire apres coup n'est pas une regle.
 
 **Pourquoi il vit dans `storage` et pas dans `research`.** `backtest` et `research` sont

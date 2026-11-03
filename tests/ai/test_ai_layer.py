@@ -106,7 +106,7 @@ def overrun_events(engine: Engine) -> list:
 def test_a_malicious_response_cannot_create_a_signal_or_change_any_level(engine: Engine) -> None:
     malicious = answer()[:-1] + (
         ', "take_profit": 99999.0, "stop_loss": 0.0, "volume": 100.0, '
-        '"new_signal": "BUY BTCUSD now", "max_mode": "LIVE"}'
+        '"new_signal": "BUY EURUSD now", "max_mode": "LIVE"}'
     )
     client = FakeClient(malicious)
 

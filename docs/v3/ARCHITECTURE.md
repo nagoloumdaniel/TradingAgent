@@ -1,6 +1,6 @@
 # Architecture v3 — correspondance avec le cahier des charges
 
-> Ce document relie chaque section du cahier « AI Scalping Trading System BTCUSD &
+> Ce document relie chaque section du cahier « AI Scalping Trading System
 > XAUUSD » au code qui la met en œuvre. Il sert de carte de lecture, pas de spécification :
 > la spécification reste le cahier.
 
@@ -24,7 +24,7 @@ propositions qui passent obligatoirement par le protocole de validation.
 
 | § | Sujet | Implémentation |
 |---|---|---|
-| 3 | Deux marchés seulement | `config/agent.yaml` (XAUUSD, BTCUSD) |
+| 3 | Un seul marché : l'or | `config/agent.yaml` (XAUUSD) |
 | 5 | Rôle de l'IA | `ai/analyst.py`, `ai/researcher.py` |
 | 6, 14 | Statuts de stratégie, LIVE immuable | `core/states.py` (`StrategyStatus`), `registry/store.py` |
 | 7, 8 | Recherche multi-familles, données | `backtest/datasets.py`, `research/campaign.py` |

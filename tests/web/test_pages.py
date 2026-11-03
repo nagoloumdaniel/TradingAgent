@@ -62,17 +62,17 @@ def test_overview_shows_the_dataset_and_the_total(seeded_client: TestClient) -> 
 def test_overview_separates_each_market(seeded_client: TestClient) -> None:
     body = seeded_client.get("/").text
     assert seed.XAU in body
-    assert seed.BTC in body
+    assert seed.EUR in body
     assert "11.50" in body  # XAUUSD net profit
-    assert "5.25" in body  # BTCUSD net profit
+    assert "5.25" in body  # EURUSD net profit
     assert "53.00" in body  # XAUUSD notional
-    assert "620.00" in body  # BTCUSD notional
+    assert "7.70" in body  # EURUSD notional
 
 
 def test_overview_states_the_market_and_data_status(seeded_client: TestClient) -> None:
     body = seeded_client.get("/").text
     assert "Données récentes" in body  # the XAUUSD candle is one hour old
-    assert "Données anciennes" in body  # the BTCUSD candle is thirty hours old
+    assert "Données anciennes" in body  # the EURUSD candle is thirty hours old
 
 
 def test_overview_shows_the_strategy_status(seeded_client: TestClient) -> None:
@@ -105,25 +105,25 @@ def test_trades_page_lists_every_closed_trade_of_the_selected_market(
 
     assert "3 trade(s) clôturé(s)" in body  # the three XAUUSD chains, and only those
     assert "witness@1.0.0" in rows
-    assert "trend_breakout@1.0.0" in body  # offered in the strategy selector, as BTCUSD is
+    assert "trend_breakout@1.0.0" in body  # offered in the strategy selector, as EURUSD is
     assert "Achat" in rows
     assert "Vente" in rows
 
 
 def test_trades_page_filters_by_market(seeded_client: TestClient) -> None:
-    body = seeded_client.get("/trades", params={"market": seed.BTC}).text
+    body = seeded_client.get("/trades", params={"market": seed.EUR}).text
     rows = _trades_body(body)
 
     assert "2 trade(s) clôturé(s)" in body
-    assert seed.BTC in rows
+    assert seed.EUR in rows
     assert seed.XAU not in rows
-    assert f"market={seed.BTC}" in body  # the export links carry the active filter
+    assert f"market={seed.EUR}" in body  # the export links carry the active filter
 
 
 def test_trades_page_filters_by_strategy_and_mode(seeded_client: TestClient) -> None:
     by_strategy = seeded_client.get("/trades", params={"strategy": seed.WITNESS}).text
     assert "3 trade(s) clôturé(s)" in by_strategy
-    by_mode = seeded_client.get("/trades", params={"market": seed.BTC, "mode": "DEMO"}).text
+    by_mode = seeded_client.get("/trades", params={"market": seed.EUR, "mode": "DEMO"}).text
     assert "1 trade(s) clôturé(s)" in by_mode
 
 
@@ -145,7 +145,7 @@ def test_trades_page_opens_the_detail_of_one_signal(
 
 
 def test_strategies_page_shows_the_registry_and_the_evidence(seeded_client: TestClient) -> None:
-    """One market at a time: the XAU registry row, then the BTC one behind its own link."""
+    """One market at a time: the XAU registry row, then the EUR one behind its own link."""
     xau = seeded_client.get("/strategies").text
     assert seed.WITNESS in xau
     assert "validé sur 12 mois" in xau
@@ -155,10 +155,10 @@ def test_strategies_page_shows_the_registry_and_the_evidence(seeded_client: Test
     assert "1.4" in xau  # the stored backtest metric, displayed as recorded
     assert seed.BREAKOUT not in xau
 
-    btc = seeded_client.get("/strategies", params={"market": seed.BTC}).text
-    assert seed.BREAKOUT in btc
-    assert "monte_carlo" in btc
-    assert "échoué" in btc
+    eur = seeded_client.get("/strategies", params={"market": seed.EUR}).text
+    assert seed.BREAKOUT in eur
+    assert "monte_carlo" in eur
+    assert "échoué" in eur
 
 
 def test_ai_lab_page_shows_analyses_and_proposals(seeded_client: TestClient) -> None:
@@ -175,7 +175,7 @@ def test_risk_page_shows_limits_exposure_and_the_halt_history(seeded_client: Tes
     assert "0.5 %" in body  # simulated risk per trade, as written in the YAML
     assert "2.0 %" in body  # live risk per trade
     assert "Aucun arrêt actif" in body
-    assert "BTCUSD" in body  # the disabled market
+    assert "EURUSD" in body  # the disabled market
     assert "volatilité excessive" in body
     assert "broker_disconnected" in body
     assert "clock_mismatch" in body
@@ -280,11 +280,11 @@ def test_trades_json_export_carries_every_trade(seeded_client: TestClient) -> No
     assert response.status_code == 200
     payload = json.loads(response.text)
     assert len(payload) == 5
-    assert {entry["symbol"] for entry in payload} == {seed.XAU, seed.BTC}
+    assert {entry["symbol"] for entry in payload} == {seed.XAU, seed.EUR}
 
 
 def test_trades_json_export_honours_the_filters(seeded_client: TestClient) -> None:
-    response = seeded_client.get("/export/trades.json", params={"market": seed.BTC})
+    response = seeded_client.get("/export/trades.json", params={"market": seed.EUR})
     assert len(json.loads(response.text)) == 2
 
 

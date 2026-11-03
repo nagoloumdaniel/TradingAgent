@@ -76,14 +76,14 @@ def test_status_can_be_filtered_by_market(url: str, capsys: pytest.CaptureFixtur
     engine = create_database_engine(url)
     try:
         StrategyRegistry(engine, clock=lambda: NOW).register(
-            "BTCUSD", "trend_breakout@1.0.0", "human", PARAMETERS
+            "EURUSD", "vwap_pullback@1.1.0", "human", PARAMETERS
         )
     finally:
         engine.dispose()
 
-    assert run(url, "registry-status", "--market", "BTCUSD") == 0
+    assert run(url, "registry-status", "--market", "EURUSD") == 0
     out = capsys.readouterr().out
-    assert "trend_breakout@1.0.0" in out
+    assert "vwap_pullback@1.1.0" in out
     assert REF not in out
 
 

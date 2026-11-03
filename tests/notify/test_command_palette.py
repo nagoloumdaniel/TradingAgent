@@ -71,7 +71,7 @@ from tradingagent.storage.models import AuditLogRow, SystemEventRow
 
 OPERATOR, STRANGER = 111, 999
 T0 = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)  # a Tuesday
-MARKETS: tuple[tuple[str, bool], ...] = (("XAUUSD", True), ("BTCUSD", True))
+MARKETS: tuple[tuple[str, bool], ...] = (("XAUUSD", True), ("GBPUSD", True))
 
 # The whole palette, as the operator sees it in /help: nineteen buttons plus /help.
 PALETTE = (
@@ -406,7 +406,7 @@ def test_disable_without_a_symbol_lists_the_markets_it_can_stop(engine: Engine) 
 
     assert answer is not None
     assert_readable(answer)
-    assert [button.label for button in buttons(answer)] == ["XAUUSD", "BTCUSD"]
+    assert [button.label for button in buttons(answer)] == ["XAUUSD", "GBPUSD"]
     assert "plus aucun signal" in answer  # the consequence of the choice
 
 
@@ -428,7 +428,7 @@ def test_portes_without_a_market_offers_the_markets_as_buttons(engine: Engine) -
     assert answer is not None
     assert_readable(answer)
     assert "/portes" in answer  # the usage text stays, the buttons come with it
-    assert [button.label for button in buttons(answer)] == ["XAUUSD", "BTCUSD"]
+    assert [button.label for button in buttons(answer)] == ["XAUUSD", "GBPUSD"]
 
     chosen = click(svc, labelled(answer, "XAUUSD").data)
     assert chosen is not None and "aucune stratégie" in chosen.lower()
@@ -643,21 +643,21 @@ def test_the_confirmation_says_the_action_is_done_and_consumes_the_buttons(
 def test_choosing_a_market_states_the_consequence_then_asks_to_confirm(engine: Engine) -> None:
     svc = service(engine)
 
-    chosen = click(svc, labelled(send(svc, "/disable"), "BTCUSD").data)
+    chosen = click(svc, labelled(send(svc, "/disable"), "GBPUSD").data)
 
     assert chosen is not None
     assert_readable(chosen)
-    assert "BTCUSD" in chosen and "plus aucun signal" in chosen
-    assert not HaltStore(engine).is_halted("market:BTCUSD"), "the choice alone changes nothing"
-    assert commands_recorded(engine)[-1] == {"command": "disable", "args": ["BTCUSD"]}
+    assert "GBPUSD" in chosen and "plus aucun signal" in chosen
+    assert not HaltStore(engine).is_halted("market:GBPUSD"), "the choice alone changes nothing"
+    assert commands_recorded(engine)[-1] == {"command": "disable", "args": ["GBPUSD"]}
 
-    done = click(svc, labelled(chosen, "Confirmer la coupure de BTCUSD").data)
+    done = click(svc, labelled(chosen, "Confirmer la coupure de GBPUSD").data)
 
     assert done is not None and "fait" in done.lower()
-    assert HaltStore(engine).is_halted("market:BTCUSD")
+    assert HaltStore(engine).is_halted("market:GBPUSD")
     assert commands_recorded(engine)[-1] == {
         "command": "disable",
-        "args": ["BTCUSD", "confirmer"],
+        "args": ["GBPUSD", "confirmer"],
     }
 
 
@@ -680,7 +680,7 @@ def test_re_enabling_a_market_does_not_re_enable_the_other_one(engine: Engine) -
 
     halts = HaltStore(engine)
     assert not halts.is_halted("market:XAUUSD")
-    assert not halts.is_halted("market:BTCUSD")
+    assert not halts.is_halted("market:GBPUSD")
 
 
 # --- 5. the adapter: an inline keyboard, never a permanent one ----------------

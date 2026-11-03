@@ -7,15 +7,15 @@ sans serveur Windows, sur le poste de l'opérateur.
 
 ## 0. La réponse en une page
 
-**Le code est fini.** Les deux cahiers sont couverts : 14 paquets, 10 pages de dashboard, deux EA
-compilés, la chaîne de recherche, les portes de validation, l'arrêt d'urgence, les sauvegardes.
+**Le code est fini.** Les deux cahiers sont couverts : 14 paquets, 10 pages de dashboard, un EA
+compilé, la chaîne de recherche, les portes de validation, l'arrêt d'urgence, les sauvegardes.
 Ce qui reste n'est pas du développement : ce sont **quatre décisions**, **une durée** et **une
 machine**. Aucune de ces quatre choses ne peut être faite par un agent.
 
 | Reste | Nature | Durée | Bloque quoi |
 |---|---|---|---|
 | Signer `docs/legal/2026-10-07-verification-operateur.md` | Décision | 30 min de lecture | Toute exécution réelle (phase 9) |
-| Attacher les deux EA à des graphiques MT5 | Geste MT5 | 10 min | Le kill switch local, EF-015 |
+| Attacher l'EA à un graphique MT5 | Geste MT5 | 10 min | Le kill switch local, EF-015 |
 | Trancher PAPER contre DEMO | Décision | 5 min | Le compteur des 30 jours (TASK-071) |
 | Établir `TEST_DATABASE_URL` | Clé | 10 min | 6 tests PostgreSQL qui se sautent |
 | Courir 30 jours en continu | Temps | 30 jours | La recette 22.2, TASK-071 |
@@ -28,8 +28,7 @@ machine**. Aucune de ces quatre choses ne peut être faite par un agent.
 2. la **boucle d'amélioration débloquée** : `backtest_runs` était vide, donc la chaîne
    quotidienne s'arrêtait sur « aucune preuve » avant même de comparer quoi que ce soit ;
 3. un **défaut de baseline corrigé** : `scripts/backtest/improve.py` comparait encore les
-   versions `witness@1.1.0` / `trend_breakout@1.0.0` alors que l'agent exécute `witness@1.1.1`
-   et `trend_breakout@1.0.1`.
+   version `witness@1.1.0` alors que l'agent exécute `witness@1.1.1`.
 
 ---
 
@@ -41,7 +40,7 @@ machine**. Aucune de ces quatre choses ne peut être faite par un agent.
 | Agent | une seule instance, terminal MT5 vivant | processus et lignes de commande |
 | Positions / ordres / trades | 0 / 0 / 0 | base interrogée |
 | Signaux | 2 (1 notifié, 1 refusé par le contrôle de zone) | table `signals` |
-| Bougies | 10 998 lignes XAUUSD + BTCUSD | table `candles` |
+| Bougies | 10 998 lignes XAUUSD | table `candles` |
 | `backtest_runs` | **0 avant aujourd'hui** | table `backtest_runs` |
 | `ai_analyses`, `ai_proposals` | 0 | la boucle IA n'a jamais rien eu à analyser |
 | Campagne paper | **EN COURS, 0 stratégie suivie** | `scripts/paper_campaign.py` |
@@ -61,11 +60,11 @@ pays de résidence, obligations fiscales. **Rien n'est inventé dans ce document
 il attend une signature. Tant qu'elle manque, la phase 9 ne démarre pas et le mode réel reste
 inaccessible (RM-000 exige la double condition).
 
-### 2.2 Attacher les deux EA — 10 minutes, supprime un angle mort
+### 2.2 Attacher l'EA — 10 minutes, supprime un angle mort
 
-Les `XAUUSD_Guardian` et `BTCUSD_Guardian` sont compilés et présents dans
-`%APPDATA%\MetaQuotes\Terminal\<instance>\MQL5\Experts\TradingAgent`. Il reste à les **glisser sur
-un graphique M15** de chaque marché, à autoriser le trading algorithmique, et à vérifier que l'EA
+L'EA `XAUUSD_Guardian` est compilé et présent dans
+`%APPDATA%\MetaQuotes\Terminal\<instance>\MQL5\Experts\TradingAgent`. Il reste à le **glisser sur
+un graphique M15** de l'XAUUSD, à autoriser le trading algorithmique, et à vérifier que l'EA
 se plaint dans le journal s'il ne trouve pas le pont. Sans eux, l'agent tourne (l'EA est un filet,
 pas une dépendance), mais le **kill switch local** n'existe pas : si le backend se tait, personne
 ne ferme. Procédure : [`docs/ea/README.md`](../ea/README.md).
@@ -124,8 +123,7 @@ Deux raisons pour lesquelles elle n'avait encore rien produit :
 
 ### 3.2 Le défaut corrigé au passage
 
-`improve.py` portait la liste des versions en place **en dur** (`witness@1.1.0`,
-`trend_breakout@1.0.0`) sous un commentaire qui affirmait le contraire — « lu depuis les
+`improve.py` portait la version en place **en dur** (`witness@1.1.0`) sous un commentaire qui affirmait le contraire — « lu depuis les
 manifestes de production, pour que la baseline ne dérive pas ». L'agent exécute `witness@1.1.1`
 depuis la dérogation du 2026-10-08 : **chaque « amélioration » aurait été mesurée contre une
 version que personne n'exécute**, et enregistrée sous ce nom dans `backtest_runs`.
@@ -142,7 +140,6 @@ uv run python scripts/backtest/improve.py     # 2026-10-08 05:05 UTC, 11 999 bou
 
 | Marché | Version en place | Objectif (net après coûts) | Variante retenue | Objectif obtenu | Drawdown | Comparaisons | Candidat écrit |
 |---|---|---|---|---|---|---|---|
-| BTCUSD | `trend_breakout@1.0.1` | **−42,35 €** | `channel_period +25 %` → 25 | **−33,52 €** | 113,92 € | 1 | `trend_breakout@1.0.2` |
 | XAUUSD | `witness@1.1.1` | **−7,09 €** | `ema_slow +25 %` → 62 | **+21,51 €** | 42,66 € | 3 | `witness@1.1.2` |
 
 Deux variantes de l'or ont été **refusées par le garde-fou de drawdown** (`ema_fast ±25 %` :
@@ -150,26 +147,23 @@ Deux variantes de l'or ont été **refusées par le garde-fou de drawdown** (`em
 
 **Ce qu'il faut lire dans ce tableau, sans se raconter d'histoires :**
 
-- les deux versions en place **perdent de l'argent** dans le backtest. L'« amélioration » de BTC
-  est un moindre mal (−42 € → −33 €), et celle de l'or est un passage tout juste positif ;
+- la version en place **perd de l'argent** dans le backtest, et l'« amélioration » de l'or est un
+  passage tout juste positif ;
 - le « +403,6 % » affiché pour l'or **ne veut rien dire** : un gain relatif calculé contre une
   référence proche de zéro est un artefact arithmétique. Le chiffre qui compte est l'objectif
   absolu, +21,51 € sur la fenêtre mesurée ;
-- le drawdown de la candidate BTC (113,92 €) dépasse le capital de référence réel (100 €). Cette
-  candidate n'est pas tradable telle quelle, et elle le restera tant que les portes ne l'auront
-  pas dit ;
-- ces deux fichiers sont des **candidats**, pas des promotions. Ils vivent sous
+- ce fichier est un **candidat**, pas une promotion. Ils vivent sous
   `docs/research/candidates/`, et `write_candidate` refuse d'écrire dans `config/strategies/`.
   La campagne du 2026-10-08 a refusé 6 portes sur 9 sur les versions en place : rien ne dit que
-  leurs candidates feront mieux.
+  sa candidate fera mieux.
 
-**Ce que ça a changé dans la base :** `backtest_runs` est passée de 0 à 2 lignes, avec le jeu de
+**Ce que ça a changé dans la base :** `backtest_runs` est passée de 0 à 1 ligne, avec le jeu de
 données, son empreinte, la fenêtre, les coûts et les métriques. La chaîne quotidienne a donc
 maintenant une référence à laquelle se comparer — et **un second défaut a été trouvé en
 exécutant, pas en relisant** : la chaîne enregistre la candidate acceptée comme nouvelle
 référence, alors que `_build_version` ne cherchait le manifeste que dans `config/strategies/`.
 Conséquence : la **première** amélioration acceptée condamnait toutes les suivantes à une
-`ConfigError`, un marché après l'autre. Corrigé dans `src/tradingagent/app.py`
+`ConfigError`. Corrigé dans `src/tradingagent/app.py`
 (`_manifest_of` regarde les deux emplacements, et refuse par son nom une référence introuvable),
 avec trois tests dans `tests/test_app.py`.
 
@@ -184,8 +178,7 @@ Trois façons d'alimenter cette boucle, par ordre de rendement :
 
 1. **laisser courir** : chaque trade clôturé, chaque perte classée, chaque analyse s'accumule ;
 2. **élargir les données** : la campagne a mesuré que les stratégies actuelles ne passent pas les
-   portes ; de l'historique plus long et un marché de plus changeraient la précision des mesures,
-   pas leur signe ;
+   portes ; de l'historique plus long changerait la précision des mesures, pas leur signe ;
 3. **chercher une autre famille de stratégies** : `scripts/backtest/discover.py` explore six
    familles et a retenu un candidat sur dix-sept sur l'or réel ; c'est le chemin honnête, et il
    est lent.
@@ -233,7 +226,7 @@ que ses propres processus. Détail et pannes courantes :
 | # | Action | Durée | Effet |
 |---|---|---|---|
 | 1 | `pwsh -File scripts/install_autostart.ps1 -Status` | 1 min | Confirmer que tout redémarre seul |
-| 2 | Attacher les deux EA aux graphiques M15 | 10 min | Kill switch local |
+| 2 | Attacher l'EA au graphique M15 | 10 min | Kill switch local |
 | 3 | Signer le document de conformité | 30 min | Débloque la phase 9 |
 | 4 | Trancher PAPER contre DEMO | 5 min | Démarre ou écarte le compteur des 30 jours |
 | 5 | Relire et commiter l'arbre de travail | 20 min | Voir l'avertissement ci-dessous |

@@ -5,8 +5,8 @@
 (`docs/research/2026-10-11-ou-est-l-avantage.md`) : la regle `vwap_pullback` perd en moyenne
 -0,15 R par operation sur 59 999 bougies, mais les operations qui vont DANS le sens de la
 tendance nommee (EMA 10/30, pente d'une barre > 0,05 ATR : les valeurs par defaut de
-`indicators.features.entry_features`) rendent +0,30 R (BTC) et +0,22 R (or), celles qui vont
-CONTRE rendent -0,50 R et -0,67 R. Le filtre existant de la regle lisait le meme concept avec
+`indicators.features.entry_features`) rendent +0,22 R (or), celles qui vont
+CONTRE rendent -0,67 R. Le filtre existant de la regle lisait le meme concept avec
 EMA 20/50 et ne gardait que 12 a 15 % des operations sans reproduire l'effet.
 
 **Aucun parametre n'est ajuste ici.** Le candidat est UN seul point, fixe avant la mesure :

@@ -156,18 +156,18 @@ def test_a_trade_the_database_does_not_know_has_no_volatility(engine: Engine) ->
     store_trade(engine, opened_at=NOW, atr=8.2)
 
     assert volatility_of(engine)(a_trade(opened_at=NOW + timedelta(hours=1))) is None
-    assert volatility_of(engine)(a_trade(symbol="BTCUSD")) is None
+    assert volatility_of(engine)(a_trade(symbol="EURUSD")) is None
 
 
 def test_two_trades_are_told_apart_by_symbol_and_opening_time(engine: Engine) -> None:
     store_trade(engine, symbol="XAUUSD", opened_at=NOW, atr=8.2)
     store_trade(engine, symbol="XAUUSD", opened_at=NOW + timedelta(hours=1), atr=15.5)
-    store_trade(engine, symbol="BTCUSD", opened_at=NOW, atr=310.0)
+    store_trade(engine, symbol="EURUSD", opened_at=NOW, atr=12.0)
     read = volatility_of(engine)
 
     assert read(a_trade(symbol="XAUUSD", opened_at=NOW)) == pytest.approx(8.2)
     assert read(a_trade(symbol="XAUUSD", opened_at=NOW + timedelta(hours=1))) == pytest.approx(15.5)
-    assert read(a_trade(symbol="BTCUSD", opened_at=NOW)) == pytest.approx(310.0)
+    assert read(a_trade(symbol="EURUSD", opened_at=NOW)) == pytest.approx(12.0)
 
 
 def test_the_position_volume_is_the_size_reading(engine: Engine) -> None:
@@ -261,7 +261,7 @@ def test_a_fill_without_a_slippage_reading_stays_out_of_the_mean(engine: Engine)
 
 def test_execution_costs_can_be_restricted_to_one_symbol(engine: Engine) -> None:
     gold = store_trade(engine, symbol="XAUUSD")
-    btc = store_trade(engine, symbol="BTCUSD")
+    eur = store_trade(engine, symbol="EURUSD")
     telemetry = ExecutionEventStore(engine)
     telemetry.record(ExecutionEventKind.ORDER_SENT, "XAUUSD", {}, NOW, order_id=gold.order_id)
     telemetry.record(
@@ -271,13 +271,13 @@ def test_execution_costs_can_be_restricted_to_one_symbol(engine: Engine) -> None
         NOW + timedelta(milliseconds=100),
         order_id=gold.order_id,
     )
-    telemetry.record(ExecutionEventKind.ORDER_SENT, "BTCUSD", {}, NOW, order_id=btc.order_id)
+    telemetry.record(ExecutionEventKind.ORDER_SENT, "EURUSD", {}, NOW, order_id=eur.order_id)
     telemetry.record(
         ExecutionEventKind.FILLED,
-        "BTCUSD",
+        "EURUSD",
         {"slippage": "0.5"},
         NOW + timedelta(seconds=5),
-        order_id=btc.order_id,
+        order_id=eur.order_id,
     )
 
     gold_costs = execution_costs(engine, "XAUUSD")

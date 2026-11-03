@@ -41,7 +41,7 @@ AT = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
 WITNESS = "witness@1.0.0"
 BREAKOUT = "trend_breakout@1.0.0"
 XAU = "XAUUSD"
-BTC = "BTCUSD"
+EUR = "EURUSD"
 RISK = Decimal("5.00")
 
 
@@ -334,7 +334,7 @@ def test_each_market_and_strategy_is_measured_separately(engine: Engine) -> None
         engine,
         [Decimal("-4.00")],
         first_day=first_day,
-        market=BTC,
+        market=EUR,
         ref=BREAKOUT,
         index_base=100,
     )
@@ -353,18 +353,18 @@ def test_each_market_and_strategy_is_measured_separately(engine: Engine) -> None
     state = progress(engine, at=AT)
 
     keys = {(strategy.market, strategy.strategy_ref) for strategy in state.strategies}
-    assert keys == {(XAU, WITNESS), (BTC, BREAKOUT)}
-    assert state.markets == (BTC, XAU)
+    assert keys == {(XAU, WITNESS), (EUR, BREAKOUT)}
+    assert state.markets == (EUR, XAU)
     by_key = {(s.market, s.strategy_ref): s for s in state.strategies}
     assert by_key[(XAU, WITNESS)].trades == 3, "two paper trades and one demo trade"
     assert by_key[(XAU, WITNESS)].net_profit == Decimal("115.00")
     assert by_key[(XAU, WITNESS)].venues == ("DEMO", "PAPER")
-    assert by_key[(BTC, BREAKOUT)].trades == 1
-    assert by_key[(BTC, BREAKOUT)].net_profit == Decimal("-4.00")
+    assert by_key[(EUR, BREAKOUT)].trades == 1
+    assert by_key[(EUR, BREAKOUT)].net_profit == Decimal("-4.00")
 
-    only_btc = progress(engine, at=AT, market=BTC)
-    assert len(only_btc.strategies) == 1
-    assert only_btc.strategies[0].market == BTC
+    only_eur = progress(engine, at=AT, market=EUR)
+    assert len(only_eur.strategies) == 1
+    assert only_eur.strategies[0].market == EUR
 
 
 def test_a_plan_can_tighten_the_frozen_criteria() -> None:

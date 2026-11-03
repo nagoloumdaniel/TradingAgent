@@ -60,11 +60,11 @@ REFUSALS = {
     "weekly_loss/at_limit": portfolio(week_pnl=-EQUITY * D("0.06")),
     "drawdown/beyond_limit": portfolio(equity_peak=D(6200)),  # 702 EUR below a 6,200 peak
     "open_positions/full": portfolio(
-        open_positions=(OpenPosition("BTCUSD", D("0.01")), OpenPosition("EURUSD", D("0.01")))
+        open_positions=(OpenPosition("GBPUSD", D("0.01")), OpenPosition("EURUSD", D("0.01")))
     ),
     "market_positions/already_in": portfolio(open_positions=(OpenPosition("XAUUSD", D("0.01")),)),
     "total_exposure/over_the_cap": portfolio(open_exposure_eur=D(8000)),
-    "total_exposure/unmeasured": portfolio(open_positions=(OpenPosition("BTCUSD", D("0.01")),)),
+    "total_exposure/unmeasured": portfolio(open_positions=(OpenPosition("EURUSD", D("0.01")),)),
     "trades_today/limit": portfolio(trades_today=4),
     "spread/wide": context(quote=replace(GOLD_QUOTE, bid=D("2398.7"), ask=D("2400.2"))),
     "spread/no_stop": context(intent=replace(GOLD_BUY, stop_loss=None)),
@@ -192,19 +192,19 @@ def test_a_halt_refusal_names_who_stopped_and_why() -> None:
     assert "weekly loss reached" in run("not_halted", context(halt=halt)).reason
 
 
-# --- RM-008 total exposure: BTC and XAU are summed before the comparison ----------
+# --- RM-008 total exposure: every open position is summed before the comparison ----------
 
 # The cap is `DEFAULT_MAX_TOTAL_EXPOSURE` (2) x 5,497.74 EUR, so 10,995.48 EUR; the
 # intended gold order adds 0.02 x 100 x 2,400.2 x 0.888786 = 4,266.53 EUR.
-BTC_EXPOSURE = D(5000)
+EUR_EXPOSURE = D(5000)
 XAU_EXPOSURE = D(5000)
 
 
-def test_total_exposure_cumulates_btc_and_xau() -> None:
+def test_total_exposure_cumulates_every_open_position() -> None:
     """Each position alone leaves room; held together they breach the ceiling."""
-    assert run("total_exposure", portfolio(open_exposure_eur=BTC_EXPOSURE)).passed
+    assert run("total_exposure", portfolio(open_exposure_eur=EUR_EXPOSURE)).passed
     assert run("total_exposure", portfolio(open_exposure_eur=XAU_EXPOSURE)).passed
-    both = run("total_exposure", portfolio(open_exposure_eur=BTC_EXPOSURE + XAU_EXPOSURE))
+    both = run("total_exposure", portfolio(open_exposure_eur=EUR_EXPOSURE + XAU_EXPOSURE))
     assert not both.passed, both.reason
     assert "open 10000.00" in both.reason  # the two are added, not compared separately
 
@@ -230,7 +230,7 @@ def test_the_exposure_cap_is_a_fraction_of_the_capital_not_a_hard_coded_amount()
 
 
 def test_an_unmeasured_open_exposure_fails_closed() -> None:
-    ctx = portfolio(open_positions=(OpenPosition("BTCUSD", D("0.01")),))
+    ctx = portfolio(open_positions=(OpenPosition("EURUSD", D("0.01")),))
     result = run("total_exposure", ctx)
     assert not result.passed
     assert "open_exposure_eur" in result.reason
@@ -293,7 +293,7 @@ def test_open_positions_never_refuse_when_unlimited_but_report_the_count() -> No
 
 def test_market_positions_never_refuse_when_unlimited_but_report_the_count() -> None:
     gold = tuple(OpenPosition("XAUUSD", D("0.01")) for _ in range(2))
-    ctx = unlimited(portfolio(open_positions=(*gold, OpenPosition("BTCUSD", D("0.01")))))
+    ctx = unlimited(portfolio(open_positions=(*gold, OpenPosition("EURUSD", D("0.01")))))
     result = run("market_positions", ctx)
     assert result.passed
     assert result.reason == "2 open on XAUUSD, unlimited"

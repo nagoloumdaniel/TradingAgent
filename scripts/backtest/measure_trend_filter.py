@@ -2,7 +2,7 @@
 
 **Pourquoi ce script, et pourquoi il doit exister avant toute activation.** Le 2026-10-11, une
 mesure a trouve que les operations prises **dans le sens d'une tendance nommee** rendent
-+0,2975 R (BTC) et +0,2198 R (or), contre -0,5045 R et -0,6707 R pour celles qui la
++0,2198 R (or), contre -0,6707 R pour celles qui la
 contredisent (`docs/research/2026-10-11-ou-est-l-avantage.md`). Mais cette tendance-la vient de
 `indicators/features.py::entry_features` : **EMA 10/30, pente sur une barre, seuil 0,05 ATR**.
 
@@ -21,7 +21,7 @@ Et pour chaque marche, il rapporte le nombre d'operations **refusees** par le fi
 qui coupe 60 % des entrees et double le PF ne se lit pas comme un filtre qui coupe 5 %.
 
     uv run python scripts/backtest/measure_trend_filter.py
-    uv run python scripts/backtest/measure_trend_filter.py --market BTCUSD --bars 20000
+    uv run python scripts/backtest/measure_trend_filter.py --market XAUUSD --bars 20000
 
 Lecture seule : rien n'est promu, rien n'est ecrit dans `config/`, le jeu scelle reste ferme.
 """

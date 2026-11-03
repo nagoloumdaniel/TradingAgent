@@ -6,6 +6,8 @@ voie de décision de production (`strategies.evaluation.evaluate`) et l'analytiq
 production (`analytics.compute_performance`), donc un chiffre de backtest et un chiffre réel
 sortent du même code (C-001).
 
+Seul XAUUSD est suivi ; le BTCUSD a été abandonné le 2026-11-03.
+
 ## Composants
 
 | Module | Rôle |
@@ -83,19 +85,18 @@ une porte « passée » sans preuve serait le pire résultat possible d'une vali
 
 | Porte | Évaluée par | Chiffre | Seuil | Verdict |
 |---|---|---|---|---|
-| `backtest` | `campaign._run_candidate` → `harness.run_backtest` (fenêtre d'apprentissage) | 38 opérations (XAUUSD) / 60 (BTCUSD) | 30 | **passée** |
-| `costs` | `run_backtest` avec le `CostModel` facturé | PF net 1.18 (XAUUSD), 1.34 (BTCUSD) | 1.20 | échouée sur XAUUSD |
+| `backtest` | `campaign._run_candidate` → `harness.run_backtest` (fenêtre d'apprentissage) | 38 opérations (XAUUSD) | 30 | **passée** |
+| `costs` | `run_backtest` avec le `CostModel` facturé | PF net 1.18 (XAUUSD) | 1.20 | échouée sur XAUUSD |
 | `walk_forward` | `protocol.walk_forward` à origine glissante, 6 plis de 250 bougies | 1/6 plis profitables (17 %) | 50 % | échouée |
 | `out_of_sample` | `protocol.confirm` — **une** ouverture du scellé par marché, pour le sélectionné | 14 opérations, rétention 0.43 (XAUUSD) | 30 op. / 0.50 | échouée |
-| `monte_carlo` | `protocol.monte_carlo` (bootstrap) **et** `protocol.monte_carlo_p_value` (inversion de signe) | P(profit) 0.62 (XAUUSD), 0.83 (BTCUSD) | 0.50 | **passée** |
+| `monte_carlo` | `protocol.monte_carlo` (bootstrap) **et** `protocol.monte_carlo_p_value` (inversion de signe) | P(profit) 0.62 (XAUUSD) | 0.50 | **passée** |
 | `stress` | `CostModel.stressed(2.0)` rejoué par `run_backtest` | PF 1.18 à coûts ×2 (XAUUSD) | 1.20 | échouée sur XAUUSD |
-| `parameter_robustness` | `protocol.perturb_parameters` (±10 %) → `protocol.parameter_dispersion` | dispersion 0.62 (XAUUSD), 0.22 (BTCUSD) | 0.50 | échouée sur XAUUSD |
+| `parameter_robustness` | `protocol.perturb_parameters` (±10 %) → `protocol.parameter_dispersion` | dispersion 0.62 (XAUUSD) | 0.50 | échouée sur XAUUSD |
 | `paper` | aucune : TASK-071 mesure 30 jours calendaires et 30 opérations par stratégie (Q-15) | — | — | **non évaluable** |
 | `risk` | aucune : le moteur de risque de production écrit ses verdicts via `StrategyRegistry.record_validation` | — | — | **non évaluable** |
 
 Le tableau ci-dessus est l'agrégat de la campagne : une porte n'est « passée » que si le
-**candidat sélectionné par chaque marché** la franchit. Les chiffres de chaque marché et de
-chaque candidat — y compris ceux qui n'ont pas été sélectionnés — sont dans le JSON, sous
+**candidat sélectionné** la franchit. Les chiffres de chaque candidat — y compris ceux qui n'ont pas été sélectionnés — sont dans le JSON, sous
 `markets[].gates` et `markets[].candidates[].gates`.
 
 Trois propriétés portent le reste, et chacune a ses tests :
@@ -105,7 +106,7 @@ Trois propriétés portent le reste, et chacune a ses tests :
    le contrôle : c'était le défaut d'origine. `require_monte_carlo_evidence` refuse désormais
    de décider si la probabilité manque.
 2. **La correction de sélection multiple paie chaque essai.** Un test par couple
-   (candidat, marché) : 6 ici. Un candidat démoli par la correction **perd sa revendication**
+   (candidat, marché). Un candidat démoli par la correction **perd sa revendication**
    (`significant = False`, donc absent de `CampaignReport.claims()`) sans que ses mesures
    soient réécrites : une correction de sélection ne falsifie pas un chiffre de backtest.
 3. **La sélection ne lit aucun scellé.** Le découpage, le classement et les mesures se font
@@ -114,36 +115,29 @@ Trois propriétés portent le reste, et chacune a ses tests :
 
 ### Ce que vaut la p-value sur les données réelles
 
-Campagne du 2026-10-08, XAUUSD et BTCUSD M15 (3 999 bougies chacun), `witness`, 3 jeux de
-paramètres, alpha = 0.10, six hypothèses :
+Campagne du 2026-10-08, XAUUSD M15 (3 999 bougies), `witness`, 3 jeux de
+paramètres, alpha = 0.10 :
 
-| Candidat | P(profit) | p-value | Rang | Seuil BH de son rang | Significatif |
-|---|---|---:|---:|---:|---|
-| BTCUSD `fast-1.5R` | 0.833 | 0.1638 | 1 | 0.0167 | non |
-| BTCUSD `balanced-2R` | 0.010 | 0.9780 | 6 | 0.1000 | non |
-| BTCUSD `slow-2.5R` | 0.131 | 0.8032 | 5 | 0.0833 | non |
-| XAUUSD `fast-1.5R` | 0.201 | 0.8022 | 4 | 0.0667 | non |
-| XAUUSD `balanced-2R` | 0.616 | 0.2957 | 2 | 0.0333 | non |
-| XAUUSD `slow-2.5R` | 0.327 | 0.4865 | 3 | 0.0500 | non |
+| Candidat | P(profit) | p-value | Significatif |
+|---|---|---:|---|
+| XAUUSD `fast-1.5R` | 0.201 | 0.8022 | non |
+| XAUUSD `balanced-2R` | 0.616 | 0.2957 | non |
+| XAUUSD `slow-2.5R` | 0.327 | 0.4865 | non |
 
-Survivants avant correction **6** → après correction **0**. Autrement dit : sur ces deux
-jeux, **aucun candidat ne se distingue du hasard du nombre d'essais**, et le seuil de
-Bonferroni affiché pour comparaison vaut 0.0167. C'est le résultat attendu d'une stratégie de
+Les trois p-values dépassent alpha = 0.10 : aucune ne peut franchir la correction de
+Benjamini-Hochberg, donc **aucun candidat ne se distingue du hasard du nombre d'essais**.
+C'est le résultat attendu d'une stratégie de
 référence sans avantage démontré, et c'est exactement ce que la campagne laissait implicite
 avant.
 
 La p-value est mesurée sur la **fenêtre de validation**, pour **tous** les candidats, avant
 toute ouverture du scellé. Mesurer la p-value du seul sélectionné sur un scellé ouvert pour
-lui reviendrait à le noter sur des données que sa propre sélection a déjà vues ; mesurer les
-six sur le scellé coûterait six ouvertures. La mesure est donc une borne de validation, et
+lui reviendrait à le noter sur des données que sa propre sélection a déjà vues ; mesurer
+tous les candidats sur le scellé coûterait autant d'ouvertures que de candidats. La mesure est donc une borne de validation, et
 elle est nommée comme telle dans chaque verdict (`measurement`).
 
-Deux détails qui expliquent les chiffres :
+Un détail qui explique les chiffres :
 
-- `BTCUSD fast-1.5R` affiche une probabilité de profit de 0.833 (le bootstrap du P&L réalisé
-  répond à « quels autres ordres de ces mêmes opérations ? ») **et** échoue la porte : sa
-  p-value de 0.1638 ne franchit pas le seuil de son rang, et ses 6 plis de walk-forward ne
-  sont profitables qu'une fois. Une probabilité de profit élevée n'est pas un edge.
 - `walk_forward` compte les plis **joués**. Un pli trop court pour nourrir l'historique
   déclaré du manifeste est *ignoré* et compté séparément : un bloc de 100 bougies ne laisse
   pas la stratégie de référence ouvrir une seule opération, et compter six plis vides comme
@@ -177,13 +171,12 @@ multiplicateur de stress, alpha). Chaque `gate` porte `status`, `evaluated`, `pa
 
 ## Résultats de campagne (2026-10-08)
 
-Jeu réel XAUUSD et BTCUSD M15 ci-dessus, stratégie de référence `witness`, 3 jeux de
+Jeu réel XAUUSD M15 ci-dessus, stratégie de référence `witness`, 3 jeux de
 paramètres, coûts : spread 5 bp, slippage 2 bp, commission 0,5 €, plan de walk-forward
 350/250/200 (max 6 plis), 1 000 tirages Monte-Carlo.
 
-Sélection par marché : `balanced-2R` sur XAUUSD (stabilité 0.41), `fast-1.5R` sur BTCUSD
-(stabilité 0.87) — **sur la stabilité**, jamais sur le profit net. Corrélation BTC/XAU
-`+0.333` sur 2 637 barres (pas de risque cumulé).
+Sélection : `balanced-2R` sur XAUUSD (stabilité 0.41) — **sur la stabilité**, jamais sur
+le profit net.
 
 Portes franchies par la campagne : `backtest` et `monte_carlo`. Promotion **refusée**,
 et le refus est enregistré avec ses motifs : 14 opérations hors échantillon < 30, rétention
@@ -194,26 +187,19 @@ transmise, lue et appliquée, au lieu d'être absente et silencieusement sautée
 
 Le second motif compte autant que les seuils : la campagne a **deux** portes franchies et
 **zéro** découverte. Une porte franchie sur un candidat n'est pas une promotion — la
-correction de sélection multiple a démoli les six candidats, et le rapport le dit avant les
+correction de sélection multiple a démoli tous les candidats, et le rapport le dit avant les
 seuils plutôt qu'après.
-
-Campagne synthétique 8000 bougies (3 marchés, graine 20261007) : sélection également sur la
-stabilité, et corrélations mesurées BTCUSD/ETHUSD `+0.770` (**élevée**), BTCUSD/XAUUSD
-`+0.394`, ETHUSD/XAUUSD `+0.413` — l'or et la crypto ne cumulent pas le même risque, les
-deux cryptos si (Q-07 : à vérifier sur les données définitives).
 
 ## Limites et restes
 
 - Aucun historique Deriv versionné au-delà de ces ~4000 bougies : la profondeur
   réglementaire de TASK-060 reste à constituer (collecte continue).
-- La sélection définitive des 2 à 4 cryptos (Q-07) n'est pas prononcée : elle exige des jeux
-  réels par crypto, pas seulement le jeu XAUUSD de démonstration.
 - Aucune promotion n'a été émise vers `config/strategies/` : ce répertoire appartient au
   Lead ; les manifestes candidats s'écrivent sous `docs/research/` et se chargent avec
   `load_strategy_catalog` sans modification de code.
 - **Défaut connexe relevé, non corrigé ici — `discovery.py`.** Le plan de walk-forward par
   défaut du laboratoire (`DiscoveryProtocol.walk_forward`, 250/100/150) laisse 100 bougies de
-  validation. Mesuré sur les deux jeux réels, la stratégie de référence n'y ouvre **aucune**
+  validation. Mesuré sur le jeu réel, la stratégie de référence n'y ouvre **aucune**
   opération : les plis existent mais ne tradent pas, donc `walk_forward.ratio` vaut 0 et la
   porte roulante est décidée sur une fenêtre vide. Depuis le correctif de TASK-066 un pli
   **absent** est `insufficient_data` (et non `overfitting`), ce qui est plus honnête mais pas

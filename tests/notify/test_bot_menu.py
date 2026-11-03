@@ -147,7 +147,7 @@ def _production_service(settings: Settings) -> CommandService:
         settings,
         HaltStore(engine),
         CandleStore(engine),
-        (("XAUUSD", True), ("BTCUSD", True)),
+        (("XAUUSD", True), ("GBPUSD", True)),
         lambda: NOW,
     )
 

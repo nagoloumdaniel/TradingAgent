@@ -75,7 +75,7 @@ C:\Users\Landh\AppData\Local\Temp\ta-verify\wt\src\tradingagent\data\market_data
         tick = await self._call(self._terminal.last_tick, self._probe)
         if tick is None:
 >           raise ClockMismatchError(f"no tick on {self._probe} to verify the server clock")
-E           tradingagent.data.market_data.ClockMismatchError: no tick on BTCUSD to verify the server clock
+E           tradingagent.data.market_data.ClockMismatchError: no tick on XAUUSD to verify the server clock
 ```
 
 `test_detector_2` établit au passage le mécanisme du gel : sur HEAD, la sonde n'est **jamais**
@@ -184,7 +184,7 @@ avant la vérification ferait trader la boucle avec un offset refusé. Aucun che
 
 `tests/data/conftest.py` rend `FakeTerminal.select` idempotent (il empilait avant). Le changement
 était nécessaire : le correctif appelle `select(sonde)` dans `connect()`, et deux tests existants
-assertent `terminal.selected == ["BTCUSD"]` (`tests/data/test_market_data.py:285` et `:455`).
+assertent `terminal.selected == ["XAUUSD"]` (`tests/data/test_market_data.py:285` et `:455`).
 **Sémantiquement défendable** — `selected` décrit les symboles surveillés, comme `symbol_select`
 —, mais cela retire au champ la capacité d'observer des appels répétés ; ceux-ci restent
 observables par `terminal.calls` (chaque appel y est journalisé). Aucun autre test ne dépend de

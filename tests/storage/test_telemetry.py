@@ -46,18 +46,18 @@ def test_telemetry_is_append_only(engine: Engine) -> None:
     with Session(engine) as session, pytest.raises(Exception, match="append-only"):
         row = session.get(ExecutionEventRow, event_id)
         assert row is not None
-        row.symbol = "BTCUSD"
+        row.symbol = "EURUSD"
         session.commit()
 
 
 def test_latency_pairs_the_two_hops_of_the_same_order(engine: Engine) -> None:
     store = ExecutionEventStore(engine)
-    gold, btc = _signal(engine, "XAUUSD"), _signal(engine, "BTCUSD")
+    gold, eur = _signal(engine, "XAUUSD"), _signal(engine, "EURUSD")
     store.record(ExecutionEventKind.ORDER_SENT, "XAUUSD", {}, NOW, signal_id=gold)
     store.record(
         ExecutionEventKind.FILLED, "XAUUSD", {}, NOW + timedelta(milliseconds=250), signal_id=gold
     )
-    store.record(ExecutionEventKind.ORDER_SENT, "BTCUSD", {}, NOW, signal_id=btc)
+    store.record(ExecutionEventKind.ORDER_SENT, "EURUSD", {}, NOW, signal_id=eur)
 
     stats = store.latency(ExecutionEventKind.ORDER_SENT, ExecutionEventKind.FILLED, symbol="XAUUSD")
     assert stats.sample == 1
@@ -65,7 +65,7 @@ def test_latency_pairs_the_two_hops_of_the_same_order(engine: Engine) -> None:
 
     assert (
         store.latency(
-            ExecutionEventKind.ORDER_SENT, ExecutionEventKind.FILLED, symbol="BTCUSD"
+            ExecutionEventKind.ORDER_SENT, ExecutionEventKind.FILLED, symbol="EURUSD"
         ).sample
         == 0
     )
@@ -74,10 +74,10 @@ def test_latency_pairs_the_two_hops_of_the_same_order(engine: Engine) -> None:
 def test_counts_by_kind(engine: Engine) -> None:
     store = ExecutionEventStore(engine)
     store.record(ExecutionEventKind.ORDER_SENT, "XAUUSD", {}, NOW)
-    store.record(ExecutionEventKind.ORDER_SENT, "BTCUSD", {}, NOW)
+    store.record(ExecutionEventKind.ORDER_SENT, "EURUSD", {}, NOW)
     store.record(ExecutionEventKind.FILLED, "XAUUSD", {}, NOW)
     assert store.count_by_kind() == {"order_sent": 2, "filled": 1}
-    assert store.count_by_kind("BTCUSD") == {"order_sent": 1}
+    assert store.count_by_kind("EURUSD") == {"order_sent": 1}
 
 
 def test_a_trade_lands_in_its_daily_bucket(engine: Engine) -> None:
@@ -113,7 +113,7 @@ def test_a_trade_lands_in_its_daily_bucket(engine: Engine) -> None:
 
 def test_totals_over_a_window_filter_by_market(engine: Engine) -> None:
     store = DailyPerformanceStore(engine)
-    for market, pnl in (("XAUUSD", "10.00"), ("BTCUSD", "-4.00")):
+    for market, pnl in (("XAUUSD", "10.00"), ("EURUSD", "-4.00")):
         store.apply_trade(
             day=NOW,
             mode=TradingMode.PAPER,

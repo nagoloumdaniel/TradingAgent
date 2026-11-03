@@ -1,4 +1,4 @@
-"""Stratégie BTCUSD : VWAP ancré à la journée, momentum, pullback.
+"""Stratégie VWAP ancré à la journée, momentum, pullback.
 
 **Ce que la règle fait, et pourquoi dans cet ordre.** Le VWAP ancré à 00:00 UTC est le prix
 moyen réellement payé sur la journée : au-dessus, les acheteurs du jour sont gagnants, en

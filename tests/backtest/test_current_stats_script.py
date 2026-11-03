@@ -65,7 +65,7 @@ def test_a_disabled_market_is_not_measured(tmp_path: Path) -> None:
             {
                 "markets": [
                     {"symbol": "XAUUSD", "enabled": True, "strategy": "witness@9.9.9"},
-                    {"symbol": "BTCUSD", "enabled": False, "strategy": "trend_breakout@9.9.9"},
+                    {"symbol": "EURUSD", "enabled": False, "strategy": "witness@9.9.9"},
                 ]
             }
         ),
@@ -75,9 +75,9 @@ def test_a_disabled_market_is_not_measured(tmp_path: Path) -> None:
     assert stats.deployed_refs(path) == {"XAUUSD": "witness@9.9.9"}
 
 
-@pytest.mark.parametrize("market", ["XAUUSD", "BTCUSD"])
-def test_the_candidate_carries_the_manifest_parameters(market: str) -> None:
+def test_the_candidate_carries_the_manifest_parameters() -> None:
     """The values come from the manifest, the class from code: nothing is restated here."""
+    market = "XAUUSD"
     ref = declared_markets(AGENT_CONFIG)[market]
     document = yaml.safe_load((ROOT / "config" / "strategies" / f"{ref}.yaml").read_text("utf-8"))
 
@@ -93,9 +93,7 @@ def test_the_charged_costs_are_the_documented_ones() -> None:
     """Same numbers as `run_campaign.py`: a report on other costs would not be comparable.
 
     Les valeurs sont lues sur les constantes du module de coûts, pas recopiées ici : c'est ce
-    qui fait échouer ce test le jour où le modèle change, au lieu de le laisser passer. Il a
-    d'ailleurs échoué quand le spread est passé du modèle (0,5 point de base) au spread mesuré
-    sur le courtier (2,24 points de base), ce qui est exactement son rôle.
+    qui fait échouer ce test le jour où le modèle change, au lieu de le laisser passer.
     """
     dataset = a_dataset()
     price = dataset.candles[0].close
@@ -151,5 +149,5 @@ def test_a_market_without_a_frozen_dataset_is_refused(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr(stats, "DatasetStore", Store)
 
-    with pytest.raises(SystemExit, match="BTCUSD"):
-        stats.main(["--market", "BTCUSD", "--no-write"])
+    with pytest.raises(SystemExit, match="EURUSD"):
+        stats.main(["--market", "EURUSD", "--no-write"])

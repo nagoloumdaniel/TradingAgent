@@ -72,23 +72,20 @@ déclaré. Sans cela, toutes les stratégies partageaient le réglage de la couc
 promotion de filtre par stratégie était impossible — c'est pourtant la décision de
 TASK-044 (garder `shadow` ou promouvoir en `advisory`).
 
-## D-06 — Publication de `witness@1.1.0` et introduction de `trend_breakout@1.0.0`
+## D-06 — Publication de `witness@1.1.0`
 
 **Décision.** `config/strategies/witness@1.1.0.yaml` autorise `XAUUSD` et remplace
-`frxXAUUSD`, nom inexistant sur MT5 (voir ROADMAP, Project Context). Une seconde stratégie,
-`trend_breakout@1.0.0` (cassure de canal de Donchian filtrée par une EMA longue), est
-affectée à `BTCUSD`, ce qui satisfait EF-003 « une stratégie distincte par marché » avec
-deux règles réellement différentes et non deux jeux de paramètres.
+`frxXAUUSD`, nom inexistant sur MT5 (voir ROADMAP, Project Context).
 
-**Pourquoi.** La roadmap signalait explicitement le suivi à faire. Les deux manifestes
-restent plafonnés à `max_mode: SIGNAL` : aucune exécution réelle n'est possible avant
+**Pourquoi.** La roadmap signalait explicitement le suivi à faire. Le manifeste
+reste plafonné à `max_mode: SIGNAL` : aucune exécution réelle n'est possible avant
 TASK-064 et TASK-065 (RM-016). `witness@1.0.0` est conservé : un manifeste déjà utilisé ne
 se réécrit jamais.
 
-**Mise à jour du 2026-10-08.** Les versions publiées ensuite (`witness@1.1.1`,
-`trend_breakout@1.0.1`) relèvent le plafond à `DEMO`, à la demande de l'opérateur, pour
+**Mise à jour du 2026-10-08.** La version publiée ensuite (`witness@1.1.1`)
+relève le plafond à `DEMO`, à la demande de l'opérateur, pour
 répéter le système sur un compte de démonstration : la campagne a refusé 6 portes sur 9, et
-les chiffres sont écrits dans l'en-tête de chaque manifeste. L'invariant « jamais au-dessus de
+les chiffres sont écrits dans l'en-tête du manifeste. L'invariant « jamais au-dessus de
 `SIGNAL` » est remplacé par « jamais au-dessus sans dérogation écrite et datée » — voir
 `docs/decisions/2026-10-08-mode-ceiling-derogation.md`. `LIVE` reste hors d'atteinte sans la
 validation complète des neuf portes du §49.

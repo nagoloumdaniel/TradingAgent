@@ -16,7 +16,6 @@ from tests.web.seed import NOW
 from tradingagent.news.brief import fallback_brief
 from tradingagent.news.fallback import fallback_analysis
 from tradingagent.news.model import (
-    BTCUSD,
     XAUUSD,
     EconomicEvent,
     EventKind,
@@ -36,7 +35,7 @@ from tradingagent.web.calendar_view import (
 from tradingagent.web.sse import fingerprint
 
 CPI_AT = NOW + timedelta(minutes=30)  # 12:30 UTC, 14:30 in Paris (summer time)
-STATES = {XAUUSD: MarketState(XAUUSD), BTCUSD: MarketState(BTCUSD)}
+STATES = {XAUUSD: MarketState(XAUUSD)}
 
 
 def event(
@@ -143,7 +142,7 @@ def test_the_page_shows_the_seeded_events_with_utc_and_paris_times(
     assert "Core CPI m/m" in html
     assert "12:30" in html and "14:30 Paris" in html  # October 7th is summer time
     assert "Calendrier à jour." not in html  # healthy: no banner
-    assert "XAUUSD" in html and "BTCUSD" in html
+    assert "XAUUSD" in html
     assert "Prévision" in html and "Précédent" in html
     assert "Fed Chair Powell speaks" in html  # a speech is an announcement of its day
     assert "Gold slips as the dollar firms" in html  # headlines section
@@ -197,21 +196,21 @@ def test_the_page_carries_a_scored_outlook_per_market(
     html = page(client, "/calendar")
     overview = html.split('id="cal-overview"', 1)[1].split("</section>", 1)[0]
     assert "Score global" not in overview
-    assert overview.count("cal-global-score") == 2
-    assert overview.count('class="cal-outlook"') == 2
-    assert "XAUUSD" in overview and "BTCUSD" in overview
+    assert overview.count("cal-global-score") == 1
+    assert overview.count('class="cal-outlook"') == 1
+    assert "XAUUSD" in overview
     assert "Technique" in overview and "Fondamental" in overview
 
 
-def test_every_announcement_shows_its_score_on_both_markets(
+def test_every_announcement_shows_its_score_on_the_market(
     client: TestClient, filled: NewsStore
 ) -> None:
     html = page(client, "/calendar")
     panel = html.split('id="day-panel"', 1)[1].split("<aside", 1)[0]
     events = panel.count('class="cal-event"')
     assert events >= 1
-    assert panel.count('class="cal-impact-row"') == 2 * events  # XAUUSD and BTCUSD each
-    assert 'aria-label="Impact XAUUSD' in panel and 'aria-label="Impact BTCUSD' in panel
+    assert panel.count('class="cal-impact-row"') == events  # XAUUSD only
+    assert 'aria-label="Impact XAUUSD' in panel
 
 
 def test_the_shortcuts_button_lives_in_the_nav_bar(client: TestClient) -> None:

@@ -50,12 +50,12 @@ def test_reads_closed_utc_candles_from_the_demo_account() -> None:
             credentials,
             TradingMode.SIGNAL,
             expected_server_offset=timedelta(0),
-            clock_probe_symbol="BTCUSD",
+            clock_probe_symbol="XAUUSD",
         )
         try:
             account = await market.connect()
             assert account.is_demo
-            assert await market.select({"XAUUSD", "BTCUSD"}) == {"XAUUSD", "BTCUSD"}
+            assert await market.select({"XAUUSD"}) == {"XAUUSD"}
             now = datetime.now(UTC)
             # `closed_candles` drops the forming bar: asking for N returns N-1 closed candles
             # at most, so 10 closed candles are obtained by asking for 11 (TASK-081 fix).
@@ -63,9 +63,9 @@ def test_reads_closed_utc_candles_from_the_demo_account() -> None:
             assert len(gold) == 10
             assert [c.open_time for c in gold] == sorted(c.open_time for c in gold)
             assert all(c.close_time <= now and c.open_time.tzinfo is UTC for c in gold)
-            bitcoin = await market.closed_candles("BTCUSD", Timeframe.M1, 3)
-            # Bitcoin trades around the clock: its last closed minute must be recent.
-            assert now - bitcoin[-1].close_time < timedelta(minutes=2)
+            minutes = await market.closed_candles("XAUUSD", Timeframe.M1, 3)
+            assert len(minutes) == 2
+            assert all(c.close_time <= now and c.open_time.tzinfo is UTC for c in minutes)
             assert await market.ensure_connected() is True
         finally:
             await market.close()

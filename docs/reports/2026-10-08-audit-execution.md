@@ -165,9 +165,8 @@ Corrigé.
 3. `control/guardian.py:4-6` et `61-73` : le gardien **ne lève jamais** un arrêt global ; seul
    l'arrêt `CONNECTION` est levé automatiquement. L'agent reste arrêté jusqu'à intervention de
    l'opérateur ;
-4. la détection des clôtures ne passait qu'à la bougie **close** (`loop.py:281-292`), et les deux
-   stratégies actives sont en M15 (`config/strategies/witness@1.1.1.yaml:27`,
-   `config/strategies/trend_breakout@1.0.1.yaml:27`) : jusqu'à 15 minutes de fenêtre pendant
+4. la détection des clôtures ne passait qu'à la bougie **close** (`loop.py:281-292`), et la
+   stratégie active est en M15 (`config/strategies/witness@1.1.1.yaml:27`) : jusqu'à 15 minutes de fenêtre pendant
    laquelle chaque cycle (20 s) déclarait la divergence.
 
 Conséquence : **le premier stop touché sur le compte démo arrêtait l'agent** et l'opérateur
@@ -212,7 +211,7 @@ mon périmètre.
 `test_a_quote_without_a_stop_carries_no_rate_at_all` : `quote(symbol, direction, None)` — l'appel
 que fait le pipeline pour mesurer l'exposition — ne calcule **jamais** de taux
 (`mt5_broker.py:163-168`), donc `runtime/pipeline.py:432` retombe toujours sur
-`Decimal(1)`. Pour XAUUSD/BTCUSD (cotés en USD) sur un compte en EUR, l'exposition engagée est
+`Decimal(1)`. Pour XAUUSD (coté en USD) sur un compte en EUR, l'exposition engagée est
 majorée d'environ 8 % : l'erreur est du côté prudent, mais elle est silencieuse et fausserait le
 plafond d'exposition d'un symbole coté en JPY. **Non corrigé** (fichier en lecture seule pour
 cette tâche) → recommandation.

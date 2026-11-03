@@ -26,7 +26,9 @@ LOGIN = 40123456
 NOW = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)
 EQUITY = Decimal("5497.74")
 GOLD = "XAUUSD"
-BTC = "BTCUSD"
+#: A synthetic second market that never closes, to prove one market's session never leaks
+#: into another's.
+OTHER = "EURUSD"
 
 GOLD_SPEC = InstrumentSpec(
     GOLD, Decimal(100), Decimal("0.01"), Decimal("0.01"), Decimal(100), Decimal("0.01"), 10
@@ -72,8 +74,8 @@ def open_calendar(symbol: str = GOLD) -> MarketCalendar:
 def weekend_calendar(symbol: str = GOLD) -> MarketCalendar:
     """A gold-like week, as eight weeks of Deriv bars teach it (TASK-014).
 
-    Trading stops on Friday at 20:45 UTC and resumes on Sunday at 22:00 UTC. Crypto, by
-    contrast, quotes seven days a week: `open_calendar` is its calendar.
+    Trading stops on Friday at 20:45 UTC and resumes on Sunday at 22:00 UTC. `open_calendar` is the
+    calendar of a market that never closes.
     """
     quarters = range(SLOTS_PER_WEEK // 7)
     closed = (
@@ -256,13 +258,13 @@ def candle(open_time: datetime = NOW, close: float = 2400.0) -> Candle:
 
 
 __all__ = [
-    "BTC",
     "EQUITY",
     "GOLD",
     "GOLD_QUOTE",
     "GOLD_SPEC",
     "LOGIN",
     "NOW",
+    "OTHER",
     "RISK",
     "UTC",
     "FakeAi",

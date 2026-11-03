@@ -97,36 +97,18 @@ def a_symbol_info(**changes: float) -> MagicMock:
 def test_a_swap_in_points_becomes_a_price_distance_per_day(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(terminal_module.mt5, "symbol_info", lambda _s: a_symbol_info())
 
-    spec = Mt5Terminal().symbol_spec("BTCUSD")
+    spec = Mt5Terminal().symbol_spec("XAUUSD")
 
     assert spec is not None
     assert spec.swap_long == pytest.approx(-3.0)  # -300 points * 0.01
     assert spec.swap_short == pytest.approx(-0.5)
 
 
-def test_a_swap_in_yearly_interest_is_kept_as_a_rate_not_a_distance(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """SYMBOL_SWAP_MODE_INTEREST_CURRENT: -20 means -20 % a year, which needs the price."""
-    monkeypatch.setattr(
-        terminal_module.mt5,
-        "symbol_info",
-        lambda _s: a_symbol_info(swap_mode=5, swap_long=-20.0, swap_short=-20.0),
-    )
-
-    spec = Mt5Terminal().symbol_spec("BTCUSD")
-
-    assert spec is not None
-    assert spec.swap_long is None and spec.swap_short is None
-    assert spec.swap_rate_long == pytest.approx(-0.20)
-    assert spec.swap_rate_short == pytest.approx(-0.20)
-
-
 def test_a_swap_in_another_unit_is_left_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
     """Money or percentage modes need a conversion this code does not own: no guess."""
     monkeypatch.setattr(terminal_module.mt5, "symbol_info", lambda _s: a_symbol_info(swap_mode=2))
 
-    spec = Mt5Terminal().symbol_spec("BTCUSD")
+    spec = Mt5Terminal().symbol_spec("XAUUSD")
 
     assert spec is not None
     assert spec.swap_long is None and spec.swap_short is None

@@ -18,15 +18,14 @@ CROSS_CHECK_TOLERANCE = Decimal("0.02")
 
 # RM-008 total exposure ceiling, as a fraction of the capital in use (see
 # `RiskLimits.capital`). Two means the notional of every open position plus the intended
-# one never exceeds twice the capital; with the two-position ceiling of RM-008 that lets
-# a full-size gold position and a full-size bitcoin position coexist, while refusing a
-# single position whose tight stop makes the margin cap allow huge leverage.
+# one never exceeds twice the capital, which refuses a single position whose tight stop makes
+# the margin cap allow huge leverage.
 # The operator declares it as `max_total_exposure_pct` in agent.yaml; this is the fallback
 # for callers that build `RiskLimits` directly.
 DEFAULT_MAX_TOTAL_EXPOSURE = Decimal("2")
 
 # RM-012 slippage ceiling, in multiples of the observed spread: a spread-relative cap
-# fits gold and bitcoin alike, exactly as `max_spread_stop_pct` does. One means the
+# fits any instrument, exactly as `max_spread_stop_pct` does. One means the
 # expected adverse slippage may not exceed the spread itself.
 DEFAULT_MAX_SLIPPAGE_TO_SPREAD = Decimal("1")
 
@@ -191,8 +190,8 @@ class PortfolioState:
     # RM-008: current notional exposure of every open position, all markets summed, in
     # EUR. Computed by the caller, because `OpenPosition` carries neither the contract
     # size nor a price — only the caller holds the instrument specs and the quotes of
-    # the markets it is not currently reviewing. Gold and bitcoin must be added together:
-    # their correlation makes separate ceilings an illusion of safety.
+    # the markets it is not currently reviewing. Every market is added together: separate
+    # ceilings per market would be an illusion of safety.
     # None means the caller did not measure it. `check_total_exposure` then fails closed
     # as soon as a position is open, so the ceiling is never silently skipped.
     open_exposure_eur: Decimal | None = None

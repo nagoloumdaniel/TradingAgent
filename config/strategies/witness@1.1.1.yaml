@@ -23,7 +23,7 @@
 # reel, qui exigerait `max_mode: LIVE` ET les neuf portes franchies (RM-016, RM-017).
 #
 # Chiffres de validation qui manquent. RELEVE LE 2026-10-10 : les valeurs publiees ici le
-# 2026-10-08 (0,92 BTC et 1,04 or) etaient FAUSSES dans le sens favorable, et c'est la grandeur
+# 2026-10-08 (1,04 or) etaient FAUSSES dans le sens favorable, et c'est la grandeur
 # meme qui justifie la derogation. Deux causes, toutes deux verifiees :
 #   1. elles venaient d'une campagne anterieure au correctif du modele de spread (commit
 #      ec29b38, « le modele de spread etait faux de quatre et demi, et il etait copie douze
@@ -34,7 +34,7 @@
 # spread observe, couts du depot). Deux sources distinctes, et la distinction compte :
 #   * lus dans docs/research/stats/XAUUSD-witness@1.1.1.json — profit factor net, fenetre de
 #     validation : 0,8841 (or, 38 operations, -32,15 EUR), en entraînement 0,6255 (106
-#     operations) ; pour le BTC, 0,8391 (47 operations, -53,82 EUR) et 0,8124 (209 operations) ;
+#     operations) ;
 #   * issus de la campagne du 2026-10-08 sur le meme jeu, PAS des fichiers ci-dessus :
 #     p-value minimale 0,3497 contre la ligne de Bonferroni 0,016667, soit 21 fois au-dessus, et
 #     0 survivant sur 6 apres correction du taux de fausses decouvertes. Source :

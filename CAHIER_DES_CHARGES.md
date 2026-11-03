@@ -1,7 +1,7 @@
 # Cahier des charges — Agent de signaux de trading Deriv
 
-**Version :** 1.2
-**Date :** 2026-10-01
+**Version :** 1.3
+**Date :** 2026-11-03
 **Statut :** Spécification de référence — stratégies non définies, en attente des backtests
 **Propriétaire :** Daniel (opérateur unique), résident fiscal France
 **Type de projet :** Agent logiciel autonome 24/7, sans interface graphique (Telegram est l'unique interface utilisateur)
@@ -12,7 +12,8 @@
 |---|---|---|
 | 1.0 | Version initiale | — |
 | 1.2 | **Accès au courtier modifié : MetaTrader 5 au lieu de l'API WebSocket Deriv.** C-003 et Q-01 tranchées en faveur de l'option C. Ajout de C-010. Hébergement Windows au lieu de Linux. Sections 10.1, 12.1 et 17, F-001, F-016 et RM-017 réécrites | L'API Deriv n'est pas accessible à un résident français : la création de jeton renvoie « indisponible dans votre pays », et la liste des pays de l'API ne cite la France que pour MT5. Constat du 2026-10-03 |
-| 1.1 | **Périmètre marchés modifié :** les indices synthétiques Deriv sont retirés, remplacés par deux à quatre cryptomonnaies en contrat pour différence. Capital de référence fixé à 100 €. Règles de risque RM-005 à RM-007 recalibrées. Ajout de la contrainte C-008 et de la règle RM-019 | Vérification du compte réel : les indices synthétiques ne sont pas accessibles à un résident français, l'entité européenne de Deriv ne les proposant pas. Le risque R-11 du présent document s'est matérialisé avant tout développement |
+| 1.1 | **Périmètre marchés modifié :** les indices synthétiques Deriv sont retirés, remplacés par l'or et un second marché (abandonné depuis, voir la version 1.3). Capital de référence fixé à 100 €. Règles de risque RM-005 à RM-007 recalibrées. Ajout de la contrainte C-008 et de la règle RM-019 | Vérification du compte réel : les indices synthétiques ne sont pas accessibles à un résident français, l'entité européenne de Deriv ne les proposant pas. Le risque R-11 du présent document s'est matérialisé avant tout développement |
+| 1.3 | **Périmètre réduit à l'or (XAUUSD) :** le second marché est abandonné. Les exigences qui ne portaient que sur lui, ou sur « une stratégie distincte par marché » (EF-003), sont marquées abandonnées sans renumérotation | Décision de l'opérateur du 2026-11-03 : le projet se concentre sur l'or |
 
 ---
 
@@ -32,9 +33,9 @@ Chaque affirmation de ce document porte un statut. Ne jamais traiter une proposi
 
 ## 1. Résumé exécutif
 
-Le projet consiste à construire un agent logiciel fonctionnant en continu sur un serveur distant, qui surveille un panier restreint de marchés Deriv (l'or `frxXAUUSD` et deux à quatre cryptomonnaies en contrat pour différence), applique une stratégie propre à chaque marché, et transmet les signaux d'entrée et de sortie à l'opérateur via un bot Telegram. `[CONFIRMÉ]`
+Le projet consiste à construire un agent logiciel fonctionnant en continu sur un serveur distant, qui surveille un marché Deriv, l'or (`frxXAUUSD`, en contrat pour différence), applique une stratégie dédiée à ce marché, et transmet les signaux d'entrée et de sortie à l'opérateur via un bot Telegram. `[CONFIRMÉ]`
 
-Le choix des cryptomonnaies remplace celui des indices synthétiques, inaccessibles depuis la France. Il préserve la propriété recherchée à l'origine : un marché ouvert en continu, y compris le week-end, période durant laquelle l'or est fermé. L'agent dispose ainsi en permanence d'au moins un marché actif. `[DÉDUIT]`
+Le choix de l'or remplace celui des indices synthétiques, inaccessibles depuis la France. La version 1.1 y avait ajouté un second marché, ouvert en continu y compris le week-end, pour que l'agent dispose toujours d'un marché actif ; ce second marché est abandonné depuis le 2026-11-03. L'or ferme le week-end : l'agent est donc inactif du vendredi soir au dimanche soir. `[DÉDUIT]`
 
 Le système est conçu en trois couches strictement séparées : une couche **stratégie** déterministe qui produit des signaux candidats, une couche **intelligence artificielle** qui explique et peut filtrer ces signaux sans jamais en créer, et une couche **gestion du risque** qui dispose du dernier mot et peut refuser toute opération. `[CONFIRMÉ]`
 
@@ -50,7 +51,7 @@ Aucune rentabilité n'est garantie. Le système est un outil d'analyse, d'automa
 
 ### 2.1 Problème
 
-L'opérateur souhaite exploiter un petit nombre de marchés avec une discipline systématique, sans devoir surveiller les graphiques en permanence ni laisser son poste de travail allumé. La surveillance manuelle est incompatible avec des marchés qui cotent 24 heures sur 24, ce qui est le cas des cryptomonnaies retenues. `[DÉDUIT]`
+L'opérateur souhaite exploiter un marché, l'or, avec une discipline systématique, sans devoir surveiller les graphiques en permanence ni laisser son poste de travail allumé. La surveillance manuelle est incompatible avec un marché qui cote presque en continu en semaine. `[DÉDUIT]`
 
 ### 2.2 Vision
 
@@ -81,7 +82,7 @@ La sélection d'une stratégie ne se fait pas sur le profit historique le plus �
 | Élément | Statut |
 |---|---|
 | Or, symbole Deriv `frxXAUUSD` | `[CONFIRMÉ]` |
-| Deux à quatre cryptomonnaies en contrat pour différence, à sélectionner | `[CONFIRMÉ]` / sélection `[À CONFIRMER]`, voir Q-07 |
+| Second marché (abandonné) | Abandonné le 2026-11-03 : périmètre réduit à l'or, voir Q-07 |
 | Connexion unique au terminal MetaTrader 5 de Deriv, source des données et de l'exécution | `[CONFIRMÉ]` en version 1.2, voir C-010 |
 | Génération de signaux et notification Telegram | `[CONFIRMÉ]` |
 | Commandes de pilotage et d'arrêt d'urgence via Telegram | `[CONFIRMÉ]` |
@@ -97,7 +98,7 @@ La sélection d'une stratégie ne se fait pas sur le profit historique le plus �
 
 | Élément | Statut |
 |---|---|
-| Marchés autres que l'or et les cryptomonnaies retenues | `[CONFIRMÉ]` |
+| Marchés autres que l'or | `[CONFIRMÉ]` |
 | **Indices synthétiques Deriv** | **Retirés du périmètre en version 1.1** — indisponibles pour un résident français, voir C-008. Réintégrables uniquement si la résidence fiscale ou l'entité du compte change |
 | Analyse de l'ensemble des marchés disponibles | `[CONFIRMÉ]` |
 | Moteur de backtest exécuté à l'intérieur du processus de production | `[CONFIRMÉ]` — voir C-001 |
@@ -213,9 +214,9 @@ Les points suivants opposent deux informations fournies. Aucun ne doit être tra
 - les options binaires, c'est-à-dire les contrats à durée fixe de type hausse ou baisse, sont interdites aux particuliers dans l'Union européenne. **L'option B de C-003 est donc écartée définitivement**, non pour des raisons techniques mais réglementaires `[À VÉRIFIER auprès du fournisseur, mais l'hypothèse de travail est l'interdiction]` ;
 - le levier applicable à l'or est plafonné réglementairement, ce qui augmente la marge requise et interagit avec la contrainte de capital décrite en C-009.
 
-**Résolution retenue `[CONFIRMÉ]` :** le périmètre devient l'or plus deux à quatre cryptomonnaies en contrat pour différence. Le critère de substitution n'est pas la ressemblance statistique avec les synthétiques, qu'aucun actif réel ne reproduit, mais la propriété opérationnelle recherchée : **un marché ouvert en continu**, afin que l'agent ne soit pas inactif du vendredi soir au dimanche soir.
+**Résolution retenue `[CONFIRMÉ]` :** le périmètre devient l'or. La version 1.1 y avait ajouté un second marché, retenu pour sa propriété opérationnelle (**un marché ouvert en continu**, afin que l'agent ne soit pas inactif du vendredi soir au dimanche soir) ; ce second marché est abandonné le 2026-11-03 (version 1.3). L'agent est donc de nouveau inactif pendant la fermeture de l'or le week-end.
 **Conséquence sur l'architecture :** aucune. Le moteur est multi-marchés et agnostique quant à la classe d'actif. Seules la configuration des marchés et la recherche de stratégies sont affectées.
-**Conséquence sur la recherche :** significative. Les cryptomonnaies présentent une volatilité, une structure de tendance et un comportement de week-end différents de ceux de l'or. Aucune stratégie n'est transférable de l'un à l'autre sans validation propre, conformément à RM-003.
+**Conséquence sur la recherche :** la recherche ne porte plus que sur l'or. Aucune stratégie n'est transférable à un autre marché sans validation propre, conformément à RM-003.
 
 ### C-009 — Capital de référence contre tailles minimales du courtier `[CONTRAINTE]`
 
@@ -345,7 +346,7 @@ Les fonctionnalités critiques sont spécifiées intégralement. Les autres sont
 
 ### F-005 — Connaissance des horaires de marché
 
-**Description :** distinguer les cryptomonnaies, qui cotent en continu, de l'or, dont le marché ferme le week-end. `[CONFIRMÉ]`
+**Description :** connaître les horaires de l'or, dont le marché ferme le week-end. `[CONFIRMÉ]`
 **Fonctionnement :** interrogation périodique des horaires de négociation publiés par l'API pour chaque symbole, mise en cache, et exposition d'un état de marché consultable par les autres modules.
 **Critères d'acceptation :**
 - aucun signal n'est émis sur un symbole dont le marché est fermé ;
@@ -371,7 +372,7 @@ Les fonctionnalités critiques sont spécifiées intégralement. Les autres sont
 **Règles métier :** RM-003, RM-016.
 **Cas d'erreur :** manifeste invalide, version inconnue, symbole non autorisé pour cette stratégie, données insuffisantes.
 **Critères d'acceptation :**
-- une stratégie déclarée pour l'or ne peut pas être appliquée à une paire crypto sans modification explicite de son manifeste ;
+- une stratégie déclarée pour l'or ne peut pas être appliquée à un autre symbole sans modification explicite de son manifeste ;
 - un manifeste invalide est refusé au chargement, l'ancienne configuration restant active, et l'incident est notifié ;
 - le rechargement d'une configuration ne nécessite pas de redéploiement complet ;
 - **limite explicite `[CONTRAINTE]` :** un changement de paramètres se fait par configuration seule, mais un changement de logique exige un nouveau module de code, testé et déployé. Cette limite contredit l'affirmation « pas de code à toucher pour changer une stratégie », qui n'est vraie que pour les changements de paramètres. Elle doit être comprise avant toute planification de la recherche.
@@ -565,7 +566,7 @@ Priorités : `P0` bloquant, `P1` essentiel, `P2` important, `P3` souhaitable. Le
 |---|---|---|---|---|
 | EF-001 | Le système fonctionne en continu sans le poste de l'utilisateur | P0 | F-001, F-024 | Le service survit à la déconnexion du poste et à un redémarrage du serveur |
 | EF-002 | Seuls les symboles de la liste blanche sont analysés | P0 | F-004 | Test : un symbole hors liste n'est jamais souscrit |
-| EF-003 | Une stratégie distincte est affectable à chaque marché | P0 | F-007 | Deux marchés tournent avec deux stratégies différentes |
+| EF-003 | ~~Une stratégie distincte est affectable à chaque marché~~ Abandonné le 2026-11-03 : périmètre réduit à l'or | — | F-007 | — |
 | EF-004 | Les signaux sont transmis sur Telegram | P0 | F-013 | Réception d'un signal complet en conditions réelles |
 | EF-005 | Chaque signal contient entrée, stop, objectifs et version | P0 | F-013 | Contrôle du gabarit de message |
 | EF-006 | Les doublons de signaux et d'ordres sont bloqués | P0 | F-012 | Tests de concurrence et de redémarrage |
@@ -670,22 +671,22 @@ Priorités : `P0` bloquant, `P1` essentiel, `P2` important, `P3` souhaitable. Le
 
 **Propriété garantie :** le risque réalisé `V × L1` ne dépasse jamais `E × r`, puisque l'arrondi se fait vers le bas.
 
-**Ce qui est interdit :** utiliser `trade_tick_value` pour calculer un risque. Mesuré le 2026-10-03, il n'est exact que pour l'or, faux de 11 à 15 % sur la crypto, et faux de 89 % sur certains indices.
+**Ce qui est interdit :** utiliser `trade_tick_value` pour calculer un risque. Mesuré le 2026-10-03, il n'est exact que pour l'or, faux de 11 à 15 % sur un autre type d'actif, et faux de 89 % sur certains indices.
 
 **Exemples de référence**, tirés du relevé de TASK-003 (1 USD = 0,888786 EUR). Ils serviront de cas de test à TASK-035.
 
-| | Exemple 1 — or, démonstration | Exemple 2 — or, réel | Exemple 3 — BTC, démonstration |
-|---|---|---|---|
-| `E`, `r` | 5 497,74 €, 0,5 % → 27,49 € | 100 €, 2 % → 2,00 € | 5 497,74 €, 0,5 % → 27,49 € |
-| Distance du stop | 12,3073 $ | 12,3073 $ | 104,1262 $ |
-| `L1'` / `L1` | 1 093,86 € / 1 094,00 € (écart 0,01 %) | idem | 92,55 € / 92,00 € (écart 0,59 %) |
-| `M1` | 18 393 € | 18 393 € | 37 634 € |
-| `V_risque` / `V_marge` | 0,02513 / 0,14945 | 0,00183 / 0,00272 | 0,29703 / **0,07304** |
-| Volume final | **0,02 lot** | 0,00 < 0,01 → **refus** | **0,07 lot**, limité par la marge |
-| Risque réalisé | 21,88 € (0,40 %) | — | 6,48 € (0,12 %) |
-| Marge engagée | 367,86 € | — | 2 634,38 € |
+| | Exemple 1 — or, démonstration | Exemple 2 — or, réel |
+|---|---|---|
+| `E`, `r` | 5 497,74 €, 0,5 % → 27,49 € | 100 €, 2 % → 2,00 € |
+| Distance du stop | 12,3073 $ | 12,3073 $ |
+| `L1'` / `L1` | 1 093,86 € / 1 094,00 € (écart 0,01 %) | idem |
+| `M1` | 18 393 € | 18 393 € |
+| `V_risque` / `V_marge` | 0,02513 / 0,14945 | 0,00183 / 0,00272 |
+| Volume final | **0,02 lot** | 0,00 < 0,01 → **refus** |
+| Risque réalisé | 21,88 € (0,40 %) | — |
+| Marge engagée | 367,86 € | — |
 
-**Lecture de l'exemple 3 :** avec un levier de 1:2, une position BTC est bornée par la marge bien avant le risque. Même en démonstration avec plus de 5 000 €, le risque réel par opération sur le BTC sera d'environ 0,1 % au lieu de 0,5 %. C'est mécanique et voulu ; les rapports devront l'indiquer pour ne pas sous-interpréter les résultats du BTC.
+**Exemple 3 :** abandonné le 2026-11-03 : périmètre réduit à l'or.
 
 ### RM-005 — Risque par opération `[révisée en 1.1, voir C-009]`
 **Condition :** calcul de la taille de position.
@@ -910,11 +911,11 @@ Aucun jeton n'est partagé entre environnements. `[CONFIRMÉ]`
 | Indices synthétiques | Indisponibles sur ce compte | `[CONFIRMÉ]` le 2026-10-01, voir C-008 |
 | Nom du symbole de l'or | `XAUUSD` (profit en dollars) et `XAUEUR` (profit en euros) | `[CONFIRMÉ]` le 2026-10-03, rapport TASK-003 |
 | Indices synthétiques sur MT5 | Visibles sur le compte démo, **mais refusés à l'exécution : « Instruments blocked in France »**, retcode 10006 | `[CONFIRMÉ]` le 2026-10-04 par un ordre de test. **Hors périmètre, C-008 confirmée** |
-| Exécution crypto | Ordre BTCUSD exécuté avec stop-loss et take-profit natifs, puis refermé | `[CONFIRMÉ]` le 2026-10-04 |
+| Exécution sur le second marché | Abandonné le 2026-11-03 : périmètre réduit à l'or | — |
 | Fiabilité de `order_check` | Répond favorablement à un ordre que le serveur refusera pour raison de juridiction | `[CONTRAINTE]` : seul le code retour de `order_send` fait foi |
-| Symboles crypto | Deux à quatre, à sélectionner | `[À CONFIRMER]` — liste établie à partir des symboles réellement visibles sur le compte, et non d'une documentation générale. Critères en Q-07 |
+| Symboles du second marché | Abandonné le 2026-11-03 : périmètre réduit à l'or, voir Q-07 | — |
 | Spécifications de contrat | Taille de contrat, lot minimal, pas de lot, marge, risque minimal | `[CONFIRMÉ]` en démonstration le 2026-10-03, voir `docs/reports/2026-10-03-mt5-capabilities.md`. **La valeur du tick fournie par MT5 n'est fiable que pour l'or** : le risque se calcule avec le calculateur de profit du terminal |
-| Historique | Bougies et ticks lus depuis le serveur du courtier | `[CONFIRMÉ]` : H1 depuis 2011 pour l'or et le BTC ; M15 au-delà du plafond de 100 000 bougies du terminal ; ticks crypto depuis janvier 2025 seulement |
+| Historique | Bougies et ticks lus depuis le serveur du courtier | `[CONFIRMÉ]` : H1 depuis 2011 pour l'or ; M15 au-delà du plafond de 100 000 bougies du terminal |
 | Plafond de bougies du terminal | Toute demande de 100 000 bougies ou plus est refusée en bloc | `[CONTRAINTE]` mesurée : demander au plus le plafond moins un, paginer au-delà |
 | Horaires de négociation | Sessions par symbole, fournies par le terminal | `[DÉDUIT]` de l'exigence EF-020 |
 | Heure serveur | Le terminal date les bougies à l'heure du serveur du courtier | **Serveur de démonstration à l'heure universelle, sans heure d'été** `[CONFIRMÉ]` le 2026-10-03 par mesure directe et par le calendrier de l'or. Serveur réel `[À CONFIRMER]` avant la phase 9 |
@@ -1074,12 +1075,12 @@ Les backtests intensifs sont exécutés sur une machine distincte afin de ne pas
 | R-08 | Dépassement du budget d'appels au modèle | Moyenne | Faible | Moyen | Appel limité aux signaux candidats, plafond mensuel, compteur |
 | R-09 | Compromission du bot Telegram | Faible | Très élevé | Élevé | Liste blanche, confirmations, impossibilité d'activer le mode réel depuis Telegram seul |
 | R-10 | Perte de données par absence de sauvegarde vérifiée | Faible | Élevé | Moyen | Restauration testée, plusieurs points de restauration |
-| R-11 | Contrainte réglementaire ou contractuelle non vérifiée | ~~Moyenne~~ **Réalisé** | Très élevé | **Matérialisé le 2026-10-01** | Indices synthétiques indisponibles pour un résident français. Périmètre rebâti sur l'or et la crypto, voir C-008. **Risque résiduel :** l'autorisation du trading automatisé sur le compte et les obligations fiscales françaises restent à vérifier avant tout passage en réel, en TASK-090 |
+| R-11 | Contrainte réglementaire ou contractuelle non vérifiée | ~~Moyenne~~ **Réalisé** | Très élevé | **Matérialisé le 2026-10-01** | Indices synthétiques indisponibles pour un résident français. Périmètre rebâti sur l'or, voir C-008. **Risque résiduel :** l'autorisation du trading automatisé sur le compte et les obligations fiscales françaises restent à vérifier avant tout passage en réel, en TASK-090 |
 | R-13 | Capital insuffisant pour la taille minimale négociable | **Élevée** | Moyen | Élevé | Règle RM-019 : un instrument dont le risque minimal dépasse le plafond autorisé est déclaré inéligible au mode réel, sans bloquer les autres modes. Mesure des tailles minimales en TASK-003 |
 | R-14 | Confusion entre validation de la mécanique et validation de la performance | **Élevée** | Élevé | **Critique** | À 100 €, le mode réel ne peut pas produire de statistiques interprétables (C-009). Les rapports doivent séparer explicitement les chiffres de démonstration et de réel, et ne jamais les agréger. Aucune décision de stratégie ne doit s'appuyer sur les résultats réels à ce niveau de capital |
 | R-15 | Dépendance à Windows et au terminal MT5 : terminal fermé, déconnecté, mis à jour ou bloqué par une fenêtre | **Élevée** | Élevé | Élevé | Contrôle de santé du terminal à chaque cycle, suspension du trading dès qu'il ne répond plus, redémarrage automatique de l'agent et du terminal, alerte Telegram. Introduit par C-010 |
 | R-16 | Heure du serveur du courtier prise pour l'heure universelle | ~~Moyenne~~ **Faible** — serveur démo mesuré à l'heure universelle le 2026-10-03 | **Très élevé** | Moyen, jusqu'à vérification du serveur réel | Bougies décalées de plusieurs heures, horaires de marché faux, rapports quotidiens coupés au mauvais moment, et parité avec l'historique rompue. Mesure du décalage en TASK-003, conversion à l'entrée unique des données, test dédié, et suivi des changements d'heure d'été du serveur |
-| R-17 | Levier crypto plafonné à 1:2 dans l'Union : marge minimale supérieure au capital réel | **Élevée** | Moyen | Élevé | Traité par RM-019 : la crypto peut être déclarée inéligible au mode réel tout en restant pleinement active en démonstration. Mesure des tailles minimales en TASK-003 |
+| R-17 | ~~Levier plafonné à 1:2 dans l'Union sur le second marché : marge minimale supérieure au capital réel~~ | — | — | — | Abandonné le 2026-11-03 : périmètre réduit à l'or ; RM-019 reste en vigueur pour l'or |
 | R-12 | Dérive de performance d'une stratégie en production | Élevée | Moyen | Élevé | Comparaison mensuelle backtest contre réel, seuils d'alerte, procédure de suspension |
 
 ---
@@ -1102,12 +1103,12 @@ Ces décisions conditionnent le démarrage ou la poursuite du développement.
 | Q-02 | ~~Résolution de C-004, langage~~ | — | **Résolue le 2026-10-01 :** Python 3.12 partout |
 | Q-03 | ~~Résolution de C-001, place du backtest~~ | — | **Résolue le 2026-10-01 :** code partagé, processus séparés. `backtest` n'est jamais chargé en production, et le test d'architecture le vérifie |
 | Q-04 | ~~Résolution de C-002, pouvoir de l'IA~~ | — | **Résolue le 2026-10-01 :** veto asymétrique, et mode `shadow` par défaut à tout nouveau déploiement. Promotion du filtre conditionnée à une mesure, voir C-002 |
-| Q-05 | Identifiants du compte démo MT5 | — | **Résolue le 2026-10-04, avec un écart accepté par l'opérateur :** les identifiants démo sont en place, mais avec le **mot de passe principal**, l'opérateur n'ayant pas pu créer le mot de passe investisseur. Conséquence : l'agent peut passer des ordres sur le compte démo dès maintenant. Risque accepté **pour la démonstration uniquement** ; le contrôle RM-017 du type de compte devient le seul rempart, et les identifiants réels devront être distincts. Énoncé initial : **Action opérateur, révisée en 1.2.** Ouvrir un compte démo Deriv MT5 donnant accès à l'or et à la crypto, installer le terminal MetaTrader 5, puis renseigner dans `.env` le numéro de compte, le nom du serveur et le **mot de passe investisseur**, en lecture seule. L'ancien besoin d'identifiant d'application et de jeton d'API disparaît avec C-010 |
+| Q-05 | Identifiants du compte démo MT5 | — | **Résolue le 2026-10-04, avec un écart accepté par l'opérateur :** les identifiants démo sont en place, mais avec le **mot de passe principal**, l'opérateur n'ayant pas pu créer le mot de passe investisseur. Conséquence : l'agent peut passer des ordres sur le compte démo dès maintenant. Risque accepté **pour la démonstration uniquement** ; le contrôle RM-017 du type de compte devient le seul rempart, et les identifiants réels devront être distincts. Énoncé initial : **Action opérateur, révisée en 1.2.** Ouvrir un compte démo Deriv MT5 donnant accès à l'or, installer le terminal MetaTrader 5, puis renseigner dans `.env` le numéro de compte, le nom du serveur et le **mot de passe investisseur**, en lecture seule. L'ancien besoin d'identifiant d'application et de jeton d'API disparaît avec C-010 |
 | Q-06 | ~~Type de compte et pays de résidence~~ | — | **Résolue :** résidence française, entité européenne. Indices synthétiques indisponibles, voir C-008 |
-| Q-07 | ~~Liste exacte des cryptomonnaies~~ | — | **Résolue le 2026-10-04 par l'opérateur : `BTCUSD` uniquement.** Le périmètre devient l'or (`XAUUSD`) et le BTC. Le BTC offre le meilleur spread mesuré parmi les cryptos (3,5 % de l'ATR M15) et un historique depuis 2011. **Il n'est pas éligible au mode réel avec 100 €** (marge 376 €) |
-| Q-22 | Capital nécessaire au mode réel | **Avec 100 €, aucun des deux marchés retenus n'est éligible au réel** : marge de 183,93 € pour l'or, de 376 € pour le BTC (RM-019). La démonstration n'est pas concernée | `[À CONFIRMER]` avant la phase 9 : relever le capital, ou accepter que le mode réel reste inaccessible. **Nouveau, non bloquant avant la phase 9** |
+| Q-07 | ~~Liste exacte des symboles du second marché~~ | — | **Abandonné le 2026-11-03 : périmètre réduit à l'or.** Le second marché retenu le 2026-10-04 est abandonné |
+| Q-22 | Capital nécessaire au mode réel | **Avec 100 €, l'or n'est pas éligible au réel** : marge de 183,93 € (RM-019). La démonstration n'est pas concernée | `[À CONFIRMER]` avant la phase 9 : relever le capital, ou accepter que le mode réel reste inaccessible. **Nouveau, non bloquant avant la phase 9** |
 | Q-08 | ~~Capital de référence~~ | — | **Résolue :** 100 €, avec les conséquences documentées en C-009 |
-| Q-21 | ~~Taille minimale et distance de stop, par symbole~~ | — | **Résolue le 2026-10-03 par TASK-003.** Or inéligible au réel avec 100 € (marge 183,93 €) ; BTC, ETH et XRP inéligibles (marge) ; SOL, LTC et ADA éligibles, mais LTC et ADA ont un spread de 77 % et 86 % de l'ATR M15 |
+| Q-21 | ~~Taille minimale et distance de stop, par symbole~~ | — | **Résolue le 2026-10-03 par TASK-003.** Or inéligible au réel avec 100 € (marge 183,93 €) ; les autres symboles mesurés sont hors périmètre depuis le 2026-11-03 |
 
 ### 20.2 Décisions non bloquantes
 
@@ -1134,7 +1135,7 @@ Ces décisions conditionnent le démarrage ou la poursuite du développement.
 |---|---|---|---|---|
 | Fonctionner sans le poste de l'utilisateur | EF-001 | F-001, F-024 | `system_events` | Reprise après redémarrage du serveur |
 | Surveiller uniquement les marchés autorisés | EF-002 | F-004 | `markets` | Unitaire sur le chargeur de configuration |
-| Une stratégie par marché | EF-003 | F-007, F-008 | `strategies`, `strategy_versions` | Intégration multi-marchés |
+| ~~Une stratégie par marché~~ Abandonné le 2026-11-03 : périmètre réduit à l'or | EF-003 | F-007, F-008 | `strategies`, `strategy_versions` | — |
 | Recevoir les signaux rapidement | EF-004, EF-005, ENF-003 | F-009, F-013 | `signals` | Intégration Telegram et mesure de latence |
 | Ne pas dupliquer les ordres | EF-006 | F-012 | `signals`, `orders` | Concurrence et reprise |
 | Tout tracer | EF-007 | F-020 | `signal_events`, `audit_log` | Restitution d'un trade ancien |
@@ -1163,7 +1164,7 @@ Ces décisions conditionnent le démarrage ou la poursuite du développement.
 1. le service fonctionne sur le serveur sans le poste local ;
 2. les marchés autorisés sont configurables et respectés ;
 3. les données temps réel sont reçues et les bougies correctement construites ;
-4. une stratégie distincte est affectée à chaque marché ;
+4. ~~une stratégie distincte est affectée à chaque marché~~ — abandonné le 2026-11-03 : périmètre réduit à l'or (EF-003) ;
 5. les signaux sont envoyés sur Telegram avec entrée, stop, objectifs et version ;
 6. les doublons sont bloqués, y compris après redémarrage ;
 7. tous les signaux, y compris refusés, sont enregistrés ;

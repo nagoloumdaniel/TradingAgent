@@ -1,11 +1,11 @@
 [project]
 name = "tradingagent"
 version = "0.1.0"
-description = "Plateforme de trading algorithmique XAUUSD/BTCUSD : recherche de stratégies assistée par IA, backtest, validation anti-surapprentissage, exécution MT5 et monitoring web."
+description = "Plateforme de trading algorithmique XAUUSD (or) : recherche de stratégies assistée par IA, backtest, validation anti-surapprentissage, exécution MT5 et monitoring web."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Daniel Nagoloum Talla" }]
-keywords = ["algorithmic-trading", "backtesting", "metatrader5", "xauusd", "btcusd", "risk-management", "fastapi"]
+keywords = ["algorithmic-trading", "backtesting", "metatrader5", "xauusd", "risk-management", "fastapi"]
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.20.0",

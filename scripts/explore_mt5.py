@@ -25,10 +25,9 @@ REFERENCE_CAPITAL = 100.0  # EUR, C-009
 LIVE_RISK_CAP_PCT = 5.0  # RM-005
 STOP_ATR_MULTIPLIER = 1.5  # witness default, a typical stop
 ATR_PERIOD = 14
-# Discovery on 2026-10-03 found 2 gold symbols and 46 cryptos: measure gold and the most liquid
-# cryptos in depth, and a few synthetic indices for their specification only.
+# Discovery on 2026-10-03 found 2 gold symbols: measure them in depth, and a few synthetic
+# indices for their specification only.
 GOLD = ("XAUUSD", "XAUEUR")
-CRYPTO = ("BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "LTCUSD", "ADAUSD")
 SYNTHETIC_GROUPS = ("Volatility Indices", "Step Indices")
 SYNTHETIC_PER_GROUP = 2
 TIMEFRAMES = {
@@ -273,8 +272,6 @@ def main() -> None:
         available = {s.name for s in symbols}
         groups = Counter(s.path.split("\\")[0] for s in symbols)
         gold = [name for name in GOLD if name in available]
-        crypto = [name for name in CRYPTO if name in available]
-        all_crypto = sorted(s.name for s in symbols if s.path.startswith("Crypto\\"))
         synthetic_names = {
             group: sorted(s.name for s in symbols if s.path.startswith(group + "\\"))
             for group in groups
@@ -287,7 +284,7 @@ def main() -> None:
         ]
 
         measured = {}
-        for name in gold + crypto:
+        for name in gold:
             log.info("measuring %s", name)
             measured[name] = measure_symbol(name, account.currency, terminal.maxbars)
         for name in synthetic:
@@ -313,14 +310,12 @@ def main() -> None:
             },
             "symbol_groups": dict(groups),
             "gold_measured": gold,
-            "crypto_measured": crypto,
-            "crypto_available": all_crypto,
             "synthetic_available": synthetic_names,
             "synthetic_measured_specification_only": synthetic,
             "symbols": measured,
-            "server_clock": server_offset(crypto),
+            "server_clock": server_offset(gold),
             "session_inference": weekly_open_hours(gold[0]) if gold else None,
-            "latency": latency(crypto[0] if crypto else gold[0]),
+            "latency": latency(gold[0]),
         }
     finally:
         mt5.shutdown()

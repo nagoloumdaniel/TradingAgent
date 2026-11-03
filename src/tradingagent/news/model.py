@@ -2,7 +2,7 @@
 
 `influence_score` is the one number the dashboard, the blackout gate and the AI prompt share.
 It is a heuristic, and it says so: an impact weight, the relevance of the event's currency to
-the market, a boost for the releases that historically move gold and bitcoin, and a bonus when
+the market, a boost for the releases that historically move gold, and a bonus when
 the published figure is known and departs from the forecast. It is never a prediction of
 direction -- direction is `fallback` (deterministic) or the model (journalled).
 """
@@ -16,9 +16,8 @@ from enum import StrEnum
 from urllib.parse import urlsplit
 
 XAUUSD = "XAUUSD"
-BTCUSD = "BTCUSD"
 #: The markets the agent trades; every score, verdict and gate is computed per market.
-MARKETS: tuple[str, ...] = (XAUUSD, BTCUSD)
+MARKETS: tuple[str, ...] = (XAUUSD,)
 
 
 class Impact(StrEnum):
@@ -173,7 +172,7 @@ class MarketBrief:
 
 @dataclass(frozen=True)
 class DailyBrief:
-    """The morning summary: what the day's calendar and headlines mean for gold and bitcoin."""
+    """The morning summary: what the day's calendar and headlines mean for gold."""
 
     day: str  # YYYY-MM-DD, UTC
     headline: str
@@ -199,9 +198,9 @@ def input_hash(event: EconomicEvent) -> str:
 
 # --- relevance ---------------------------------------------------------------------------
 
-# How much an event in a given currency matters to each market. USD dominates both: gold is
-# priced in dollars and trades against real yields; bitcoin follows dollar liquidity. The other
-# currencies matter in proportion to their weight in global liquidity and in gold demand.
+# How much an event in a given currency matters to each market. USD dominates: gold is priced
+# in dollars and trades against real yields. The other currencies matter in proportion to their
+# weight in global liquidity and in gold demand.
 _RELEVANCE: Mapping[str, Mapping[str, float]] = {
     XAUUSD: {
         "USD": 1.0,
@@ -214,21 +213,6 @@ _RELEVANCE: Mapping[str, Mapping[str, float]] = {
         "CAD": 0.2,
         "AUD": 0.2,
         "NZD": 0.15,
-        "BTC": 0.1,
-    },
-    BTCUSD: {
-        "USD": 1.0,
-        "BTC": 1.0,
-        "CRYPTO": 1.0,
-        "EUR": 0.35,
-        "CNY": 0.35,
-        "JPY": 0.3,
-        "GBP": 0.25,
-        "CHF": 0.15,
-        "CAD": 0.15,
-        "AUD": 0.15,
-        "NZD": 0.1,
-        "XAU": 0.1,
     },
 }
 DEFAULT_RELEVANCE = 0.05
@@ -239,7 +223,7 @@ def currency_relevance(market: str, currency: str) -> float:
 
 
 def is_relevant(event: EconomicEvent) -> bool:
-    """Kept in the calendar: it matters to at least one of our two markets.
+    """Kept in the calendar: it matters to at least one of our markets.
 
     Majors and the market's own currencies always qualify; the minor currencies only when the
     event is a medium or high impact one (a BoJ decision moves gold, a NZ trade balance does not).
@@ -252,31 +236,29 @@ def is_relevant(event: EconomicEvent) -> bool:
 
 # --- type boosts -------------------------------------------------------------------------
 
-#: (pattern on the lower-cased title, boost for gold, boost for bitcoin).
-_RAW_BOOSTS: tuple[tuple[str, int, int], ...] = (
-    (r"non[- ]?farm|nfp|payrolls", 30, 26),
-    (r"\bcpi\b|consumer price", 28, 26),
+#: (pattern on the lower-cased title, boost for gold).
+_RAW_BOOSTS: tuple[tuple[str, int], ...] = (
+    (r"non[- ]?farm|nfp|payrolls", 30),
+    (r"\bcpi\b|consumer price", 28),
     (
         r"fomc|federal funds rate|interest rate|rate (decision|statement)|monetary policy"
         r"|refinancing|cash rate|bank rate",
         30,
-        26,
     ),
-    (r"press conference|powell|fed chair", 22, 20),
-    (r"\bpce\b", 22, 20),
-    (r"\bgdp\b", 14, 12),
-    (r"\bppi\b|producer price", 10, 9),
-    (r"retail sales", 9, 8),
-    (r"unemployment|jobless|\badp\b|jolts|employment cost", 8, 8),
-    (r"\bism\b|\bpmi\b", 8, 6),
-    (r"treasury|yield|auction", 8, 6),
-    (r"\betf\b|\bsec\b|regulat|\bban\b", 2, 20),
-    (r"\bgold\b|bullion|xau", 12, 0),
-    (r"bitcoin|\bbtc\b|crypto", 0, 14),
-    (r"speaks|speech|testimony", 6, 6),
+    (r"press conference|powell|fed chair", 22),
+    (r"\bpce\b", 22),
+    (r"\bgdp\b", 14),
+    (r"\bppi\b|producer price", 10),
+    (r"retail sales", 9),
+    (r"unemployment|jobless|\badp\b|jolts|employment cost", 8),
+    (r"\bism\b|\bpmi\b", 8),
+    (r"treasury|yield|auction", 8),
+    (r"\betf\b|\bsec\b|regulat|\bban\b", 2),
+    (r"\bgold\b|bullion|xau", 12),
+    (r"speaks|speech|testimony", 6),
 )
-_TYPE_BOOSTS: tuple[tuple[re.Pattern[str], int, int], ...] = tuple(
-    (re.compile(pattern), gold, bitcoin) for pattern, gold, bitcoin in _RAW_BOOSTS
+_TYPE_BOOSTS: tuple[tuple[re.Pattern[str], int], ...] = tuple(
+    (re.compile(pattern), boost) for pattern, boost in _RAW_BOOSTS
 )
 
 #: Titles that name a major, market-moving announcement: wider blackout, bigger score.
@@ -294,11 +276,9 @@ def is_major(title: str) -> bool:
 def type_boost(title: str, market: str) -> int:
     """The strongest boost any pattern grants this title for this market (never summed)."""
     lowered = title.lower()
-    boosts = [
-        gold if market == XAUUSD else bitcoin
-        for pattern, gold, bitcoin in _TYPE_BOOSTS
-        if pattern.search(lowered)
-    ]
+    if market != XAUUSD:
+        return 0
+    boosts = [boost for pattern, boost in _TYPE_BOOSTS if pattern.search(lowered)]
     return max(boosts, default=0)
 
 

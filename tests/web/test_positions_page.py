@@ -28,7 +28,7 @@ def _stack(engine: Engine, count: int = 13) -> list[int]:
     """Positions newer than every seeded one, newest first; returns their signal ids.
 
     One market only — the positions page shows a single instrument at a time, so a stack that
-    alternated XAUUSD and BTCUSD would be testing a page that no longer exists. Index 0 is the
+    alternated XAUUSD and EURUSD would be testing a page that no longer exists. Index 0 is the
     most recent position overall and the only DEMO of the stack; index 1 is the only position
     whose exit reason is ``stop_loss``. The search tests lean on those two unique rows and
     never on a hard-coded global count.
@@ -111,7 +111,7 @@ def test_the_two_pages_do_not_overlap_and_cover_every_position(
     first_tickets, second_tickets = _tickets(first), _tickets(second)
 
     # Seventeen XAUUSD positions: the thirteen appended plus the four seeded ones. The two
-    # BTCUSD rows of the dataset are on the other market, and this page never mixes them in.
+    # EURUSD rows of the dataset are on the other market, and this page never mixes them in.
     assert len(first_tickets | second_tickets) == 17
     assert not first_tickets & second_tickets
 
@@ -345,8 +345,8 @@ def test_the_query_orders_the_newest_first(populated: seed.Seeded, engine: Engin
     del populated
     page = queries.position_page(engine, seed.NOW)
 
-    assert page.rows[0].symbol == seed.BTC  # opened one hour before NOW
-    assert [row.symbol for row in page.rows[:2]] == [seed.BTC, seed.XAU]
+    assert page.rows[0].symbol == seed.EUR  # opened one hour before NOW
+    assert [row.symbol for row in page.rows[:2]] == [seed.EUR, seed.XAU]
 
 
 def test_the_query_strips_the_search_before_echoing_it(

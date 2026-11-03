@@ -18,10 +18,7 @@
 # Detail complet : docs/research/measurements/XAUUSD-vwap_pullback@1.1.0.json
 #
 # DECISION DE L'OPERATEUR DU 2026-10-10 : cette regle remplace `witness` et `trend_breakout` sur
-# les DEUX marches, en pleine connaissance des chiffres ci-dessus. Le marche voisin, BTCUSD,
-# tourne la meme regle sous sa propre version `vwap_pullback@1.2.0` : EF-003 (P0) exige deux
-# versions distinctes, et une version par marche rend chaque symbole reglable independamment.
-# Les deux anciennes strategies sont retirees de `config/agent.yaml` mais leurs fichiers
+# l'or, en pleine connaissance des chiffres ci-dessus. Les deux anciennes strategies sont retirees de `config/agent.yaml` mais leurs fichiers
 # restent : un manifeste publie ne se reecrit jamais, et leurs mesures sont la trace de pourquoi
 # ces regles n'ont pas ete retenues.
 #

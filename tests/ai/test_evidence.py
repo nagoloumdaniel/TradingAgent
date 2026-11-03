@@ -155,7 +155,7 @@ def test_the_latest_run_is_what_the_reader_finds(engine: Engine) -> None:
 def test_another_market_is_not_evidence(engine: Engine) -> None:
     record_run(engine, a_run(market="XAUUSD"), at=T0)
 
-    assert evidence_for(engine, "cryBTCUSD") is None
+    assert evidence_for(engine, "EURUSD") is None
     assert evidence_for(engine, "XAUUSD") is not None
 
 

@@ -538,7 +538,7 @@ PROBE_MANIFEST = StrategyManifest(
     strategy_id="axe_c_probe",
     version="1.0.0",
     max_mode=TradingMode.SIGNAL,
-    allowed_symbols=("BTCUSD",),
+    allowed_symbols=("XAUUSD",),
     timeframes=(Timeframe.M15,),
     history_bars=400,
     expiry_bars=2,
@@ -566,7 +566,7 @@ def probe_dataset(count: int = 2_400) -> list[Candle]:
 
 def probe_config() -> BacktestConfig:
     return BacktestConfig(
-        symbol="BTCUSD",
+        symbol="XAUUSD",
         costs=CostModel(
             spread=1.5,
             slippage_fixed=0.6,

@@ -43,7 +43,7 @@ from tradingagent.strategies.registry import REGISTRY
 ROOT = Path(__file__).resolve().parents[1]
 SHIPPED_STRATEGIES = ROOT / "config" / "strategies"
 SHIPPED_AGENT = ROOT / "config" / "agent.yaml"
-BROKER_SYMBOLS = {"XAUUSD", "BTCUSD"}
+BROKER_SYMBOLS = {"XAUUSD"}
 
 COMMANDS = (
     "status",
@@ -78,7 +78,7 @@ def test_each_market_gets_its_own_strategy() -> None:
     subscriptions = _subscriptions(config, catalog)
     assert {subscription.symbol for subscription in subscriptions} == BROKER_SYMBOLS
     assert all(subscription.timeframe.value == "M15" for subscription in subscriptions)
-    assert len({market.strategy for market in config.markets}) == 2
+    assert len({market.strategy for market in config.markets}) == 1
 
 
 # --------------------------------------------------------------------------------------
@@ -158,7 +158,7 @@ def test_the_bot_registers_every_documented_command(tmp_path) -> None:
         _settings(),
         HaltStore(engine),
         CandleStore(engine),
-        (("XAUUSD", True), ("BTCUSD", True)),
+        (("XAUUSD", True),),
         lambda: datetime(2026, 10, 6, tzinfo=UTC),
     )
     menu = asyncio.run(service.handle(42, True, "/help"))
@@ -208,9 +208,7 @@ def test_the_configured_strategies_are_registered_once(tmp_path) -> None:
     refs = _refs(config)
     registry = StrategyRegistry(engine, clock=now)
     gold = registry.get("XAUUSD", refs["XAUUSD"])
-    btc = registry.get("BTCUSD", refs["BTCUSD"])
     assert gold.status is StrategyStatus.DISCOVERED
-    assert btc.status is StrategyStatus.DISCOVERED
     assert registry.active("XAUUSD") is None  # nothing is LIVE yet, so nothing trades
     engine.dispose()
 
@@ -256,7 +254,6 @@ def test_paper_mode_only_requires_the_paper_rung(tmp_path) -> None:
         (StrategyStatus.PAPER, "paper"),
     ):
         registry.transition("XAUUSD", refs["XAUUSD"], status, "operator", reason, now())
-        registry.transition("BTCUSD", refs["BTCUSD"], status, "operator", reason, now())
     with pytest.raises(ConfigError):
         _register_configured_strategies(engine, config, TradingMode.LIVE, now)
     # PAPER and DEMO accept the same rung: both are venues without real money, and the

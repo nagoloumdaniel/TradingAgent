@@ -328,7 +328,7 @@ def test_a_market_closure_names_what_closed_and_what_the_agent_does(engine: Engi
     head, _, body = text.partition("\n\n")
     assert head == "🌙 Marché fermé · XAUUSD"
     assert "Aucun signal ni ordre sur XAUUSD" in body
-    assert "autres marchés" in body  # gold stops, the crypto keeps running
+    assert "autres marchés" in body  # gold stops, the other markets keep running
     assert "UTC" not in text, "Telegram dates the message; the notice carries no clock stamp"
     assert "<" not in text and ">" not in text  # plain text: no markup can survive
 

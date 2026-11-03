@@ -456,7 +456,7 @@ class AgentLoop:
     async def _guard_sessions(self, now: datetime) -> None:
         """Stop what the calendar says is closed, reopen it once it trades again (F-005).
 
-        One market at a time: a failure on gold must not stop the crypto, and vice versa.
+        One market at a time: a failure on one market must not stop another.
         Gold's weekend is not the agent's weekend, so the halt lives in `session:XAUUSD`,
         which the risk engine never reads as a global stop.
         """

@@ -97,7 +97,7 @@ def test_the_candidate_is_restricted_to_its_market() -> None:
 def test_building_a_version_for_a_market_the_incumbent_never_traded_is_refused() -> None:
     with pytest.raises(ValueError) as caught:
         build_candidate(
-            market="BTCUSD",
+            market="EURUSD",
             supersedes="witness@1.1.0",
             parameters={},
             incumbent_manifest=INCUMBENT,

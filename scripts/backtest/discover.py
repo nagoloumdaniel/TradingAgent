@@ -45,15 +45,15 @@ TIMEFRAME = Timeframe.M15
 START = datetime(2026, 1, 5, tzinfo=UTC)
 DEFAULT_BARS = 1_500
 DEFAULT_SEED = 20_261_007
-MARKETS = ("frxXAUUSD", "cryBTCUSD", "cryETHUSD")
-START_PRICES = {"frxXAUUSD": 2000.0, "cryBTCUSD": 60_000.0, "cryETHUSD": 3_000.0}
-DRIFT = {"frxXAUUSD": 0.00002, "cryBTCUSD": 0.00004, "cryETHUSD": 0.00003}
-VOLATILITY = {"frxXAUUSD": 0.0012, "cryBTCUSD": 0.0015, "cryETHUSD": 0.0012}
-BETA = {"frxXAUUSD": 0.0006, "cryBTCUSD": 0.0025, "cryETHUSD": 0.0025}
+MARKETS = ("frxXAUUSD",)
+START_PRICES = {"frxXAUUSD": 2000.0}
+DRIFT = {"frxXAUUSD": 0.00002}
+VOLATILITY = {"frxXAUUSD": 0.0012}
+BETA = {"frxXAUUSD": 0.0006}
 
 
 def synthetic_markets(bars: int, seed: int) -> dict[str, CandleDataset]:
-    """Three seeded markets sharing one factor, so no family can exploit a lucky tape."""
+    """Seeded markets sharing one factor, so no family can exploit a lucky tape."""
     factor_stream = DeterministicRandom(seed)
     factor = [factor_stream.gauss() for _ in range(bars)]
     datasets: dict[str, CandleDataset] = {}

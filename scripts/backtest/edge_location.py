@@ -49,7 +49,7 @@ manifeste ni `config/` n'est modifie, rien n'est promu, aucun ordre n'est envoye
 
     uv run python scripts/backtest/edge_location.py
     uv run python scripts/backtest/edge_location.py --self-check
-    uv run python scripts/backtest/edge_location.py --market BTCUSD --no-write
+    uv run python scripts/backtest/edge_location.py --market XAUUSD --no-write
     uv run python scripts/backtest/edge_location.py --bars 9000 --no-write    # plomberie seule
 """
 
@@ -983,11 +983,9 @@ def _read_published(
     Le fichier exact `<marche>-<ref>.json` est cherche d'abord. S'il n'existe pas, la mesure se
     rabat sur un autre fichier publie **du meme marche et de la meme strategie** dont le
     **jeu de donnees est le meme** (meme `dataset_id` et meme empreinte). Ce repli n'est pas une
-    commodite : sur le bitcoin, `config/agent.yaml` porte `vwap_pullback@1.2.0` mais la mesure
-    publiee s'appelle `BTCUSD-vwap_pullback@1.1.0.json` -- c'est l'erreur d'etiquetage reconnue par
-    `docs/research/2026-10-10-errata-bandeaux-config.md`. Sans ce repli, la baseline du bitcoin
-    n'aurait **aucun** controle, et `None` se lirait comme « rien a verifier » au lieu de « je n'ai
-    pas su chercher ». Le repli exige l'empreinte identique : un autre jeu de donnees serait une
+    commodite : sans lui, une baseline dont l'etiquette de version a derive n'aurait **aucun**
+    controle, et `None` se lirait comme « rien a verifier » au lieu de « je n'ai pas su
+    chercher ». Le repli exige l'empreinte identique : un autre jeu de donnees serait une
     autre mesure, et la comparer ferait croire a un accord.
     """
     path = MEASUREMENTS_DIR / f"{market}-{ref}.json"
@@ -1085,7 +1083,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--datasets", type=Path, default=DATASET_DIR)
     parser.add_argument("--output", type=Path, default=OUTPUT_DIR)
-    parser.add_argument("--market", default=None, help="ne mesurer qu'un marche (ex. BTCUSD)")
+    parser.add_argument("--market", default=None, help="ne mesurer qu'un marche (ex. XAUUSD)")
     parser.add_argument("--bars", type=int, default=0, help="tronquer (plomberie, pas une mesure)")
     parser.add_argument("--no_write", action="store_true")
     parser.add_argument(

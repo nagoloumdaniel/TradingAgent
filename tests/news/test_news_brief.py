@@ -2,7 +2,6 @@ from datetime import UTC, datetime, timedelta
 
 from tradingagent.news.brief import fallback_brief
 from tradingagent.news.model import (
-    BTCUSD,
     XAUUSD,
     Bias,
     EconomicEvent,
@@ -35,7 +34,6 @@ def event(title: str = "Core CPI m/m", impact: Impact = Impact.HIGH) -> Economic
 def states(trend: str = "up") -> dict[str, MarketState]:
     return {
         XAUUSD: MarketState(XAUUSD, trend, "normal", 4000.0, MORNING),
-        BTCUSD: MarketState(BTCUSD, trend, "normal", 80000.0, MORNING),
     }
 
 
@@ -49,7 +47,7 @@ def test_an_empty_day_says_so_and_waits() -> None:
     assert "Aucune annonce" in brief.headline
     assert gold.stance is Stance.WAIT and gold.bias is Bias.NEUTRAL
     assert brief.source == "fallback" and brief.model == "deterministic"
-    assert [m.symbol for m in brief.markets] == [XAUUSD, BTCUSD]
+    assert [m.symbol for m in brief.markets] == [XAUUSD]
 
 
 def test_a_major_release_still_ahead_holds_the_stance_at_wait() -> None:

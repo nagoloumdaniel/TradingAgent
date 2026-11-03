@@ -40,7 +40,7 @@ def witness_manifest(history_bars: int = 40) -> StrategyManifest:
             "strategy_id": "witness",
             "version": "1.0.0",
             "max_mode": "SIGNAL",
-            "allowed_symbols": ["frxXAUUSD", "cryBTCUSD"],
+            "allowed_symbols": ["frxXAUUSD", "EURUSD"],
             "timeframes": ["M15"],
             "history_bars": history_bars,
             "expiry_bars": 2,
@@ -87,9 +87,9 @@ def correlated_datasets(idio_volatility: float = 0.0005):
         common_returns=factor,
         beta=0.01,
     )
-    btc = synthetic_dataset(
-        "btc-correlated",
-        "cryBTCUSD",
+    second = synthetic_dataset(
+        "second-correlated",
+        "EURUSD",
         M15,
         START,
         (SyntheticRegime(bars=BARS, drift=0.0, volatility=idio_volatility),),
@@ -97,14 +97,14 @@ def correlated_datasets(idio_volatility: float = 0.0005):
         common_returns=factor,
         beta=0.01,
     )
-    return {"frxXAUUSD": gold, "cryBTCUSD": btc}
+    return {"frxXAUUSD": gold, "EURUSD": second}
 
 
 def independent_datasets():
     regimes = (SyntheticRegime(bars=BARS, drift=0.0, volatility=0.004),)
     return {
         "frxXAUUSD": synthetic_dataset("gold-ind", "frxXAUUSD", M15, START, regimes, seed=5),
-        "cryBTCUSD": synthetic_dataset("btc-ind", "cryBTCUSD", M15, START, regimes, seed=6),
+        "EURUSD": synthetic_dataset("second-ind", "EURUSD", M15, START, regimes, seed=6),
     }
 
 
@@ -162,7 +162,7 @@ def test_campaign_runs_every_market_and_keeps_the_holdout_sealed() -> None:
         [spec("fast", 5, 12), spec("slow", 10, 25)],
         config_for=config_for,
     )
-    assert [market.market for market in report.markets] == ["cryBTCUSD", "frxXAUUSD"]
+    assert [market.market for market in report.markets] == ["EURUSD", "frxXAUUSD"]
     for market in report.markets:
         assert market.holdout_still_sealed is True
         assert market.selected is not None
@@ -171,10 +171,10 @@ def test_campaign_runs_every_market_and_keeps_the_holdout_sealed() -> None:
         assert selected[0].label == market.selected
         assert "stability" in market.selection_basis
         assert market.candidates[0].stability_score >= 0.0
-    assert set(report.selected_by_market()) == {"frxXAUUSD", "cryBTCUSD"}
+    assert set(report.selected_by_market()) == {"frxXAUUSD", "EURUSD"}
 
 
-def test_campaign_measures_the_gold_crypto_correlation() -> None:
+def test_campaign_measures_the_correlation_between_two_markets() -> None:
     report = run_campaign(
         correlated_datasets(idio_volatility=0.0005),
         [spec("fast", 5, 12)],
@@ -182,7 +182,7 @@ def test_campaign_measures_the_gold_crypto_correlation() -> None:
     )
     assert len(report.correlations) == 1
     pair = report.correlations[0]
-    assert {pair.market_a, pair.market_b} == {"frxXAUUSD", "cryBTCUSD"}
+    assert {pair.market_a, pair.market_b} == {"frxXAUUSD", "EURUSD"}
     assert pair.correlation is not None
     assert pair.correlation > 0.9
     assert pair.aligned_bars >= 400

@@ -19,8 +19,8 @@ from datetime import datetime
 
 from tradingagent.indicators._checks import require_finite
 
-#: La journée UTC est l'ancre par défaut : le BTC cote 24/7, et 00:00 UTC ne bouge pas avec
-#: l'heure d'été. Une autre ancre s'exprime en minutes depuis minuit.
+#: La journée UTC est l'ancre par défaut : 00:00 UTC ne bouge pas avec l'heure d'été.
+#: Une autre ancre s'exprime en minutes depuis minuit.
 DEFAULT_SESSION_ANCHOR_MINUTES = 0
 
 _DAY_MINUTES = 24 * 60

@@ -98,7 +98,7 @@ class Flaky(Buyer):
 
 def loaded(
     strategy_class: type[Buyer],
-    symbols: tuple[str, ...] = ("XAUUSD", "BTCUSD"),
+    symbols: tuple[str, ...] = ("XAUUSD", "EURUSD"),
     max_mode: TradingMode = TradingMode.SIGNAL,
     history_bars: int = 20,
 ) -> LoadedStrategy:
@@ -285,7 +285,7 @@ def test_short_history_is_reported_not_evaluated(engine: Engine) -> None:
 def test_only_strategies_for_this_market_and_timeframe_run(engine: Engine) -> None:
     trigger = stored(engine)
     gold_only = loaded(Silent, symbols=("XAUUSD",))
-    assert close(generator(engine, gold_only), trigger, symbol="BTCUSD") == {}
+    assert close(generator(engine, gold_only), trigger, symbol="EURUSD") == {}
     hourly = Candle(Timeframe.H1, LAST_OPEN - timedelta(minutes=45), 1.0, 1.0, 1.0, 1.0)
     assert close(generator(engine, gold_only), hourly) == {}
 
@@ -299,13 +299,13 @@ def test_no_signal_is_not_an_error(engine: Engine) -> None:
 
 
 def test_a_crashing_strategy_does_not_stop_the_others(engine: Engine) -> None:
-    gold, bitcoin = stored(engine, "XAUUSD"), stored(engine, "BTCUSD")
+    gold, other = stored(engine, "XAUUSD"), stored(engine, "EURUSD")
     gen = generator(engine, loaded(Flaky), loaded(Buyer))
     assert close(gen, gold) == {
         "flaky@1.0.0": GenerationStatus.STRATEGY_ERROR,
         "buyer@1.0.0": GenerationStatus.RECORDED,
     }
-    assert close(gen, bitcoin, symbol="BTCUSD")["buyer@1.0.0"] is GenerationStatus.RECORDED
+    assert close(gen, other, symbol="EURUSD")["buyer@1.0.0"] is GenerationStatus.RECORDED
     assert len(signals(engine)) == 2
     assert ("strategy_error", Severity.WARNING) in events(engine)
 

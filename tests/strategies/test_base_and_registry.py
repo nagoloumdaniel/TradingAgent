@@ -152,7 +152,7 @@ def test_registry_cannot_be_modified() -> None:
 def test_production_registry_lists_only_reviewed_strategies() -> None:
     # trend_breakout is reviewed for mechanics only, and its manifest stays capped at SIGNAL.
     #
-    # vwap_pullback is the bitcoin base strategy the operator asked for: VWAP anchored at
+    # vwap_pullback is the base strategy the operator asked for: VWAP anchored at
     # 00:00 UTC, momentum, pullback entry. Its manifest is capped at SIGNAL too -- being new
     # is not a reason to open DEMO, and it has not passed the nine gates. This assertion is
     # the review step: adding a strategy to the registry without editing it fails here.

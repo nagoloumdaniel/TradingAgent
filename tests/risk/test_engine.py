@@ -2,7 +2,7 @@ from dataclasses import replace
 from decimal import Decimal as D
 
 import pytest
-from tests.risk.builders import BTC_LIKE, EQUITY, GOLD_BUY, GOLD_QUOTE, LOGIN, RISK, context
+from tests.risk.builders import EQUITY, GOLD_BUY, GOLD_QUOTE, LOGIN, MARGIN_BOUND, RISK, context
 
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.states import RiskOutcome
@@ -21,10 +21,10 @@ def test_a_sound_trade_is_authorized_with_its_size() -> None:
 
 
 def test_a_size_bounded_by_margin_is_reduced() -> None:
-    decision = decide(BTC_LIKE, LOGIN)
+    decision = decide(MARGIN_BOUND, LOGIN)
     assert decision.outcome is RiskOutcome.REDUCED
     assert decision.sizing is not None
-    assert decision.sizing.volume == D("0.07")
+    assert decision.sizing.volume == D("0.01")
     assert "margin" in decision.reason
 
 
@@ -52,7 +52,7 @@ def test_unlimited_counts_authorize_and_the_persisted_motif_keeps_the_counts() -
         portfolio=replace(
             ctx.portfolio,
             trades_today=12,
-            open_positions=(OpenPosition("XAUUSD", D("0.01")), OpenPosition("BTCUSD", D("0.01"))),
+            open_positions=(OpenPosition("XAUUSD", D("0.01")), OpenPosition("EURUSD", D("0.01"))),
             open_exposure_eur=D(100),
         ),
     )

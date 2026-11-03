@@ -5,7 +5,6 @@ from sqlalchemy import Engine, inspect
 
 from tradingagent.core.mode import AiFilter
 from tradingagent.news.model import (
-    BTCUSD,
     XAUUSD,
     Bias,
     DailyBrief,
@@ -62,7 +61,7 @@ def analysis(key: str, source: str = "ai", at: datetime = NOW) -> EventAnalysis:
             window_end=AT + timedelta(hours=2),
             rationale="Inflation plus forte : dollar soutenu.",
         )
-        for symbol in (XAUUSD, BTCUSD)
+        for symbol in (XAUUSD,)
     )
     return EventAnalysis(key, verdicts, source, "deepseek-flash", at, "abc123")
 
@@ -142,10 +141,7 @@ def test_the_brief_round_trips_and_the_day_is_filterable(engine: Engine) -> None
     brief = DailyBrief(
         day="2026-10-30",
         headline="Journée dominée par le CPI.",
-        markets=(
-            MarketBrief(XAUUSD, Bias.BEARISH, Stance.WAIT, "Attendre le CPI."),
-            MarketBrief(BTCUSD, Bias.NEUTRAL, Stance.WAIT, "Pas de catalyseur propre."),
-        ),
+        markets=(MarketBrief(XAUUSD, Bias.BEARISH, Stance.WAIT, "Attendre le CPI."),),
         source="ai",
         model="deepseek-flash",
         generated_at=NOW,
@@ -164,12 +160,12 @@ def test_the_last_fetch_of_each_source_is_what_comes_back(engine: Engine) -> Non
             "faireconomy", False, 0, NOW + timedelta(minutes=20), 429, "limite", retry_after=290
         )
     )
-    store.record_fetch(SourceReport("coindesk", True, 4, NOW, status=200, note="ok"))
+    store.record_fetch(SourceReport("fed_press", True, 4, NOW, status=200, note="ok"))
     reports = {r.source: r for r in store.latest_fetches()}
-    assert set(reports) == {"faireconomy", "coindesk"}
+    assert set(reports) == {"faireconomy", "fed_press"}
     assert reports["faireconomy"].ok is False
     assert reports["faireconomy"].retry_after == 290
-    assert reports["coindesk"].note == "ok"
+    assert reports["fed_press"].note == "ok"
     assert store.last_success("faireconomy") == NOW
     assert store.last_success("nobody") is None
 

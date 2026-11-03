@@ -1,4 +1,4 @@
-"""La stratégie BTCUSD : VWAP comme référence, momentum comme permis, pullback comme entrée.
+"""La stratégie VWAP pullback : VWAP comme référence, momentum comme permis, pullback comme entrée.
 
 **La logique, telle que l'opérateur l'a spécifiée.** Le VWAP ancré à 00:00 UTC est le prix
 moyen réellement payé par le marché sur la journée : au-dessus, les acheteurs du jour sont
@@ -103,7 +103,7 @@ def context(
         for index, price in enumerate(closes)
     )
     return StrategyContext(
-        symbol="BTCUSD",
+        symbol="XAUUSD",
         evaluated_at=candles[-1].close_time,
         primary_timeframe=Timeframe.M15,
         candles={Timeframe.M15: candles},
@@ -178,7 +178,7 @@ def test_no_signal_without_volume() -> None:
     closes = rising_pullback()
     candles = tuple(without_volume(price, index) for index, price in enumerate(closes))
     ctx = StrategyContext(
-        symbol="BTCUSD",
+        symbol="XAUUSD",
         evaluated_at=candles[-1].close_time,
         primary_timeframe=Timeframe.M15,
         candles={Timeframe.M15: candles},

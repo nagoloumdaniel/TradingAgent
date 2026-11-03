@@ -9,11 +9,8 @@ from tradingagent.risk.sizing import SizingError, size_position
 # Reference examples of the specification (formula, TASK-004), 1 USD = 0.888786 EUR.
 USD = D("0.888786")
 GOLD = InstrumentSpec("XAUUSD", D(100), D("0.01"), D("0.01"), D(100), D("0.01"), 0)
-BTC = InstrumentSpec("BTCUSD", D(1), D("0.01"), D("0.01"), D(100), D("0.01"), 0)
 GOLD_QUOTE = MarketQuote(D(2400), D("2400.2"), D("1094.00"), D(18393), USD)
-BTC_QUOTE = MarketQuote(D(84000), D(84010), D("92.00"), D(37634), USD)
 GOLD_STOP = D("12.3073")
-BTC_STOP = D("104.1262")
 DEMO_EQUITY = D("5497.74")
 
 
@@ -45,38 +42,28 @@ def test_example_2_gold_live_is_refused_below_the_minimum_lot() -> None:
         gold(capital=D(100), risk=D("0.02"), free=D(100))
 
 
-def test_example_3_btc_demo_is_bounded_by_margin() -> None:
-    sizing = size_position(
-        capital=DEMO_EQUITY,
-        risk_per_trade=D("0.005"),
-        stop_distance=BTC_STOP,
-        spec=BTC,
-        quote=BTC_QUOTE,
-        free_margin=DEMO_EQUITY,
-        margin_usage=D("0.5"),
-        max_volume=None,
-    )
-    assert sizing.volume == D("0.07")
+def test_example_3_gold_demo_is_bounded_by_margin() -> None:
+    sizing = gold(free=D(500))
+    assert sizing.volume == D("0.01")
     assert sizing.limited_by == "margin"
-    assert round(sizing.risk_eur, 2) == D("6.48")
-    assert sizing.margin_eur == D("2634.38")
-    assert round(sizing.risk_volume, 5) == D("0.29703")
+    assert sizing.risk_eur == D("10.94")
+    assert sizing.margin_eur == D("183.93")
+    assert round(sizing.risk_volume, 5) == D("0.02513")
+    assert round(sizing.margin_volume, 5) == D("0.01359")
 
 
 def test_the_larger_of_the_two_loss_estimates_is_used() -> None:
-    # BTC: broker 92.00, independent 92.55: sizing on 92.00 would risk more than intended.
-    sizing = size_position(
-        capital=DEMO_EQUITY,
-        risk_per_trade=D("0.005"),
-        stop_distance=BTC_STOP,
-        spec=BTC,
-        quote=BTC_QUOTE,
-        free_margin=D(10**9),
-        margin_usage=D("0.5"),
-        max_volume=None,
+    # Gold: broker 1090.00, independent 1093.86 (100 x 12.3073 x 0.888786). The risk budget is
+    # 32.80 EUR: the broker figure alone would allow 0.03 lot (32.82 EUR at the independent
+    # loss, over budget), so sizing on the smaller estimate would risk more than intended.
+    capital = D(6560)
+    sizing = gold(
+        capital=capital,
+        free=D(10**9),
+        quote=replace(GOLD_QUOTE, loss_one_lot=D("1090.00")),
     )
-    assert sizing.volume == D("0.29")
-    assert sizing.risk_eur <= DEMO_EQUITY * D("0.005")
+    assert sizing.volume == D("0.02")
+    assert sizing.risk_eur <= capital * D("0.005")
 
 
 def test_divergent_loss_estimates_refuse_the_order() -> None:

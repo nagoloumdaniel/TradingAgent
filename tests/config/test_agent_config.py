@@ -8,7 +8,7 @@ from tradingagent.config.errors import ConfigError
 from tradingagent.core.mode import TradingMode
 from tradingagent.strategies.manifest import StrategyManifest
 
-KNOWN_SYMBOLS = {"frxXAUUSD", "cryBTCUSD", "cryETHUSD"}
+KNOWN_SYMBOLS = {"frxXAUUSD", "frxEURUSD", "frxGBPUSD"}
 
 
 def manifest(strategy_id: str, symbols: list[str], max_mode: str) -> StrategyManifest:
@@ -25,15 +25,15 @@ def manifest(strategy_id: str, symbols: list[str], max_mode: str) -> StrategyMan
 
 
 GOLD_TREND = manifest("gold_trend", ["frxXAUUSD"], "PAPER")
-CRYPTO_BREAKOUT = manifest("crypto_breakout", ["cryBTCUSD", "cryETHUSD"], "SIGNAL")
-STRATEGIES = {m.ref: m for m in (GOLD_TREND, CRYPTO_BREAKOUT)}
+FX_BREAKOUT = manifest("fx_breakout", ["frxEURUSD", "frxGBPUSD"], "SIGNAL")
+STRATEGIES = {m.ref: m for m in (GOLD_TREND, FX_BREAKOUT)}
 
 VALID = """\
 markets:
   - symbol: frxXAUUSD
     strategy: gold_trend@1.0.0
-  - symbol: cryBTCUSD
-    strategy: crypto_breakout@1.0.0
+  - symbol: frxEURUSD
+    strategy: fx_breakout@1.0.0
 risk:
   simulated:
     risk_per_trade_pct: 0.5
@@ -75,10 +75,10 @@ def error_of(tmp_path: Path, text: str, mode: TradingMode = TradingMode.SIGNAL) 
 
 def test_valid_file_loads(tmp_path: Path) -> None:
     config = load(tmp_path, VALID)
-    assert [market.symbol for market in config.markets] == ["frxXAUUSD", "cryBTCUSD"]
+    assert [market.symbol for market in config.markets] == ["frxXAUUSD", "frxEURUSD"]
     assert [market.strategy for market in config.markets] == [
         "gold_trend@1.0.0",
-        "crypto_breakout@1.0.0",
+        "fx_breakout@1.0.0",
     ]
     assert config.markets[0].enabled is True
     assert config.risk.simulated.risk_per_trade_pct == Decimal("0.5")
@@ -91,31 +91,31 @@ def test_decimal_values_are_exact(tmp_path: Path) -> None:
 
 
 def test_unknown_symbol_blocks_startup_with_its_line(tmp_path: Path) -> None:
-    message = error_of(tmp_path, VALID.replace("symbol: cryBTCUSD", "symbol: cryDOGEUSD"))
+    message = error_of(tmp_path, VALID.replace("symbol: frxEURUSD", "symbol: frxDOGEUSD"))
     assert "agent.yaml:4" in message
-    assert "cryDOGEUSD" in message
+    assert "frxDOGEUSD" in message
 
 
 def test_disabled_market_with_unknown_symbol_still_blocks_startup(tmp_path: Path) -> None:
-    text = VALID.replace("  - symbol: cryBTCUSD\n", "  - symbol: cryTYPO\n    enabled: false\n")
-    assert "cryTYPO" in error_of(tmp_path, text)
+    text = VALID.replace("  - symbol: frxEURUSD\n", "  - symbol: frxTYPO\n    enabled: false\n")
+    assert "frxTYPO" in error_of(tmp_path, text)
 
 
 def test_unknown_strategy_reference_blocks_startup_with_its_line(tmp_path: Path) -> None:
-    message = error_of(tmp_path, VALID.replace("crypto_breakout@1.0.0", "ghost@1.0.0"))
+    message = error_of(tmp_path, VALID.replace("fx_breakout@1.0.0", "ghost@1.0.0"))
     assert "agent.yaml:5" in message
     assert "ghost@1.0.0" in message
 
 
 def test_unpinned_strategy_version_is_rejected(tmp_path: Path) -> None:
-    message = error_of(tmp_path, VALID.replace("crypto_breakout@1.0.0", "crypto_breakout"))
+    message = error_of(tmp_path, VALID.replace("fx_breakout@1.0.0", "fx_breakout"))
     assert "agent.yaml:5" in message
     assert "reference" in message
 
 
 def test_duplicate_symbol_is_rejected_with_its_line(tmp_path: Path) -> None:
-    text = VALID.replace("symbol: cryBTCUSD", "symbol: frxXAUUSD").replace(
-        "crypto_breakout@1.0.0", "gold_trend@1.0.0"
+    text = VALID.replace("symbol: frxEURUSD", "symbol: frxXAUUSD").replace(
+        "fx_breakout@1.0.0", "gold_trend@1.0.0"
     )
     message = error_of(tmp_path, text)
     assert "agent.yaml:4" in message
@@ -123,10 +123,10 @@ def test_duplicate_symbol_is_rejected_with_its_line(tmp_path: Path) -> None:
 
 
 def test_strategy_is_refused_on_a_symbol_it_does_not_allow(tmp_path: Path) -> None:
-    # RM-003: a gold strategy cannot be assigned to a crypto pair without a new manifest.
-    message = error_of(tmp_path, VALID.replace("crypto_breakout@1.0.0", "gold_trend@1.0.0"))
+    # RM-003: a gold strategy cannot be assigned to an FX pair without a new manifest.
+    message = error_of(tmp_path, VALID.replace("fx_breakout@1.0.0", "gold_trend@1.0.0"))
     assert "agent.yaml:5" in message
-    assert "cryBTCUSD" in message
+    assert "frxEURUSD" in message
     assert "RM-003" in message
 
 
@@ -137,7 +137,7 @@ def test_mode_within_every_strategy_ceiling_is_accepted(tmp_path: Path, mode: Tr
 
 @pytest.mark.parametrize("mode", [TradingMode.PAPER, TradingMode.DEMO, TradingMode.LIVE])
 def test_mode_above_a_strategy_ceiling_blocks_startup(tmp_path: Path, mode: TradingMode) -> None:
-    # RM-016: crypto_breakout is capped at SIGNAL; promotion needs a new manifest version.
+    # RM-016: fx_breakout is capped at SIGNAL; promotion needs a new manifest version.
     message = error_of(tmp_path, VALID, mode)
     assert "agent.yaml:5" in message
     assert "RM-016" in message
@@ -151,7 +151,7 @@ def test_every_market_above_its_ceiling_is_reported(tmp_path: Path) -> None:
 
 def test_disabled_market_above_its_ceiling_still_blocks_startup(tmp_path: Path) -> None:
     # It could be re-enabled from Telegram later, running above its validated mode.
-    text = VALID.replace("  - symbol: cryBTCUSD\n", "  - symbol: cryBTCUSD\n    enabled: false\n")
+    text = VALID.replace("  - symbol: frxEURUSD\n", "  - symbol: frxEURUSD\n    enabled: false\n")
     assert "RM-016" in error_of(tmp_path, text, TradingMode.PAPER)
 
 
@@ -222,7 +222,7 @@ def test_missing_file_is_rejected(tmp_path: Path) -> None:
 
 
 def test_every_problem_is_reported_at_once(tmp_path: Path) -> None:
-    text = VALID.replace("symbol: cryBTCUSD", "symbol: cryDOGEUSD").replace(
+    text = VALID.replace("symbol: frxEURUSD", "symbol: frxDOGEUSD").replace(
         "strategy: gold_trend", "strategie: gold_trend"
     )
     message = error_of(tmp_path, text)

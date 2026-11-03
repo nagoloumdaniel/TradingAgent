@@ -50,7 +50,6 @@ class SimulatedLostAnswer(TerminalError):
 def default_specs() -> dict[str, SymbolSpec]:
     return {
         "XAUUSD": SymbolSpec("XAUUSD", 100.0, 0.01, 0.01, 100.0, 0.01, 10, 3),
-        "BTCUSD": SymbolSpec("BTCUSD", 1.0, 0.01, 0.01, 100.0, 0.01, 10, 2),
     }
 
 

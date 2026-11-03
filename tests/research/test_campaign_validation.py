@@ -54,7 +54,7 @@ def witness_manifest() -> StrategyManifest:
             "strategy_id": "witness",
             "version": "1.0.0",
             "max_mode": "SIGNAL",
-            "allowed_symbols": ["frxXAUUSD", "cryBTCUSD"],
+            "allowed_symbols": ["frxXAUUSD", "EURUSD"],
             "timeframes": ["M15"],
             "history_bars": 100,
             "expiry_bars": 2,
@@ -101,7 +101,7 @@ def dataset(market: str, seed: int, start_price: float) -> CandleDataset:
 def two_markets() -> dict[str, CandleDataset]:
     return {
         "frxXAUUSD": dataset("frxXAUUSD", 11, 2000.0),
-        "cryBTCUSD": dataset("cryBTCUSD", 12, 60_000.0),
+        "EURUSD": dataset("EURUSD", 12, 1.1),
     }
 
 

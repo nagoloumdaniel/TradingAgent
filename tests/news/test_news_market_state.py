@@ -5,7 +5,7 @@ import pytest
 from tradingagent.core.market import Candle
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.news.market_state import MarketStateReader, state_from_candles
-from tradingagent.news.model import BTCUSD, XAUUSD
+from tradingagent.news.model import XAUUSD
 
 NOW = datetime(2026, 10, 30, 12, 0, tzinfo=UTC)
 
@@ -71,10 +71,8 @@ class FakeCandles:
         return outcome
 
 
-def test_the_reader_covers_both_markets_and_survives_a_broken_store() -> None:
-    reader = MarketStateReader(
-        FakeCandles({XAUUSD: series(120, 0.5), BTCUSD: RuntimeError("database is locked")})
-    )
-    states = reader.read(NOW)
-    assert states[XAUUSD].trend == "up"
-    assert not states[BTCUSD].known
+def test_the_reader_survives_a_broken_store() -> None:
+    healthy = MarketStateReader(FakeCandles({XAUUSD: series(120, 0.5)}))
+    assert healthy.read(NOW)[XAUUSD].trend == "up"
+    broken = MarketStateReader(FakeCandles({XAUUSD: RuntimeError("database is locked")}))
+    assert not broken.read(NOW)[XAUUSD].known

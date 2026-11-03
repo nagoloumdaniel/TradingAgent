@@ -21,7 +21,7 @@ def test_ea_status_is_read_from_the_bridge_reports(
     populated: seed.Seeded, engine: Engine, ea_reports_dir: Path
 ) -> None:
     views = {view.symbol: view for view in queries.ea_views(ea_reports_dir, seed.NOW)}
-    assert set(views) == {seed.XAU, seed.BTC}
+    assert set(views) == {seed.XAU, seed.EUR}
     xau = views[seed.XAU]
     assert xau.online is True
     assert xau.readable is True
@@ -31,9 +31,9 @@ def test_ea_status_is_read_from_the_bridge_reports(
     assert xau.heartbeat_age is not None and xau.heartbeat_age.total_seconds() == 0
     assert xau.remote_positions == 1
     assert xau.events[0].kind == "EXECUTION"
-    # The BTCUSD heartbeat is older than the bridge's tolerance.
-    assert views[seed.BTC].online is False
-    assert views[seed.BTC].status.value == "OFFLINE"
+    # The EURUSD heartbeat is older than the bridge's tolerance.
+    assert views[seed.EUR].online is False
+    assert views[seed.EUR].status.value == "OFFLINE"
 
 
 def test_ea_kill_switch_is_surfaced(
@@ -125,7 +125,7 @@ def test_daily_aggregates_are_read_from_their_own_table(
     today = [row for row in rows if row.day == queries.day_start(seed.NOW)]
     assert sum(row.trades for row in today) == 2
     assert sum((row.pnl for row in today), Decimal(0)) == seed.DAY_PNL
-    assert {row.market for row in today} == {seed.XAU, seed.BTC}
+    assert {row.market for row in today} == {seed.XAU, seed.EUR}
     assert all(row.mode in {TradingMode.PAPER, TradingMode.DEMO} for row in rows)
 
 

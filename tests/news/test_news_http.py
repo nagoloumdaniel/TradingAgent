@@ -120,7 +120,7 @@ def test_the_known_hosts_are_exactly_the_hosts_of_the_configured_sources() -> No
     hosts = known_hosts()
     assert "nfs.faireconomy.media" in hosts
     assert "www.federalreserve.gov" in hosts
-    assert "cointelegraph.com" in hosts
+    assert "www.fxstreet.com" in hosts
     assert "evil.example" not in hosts
 
 

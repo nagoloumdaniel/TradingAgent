@@ -20,9 +20,9 @@ verrouille par `tests/backtest/test_production_exit_parity.py`).
 c'est une ressource qui se depense une fois. Sans le drapeau, la porte `out_of_sample` est
 rapportee « non evaluee », et un candidat ne peut alors pas etre retenu sur les neuf.
 
-    uv run python scripts/backtest/validate_candidate.py --ref vwap_pullback@1.3.0 --market BTCUSD
+    uv run python scripts/backtest/validate_candidate.py --ref vwap_pullback@1.3.0 --market XAUUSD
     uv run python scripts/backtest/validate_candidate.py --ref vwap_pullback@1.3.0 \\
-        --market BTCUSD --confirm-holdout
+        --market XAUUSD --confirm-holdout
 
 Lecture seule sur la production : rien n'est promu, rien n'est ecrit dans `config/`.
 """
@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ref", required=True, help="ex. vwap_pullback@1.3.0")
-    parser.add_argument("--market", required=True, help="ex. BTCUSD")
+    parser.add_argument("--market", required=True, help="ex. XAUUSD")
     parser.add_argument("--datasets", type=Path, default=DATASET_DIR)
     parser.add_argument("--output", type=Path, default=OUTPUT_DIR)
     parser.add_argument("--thresholds", type=Path, default=THRESHOLDS)

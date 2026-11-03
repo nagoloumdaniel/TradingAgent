@@ -176,15 +176,15 @@ def write_report(directory: Path, symbol: str, payload: dict) -> Path:
 def ea_reports_dir(tmp_path: Path) -> Path:
     """A bridge ``reports/`` directory holding one healthy EA.
 
-    The BTCUSD heartbeat is older than the bridge's tolerance on purpose: the dashboard must
+    The EURUSD heartbeat is older than the bridge's tolerance on purpose: the dashboard must
     show it OFFLINE without any exception.
     """
     directory = tmp_path / "bridge" / "reports"
     write_report(directory, "XAUUSD", ea_report("XAUUSD"))
     write_report(
         directory,
-        "BTCUSD",
-        ea_report("BTCUSD", heartbeat=NOW - timedelta(seconds=HEARTBEAT_TIMEOUT * 4)),
+        "EURUSD",
+        ea_report("EURUSD", heartbeat=NOW - timedelta(seconds=HEARTBEAT_TIMEOUT * 4)),
     )
     return directory
 

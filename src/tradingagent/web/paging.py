@@ -10,7 +10,7 @@ Two rules come from the operator's brief and are enforced here rather than in ea
 * **ten rows per display**, and the rest behind a link;
 * **one market at a time** — ``market`` is a bound query parameter, never a client-side
   hiding trick, so the logs, the strategies, the reports and the positions can never mix
-  XAUUSD and BTCUSD in the same table.
+  two instruments in the same table.
 
 Amounts are ``Decimal`` and every figure comes from :mod:`tradingagent.analytics`; this
 module moves rows around and words the empty states, it computes no figure (§34).
@@ -31,9 +31,9 @@ PAGE_SIZE = 10
 """How many rows one display shows. The operator asked for ten, everywhere, without exception."""
 
 # The order markets are offered in. XAUUSD is the instrument the agent was built for, so a
-# page opens on it rather than on BTCUSD; anything else follows, sorted, discovered from the
-# database — this list is a preference, never a whitelist.
-MARKET_PREFERENCE: tuple[str, ...] = ("XAUUSD", "BTCUSD")
+# page opens on it; anything else follows, sorted, discovered from the database — this list
+# is a preference, never a whitelist.
+MARKET_PREFERENCE: tuple[str, ...] = ("XAUUSD",)
 ALL_MARKETS = ""
 """The value of ``market`` meaning "no filter". Only ever set when nothing else is available."""
 

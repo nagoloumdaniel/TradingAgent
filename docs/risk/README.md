@@ -63,7 +63,7 @@ par trade, perte quotidienne et hebdomadaire, drawdown, plafond d'exposition tot
 | Perte maximale quotidienne | `check_daily_loss` |
 | Perte maximale hebdomadaire | `check_weekly_loss` |
 | Drawdown maximal | `check_drawdown` |
-| Exposition simultanée BTC / XAU | `check_total_exposure` (somme tous marchés, avant comparaison) |
+| Exposition simultanée (tous marchés) | `check_total_exposure` (somme tous marchés, avant comparaison) |
 | Limite de taille | `sizing` (`volume_max`, `max_volume`) |
 | Limite de slippage | `check_slippage`, complété par `check_entry_zone` |
 | Limite de spread | `check_spread` |
@@ -104,7 +104,7 @@ position est ouverte — le Lead doit câbler l'appelant ou assumer ce défaut f
 
 Le plafond est exprimé **en multiples du spread observé**
 (`RiskLimits.max_slippage_to_spread`, défaut `DEFAULT_MAX_SLIPPAGE_TO_SPREAD = 1`) : une
-règle relative convient à l'or comme au bitcoin, pour la même raison que
+règle relative convient à tout instrument, pour la même raison que
 `max_spread_stop_pct`. Le slippage attendu arrive par
 `MarketQuote.expected_slippage: Decimal | None` — une estimation de l'appelant (fills
 récents, latence du courtier, hypothèse du papier broker) en unités de prix.
@@ -131,7 +131,7 @@ recopiées par `limits_for` dans `RiskLimits` :
 - **Plafond d'exposition par marché.** Le plafond agrégé ne distingue pas les marchés ;
   le nombre de positions par marché reste borné par `check_market_positions` (une
   position), pas par un montant notionnel par symbole.
-- **Corrélation mesurée.** BTC et XAU sont additionnés sans coefficient : la couche
+- **Corrélation mesurée.** Les expositions de plusieurs marchés seraient additionnées sans coefficient : la couche
   suppose la corrélation la plus défavorable (1) au lieu de l'estimer. Une corrélation
   mesurée demanderait une histoire de prix et un modèle, donc du stockage et du calcul
   hors du moteur pur.

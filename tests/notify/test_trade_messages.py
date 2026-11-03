@@ -19,19 +19,19 @@ from tradingagent.notify.trade_messages import (
 PRE = re.compile(r"<pre>(.*?)</pre>", re.DOTALL)
 
 OPENED = PositionOpened(
-    symbol="BTCUSD",
+    symbol="XAUUSD",
     direction=Direction.BUY,
     volume=Decimal("0.01"),
-    entry_price=Decimal("84010.5"),
-    stop_loss=Decimal("83900"),
-    take_profit=Decimal("84500"),
-    strategy_ref="trend_breakout@1.0.0",
+    entry_price=Decimal("2650.5"),
+    stop_loss=Decimal("2645"),
+    take_profit=Decimal("2660"),
+    strategy_ref="vwap_pullback@1.1.0",
     mode=TradingMode.DEMO,
     ticket=555001,
 )
 
 CLOSED = PositionClosed(
-    symbol="BTCUSD",
+    symbol="XAUUSD",
     pnl=Decimal("10.00"),
     balance=Decimal("1010.00"),
     currency="USD",
@@ -60,14 +60,14 @@ def aligned_columns(block: str) -> set[int]:
 def test_the_opened_message_is_short_and_carries_the_position_essentials() -> None:
     text = render_position_opened(opened())
     lines = text.splitlines()
-    assert lines[0] == "📈 OUVERT · BTCUSD · ACHAT"
+    assert lines[0] == "📈 OUVERT · XAUUSD · ACHAT"
     assert lines[1] == ""
     assert lines[2].startswith("<pre>")
     assert "0.01 lot" in text
-    assert "84 010.50" in text  # the executed entry
-    assert "83 900.00" in text  # the stop
-    assert "84 500.00" in text  # the target
-    assert lines[-1] == "trend_breakout@1.0.0 · DÉMO"
+    assert "2 650.50" in text  # the executed entry
+    assert "2 645.00" in text  # the stop
+    assert "2 660.00" in text  # the target
+    assert lines[-1] == "vwap_pullback@1.1.0 · DÉMO"
     assert len(text.splitlines()) <= 8
 
 
@@ -86,7 +86,7 @@ def test_a_missing_level_is_left_out_rather_than_drawn_as_a_dash() -> None:
 
 def test_the_closed_message_shows_the_result_and_the_total_balance_only() -> None:
     lines = render_position_closed(closed()).splitlines()
-    assert lines[0] == "✅ BTCUSD"
+    assert lines[0] == "✅ XAUUSD"
     assert lines[1] == ""
     assert lines[2].startswith("<pre>")
     assert lines[-1].endswith("</pre>")
@@ -98,9 +98,9 @@ def test_the_closed_message_shows_the_result_and_the_total_balance_only() -> Non
 
 def test_the_closed_icon_follows_the_sign_of_the_result() -> None:
     loss = render_position_closed(closed(pnl=Decimal("-10.00"), balance=Decimal("990.00")))
-    assert loss.splitlines()[0] == "❌ BTCUSD"
+    assert loss.splitlines()[0] == "❌ XAUUSD"
     flat = render_position_closed(closed(pnl=Decimal("0"), balance=Decimal("1000.00")))
-    assert flat.splitlines()[0] == "⚪ BTCUSD"
+    assert flat.splitlines()[0] == "⚪ XAUUSD"
 
 
 def test_the_account_currency_drives_the_symbol() -> None:

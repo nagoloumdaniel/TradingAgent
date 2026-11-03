@@ -2,8 +2,8 @@
 
 What the operator asked for, in order: on a weekend gold produces nothing; when the agent is
 already running (or starts) then, it says once on Telegram that the gold market is closed; and
-it stops gold for the weekend, resuming by itself when the market reopens. Bitcoin, which
-quotes seven days a week, must never be caught by any of it.
+it stops gold for the weekend, resuming by itself when the market reopens. A market that never
+closes must never be caught by any of it.
 """
 
 import asyncio
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import Engine
-from tests.runtime.fakes import BTC, GOLD, open_calendar, weekend_calendar
+from tests.runtime.fakes import GOLD, OTHER, open_calendar, weekend_calendar
 
 from tradingagent.core.halt import session_scope
 from tradingagent.data.market_calendar import MarketCalendar
@@ -116,16 +116,16 @@ def test_gold_reopens_at_the_sunday_evening_session(engine: Engine) -> None:
     assert HaltStore(engine).is_halted(session_scope(GOLD)) is False
 
 
-def test_the_gold_stop_leaves_bitcoin_trading(engine: Engine) -> None:
-    calendars = {GOLD: weekend_calendar(GOLD), BTC: open_calendar(BTC)}
+def test_the_gold_stop_leaves_another_market_trading(engine: Engine) -> None:
+    calendars = {GOLD: weekend_calendar(GOLD), OTHER: open_calendar(OTHER)}
     guard, sent = build(engine, calendars)
 
     gold = asyncio.run(guard.guard(GOLD, SATURDAY))
-    bitcoin = asyncio.run(guard.guard(BTC, SATURDAY))
+    other = asyncio.run(guard.guard(OTHER, SATURDAY))
 
     assert gold is not None and gold.closed is True
-    assert bitcoin is None  # a seven-day market has no session to stop
-    assert HaltStore(engine).is_halted(session_scope(BTC)) is False
+    assert other is None  # a seven-day market has no session to stop
+    assert HaltStore(engine).is_halted(session_scope(OTHER)) is False
     # Only `global` and `connection` suspend the whole agent: gold's weekend is neither.
     assert HaltStore(engine).status().halted is False
     assert len(sent.texts) == 1

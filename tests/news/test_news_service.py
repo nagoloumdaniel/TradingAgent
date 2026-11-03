@@ -11,7 +11,6 @@ from tradingagent.news.analyst import NewsAnalyst
 from tradingagent.news.config import BlackoutConfig, NewsConfig
 from tradingagent.news.market_state import MarketStateReader
 from tradingagent.news.model import (
-    BTCUSD,
     XAUUSD,
     EconomicEvent,
     EventKind,
@@ -236,7 +235,7 @@ def test_the_gate_fails_open_and_says_so_when_the_calendar_is_stale(rig: Rig) ->
 
 
 def test_the_gate_before_any_refresh_is_open_and_degraded(rig: Rig) -> None:
-    decision = rig.service.check(BTCUSD, NOW)
+    decision = rig.service.check(XAUUSD, NOW)
     assert not decision.blocked and decision.degraded == "calendrier jamais rafraîchi"
 
 

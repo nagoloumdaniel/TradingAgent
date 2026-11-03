@@ -5,7 +5,7 @@
 <h1 align="center">TradingAgent</h1>
 
 <p align="center">
-  Plateforme de trading algorithmique <strong>XAUUSD + BTCUSD</strong> avec tableau de bord <em>NexaGold</em> :<br>
+  Plateforme de trading algorithmique <strong>XAUUSD</strong> (or) avec tableau de bord <em>NexaGold</em> :<br>
   l'IA recherche et améliore les stratégies, elle ne décide pas de chaque trade.
 </p>
 
@@ -58,7 +58,7 @@ jetable : ils ne représentent aucun résultat réel.*
   portes de promotion, et une version publiée n'est jamais modifiée.
 - **Moteur de risque** : 17 contrôles (perte jour/semaine, drawdown, positions, exposition,
   spread, marge, cooldown…) ; chaque refus est persisté avec son motif.
-- **Exécution MetaTrader 5** protégée par **deux Expert Advisors MQL5** (un par marché) et un
+- **Exécution MetaTrader 5** protégée par un **Expert Advisor MQL5** et un
   arrêt d'urgence côté serveur.
 - **Tableau de bord web en lecture seule** (10 pages, temps réel par SSE) et **bot Telegram**.
 
@@ -91,7 +91,7 @@ flowchart LR
     end
     REG --> SIG
     MT5D["Données MetaTrader 5"] --> SIG
-    EXE --> EA["2 EA MQL5<br/>BTCUSD · XAUUSD"]
+    EXE --> EA["EA MQL5<br/>XAUUSD"]
     EA --> TERM["Terminal MT5<br/>compte démo"]
 
     SIG & RSK & EXE --> DB[("PostgreSQL<br/>Supabase")]
@@ -147,13 +147,13 @@ Invariants vérifiés par les tests (notamment `tests/test_architecture.py`) :
 | Langage, outillage | Python 3.12, [uv](https://docs.astral.sh/uv/) (`uv.lock`) |
 | Web | FastAPI, Uvicorn, Jinja2, SSE |
 | Données | SQLAlchemy 2, Alembic (9 migrations, 23 tables), PostgreSQL hébergé sur Supabase |
-| Courtage | MetaTrader 5 (paquet Python `MetaTrader5`, **Windows uniquement**) et 2 EA MQL5 |
+| Courtage | MetaTrader 5 (paquet Python `MetaTrader5`, **Windows uniquement**) et un EA MQL5 |
 | Notifications | python-telegram-bot |
 | IA | SDK `anthropic` (le LLM est optionnel : sans clé, l'analyse déterministe sort quand même) |
 | Qualité | pytest, ruff, mypy, pre-commit, detect-secrets, GitHub Actions, Dependabot |
 
-Trois stratégies sont publiées dans `config/strategies/` : `vwap_pullback`, `trend_breakout` et
-`witness` (plusieurs versions chacune).
+Deux stratégies sont publiées dans `config/strategies/` : `vwap_pullback` et `witness`
+(plusieurs versions pour `witness`).
 
 ## Résultats et limites
 
@@ -162,28 +162,21 @@ net de 1,20** ; **aucune mesure de référence ne l'atteint de façon fiable**.
 
 | Mesure | Résultat | Lecture |
 |---|---|---|
-| `vwap_pullback`, validation, BTCUSD (205 trades) et XAUUSD (231 trades) | profit factor net **0,6818** et **0,5454** | très en dessous de 1,20 et de 1 |
-| `vwap_pullback@1.3.0`, BTCUSD, fenêtre de validation | **1,0275** (170 trades) | semblait prometteur |
-| `vwap_pullback@1.3.0`, BTCUSD, **jeu scellé** (154 trades) | **0,6909**, −370,13 € | l'avantage apparent ne s'est pas confirmé hors échantillon |
-| `vwap_pullback@1.4.0`, BTCUSD, entraînement + validation (123 trades) | **0,9441** ; 1,3916 sur la seule validation (35 trades) | le filtre a été trouvé en examinant 164 tranches des mêmes données ; jeu scellé **non ouvert** |
-| Compte démo MT5, 22 trades clôturés du 13 au 28/10/2026 | **+14,90 €**, profit factor 1,08 | **non significatif statistiquement** |
+| `vwap_pullback`, validation, XAUUSD (231 trades) | profit factor net **0,5454** | très en dessous de 1,20 et de 1 |
+| Compte démo MT5, XAUUSD (`vwap_pullback@1.1.0`), 8 trades clôturés du 13 au 28/10/2026 | **+30,56 €**, profit factor 1,43 | **non significatif statistiquement** |
 
 À retenir :
 
-- La stratégie `vwap_pullback@1.4.0` est référencée pour BTCUSD dans `config/agent.yaml`
-  **sur le compte démo**, par dérogation explicite de l'opérateur, en connaissance de ces
-  chiffres. Ce n'est pas une validation.
 - Sur l'or réel, aucun candidat ne survit à la correction du taux de fausses découvertes
   (voir [`docs/v3/STATUS.md`](docs/v3/STATUS.md)) : c'est le résultat honnête, pas un échec de
   mesure.
 - Les performances passées ne garantissent aucun résultat futur. Le détail des mesures est dans
   [`docs/research/`](docs/research/README.md) et
   [`docs/research/2026-10-28-diagnostic-pertes-demo.md`](docs/research/2026-10-28-diagnostic-pertes-demo.md)
-  (ce diagnostic précède l'activation de la 1.4.0 en démo : [`config/agent.yaml`](config/agent.yaml)
-  fait foi pour l'état courant).
+  ([`config/agent.yaml`](config/agent.yaml) fait foi pour l'état courant).
 
 **Statut du projet** : en cours, pré-production. 175 commits sur `main` depuis le 3 octobre 2026 ;
-3 stratégies, 2 EA MQL5, 17 contrôles de risque, 9 portes de promotion, 10 pages web.
+2 stratégies, 1 EA MQL5, 17 contrôles de risque, 9 portes de promotion, 10 pages web.
 Dernier rapport de vérification complet
 ([`docs/reports/2026-10-10-verification-finale.md`](docs/reports/2026-10-10-verification-finale.md)) :
 2789 tests passés, 9 ignorés, `ruff check` et `mypy` propres. Ces chiffres datent de ce rapport
@@ -248,13 +241,13 @@ uv run python scripts/paper_campaign.py      # état de la campagne de paper tra
 
 ## Expert Advisors
 
-Deux EA MQL5 (`mt5/Experts/TradingAgent/`) tournent dans le terminal : un par marché. Ils
-exécutent les ordres autorisés par le backend, vérifient les protections, déclenchent leur
+Un EA MQL5 (`mt5/Experts/TradingAgent/XAUUSD_Guardian.mq5`) tourne dans le terminal. Il
+exécute les ordres autorisés par le backend, vérifie les protections, déclenche son
 arrêt local si le backend se tait, et remontent chaque événement. La compilation est
 documentée dans [`docs/ea/README.md`](docs/ea/README.md) ; le protocole d'échange dans
 [`docs/ea/protocole-pont.md`](docs/ea/protocole-pont.md).
 
-Le pont entre l'agent et les EA passe par `EA_FILES_DIR`, à pointer sur
+Le pont entre l'agent et l'EA passe par `EA_FILES_DIR`, à pointer sur
 `%APPDATA%\MetaQuotes\Terminal\<instance>\MQL5\Files\TradingAgent`. Sans cette variable,
 l'agent tourne sans EA — c'est un état valide.
 

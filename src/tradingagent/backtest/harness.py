@@ -44,7 +44,7 @@ def _slot(moment: datetime) -> Slot:
 
 @dataclass(frozen=True)
 class TradingSession:
-    """Open quarter-hour slots in UTC; `None` means every hour trades (crypto)."""
+    """Open quarter-hour slots in UTC; `None` means every hour trades."""
 
     open_slots: frozenset[Slot] | None = None
 
@@ -89,7 +89,7 @@ class BacktestConfig:
     #: the strategy published. `risk.checks.check_entry_zone` measures the executable price
     #: against `entry_low`/`entry_high` and refuses the signal when it falls out; the harness
     #: never did, so a strategy cleared here could meet a gate that rejects most of its entries
-    #: (BTCUSD, 2026-10-09: a 0.1 x ATR band 18.31 USD wide against an 18.424 USD spread).
+    #: (2026-10-09: a 0.1 x ATR band narrower than the spread it must contain).
     #:
     #: **Off by default, and it has to be.** Every campaign measured so far ran without it;
     #: switching it on silently would change what those numbers mean. A refusal here is final,

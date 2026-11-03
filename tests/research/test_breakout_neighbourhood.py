@@ -16,7 +16,7 @@ from tradingagent.research.discovery import (
 
 
 def scope() -> TemplateScope:
-    return TemplateScope(symbols=("BTCUSD",), timeframe=Timeframe.M15)
+    return TemplateScope(symbols=("XAUUSD",), timeframe=Timeframe.M15)
 
 
 def proposals() -> list:
@@ -62,7 +62,7 @@ def test_every_proposal_declares_the_breakout_strategy_and_a_signal_ceiling() ->
         assert item.strategy_id == "breakout_only"
         assert item.manifest.max_mode is TradingMode.SIGNAL
         assert item.manifest.timeframes == (Timeframe.M15,)
-        assert item.manifest.allowed_symbols == ("BTCUSD",)
+        assert item.manifest.allowed_symbols == ("XAUUSD",)
 
 
 def test_the_history_covers_the_slow_average_and_the_atr() -> None:

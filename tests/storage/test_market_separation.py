@@ -204,7 +204,7 @@ def test_a_report_of_a_two_market_window_keeps_no_market(url: str) -> None:
     built = create_database_engine(url)
     try:
         _seed_signal(built, "XAUUSD", DAY + timedelta(hours=1))
-        _seed_signal(built, "BTCUSD", DAY + timedelta(hours=2))
+        _seed_signal(built, "EURUSD", DAY + timedelta(hours=2))
         _seed_report(built, DAY, NEXT_DAY)
     finally:
         built.dispose()
@@ -232,7 +232,7 @@ def test_the_symbol_of_a_legacy_event_is_read_from_its_own_detail(url: str) -> N
     upgrade(url, BEFORE)
     built = create_database_engine(url)
     try:
-        _seed_event(built, "evaluation_skipped", {"symbol": "BTCUSD", "detail": "closed"})
+        _seed_event(built, "evaluation_skipped", {"symbol": "EURUSD", "detail": "closed"})
         _seed_event(built, "ea_offline", {"symbol": "XAUUSD"})
         _seed_event(built, "clock_mismatch", {"detail": "no symbol in this one"})
     finally:
@@ -241,7 +241,7 @@ def test_the_symbol_of_a_legacy_event_is_read_from_its_own_detail(url: str) -> N
     upgrade(url)
 
     assert _event_symbols(url) == {
-        "evaluation_skipped": "BTCUSD",
+        "evaluation_skipped": "EURUSD",
         "ea_offline": "XAUUSD",
         "clock_mismatch": None,
     }
@@ -251,11 +251,11 @@ def test_the_symbol_of_a_legacy_event_is_read_from_its_own_detail(url: str) -> N
 
 
 def test_the_report_writer_stores_the_market_it_is_given(engine: Engine) -> None:
-    ReportStore(engine).save("daily", DAY, NEXT_DAY, "contenu", NEXT_DAY, market="BTCUSD")
+    ReportStore(engine).save("daily", DAY, NEXT_DAY, "contenu", NEXT_DAY, market="EURUSD")
 
     with Session(engine) as session:
         row = session.scalars(select(ReportRow)).one()
-    assert row.market == "BTCUSD"
+    assert row.market == "EURUSD"
 
 
 def test_the_report_writer_leaves_the_market_empty_when_it_has_none(engine: Engine) -> None:
@@ -268,12 +268,12 @@ def test_the_report_writer_leaves_the_market_empty_when_it_has_none(engine: Engi
 
 def test_the_event_writer_stores_the_symbol_it_is_given(engine: Engine) -> None:
     SystemEventStore(engine).record(
-        "ea_offline", Severity.WARNING, {"symbol": "BTCUSD"}, DAY, symbol="BTCUSD"
+        "ea_offline", Severity.WARNING, {"symbol": "EURUSD"}, DAY, symbol="EURUSD"
     )
 
     with Session(engine) as session:
         row = session.scalars(select(SystemEventRow)).one()
-    assert row.symbol == "BTCUSD"
+    assert row.symbol == "EURUSD"
 
 
 def test_the_event_writer_leaves_the_symbol_empty_when_the_caller_has_none(

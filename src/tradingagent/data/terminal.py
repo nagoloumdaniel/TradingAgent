@@ -111,10 +111,6 @@ class SymbolSpec:
     #: backtest never assumes a value (TASK-067).
     swap_long: float | None = None
     swap_short: float | None = None
-    #: Overnight financing as a yearly fraction of the price (-0.20 is a 20 % yearly cost), for
-    #: the brokers that quote it as interest. Price-dependent, so it cannot be a distance here.
-    swap_rate_long: float | None = None
-    swap_rate_short: float | None = None
 
 
 @dataclass(frozen=True)

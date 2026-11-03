@@ -2,7 +2,7 @@
 
 C'est la brique qui manque pour deux usages précis.
 
-1. **Ta stratégie BTC place son stop derrière les *higher lows***, et un trailing sur
+1. **Une stratégie peut placer son stop derrière les *higher lows***, et un trailing sur
    structure ne peut pas s'écrire sans savoir où sont les creux. Le dépôt ne savait le faire
    qu'à distance fixe (`harness.trailing_stop_atr`).
 2. **Ta spec d'analyse demande HH/HL/LH/LL, break of structure et range high/low.** Ces

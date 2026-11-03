@@ -309,7 +309,7 @@ class DatasetStore:
         Keyed by **symbol**, not by `dataset_id`, and that distinction is the whole point of
         this method. Two datasets fetched on the same day carry the same id — the fetch tool
         derives it from the date — so keying by id silently dropped the second one. On
-        2026-10-07 that discarded the entire BTCUSD series while the campaign exited 0 and
+        2026-10-07 that discarded an entire series while the campaign exited 0 and
         printed "loaded 1 frozen dataset(s)": a two-market run that was quietly a
         one-market run.
 

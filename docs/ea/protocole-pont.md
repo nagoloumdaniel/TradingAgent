@@ -1,7 +1,7 @@
 # Protocole du pont Python ↔ Expert Advisors Guardian
 
 Ce document est le **contrat exact** entre l'agent Python
-(`src/tradingagent/ea/bridge.py`) et les deux Expert Advisors MQL5
+(`src/tradingagent/ea/bridge.py`) et l'Expert Advisor MQL5
 (`mt5/Experts/TradingAgent/`). Toute modification d'un champ doit être répercutée ici et
 dans `PROTOCOL_VERSION`.
 
@@ -23,7 +23,7 @@ n'appelle une fonction d'envoi d'ordre.
 
 ## 2. Où vivent les fichiers
 
-Les EAs écrivent dans le bac à sable de fichiers du terminal, donc sous le **dossier de
+L'EA écrit dans le bac à sable de fichiers du terminal, donc sous le **dossier de
 données** du terminal :
 
 ```
@@ -105,7 +105,7 @@ serait une divergence annoncée. En attendant, on publie `"ticket": 0`, ou rien 
 ```json
 {
   "protocol_version": 1,
-  "symbol": "BTCUSD",
+  "symbol": "XAUUSD",
   "magic": 3031,
   "revision": 1,
   "published_at": "2026-10-07T06:00:00+00:00",
@@ -121,8 +121,8 @@ serait une divergence annoncée. En attendant, on publie `"ticket": 0`, ou rien 
       "ticket": 5001,
       "direction": "BUY",
       "volume": 0.01,
-      "stop_loss": 62000.0,
-      "take_profit": 65000.0,
+      "stop_loss": 2640.0,
+      "take_profit": 2680.0,
       "comment": "ta-0123456789abcdef"
     }
   ],
@@ -132,8 +132,8 @@ serait une divergence annoncée. En attendant, on publie `"ticket": 0`, ou rien 
       "action": "OPEN",
       "direction": "BUY",
       "volume": 0.01,
-      "stop_loss": 62000.0,
-      "take_profit": 65000.0,
+      "stop_loss": 2640.0,
+      "take_profit": 2680.0,
       "comment": "ta-0123456789abcdef",
       "position_ticket": null
     }
@@ -178,9 +178,9 @@ remplacement). Lu par `read_reports(...)` et `ea_health(...)`.
 {
   "protocol_version": 1,
   "ea_version": "1.0.0",
-  "symbol": "BTCUSD",
+  "symbol": "XAUUSD",
   "magic": 3031,
-  "chart_symbol": "BTCUSD",
+  "chart_symbol": "XAUUSD",
   "updated_at": "2026-10-07T06:00:02Z",
   "server_time": "2026-10-07T06:00:02Z",
   "applied_revision": 1,

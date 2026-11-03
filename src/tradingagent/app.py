@@ -891,7 +891,7 @@ async def _build(
         _credentials(settings),
         mode,
         expected_server_offset=DEMO_SERVER_OFFSET,
-        clock_probe_symbol="BTCUSD",
+        clock_probe_symbol="XAUUSD",
     )
     opened.append(market)
     account_snapshot = await market.connect()

@@ -100,7 +100,6 @@ def commission_per_lot(deals: tuple[DealInfo, ...], symbol: str) -> Decimal | No
 # `docs/research/execution-diagnostic/`.
 COMMENT_LIMIT = 29
 # How far back the deal history is read to learn the commission the broker really charges.
-SWAP_DAYS_PER_YEAR = Decimal(360)
 COMMISSION_LOOKBACK = timedelta(days=60)
 # 64 bits of SHA-256. Out of reach of this project's order volume (a few thousand a year), and
 # short enough that a "ta-" + digest comment survives the EA's 31-character truncation whole.
@@ -236,7 +235,7 @@ class MT5Broker:
         margin = await self._call(self._terminal.calc_margin, direction, symbol, 1.0, float(entry))
         margin_one_lot = None if margin is None else Decimal(str(margin))
         commission = await self._commission(symbol, spec, rate)
-        swap = await self._swap_per_day(symbol, direction, entry)
+        swap = await self._swap_per_day(symbol, direction)
         return MarketQuote(
             bid, ask, loss_one_lot, margin_one_lot, rate, commission=commission, swap_per_day=swap
         )
@@ -254,26 +253,17 @@ class MT5Broker:
             return None
         return per_lot / (spec.contract_size * profit_to_eur)
 
-    async def _swap_per_day(
-        self, symbol: str, direction: Direction, price: Decimal
-    ) -> Decimal | None:
-        """One day of swap as an adverse price distance; a credit counts for nothing.
-
-        A swap quoted as yearly interest on the price is turned into a distance at `price`,
-        over `SWAP_DAYS_PER_YEAR` days: the broker's own day count is not published, and the
-        shorter year charges more per day, which is the safe side for a cost check.
-        """
+    async def _swap_per_day(self, symbol: str, direction: Direction) -> Decimal | None:
+        """One day of swap as an adverse price distance; a credit counts for nothing."""
         raw = await self._call(self._terminal.symbol_spec, symbol)
-        if raw is None:
+        value = (
+            None
+            if raw is None
+            else (raw.swap_long if direction is Direction.BUY else raw.swap_short)
+        )
+        if value is None:
             return None
-        buying = direction is Direction.BUY
-        value = raw.swap_long if buying else raw.swap_short
-        if value is not None:
-            return max(-Decimal(str(value)), Decimal(0))
-        rate = raw.swap_rate_long if buying else raw.swap_rate_short
-        if rate is None:
-            return None
-        return max(-Decimal(str(rate)) * price / SWAP_DAYS_PER_YEAR, Decimal(0))
+        return max(-Decimal(str(value)), Decimal(0))
 
     async def open_positions(self) -> tuple[OpenPosition, ...]:
         positions = await self.positions()

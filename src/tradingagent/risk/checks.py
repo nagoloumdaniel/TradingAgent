@@ -114,7 +114,7 @@ def check_entry_zone(ctx: RiskContext) -> CheckResult:
 def check_slippage(ctx: RiskContext) -> CheckResult:
     """RM-012: expected slippage, expressed in multiples of the observed spread.
 
-    A spread-relative ceiling fits gold and bitcoin alike, for the same reason
+    A spread-relative ceiling fits any instrument, for the same reason
     `max_spread_stop_pct` does. When the caller supplies no estimate the check passes
     and says so: the unconditional guard remains `check_entry_zone`, which refuses any
     executable price outside the signal's zone. Observed post-fill slippage is recorded
@@ -240,8 +240,8 @@ def check_total_exposure(ctx: RiskContext) -> CheckResult:
     """RM-008: notional of every open position, all markets, plus this order, against a
     fraction of the capital in use.
 
-    Gold and bitcoin are summed before the comparison: their correlation makes two
-    separate market ceilings an illusion of safety. The current exposure is read from
+    Every market is summed before the comparison: separate market ceilings would be
+    an illusion of safety. The current exposure is read from
     `PortfolioState.open_exposure_eur`, a caller-computed aggregate; when a position is
     open and the caller did not measure it, the check fails closed rather than let the
     ceiling be skipped.
@@ -285,7 +285,7 @@ def check_trades_today(ctx: RiskContext) -> CheckResult:
 
 
 def check_spread(ctx: RiskContext) -> CheckResult:
-    """RM-012: spread relative to the stop distance, so one rule fits gold and bitcoin."""
+    """RM-012: spread relative to the stop distance, so one rule fits any instrument."""
     distance = ctx.stop_distance
     if distance is None or distance <= 0:
         return CheckResult(

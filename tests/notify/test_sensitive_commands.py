@@ -160,25 +160,25 @@ def test_disable_needs_the_symbol_and_confirmation_then_survives_a_restart(
 
     usage = send(svc, "/disable")
     assert usage is not None and "symbole" in usage
-    assert not HaltStore(engine).is_halted("market:BTCUSD")
+    assert not HaltStore(engine).is_halted("market:GBPUSD")
 
-    prompt = send(svc, "/disable BTCUSD")
-    assert prompt is not None and "BTCUSD" in prompt
-    assert not HaltStore(engine).is_halted("market:BTCUSD")
+    prompt = send(svc, "/disable GBPUSD")
+    assert prompt is not None and "GBPUSD" in prompt
+    assert not HaltStore(engine).is_halted("market:GBPUSD")
 
-    send(svc, "/disable BTCUSD confirmer")
+    send(svc, "/disable GBPUSD confirmer")
 
     # A fresh store over the same database: the state survives a restart.
-    assert HaltStore(engine).is_halted("market:BTCUSD")
+    assert HaltStore(engine).is_halted("market:GBPUSD")
 
 
 def test_enable_lifts_a_disabled_market(engine: Engine) -> None:
     svc = service(engine)
-    send(svc, "/disable BTCUSD confirmer")
+    send(svc, "/disable GBPUSD confirmer")
 
-    send(svc, "/enable BTCUSD confirmer")
+    send(svc, "/enable GBPUSD confirmer")
 
-    assert not HaltStore(engine).is_halted("market:BTCUSD")
+    assert not HaltStore(engine).is_halted("market:GBPUSD")
 
 
 def test_every_executed_sensitive_command_is_journalled_with_its_author(engine: Engine) -> None:
@@ -312,20 +312,20 @@ def test_restart_all_lifts_the_local_halts_the_restart_would_trip(
     """
     ea = tmp_path / "ea"
     (ea / "control").mkdir(parents=True)
-    for symbol in ("XAUUSD", "BTCUSD"):
+    for symbol in ("XAUUSD", "GBPUSD"):
         (ea / "control" / f"{symbol}_halt.txt").write_text("backend silencieux", encoding="utf-8")
     svc = stack_service(
         engine,
         "restart_all",
         tmp_path / "controle.txt",
         ea_directory=ea,
-        symbols=("XAUUSD", "BTCUSD"),
+        symbols=("XAUUSD", "GBPUSD"),
     )
 
     answer = send(svc, "/restart_all confirmer")
 
     assert answer is not None and "arrêts locaux levés" in answer
-    assert "XAUUSD" in answer and "BTCUSD" in answer
+    assert "XAUUSD" in answer and "GBPUSD" in answer
     assert list((ea / "control").glob("*_halt.txt")) == []
 
 

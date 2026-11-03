@@ -20,7 +20,7 @@ from tradingagent.storage.audit import AuditStore
 from tradingagent.storage.engine import create_database_engine
 
 GOLD = "XAUUSD"
-BITCOIN = "BTCUSD"
+OTHER_MARKET = "EURUSD"  # a synthetic second market: the registry accepts any symbol
 REF = "witness@1.1.0"
 PARAMETERS = {"ema_fast": 20, "ema_slow": 50}
 NOW = datetime(2026, 10, 7, 6, 30, tzinfo=UTC)
@@ -101,9 +101,9 @@ def test_register_refuses_a_duplicate_market_and_ref(engine: Engine) -> None:
 def test_the_same_ref_lives_independently_on_another_market(engine: Engine) -> None:
     store = registry(engine)
     first = register(store, market=GOLD)
-    second = register(store, market=BITCOIN)
+    second = register(store, market=OTHER_MARKET)
     assert first != second
-    assert store.get(BITCOIN, REF).market == BITCOIN
+    assert store.get(OTHER_MARKET, REF).market == OTHER_MARKET
 
 
 def test_register_refuses_an_unknown_parent(engine: Engine) -> None:
@@ -122,7 +122,7 @@ def test_a_known_parent_is_recorded(engine: Engine) -> None:
 def test_a_parent_from_another_market_is_refused(engine: Engine) -> None:
     """Lineage is a version history of one market; a parent elsewhere is a different lineage."""
     store = registry(engine)
-    register(store, market=BITCOIN, ref="witness@1.0.0")
+    register(store, market=OTHER_MARKET, ref="witness@1.0.0")
     with pytest.raises(UnknownStrategyRef):
         register(store, market=GOLD, parent_ref="witness@1.0.0")
 
@@ -137,7 +137,7 @@ def test_a_ref_needs_a_version(engine: Engine) -> None:
 
 def test_parse_ref_splits_on_the_last_at_sign() -> None:
     assert parse_ref("witness@1.1.0") == ("witness", "1.1.0")
-    assert parse_ref("trend_breakout@1.0.0") == ("trend_breakout", "1.0.0")
+    assert parse_ref("vwap_pullback@1.1.0") == ("vwap_pullback", "1.1.0")
 
 
 def test_register_refuses_blank_market_or_ref(engine: Engine) -> None:
@@ -482,28 +482,28 @@ def test_active_is_none_without_a_live_ref(engine: Engine) -> None:
     store = registry(engine)
     register(store)
     assert store.active(GOLD) is None
-    assert store.active(BITCOIN) is None
+    assert store.active(OTHER_MARKET) is None
 
 
 def test_two_markets_are_independent(engine: Engine) -> None:
     store = registry(engine)
     register(store, market=GOLD, ref="witness@1.1.0")
-    register(store, market=BITCOIN, ref="trend_breakout@1.0.0")
+    register(store, market=OTHER_MARKET, ref="vwap_pullback@1.1.0")
 
     walk_to_candidate(store, market=GOLD, ref="witness@1.1.0")
     pass_every_gate(store, market=GOLD, ref="witness@1.1.0")
     promote(store, market=GOLD, ref="witness@1.1.0")
 
     assert store.active(GOLD) == "witness@1.1.0"
-    assert store.active(BITCOIN) is None
-    assert store.get(BITCOIN, "trend_breakout@1.0.0").status is StrategyStatus.DISCOVERED
+    assert store.active(OTHER_MARKET) is None
+    assert store.get(OTHER_MARKET, "vwap_pullback@1.1.0").status is StrategyStatus.DISCOVERED
 
-    walk_to_candidate(store, market=BITCOIN, ref="trend_breakout@1.0.0")
-    pass_every_gate(store, market=BITCOIN, ref="trend_breakout@1.0.0")
-    promote(store, market=BITCOIN, ref="trend_breakout@1.0.0")
+    walk_to_candidate(store, market=OTHER_MARKET, ref="vwap_pullback@1.1.0")
+    pass_every_gate(store, market=OTHER_MARKET, ref="vwap_pullback@1.1.0")
+    promote(store, market=OTHER_MARKET, ref="vwap_pullback@1.1.0")
 
     assert store.active(GOLD) == "witness@1.1.0"
-    assert store.active(BITCOIN) == "trend_breakout@1.0.0"
+    assert store.active(OTHER_MARKET) == "vwap_pullback@1.1.0"
 
 
 def test_history_carries_the_whole_life_of_a_ref(engine: Engine) -> None:
@@ -530,19 +530,21 @@ def test_history_of_an_unknown_ref_is_refused(engine: Engine) -> None:
 def test_history_is_scoped_to_one_market(engine: Engine) -> None:
     store = registry(engine)
     register(store, market=GOLD, ref=REF)
-    register(store, market=BITCOIN, ref=REF)
-    store.transition(BITCOIN, REF, StrategyStatus.EXPERIMENTAL, "operator", "btc only", NOW)
+    register(store, market=OTHER_MARKET, ref=REF)
+    store.transition(
+        OTHER_MARKET, REF, StrategyStatus.EXPERIMENTAL, "operator", "other market only", NOW
+    )
     assert store.history(REF, GOLD).status is StrategyStatus.DISCOVERED
-    assert store.history(REF, BITCOIN).status is StrategyStatus.EXPERIMENTAL
+    assert store.history(REF, OTHER_MARKET).status is StrategyStatus.EXPERIMENTAL
 
 
 def test_list_market_returns_every_ref_of_one_market(engine: Engine) -> None:
     store = registry(engine)
     register(store, market=GOLD, ref="witness@1.0.0")
     register(store, market=GOLD, ref="witness@1.1.0")
-    register(store, market=BITCOIN, ref="trend_breakout@1.0.0")
+    register(store, market=OTHER_MARKET, ref="vwap_pullback@1.1.0")
     assert [row.ref for row in store.list_market(GOLD)] == ["witness@1.0.0", "witness@1.1.0"]
-    assert [row.ref for row in store.list_market(BITCOIN)] == ["trend_breakout@1.0.0"]
+    assert [row.ref for row in store.list_market(OTHER_MARKET)] == ["vwap_pullback@1.1.0"]
 
 
 def test_utc_is_the_only_timezone_accepted(engine: Engine) -> None:

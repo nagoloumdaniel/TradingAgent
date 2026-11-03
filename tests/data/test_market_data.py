@@ -23,7 +23,7 @@ from tradingagent.data.mt5_terminal import Mt5Terminal
 from tradingagent.data.terminal import Credentials, RawBar, RawTick, TerminalError
 
 NOW = datetime(2026, 10, 4, 12, 7, 30, tzinfo=UTC)
-PROBE = "BTCUSD"
+PROBE = "EURUSD"
 
 
 def run[T](coroutine: Coroutine[Any, Any, T]) -> T:
@@ -69,7 +69,7 @@ def client(
         if delays is not None:
             delays.append(seconds)
 
-    terminal.ticks[PROBE] = RawTick(server_epoch(NOW, offset) - 2, 84000.0, 84010.0)
+    terminal.ticks[PROBE] = RawTick(server_epoch(NOW, offset) - 2, 1.1000, 1.1002)
     return MarketDataClient(
         terminal,
         credentials,
@@ -366,12 +366,12 @@ def test_only_whitelisted_symbols_are_selected_and_a_failure_is_isolated(
     async def scenario() -> set[str]:
         market = client(terminal, credentials)
         await market.connect()
-        selected = await market.select({"XAUUSD", "BTCUSD"})
+        selected = await market.select({"XAUUSD", "EURUSD"})
         await market.close()
         return selected
 
-    assert run(scenario()) == {"BTCUSD"}
-    assert terminal.selected == ["BTCUSD"]
+    assert run(scenario()) == {"EURUSD"}
+    assert terminal.selected == ["EURUSD"]
 
 
 def test_malformed_bar_is_skipped_not_fatal(terminal: Any, credentials: Credentials) -> None:
@@ -427,21 +427,21 @@ def test_a_failing_symbol_does_not_stop_the_others_while_polling(
     terminal: Any, credentials: Credentials
 ) -> None:
     clock = Clock(NOW)
-    gold, bitcoin = Subscription("XAUUSD", Timeframe.M15), Subscription("BTCUSD", Timeframe.M15)
+    gold, other = Subscription("XAUUSD", Timeframe.M15), Subscription("EURUSD", Timeframe.M15)
     terminal.failing_rates = {"XAUUSD"}
-    terminal.bars[("BTCUSD", Timeframe.M15)] = bars(
+    terminal.bars[("EURUSD", Timeframe.M15)] = bars(
         m15_series(datetime(2026, 10, 4, 12, 0, tzinfo=UTC), 6)
     )
 
     async def scenario() -> list[str]:
         market = client(terminal, credentials, clock=clock)
         await market.connect()
-        await market.poll_new([gold, bitcoin])
+        await market.poll_new([gold, other])
         clock.now = NOW + timedelta(minutes=15)
-        terminal.bars[("BTCUSD", Timeframe.M15)] = bars(
+        terminal.bars[("EURUSD", Timeframe.M15)] = bars(
             m15_series(datetime(2026, 10, 4, 12, 15, tzinfo=UTC), 7)
         )
-        published = await market.poll_new([gold, bitcoin])
+        published = await market.poll_new([gold, other])
         await market.close()
         return [c.open_time.isoformat() for c in published]
 
@@ -531,7 +531,7 @@ def test_reconnection_backs_off_then_restores_the_selection(
     async def scenario() -> bool:
         market = client(terminal, credentials, delays=delays)
         await market.connect()
-        await market.select({"BTCUSD"})
+        await market.select({"EURUSD"})
         terminal.connected = False
         terminal.initialize_failures = 3
         terminal.selected.clear()
@@ -541,7 +541,7 @@ def test_reconnection_backs_off_then_restores_the_selection(
 
     assert run(scenario()) is True
     assert delays == [1.0, 2.0, 4.0]
-    assert terminal.selected == ["BTCUSD"]
+    assert terminal.selected == ["EURUSD"]
 
 
 def test_backoff_is_capped(terminal: Any, credentials: Credentials) -> None:

@@ -66,7 +66,7 @@ from tradingagent.storage.models import (
 
 OPERATOR, STRANGER = 111, 999
 T0 = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)  # a Tuesday
-MARKETS: tuple[tuple[str, bool], ...] = (("XAUUSD", True), ("BTCUSD", True))
+MARKETS: tuple[tuple[str, bool], ...] = (("XAUUSD", True), ("GBPUSD", True))
 
 HTML_TAG = re.compile(r"</?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>")
 URL = re.compile(r"https?://")
@@ -325,7 +325,7 @@ def test_one_market_shows_its_own_state(engine: Engine) -> None:
 
     assert_readable(answer)
     assert "XAUUSD" in answer
-    assert "BTCUSD" not in answer  # the other market is never mentioned
+    assert "GBPUSD" not in answer  # the other market is never mentioned
     assert "ouvert" in answer  # the calendar
     assert "  ACHAT 0.01 lot @ 2650.00 (DÉMO)," in answer  # its open position, indented
     assert "DEMO" not in answer  # the mode is never the ambiguous raw value
@@ -347,11 +347,11 @@ def test_one_market_says_when_nothing_is_open(engine: Engine) -> None:
 
 def test_a_closed_market_is_reported_as_closed(engine: Engine) -> None:
     # An empty calendar knows no open slot: the market is closed at T0.
-    closed = MarketCalendar("BTCUSD", frozenset(), frozenset())
+    closed = MarketCalendar("GBPUSD", frozenset(), frozenset())
 
     answer = run(
-        market_command(engine, {"BTCUSD": closed}),
-        a_request("marche", "BTCUSD"),
+        market_command(engine, {"GBPUSD": closed}),
+        a_request("marche", "GBPUSD"),
     )
 
     assert_readable(answer)
@@ -373,7 +373,7 @@ def test_a_halt_on_one_market_never_leaks_to_the_other(engine: Engine) -> None:
     handler = market_command(engine, {"XAUUSD": calendar_for_at("XAUUSD", T0)})
 
     stopped = run(handler, a_request("marche", "XAUUSD"))
-    running = run(handler, a_request("marche", "BTCUSD"))
+    running = run(handler, a_request("marche", "GBPUSD"))
 
     assert_readable(stopped)
     assert_readable(running)
@@ -399,7 +399,7 @@ def test_an_unknown_market_is_named_with_the_ones_that_exist(engine: Engine) -> 
     assert_readable(answer)
     assert "inconnu" in answer.lower()
     assert "EURUSD" in answer
-    assert "BTCUSD" in answer and "XAUUSD" in answer
+    assert "GBPUSD" in answer and "XAUUSD" in answer
 
 
 def test_marche_without_a_symbol_says_what_to_type(engine: Engine) -> None:
@@ -443,14 +443,14 @@ def test_proposals_show_the_market_the_hypothesis_and_the_state(engine: Engine) 
 def test_proposals_are_filtered_by_market(engine: Engine) -> None:
     with Session(engine) as session:
         seed_proposal(session, market="XAUUSD", hypothesis="hypothèse or")
-        seed_proposal(session, market="BTCUSD", hypothesis="hypothèse bitcoin")
+        seed_proposal(session, market="GBPUSD", hypothesis="hypothèse livre")
         session.commit()
 
     answer = run(proposals_handler(engine, markets=MARKETS), a_request("propositions", "XAUUSD"))
 
     assert_readable(answer)
     assert "hypothèse or" in answer
-    assert "hypothèse bitcoin" not in answer
+    assert "hypothèse livre" not in answer
 
 
 def test_proposals_show_the_decision_when_one_was_taken(engine: Engine) -> None:
@@ -474,11 +474,11 @@ def test_proposals_show_the_decision_when_one_was_taken(engine: Engine) -> None:
 
 
 def test_proposals_say_when_there_is_none_for_that_market(engine: Engine) -> None:
-    answer = run(proposals_handler(engine, markets=MARKETS), a_request("propositions", "BTCUSD"))
+    answer = run(proposals_handler(engine, markets=MARKETS), a_request("propositions", "GBPUSD"))
 
     assert_readable(answer)
     assert "aucune proposition" in answer.lower()
-    assert "BTCUSD" in answer
+    assert "GBPUSD" in answer
 
 
 def test_proposals_refuse_an_unknown_market(engine: Engine) -> None:
@@ -491,12 +491,12 @@ def test_proposals_refuse_an_unknown_market(engine: Engine) -> None:
 
 def test_proposals_never_confuse_two_markets(engine: Engine) -> None:
     with Session(engine) as session:
-        seed_proposal(session, market="BTCUSD", hypothesis="hypothèse bitcoin")
+        seed_proposal(session, market="GBPUSD", hypothesis="hypothèse livre")
         session.commit()
 
     answer = run(proposals_handler(engine, markets=MARKETS), a_request("propositions", "XAUUSD"))
 
-    assert "bitcoin" not in answer
+    assert "livre" not in answer
 
 
 # --- /portes : why a strategy is not promoted -------------------------------
@@ -535,22 +535,22 @@ def test_gates_say_when_everything_is_cleared(engine: Engine) -> None:
 def test_gates_only_show_the_asked_market(engine: Engine) -> None:
     with Session(engine) as session:
         seed_version_row(session, market="XAUUSD", ref="witness@1.1.0")
-        seed_version_row(session, market="BTCUSD", ref="bitcoin@1.0.0")
+        seed_version_row(session, market="GBPUSD", ref="sterling@1.0.0")
         session.commit()
 
     answer = run(gates_handler(engine, markets=MARKETS), a_request("portes", "XAUUSD"))
 
     assert_readable(answer)
     assert "witness@1.1.0" in answer
-    assert "bitcoin@1.0.0" not in answer
+    assert "sterling@1.0.0" not in answer
 
 
 def test_gates_say_when_no_strategy_is_registered_for_that_market(engine: Engine) -> None:
-    answer = run(gates_handler(engine, markets=MARKETS), a_request("portes", "BTCUSD"))
+    answer = run(gates_handler(engine, markets=MARKETS), a_request("portes", "GBPUSD"))
 
     assert_readable(answer)
     assert "aucune stratégie" in answer.lower()
-    assert "BTCUSD" in answer
+    assert "GBPUSD" in answer
 
 
 def test_gates_refuse_an_unknown_ref(engine: Engine) -> None:
@@ -632,10 +632,10 @@ def test_stopping_one_market_leaves_the_other_running_and_is_journalled(
 
     halts = HaltStore(engine)
     assert halts.is_halted("market:XAUUSD")
-    assert not halts.is_halted("market:BTCUSD")
+    assert not halts.is_halted("market:GBPUSD")
 
     stopped = send(svc, "/marche XAUUSD")
-    running = send(svc, "/marche BTCUSD")
+    running = send(svc, "/marche GBPUSD")
     assert stopped is not None and "suspendus sur ce marché" in stopped
     assert running is not None and "autorisés" in running
 
@@ -661,7 +661,7 @@ def test_resuming_one_market_never_reopens_the_other(engine: Engine) -> None:
 
     halts = HaltStore(engine)
     assert not halts.is_halted("market:XAUUSD")
-    assert not halts.is_halted("market:BTCUSD")
+    assert not halts.is_halted("market:GBPUSD")
 
 
 def test_every_reply_fits_a_phone(engine: Engine) -> None:
@@ -673,7 +673,7 @@ def test_every_reply_fits_a_phone(engine: Engine) -> None:
 
     for text in (
         "/marche XAUUSD",
-        "/marche BTCUSD",
+        "/marche GBPUSD",
         "/propositions",
         "/propositions XAUUSD",
         "/portes XAUUSD",

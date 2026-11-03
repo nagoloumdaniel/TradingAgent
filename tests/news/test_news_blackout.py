@@ -6,7 +6,6 @@ from pydantic import ValidationError
 from tradingagent.news.blackout import blackout_window, news_blackout
 from tradingagent.news.config import DEFAULT_NEWS_CONFIG, BlackoutConfig, NewsConfig
 from tradingagent.news.model import (
-    BTCUSD,
     XAUUSD,
     EconomicEvent,
     EventKind,
@@ -89,22 +88,15 @@ def test_low_impact_never_blocks() -> None:
     assert not news_blackout(XAUUSD, RELEASE, low, BlackoutConfig(medium_enabled=True)).blocked
 
 
-def test_only_the_concerned_markets_are_blocked() -> None:
+def test_only_the_concerned_currencies_block_gold() -> None:
     dollar = [event()]
     assert news_blackout(XAUUSD, RELEASE, dollar, CONFIG).blocked
-    assert news_blackout(BTCUSD, RELEASE, dollar, CONFIG).blocked
-    # A New Zealand release says nothing about gold or bitcoin.
+    # A New Zealand release says nothing about gold.
     assert not news_blackout(XAUUSD, RELEASE, [event(currency="NZD")], CONFIG).blocked
     # A euro decision is relevant (0.5) but under the 0.8 default threshold: not a blackout.
     assert not news_blackout(XAUUSD, RELEASE, [event(currency="EUR")], CONFIG).blocked
     loose = BlackoutConfig(min_relevance=0.4)
     assert news_blackout(XAUUSD, RELEASE, [event(currency="EUR")], loose).blocked
-
-
-def test_a_crypto_headline_event_concerns_bitcoin_only() -> None:
-    crypto = event("SEC ETF decision", currency="BTC", kind=EventKind.SPEECH)
-    assert news_blackout(BTCUSD, RELEASE, [crypto], CONFIG).blocked
-    assert not news_blackout(XAUUSD, RELEASE, [crypto], CONFIG).blocked
 
 
 def test_an_unscheduled_headline_never_blocks() -> None:

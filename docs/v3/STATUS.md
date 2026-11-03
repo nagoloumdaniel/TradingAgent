@@ -1,4 +1,4 @@
-# État du cahier des charges v3 — « AI Scalping Trading System BTCUSD & XAUUSD »
+# État du cahier des charges v3 — « AI Scalping Trading System XAUUSD »
 
 > Section par section, ce qui est livré, où, et ce qui reste. Dernière mise à jour :
 > 2026-10-08. Un point n'est coché que s'il est vérifié par exécution ; les lignes
@@ -10,7 +10,7 @@
 |---|---|---|
 | 1 Vision (« l'IA recherche, elle ne décide pas ») | ✅ | `docs/v3/ARCHITECTURE.md`, invariants dans `README.md` |
 | 2 Objectifs 1-16 | ✅ sauf 9 et 15 partiels | voir lignes ci-dessous |
-| 3 Deux marchés seulement, environnements indépendants | ✅ | `config/agent.yaml`, un registre par (marché, ref) |
+| 3 Un seul marché : l'or, environnements indépendants | ✅ | `config/agent.yaml`, un registre par (marché, ref) |
 | 4 Couches séparées | ✅ | `tests/test_architecture.py` (44 tests) |
 | 5 Rôle de l'IA | ✅ | `ai/analyst.py`, `ai/researcher.py`, `ai/daily.py` |
 | 6 Statut connu du moteur | ✅ | `app.py` journalise marché, ref, statut, date de promotion au démarrage ; PMODE/`active()` |
@@ -30,7 +30,7 @@ l'objectif « exécuter automatiquement en production » dépend de TASK-090 et 
 | 12 Monte-Carlo et stress | ✅ | idem, plus `backtest/costs.stressed()` |
 | 13 Critères de sélection multi-métriques | ✅ | `analytics/performance.py`, `registry/gates.py` |
 
-**Reste** : un historique Deriv multi-marchés versionné (aucun jeu crypto réel exploitable ici).
+**Reste** : un historique Deriv versionné.
 Le contrôle du taux de fausses découvertes en sélection multiple est **livré** (Benjamini-Hochberg
 sur la p-value du scellé, voir `docs/research/DISCOVERY.md`) ; conséquence à connaître : sur l'or
 réel, **aucun candidat ne survit** à la correction — c'est le résultat honnête, pas un échec.
@@ -50,13 +50,13 @@ réel, **aucun candidat ne survit** à la correction — c'est le résultat honn
 
 | § | État | Où |
 |---|---|---|
-| 18 Deux EA guardians | ✅ | `mt5/Experts/TradingAgent/`, compilés 0 erreur / 0 avertissement |
+| 18 EA guardian | ✅ | `mt5/Experts/TradingAgent/`, compilés 0 erreur / 0 avertissement |
 | 19 Présence dans le terminal, détection de divergence | ✅ | EA + `ea/bridge.compare_expected`, `execution/reconciliation.py` |
 | 20 Latence et slippage mesurés | ✅ | `storage/telemetry.py`, `elapsed_ms` dans chaque événement |
-| 21 Risk management (11 points) | ✅ | `risk/checks.py` : **17 contrôles**, dont exposition totale BTC+XAU et slippage |
+| 21 Risk management (11 points) | ✅ | `risk/checks.py` : **17 contrôles**, dont exposition totale et slippage |
 | 22 Kill switch | ✅ | `control/guardian.py`, arrêt d'urgence persistant, `ExecutionEventKind.STOP_MISSING` |
 
-**Reste (§18)** : les deux EA sont installés par l'opérateur (confirmé le 2026-11-03).
+**Reste (§18)** : l'EA est installé par l'opérateur (confirmé le 2026-11-03).
 
 ## 23 à 34 — Dashboard, analytics, source de vérité
 
@@ -72,7 +72,7 @@ réel, **aucun candidat ne survit** à la correction — c'est le résultat honn
 | 30 Versioning des stratégies | ✅ | `/strategies`, `strategy_registry` |
 | 31 Statistiques globales | ✅ | `analytics/performance.py`, page Overview |
 | 32 Statistiques de scalping | ✅ | `analytics/scalping.py`, page `/scalping` |
-| 33 Analyse par marché | ✅ | Overview et Strategies séparent BTCUSD / XAUUSD |
+| 33 Analyse par marché | ✅ | Overview et Strategies présentent l'or (XAUUSD, marché unique) |
 | 34 Analytics = source de vérité | ✅ | le web ne recalcule rien ; test AST + comptage de lignes |
 
 **Reste** : le **spread courtier en temps réel** au moment du signal n'est stocké nulle part —
@@ -127,13 +127,13 @@ signature de conformité.
 
 1. **Opérateur, décision** : signer `docs/legal/2026-10-07-verification-operateur.md`.
 2. **Opérateur, infrastructure** : provisionner le serveur Windows (TASK-051).
-3. **Temps** : la campagne paper 30 jours **court** (au 2026-11-03 : BTCUSD vwap_pullback@1.2.0 et
-   XAUUSD 1.1.0 en ÉCHEC sur le drawdown, BTCUSD 1.4.0 en cours, 4 jours). Un échec renvoie à
+3. **Temps** : la campagne paper 30 jours **court** (au 2026-11-03 : XAUUSD 1.1.0 en ÉCHEC
+   sur le drawdown). Un échec renvoie à
    TASK-064, sans promotion. `scripts/paper_campaign.py` la mesure.
 4. **Opérateur, clés** : `DEEPSEEK_API_KEY` (optionnelle, seul fournisseur du filtre IA). Plus de
    `TEST_DATABASE_URL` ni de clé Anthropic dans `.env` (décision du 2026-11-03). `BACKUP_PASSPHRASE` et `TRADINGAGENT_WEB_TOKEN` sont
    désormais générés et renseignés.
-5. ~~Opérateur, terminal : installer les deux EA~~ — fait par l'opérateur (2026-11-03). Le serveur
+5. ~~Opérateur, terminal : installer l'EA~~ — fait par l'opérateur (2026-11-03). Le serveur
    Windows est reporté (point 2).
 6. **Fait mais à confirmer par un tiers** : restauration sur machine vierge, validation de la
    documentation d'exploitation.
@@ -149,12 +149,16 @@ n'était donc ni l'un ni l'autre mais le rythme de la boucle (20 s) : une bougie
 jusqu'à 20 s avant d'être traitée. Changements : boucle à 3 s (`DEFAULT_POLL_SECONDS`), instantané
 de compte toujours toutes les 5 minutes (désormais en secondes), `order_check` retiré du chemin
 d'envoi (aller-retour inutile, résultat purement informatif), flux SSE du tableau de bord à 1 s.
-Seuil de coût total `max_cost_to_target` = 0.5, commission et swap réels branchés dans les
-cotations MT5 (le swap BTCUSD est un taux annuel de -20 %, désormais converti en distance de prix au prix
-d'entrée sur 360 jours).
+Seuil de coût total `max_cost_to_target` = 0.5, commission et swap réels (swap en points)
+branchés dans les cotations MT5.
 
-Backtest BTCUSD trend_breakout@1.0.1, M15, 1812 opérations (2025-01-21 → 2026-10-08), avec le swap
-réel (≈ 49.5 de prix par jour, soit 20 %/360 × prix moyen) : coûts du dépôt -2156.89 EUR (PF 0.8364)
-sans swap, -2531.91 EUR (PF 0.8112, drawdown 2623.72) avec swap ; coûts x2 -4804.64 EUR. Le swap
-aggrave un résultat déjà négatif : il ne change aucune conclusion. Envoi Telegram réel exercé le
+Envoi Telegram réel exercé le
 2026-11-03 par `scripts/telegram_check.py` : message accepté par l'API (réception côté opérateur à confirmer).
+
+## Périmètre : or uniquement (2026-11-03)
+
+L'opérateur a réduit le périmètre du projet à l'or (XAUUSD) seul. Ont été retirés du dépôt : les
+stratégies BTC (`trend_breakout` et `vwap_pullback` sur BTCUSD) et leurs fiches de candidat, les
+jeux de données BTC, l'EA `BTCUSD_Guardian` et la vue BTCUSD du tableau de bord. Les exigences et
+tâches qui ne concernaient que ce marché gardent leur identifiant et sont marquées abandonnées
+dans le cahier des charges et la feuille de route. Un seul EA reste : `XAUUSD_Guardian`.

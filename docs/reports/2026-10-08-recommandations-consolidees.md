@@ -11,7 +11,7 @@ faire depuis l'agent) · ❌ conflit à trancher
 
 ---
 
-## 0. Backtest des trois stratégies existantes — toutes perdantes
+## 0. Backtest des deux stratégies existantes — toutes deux perdantes
 
 Mesuré le 2026-10-08 avec le modèle de coûts du dépôt (spread 0,5 bp du prix, slippage
 0,2 bp, **commission forfaitaire 0,50 €**), hors coûts puis avec coûts. Script :
@@ -28,17 +28,6 @@ Mesuré le 2026-10-08 avec le modèle de coûts du dépôt (spread 0,5 bp du pri
 | Profit factor | 0,9405 | **0,8370** |
 | Drawdown maximal | 735,68 € | 1 352,40 € |
 
-### `trend_breakout@1.0.1` sur BTCUSD M15 — 60 000 bougies, 21 mois
-
-| | Brut | Avec coûts | Coûts ×2 |
-|---|---|---|---|
-| Opérations | 1 812 | 1 812 | 1 812 |
-| Taux de réussite | 33,39 % | 33,39 % | 33,33 % |
-| Espérance par opération | **−0,078 €** | **−0,793 €** | −1,502 € |
-| Résultat net | **−142,20 €** | **−1 437,77 €** | −2 721,01 € |
-| Profit factor | 0,9884 | **0,8890** | 0,8010 |
-| Drawdown maximal | 518,29 € | 1 589,71 € | 2 794,03 € |
-
 ### `scalp_triple_filter` sur XAUUSD M1 — 11 999 bougies, 12,8 jours
 
 | | Brut | Avec coûts |
@@ -49,12 +38,11 @@ Mesuré le 2026-10-08 avec le modèle de coûts du dépôt (spread 0,5 bp du pri
 | Résultat net | **+76,91 €** | **−124,07 €** |
 | Profit factor | 1,1267 | **0,8118** |
 
-### Ce que ces trois tableaux disent
+### Ce que ces deux tableaux disent
 
-**Aucune des trois stratégies existantes n'est rentable, et les deux stratégies dites « de
-production » perdent de l'argent même sans coûts.** Le profit factor brut est de 0,94 et 0,99
-— autrement dit, sur 2 à 2,5 ans et plus de 900 opérations chacune, elles ne dégagent aucune
-espérance avant même de payer le spread.
+**Aucune des deux stratégies existantes n'est rentable, et la stratégie dite « de production »
+perd de l'argent même sans coûts.** Le profit factor brut est de 0,94 — autrement dit, sur 2,5
+ans et 977 opérations, elle ne dégage aucune espérance avant même de payer le spread.
 
 **La bonne nouvelle, et elle compte :** c'est la **démonstration que les 9 portes ont raison**.
 Elles refusaient déjà ces stratégies (`0 retenu sur 34` à chaque campagne), et le plafond de
@@ -63,8 +51,8 @@ mesurées, refusées, et documentées. Ce n'est pas un échec du système, c'est
 fonctionne — la seule chose qui manquait était de le **lire**.
 
 **En mode réel, ces stratégies seraient arrêtées en quelques jours :** le frein de perte
-quotidienne (2 % de 100 € = 2 €) serait atteint en une à deux opérations sur l'or comme sur le
-BTC, et l'agent s'arrêterait. Le risque RM-005 à 2 % par opération, sur un capital de 100 €,
+quotidienne (2 % de 100 € = 2 €) serait atteint en une à deux opérations sur l'or, et l'agent
+s'arrêterait. Le risque RM-005 à 2 % par opération, sur un capital de 100 €,
 signifie que chaque perte coûte 2 € sur un compte qui en porte 100.
 
 **Aucune promotion n'a été faite.** Les plafonds restent `DEMO` (dérogation datée) et `SIGNAL`.
@@ -74,14 +62,14 @@ signifie que chaque perte coûte 2 € sur un compte qui en porte 100.
 
 Mesuré le 2026-10-09 sur les mêmes campagnes, `mae_r` et `mfe_r` par opération (TASK-069) :
 
-| | `witness` sur XAUUSD (977 op.) | `trend_breakout` sur BTCUSD (1 812 op.) |
-|---|---|---|
-| MAE médiane, tous trades | 1,082 R | 1,071 R |
-| MFE médiane, tous trades | 1,021 R | 1,013 R |
-| MAE médiane des **gagnants** | 0,443 R | 0,402 R |
-| MFE médiane des **gagnants** | 2,244 R | 2,229 R |
-| **MFE médiane des perdants** | **0,538 R** | **0,538 R** |
-| Gagnants ayant failli être stoppés (MAE ≥ 0,5 R) | **141 / 316 (45 %)** | **253 / 605 (42 %)** |
+| | `witness` sur XAUUSD (977 op.) |
+|---|---|
+| MAE médiane, tous trades | 1,082 R |
+| MFE médiane, tous trades | 1,021 R |
+| MAE médiane des **gagnants** | 0,443 R |
+| MFE médiane des **gagnants** | 2,244 R |
+| **MFE médiane des perdants** | **0,538 R** |
+| Gagnants ayant failli être stoppés (MAE ≥ 0,5 R) | **141 / 316 (45 %)** |
 
 **Trois conclusions, toutes actionnables :**
 
@@ -92,19 +80,19 @@ Mesuré le 2026-10-09 sur les mêmes campagnes, `mae_r` et `mfe_r` par opératio
 2. **Le problème est l'objectif, et il est structurel.** Les gagnants vont en médiane jusqu'à
    **2,244 R** d'excursion favorable alors que l'objectif est à **2,0 R** : il coupe les
    gagnants *avant* leur extension médiane. Symétriquement, les perdants ont vu en médiane
-   **+0,538 R** avant de se retourner. Ces règles encaissent donc au moment où il faudrait
-   laisser courir, et laissent repartir un perdant depuis +0,5 R. **Un objectif plus lointain
+   **+0,538 R** avant de se retourner. Cette règle encaisse donc au moment où il faudrait
+   laisser courir, et laisse repartir un perdant depuis +0,5 R. **Un objectif plus lointain
    et un break-even vers +0,5 R sont les deux pistes que ces chiffres désignent** — et non un
    réglage du stop.
 
-3. **MAE et MFE médianes sont presque symétriques** (1,08 contre 1,02) : à l'entrée, ces
-   règles ne prédisent pas la direction mieux que le hasard. Leur résultat ne vient que de la
-   géométrie 1:2, qui exige 33 % de réussite pour survivre — et elles en font 32 à 33 %.
-   **Aucune marge.** C'est l'explication arithmétique du profit factor brut de 0,94 et 0,99, et
+3. **MAE et MFE médianes sont presque symétriques** (1,08 contre 1,02) : à l'entrée, cette
+   règle ne prédit pas la direction mieux que le hasard. Son résultat ne vient que de la
+   géométrie 1:2, qui exige 33 % de réussite pour survivre — et elle en fait 32 %.
+   **Aucune marge.** C'est l'explication arithmétique du profit factor brut de 0,94, et
    elle dit où chercher : pas dans le réglage des niveaux, mais dans la **sélection des
    entrées**.
 
-### 🎯 Le résultat le plus important : ces stratégies gagnent en cassure et perdent en range
+### 🎯 Le résultat le plus important : cette stratégie gagne en cassure et perd en range
 
 Mesuré le 2026-10-09 en croisant `Trade.features` avec le résultat (TASK-069). **C'est la
 première fois que le dépôt peut répondre à « ce contexte change-t-il le résultat ? »**, et la
@@ -123,35 +111,26 @@ réponse est sans ambiguïté.
 | Tokyo | 319 | 36,4 % | **+10,89 €** | **1,005** |
 | Hors séance | 54 | 33,3 % | −25,42 € | 0,934 |
 
-**`trend_breakout` sur BTCUSD — 1 812 opérations, net total −1 437,77 €**
+**Ce que ce tableau dit, et c'est le résultat à retenir de tout le projet :**
 
-| Contexte d'entrée | Opérations | Réussite | Net | Profit factor |
-|---|---|---|---|---|
-| **Structure = cassure basse** | 291 | **49,8 %** | **+1 150,14 €** | **1,719** |
-| **Structure = cassure haute** | 268 | **48,1 %** | **+974,81 €** | **1,658** |
-| Structure = range | **1 253** | 26,4 % | **−3 562,72 €** | 0,639 |
-
-**Ce que ces tableaux disent, et c'est le résultat à retenir de tout le projet :**
-
-1. **Sur les deux marchés et les deux stratégies, un seul filtre sépare la perte du gain : la
-   structure au moment de l'entrée.** Les entrées prises sur une cassure gagnent — 48 à 50 %
-   de réussite, profit factor de **1,66 à 1,72** — et celles prises en range perdent (26 à
-   28 %, PF 0,64 à 0,70). **181 entrées gagnantes contre 796 perdantes sur l'or ; 559 contre
-   1 253 sur le bitcoin.**
+1. **Sur l'or, un seul filtre sépare la perte du gain : la structure au moment de l'entrée.**
+   Les entrées prises sur une cassure gagnent — 49,5 à 50,0 % de réussite, profit factor de
+   **1,652 à 1,656** — et celles prises en range perdent (28,4 %, PF 0,700). **181 entrées
+   gagnantes contre 796 perdantes.**
 
 2. **Le range n'est pas « un peu pire » : c'est là que tout l'argent part.** Sur l'or, les
    796 entrées en range coûtent −1 838,92 € quand les 181 entrées en cassure rapportent
    +671,17 €. Le solde négatif de la stratégie **est** le coût des entrées en range.
 
-3. **La tendance neutre est la pire des conditions** (PF 0,580 sur l'or, 0,368 sur le BTC) :
+3. **La tendance neutre est la pire des conditions** (PF 0,580) :
    plus le marché est indécis, plus la règle perd. Cohérent avec ce que « range » signifie.
 
 4. **La volatilité ne discrimine rien ici, et il faut le dire** : 977 opérations sur 977
-   classées « normal » sur l'or, 1 807 sur 1 812 sur le BTC. Les observations sont trop
+   classées « normal ». Les observations sont trop
    concentrées pour conclure — présenter ce tableau vide comme un résultat serait une faute.
 
-5. **Le meilleur chiffre du dépôt est déjà dans ces données :** `trend_breakout` filtré sur
-   cassure donne **PF 1,66 à 1,72 sur 559 opérations**, contre un seuil de 1,20. Ce n'est pas
+5. **Le meilleur chiffre du dépôt est déjà dans ces données :** `witness` filtré sur cassure
+   donne **PF 1,652 à 1,656 sur 181 opérations**, contre un seuil de 1,20. Ce n'est pas
    une promotion — il faut passer les 9 portes et refaire la correction de sélection multiple
    sur le nombre d'hypothèses réellement testées. Mais **c'est la première piste du projet qui
    franchit un seuil, et elle vient d'un contexte, pas d'un paramètre.**
@@ -159,7 +138,7 @@ réponse est sans ambiguïté.
 **Ce qu'il faut en faire, concrètement :** un filtre d'entrée « **ne prendre que les
 cassures** », c'est-à-dire exiger `MarketStructure != RANGE` au moment de la décision. Il ne
 demande aucun calcul nouveau (la brique existe), il ne touche ni au stop ni à l'objectif, et
-il supprime 1 253 des 1 812 entrées du BTC et 796 des 977 de l'or.
+il supprime 796 des 977 entrées.
 
 **Et la réserve, à ne pas oublier :** ce découpage est fait **après** avoir vu les résultats,
 sur les données qui les ont produits. Un filtre trouvé ainsi est une **hypothèse**, pas une
@@ -182,14 +161,14 @@ que dans `OnInit`. Rien, dans la boucle, ne pouvait désarmer le verrou.
 
 **Corrigé :** `CheckStateFreshness` lève l'arrêt dès que le battement repasse sous la limite,
 **et seulement** si le motif conservé est celui du silence. Divergence (RM-014) et kill switch
-restent des verrous d'opérateur. Les deux EA recompilés (0 erreur, 0 avertissement).
+restent des verrous d'opérateur. L'EA recompilé (0 erreur, 0 avertissement).
 Documenté dans CAHIER RM-013/RM-015, `docs/ea/protocole-pont.md` §7, `docs/ea/README.md`.
 
-### R-02 · Faire recharger les EA corrigés 🔒
+### R-02 · Faire recharger l'EA corrigé 🔒
 
 Les fichiers d'arrêt sont supprimés et les binaires recompilés sont en place, **mais l'EA en
 mémoire garde son arrêt** : `LoadHalt` ne tourne qu'au démarrage. Il faut retirer puis
-remettre `XAUUSD_Guardian` et `BTCUSD_Guardian` sur leurs graphiques. Sans ce geste, aucun
+remettre `XAUUSD_Guardian` sur son graphique. Sans ce geste, aucun
 ordre ne partira, quelle que soit la qualité des stratégies.
 
 ### R-03 · `mt5.order_send` muet perdait le motif ✅
@@ -229,18 +208,18 @@ Le harnais tranche **contre** la stratégie quand une bougie touche l'objectif e
 `harness.py:361` — *« a bar touching both the stop and a target stops out first »*. Une règle à
 objectif serré (0,7 R) derrière un stop large (3,0 × ATR) est exactement celle dont le
 résultat dépend le plus de ce choix. **Test décisif :** rejouer avec des données tick (or
-disponible depuis 2019-01-02, BTC depuis 2025-01-01).
+disponible depuis 2019-01-02).
 
 ---
 
-## 3. Stratégie BTC (VWAP + momentum + pullback)
+## 3. Stratégie VWAP (momentum + pullback)
 
 ### R-08 · Le volume manquait, il traverse maintenant la chaîne ✅
 
 `mt5_terminal.rates()` **jetait `tick_volume`** depuis l'origine du projet. `Candle` porte
 désormais un `volume` keyword-only ; `None` veut dire « non enregistré », `0.0` veut dire
 « aucun échange ». L'agrégation somme un seau complet et rend `None` sur un seau partiel.
-Les 8 jeux gelés se relisent avec des empreintes **identiques**.
+Les jeux gelés se relisent avec des empreintes **identiques**.
 
 ### R-09 · La base ne stocke pas le volume ⏳
 
@@ -253,7 +232,7 @@ en base. **Un VWAP de production ne verra donc aucun volume.** Deux voies : une 
 
 Décision prise : ancre = journée UTC, exposée en paramètre. Non implémenté.
 
-### R-11 · Quatre écarts entre la spec BTC et le code ❌
+### R-11 · Trois écarts entre la spec et le code ❌
 
 1. **Le trailing sur structure est structurellement impossible.** `SignalCandidate` fige les
    niveaux à la décision et une stratégie est une fonction pure sans mémoire
@@ -266,8 +245,6 @@ Décision prise : ancre = journée UTC, exposée en paramètre. Non implémenté
 3. **Le filtre de coût va dans `risk`**, pas dans la stratégie (ta décision) : une stratégie
    n'a pas accès au courtier ni au spread courant, et l'invariant « seul `risk` engage du
    capital » doit rester vrai.
-4. **Le M1 ne peut pas porter ton backtest** : 8,4 jours d'historique BTC. Le walk-forward
-   doit se faire en **H1/M15**, où l'historique remonte à 2011.
 
 ---
 
@@ -350,14 +327,13 @@ Le swap est côté courtier mais absent du modèle de coûts (voir R-11.2).
 
 ### R-20 · Le M1 de l'or ne peut pas porter un backtest long ✅ mesuré
 
-Voir R-06. Le BTC, lui, a **H1 depuis 2011-03-23** (87 573 bougies) et M15 depuis 2023-11-26 :
-ton plan walk-forward 2019→2026 **est réalisable sur BTC en H1**, pas en M1.
+Voir R-06.
 
 ### R-21 · Une seconde configuration pour le dashboard ✅
 
 `tradingagent-web` exigeait l'emplacement du pont une **seconde fois** alors que l'agent lit
-déjà `EA_FILES_DIR`. Résultat observé : *« Aucun rapport EA »* pendant que les deux EA
-portaient un arrêt local — **la page qui existe pour révéler un EA arrêté était la seule qui
+déjà `EA_FILES_DIR`. Résultat observé : *« Aucun rapport EA »* pendant que l'EA
+portait un arrêt local — **la page qui existe pour révéler un EA arrêté était la seule qui
 ne pouvait pas le voir.** Corrigé, avec 8 tests qui manquaient.
 
 ### R-22 · Cadence et plafonds de risque ⏳
@@ -382,8 +358,8 @@ résolution du moteur. À traiter comme **non vérifié**, pas comme réfuté.
 
 | # | Geste | Qui | Pourquoi maintenant |
 |---|---|---|---|
-| 1 | **R-02** Recharger les deux EA sur leurs graphiques | 🔒 toi | Sans ça, aucun ordre ne part, quoi qu'on mesure |
-| 2 | **R-09** Trancher le stockage du volume | ⏳ toi | Bloque le VWAP, donc toute la stratégie BTC |
+| 1 | **R-02** Recharger l'EA sur son graphique | 🔒 toi | Sans ça, aucun ordre ne part, quoi qu'on mesure |
+| 2 | **R-09** Trancher le stockage du volume | ⏳ toi | Bloque le VWAP, donc toute la stratégie VWAP |
 | 3 | **R-06** Valider en M15/H1 plutôt qu'en M1 | ⏳ toi | 12,8 jours ne peuvent pas juger une stratégie |
 | 4 | **R-07** Test tick pour expliquer l'écart de 25 points | ⏳ toi | La seule question qui dise si le 87 % est réel |
 | 5 | **R-16** Feature Engine (régime, structure, MAE/MFE) | ⏳ toi | Débloque ton moteur d'analyse IA |

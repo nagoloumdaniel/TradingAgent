@@ -36,7 +36,7 @@ variable d'environnement `TRADINGAGENT_EA_REPORTS_DIR`. Sans lui, les sections E
 
 | Chemin | Contenu |
 | --- | --- |
-| `/` | Vue d'ensemble : solde, équité, P&L jour/semaine/mois, drawdown courant et maximal, positions ouvertes, exposition, taux de réussite, facteur de profit, statut des stratégies, statut des Gardiens EA, fraîcheur des données de marché, agrégats journaliers — séparé par marché (BTCUSD, XAUUSD) puis TOTAL |
+| `/` | Vue d'ensemble : solde, équité, P&L jour/semaine/mois, drawdown courant et maximal, positions ouvertes, exposition, taux de réussite, facteur de profit, statut des stratégies, statut des Gardiens EA, fraîcheur des données de marché, agrégats journaliers — pour XAUUSD (marché unique) puis TOTAL |
 | `/positions` | Positions ouvertes, rafraîchies par le flux SSE |
 | `/trades` | Historique des trades clôturés, filtres marché / stratégie / mode, détail d'un trade (signal, indicateurs enregistrés, décision de risque, exécutions) |
 | `/strategies` | Registre `strategy_registry`, performance réalisée par référence, portails de validation, derniers backtests |

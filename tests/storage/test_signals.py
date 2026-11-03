@@ -198,5 +198,5 @@ def test_typical_stop_distance_is_the_median_of_recent_signals(engine: Engine) -
             )
         )
     assert repository.typical_stop_distance("witness@1.0.0", "XAUUSD") == Decimal("12.5")
-    assert repository.typical_stop_distance("witness@1.0.0", "BTCUSD") is None
+    assert repository.typical_stop_distance("witness@1.0.0", "EURUSD") is None
     assert repository.typical_stop_distance("witness@1.0.0", "XAUUSD", recent=1) == Decimal("30.5")

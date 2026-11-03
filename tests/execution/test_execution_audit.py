@@ -42,7 +42,6 @@ KILL_PRICE = 2390.0  # the stop of the audit order: where the broker stops it ou
 def demo_terminal() -> SimulatedTerminal:
     terminal = SimulatedTerminal()
     terminal.set_tick("XAUUSD", bid=2400.0, ask=2400.2)
-    terminal.set_tick("BTCUSD", bid=60000.0, ask=60010.0)
     return terminal
 
 

@@ -1,73 +1,10 @@
 {
   "method": "trend_filter flipped in memory, same split and costs, first target only",
   "refs": {
-    "XAUUSD": "vwap_pullback@1.1.0",
-    "BTCUSD": "vwap_pullback@1.2.0"
+    "XAUUSD": "vwap_pullback@1.1.0"
   },
   "bars": null,
   "rows": [
-    {
-      "market": "BTCUSD",
-      "ref": "vwap_pullback@1.2.0",
-      "filter": false,
-      "train": {
-        "trades": 709,
-        "wins": 392,
-        "losses": 317,
-        "win_rate": 0.5528913963328632,
-        "net_profit": -999.06396478052,
-        "profit_factor": 0.714838,
-        "expectancy": -1.409117,
-        "average_win": 6.388865,
-        "average_loss": -11.052047,
-        "max_drawdown": 1054.10046060176
-      },
-      "train_refused": 0,
-      "validation": {
-        "trades": 205,
-        "wins": 113,
-        "losses": 92,
-        "win_rate": 0.551219512195122,
-        "net_profit": -327.7082293223,
-        "profit_factor": 0.681801,
-        "expectancy": -1.598577,
-        "average_win": 6.213961,
-        "average_loss": -11.194412,
-        "max_drawdown": 357.5176663547
-      },
-      "validation_refused": 0
-    },
-    {
-      "market": "BTCUSD",
-      "ref": "vwap_pullback@1.2.0",
-      "filter": true,
-      "train": {
-        "trades": 90,
-        "wins": 56,
-        "losses": 34,
-        "win_rate": 0.6222222222222222,
-        "net_profit": -13.50430615614,
-        "profit_factor": 0.964325,
-        "expectancy": -0.150048,
-        "average_win": 6.518531,
-        "average_loss": -11.13359,
-        "max_drawdown": 50.20104865337
-      },
-      "train_refused": 0,
-      "validation": {
-        "trades": 30,
-        "wins": 22,
-        "losses": 8,
-        "win_rate": 0.7333333333333333,
-        "net_profit": 47.3428374223,
-        "profit_factor": 1.537647,
-        "expectancy": 1.578095,
-        "average_win": 6.154477,
-        "average_loss": -11.006956,
-        "max_drawdown": 22.3180939604
-      },
-      "validation_refused": 0
-    },
     {
       "market": "XAUUSD",
       "ref": "vwap_pullback@1.1.0",
@@ -132,14 +69,6 @@
     }
   ],
   "verdicts": {
-    "BTCUSD": {
-      "train_pf_off": 0.714838,
-      "train_pf_on": 0.964325,
-      "validation_pf_off": 0.681801,
-      "validation_pf_on": 1.537647,
-      "trades_kept": 0.1463,
-      "improves_both_windows": true
-    },
     "XAUUSD": {
       "train_pf_off": 0.722939,
       "train_pf_on": 0.678213,

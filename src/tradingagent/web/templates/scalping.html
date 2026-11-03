@@ -90,7 +90,7 @@
                 view.hours.rows, "hours-body", "span-2") }}
 {{ pager(view.hours, "Pagination des découpes horaires") }}
 {{ bucket_table("Par session", "Sessions conventionnelles déduites de l'heure UTC, pas les horaires du courtier.", view.sessions, "sessions-body") }}
-{{ bucket_table("Par jour de la semaine", "Un marché crypto ouvre aussi le week-end ; l'or non.", view.weekdays, "weekdays-body") }}
+{{ bucket_table("Par jour de la semaine", "L'or ne cote pas le week-end.", view.weekdays, "weekdays-body") }}
 {{ bucket_table("Par spread", "Bandes de spread au moment du signal, uniquement quand la donnée existe.", view.spreads, "spreads-body") }}
 {{ bucket_table("Par durée de position", "Bandes en secondes, du plus court au plus long (0 s, 15 min, 1 h, 4 h).", view.durations, "durations-body") }}
 {{ bucket_table("Par taille", "Volume de la position, lu depuis la base.", view.sizes, "sizes-body") }}

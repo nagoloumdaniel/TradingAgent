@@ -343,31 +343,6 @@ def test_a_swap_credit_is_not_counted_as_a_saving() -> None:
     assert _quote(terminal).swap_per_day == Decimal(0)
 
 
-def test_a_swap_quoted_as_yearly_interest_becomes_a_distance_at_the_entry_price() -> None:
-    """BTCUSD on the real account: -20 % a year, no points. 360 days, the cautious count."""
-    from dataclasses import replace
-
-    from tradingagent.core.market import Direction
-
-    terminal = demo_terminal()
-    terminal.specs["XAUUSD"] = replace(
-        terminal.specs["XAUUSD"], swap_rate_long=-0.20, swap_rate_short=-0.20
-    )
-
-    quote = _quote(terminal, Direction.BUY)
-
-    assert quote.swap_per_day == Decimal("0.20") * quote.ask / Decimal(360)
-
-
-def test_an_interest_credit_is_not_counted_as_a_saving() -> None:
-    from dataclasses import replace
-
-    terminal = demo_terminal()
-    terminal.specs["XAUUSD"] = replace(terminal.specs["XAUUSD"], swap_rate_long=0.05)
-
-    assert _quote(terminal).swap_per_day == Decimal(0)
-
-
 def test_an_unreported_swap_stays_unknown() -> None:
     assert _quote(demo_terminal()).swap_per_day is None
 

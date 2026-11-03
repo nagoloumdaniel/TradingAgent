@@ -6,8 +6,8 @@ marché tend, oscille, casse ou s'endort. Ces fonctions le disent, à partir de 
 qu'on peut toutes expliquer à voix haute.
 
 * **Tendance** : deux moyennes mobiles, et leur pente **normalisée par l'ATR**. Normaliser est
-  ce qui rend le seuil comparable entre l'or à 4 000 et le bitcoin à 80 000 : une pente de
-  2 points vaut beaucoup sur l'un et rien sur l'autre.
+  ce qui rend le seuil indépendant du niveau de prix : une pente de 2 points vaut beaucoup
+  quand l'ATR est de 3 et rien quand il est de 30.
 * **Volatilité** : l'ATR du moment rapporté à sa propre moyenne, donc un rapport et non un
   niveau. Un ATR de 3 points ne veut rien dire seul.
 * **Structure** : où la clôture se situe par rapport au canal des `channel` barres
@@ -190,7 +190,6 @@ def is_breakout(
     Nommé séparément parce que c'est le seul usage qu'une stratégie en fait : décider si elle
     a le droit d'entrer. Le **sens** de la cassure n'importe pas ici — une cassure haute et
     une cassure basse sont deux sorties de range, et la mesure du 2026-10-09 montre qu'elles
-    se comportent de la même façon pour les règles testées (PF 1,652 contre 1,656 sur l'or,
-    1,658 contre 1,719 sur le BTC).
+    se comportent de la même façon pour les règles testées (PF 1,652 contre 1,656 sur l'or).
     """
     return market_structure(highs, lows, closes, channel=channel) is not MarketStructure.RANGE
