@@ -1,13 +1,10 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
-from tradingagent.config.strategy_catalog import load_strategy_catalog
 from tradingagent.core.market import Candle, Direction
-from tradingagent.core.mode import TradingMode, mode_rank
 from tradingagent.core.timeframe import Timeframe
 from tradingagent.indicators.moving_average import ema
 from tradingagent.indicators.volatility import atr
@@ -19,8 +16,7 @@ from tradingagent.strategies.registry import REGISTRY
 
 START = datetime(2026, 10, 5, tzinfo=UTC)
 STEP = timedelta(minutes=15)
-BTC = "BTCUSD"
-SHIPPED = Path(__file__).resolve().parents[2] / "config" / "strategies"
+GOLD = "XAUUSD"
 
 SMALL = TrendBreakoutParameters(
     channel_period=5,
@@ -39,7 +35,7 @@ def manifest(history_bars: int = HISTORY) -> StrategyManifest:
             "strategy_id": "trend_breakout",
             "version": "1.0.0",
             "max_mode": "SIGNAL",
-            "allowed_symbols": [BTC],
+            "allowed_symbols": [GOLD],
             "timeframes": ["M15"],
             "history_bars": history_bars,
         }
@@ -71,7 +67,7 @@ def close_of(index: int) -> datetime:
 def replay(strategy: TrendBreakout, closes: Sequence[float]) -> list[Outcome]:
     series = {Timeframe.M15: candles_from(closes)}
     return [
-        evaluate(strategy, manifest(), BTC, series, close_of(index))
+        evaluate(strategy, manifest(), GOLD, series, close_of(index))
         for index in range(HISTORY - 1, len(closes))
     ]
 
@@ -161,18 +157,7 @@ def test_respects_the_strategy_contract() -> None:
     closes = [100.0] * 30 + [130.0] + [100.0] * 30
     series = {Timeframe.M15: candles_from(closes)}
     times = [close_of(index) for index in range(HISTORY - 1, len(closes))]
-    assert check_strategy_contract(TrendBreakout(SMALL), manifest(), BTC, series, times) == []
-
-
-def test_shipped_manifest_is_capped_at_signal_and_warmed_up() -> None:
-    catalog = load_strategy_catalog(SHIPPED, REGISTRY)
-    loaded = catalog["trend_breakout@1.0.0"]
-    parameters = loaded.strategy.parameters
-    assert isinstance(parameters, TrendBreakoutParameters)
-    assert loaded.manifest.allowed_symbols == (BTC,)
-    assert mode_rank(loaded.manifest.max_mode) <= mode_rank(TradingMode.SIGNAL)
-    longest = max(parameters.trend_period, parameters.atr_period, parameters.channel_period)
-    assert loaded.manifest.history_bars >= 5 * longest
+    assert check_strategy_contract(TrendBreakout(SMALL), manifest(), GOLD, series, times) == []
 
 
 def test_trend_breakout_is_in_the_production_registry() -> None:

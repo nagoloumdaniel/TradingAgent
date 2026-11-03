@@ -1,11 +1,10 @@
 """Le spread du courtier, heure par heure, releve sur le compte reel.
 
-**Le trou que ce script comble, et pourquoi il est le plus couteux du projet.** Le diagnostic du
-2026-10-09 a mesure un spread BTCUSD de **18,424 $** et en a tire la conclusion qui a fait elargir
-la bande d'entree. Mais ce chiffre venait de **onze decisions d'une seule journee**. La recherche
-externe du 2026-10-10 l'a classe comme le trou le plus couteux, parce que trois autres questions
-en dependent : le choix de la fenetre horaire, le filtre de cout, et le choix du marche lui-meme.
-Si le spread s'elargit durablement de 18 a 30 $, aucune bande fondee sur l'ATR ne suffira.
+**Le trou que ce script comble, et pourquoi il est le plus couteux du projet.** Un spread mesure sur
+quelques decisions d'une seule journee ne prouve rien. La recherche externe du 2026-10-10 l'a
+classe comme le trou le plus couteux, parce que deux autres questions en dependent : le choix de
+la fenetre horaire et le filtre de cout. Si le spread s'elargit durablement, aucune bande fondee
+sur l'ATR ne suffira.
 
 **Ce qu'il fait.** Il interroge le terminal toutes les `--interval` secondes et enregistre, pour
 chaque symbole, le bid, l'ask et le spread exprime **en fraction d'ATR M15** — parce que c'est
@@ -38,7 +37,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 OUTPUT_DIR = ROOT / "docs" / "research" / "spread"
-DEFAULT_SYMBOLS = ("XAUUSD", "BTCUSD")
+DEFAULT_SYMBOLS = ("XAUUSD",)
 #: En dessous, une heure n'a pas assez de points pour qu'une mediane veuille dire quelque chose.
 MIN_SAMPLES_PER_HOUR = 10
 

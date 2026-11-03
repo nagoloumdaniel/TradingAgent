@@ -30,7 +30,7 @@ def test_poll_reports_the_open_positions(populated: seed.Seeded, engine: Engine)
     assert alerts.event == "alerts"
     payload = json.loads(positions.data)
     assert payload["columns"][0] == "Marché"
-    assert [row[0] for row in payload["rows"]] == [seed.XAU, seed.BTC]
+    assert [row[0] for row in payload["rows"]] == [seed.XAU, seed.EUR]
     assert payload["rows"][0][4] == "53.00 €"  # already formatted: the browser computes nothing
     assert payload["rows"][0][7] == "02:00:00"  # age, computed server-side
     # The same wording the page renders: a stream that sent an ISO timestamp would make the
@@ -42,9 +42,9 @@ def test_poll_reports_the_open_positions(populated: seed.Seeded, engine: Engine)
 def test_poll_can_be_bounded_to_one_market(populated: seed.Seeded, engine: Engine) -> None:
     """The stream carries the page's filter, or the count would contradict the table."""
     stream = EventStream(engine, now=lambda: seed.NOW)
-    positions, _ = stream.poll(seed.NOW, None, market=seed.BTC)
+    positions, _ = stream.poll(seed.NOW, None, market=seed.EUR)
 
-    assert [row[0] for row in json.loads(positions.data)["rows"]] == [seed.BTC]
+    assert [row[0] for row in json.loads(positions.data)["rows"]] == [seed.EUR]
 
 
 def test_poll_only_reports_alerts_recorded_after_the_last_cycle(
@@ -111,10 +111,10 @@ def test_the_events_endpoint_streams_a_bounded_response(seeded_client: TestClien
 
 
 def test_the_events_endpoint_honours_the_market_it_is_given(seeded_client: TestClient) -> None:
-    response = seeded_client.get("/events", params={"cycles": 1, "market": seed.BTC})
+    response = seeded_client.get("/events", params={"cycles": 1, "market": seed.EUR})
     payload = json.loads(response.text.split("event: positions\ndata: ", 1)[1].split("\n\n", 1)[0])
 
-    assert [row[0] for row in payload["rows"]] == [seed.BTC]
+    assert [row[0] for row in payload["rows"]] == [seed.EUR]
 
 
 def test_an_unknown_market_on_the_stream_falls_back_to_the_default(

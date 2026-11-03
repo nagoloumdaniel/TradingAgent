@@ -51,7 +51,7 @@ def _demo(engine: Engine) -> None:
     replay page draws the candles surrounding `signals.generated_at`, and a demo whose
     candles are a month early shows an empty chart and looks broken.
     """
-    # Reproducible demo data in a throwaway database; nothing here is cryptographic.
+    # Reproducible demo data in a throwaway database; nothing here is security-sensitive.
     rng = random.Random(DEMO_SEED)  # noqa: S311
     start = datetime(2026, 9, 1, tzinfo=UTC)
     with Session(engine) as session:
@@ -75,7 +75,7 @@ def _demo(engine: Engine) -> None:
 
         # H1, covering the week the seeded signals live in, for both markets.
         candle_rows = []
-        for symbol, base in (("XAUUSD", 2650.0), ("BTCUSD", 62000.0)):
+        for symbol, base in (("XAUUSD", 2650.0),):
             price = base
             for index in range(DEMO_CANDLES_PER_MARKET):
                 moment = CANDLE_START + timedelta(hours=index)
@@ -104,7 +104,6 @@ def _demo_calendar(engine: Engine) -> None:
     """A week of announcements, speeches and headlines, so /calendar can be judged full."""
     from tradingagent.news.fallback import fallback_analysis
     from tradingagent.news.model import (
-        BTCUSD,
         XAUUSD,
         EconomicEvent,
         EventKind,
@@ -116,7 +115,7 @@ def _demo_calendar(engine: Engine) -> None:
     from tradingagent.trusted_clock import now as trusted_now
 
     at = trusted_now().replace(minute=0, second=0, microsecond=0)
-    states = {XAUUSD: MarketState(XAUUSD, "up", "normal", 2650.0, at), BTCUSD: MarketState(BTCUSD)}
+    states = {XAUUSD: MarketState(XAUUSD, "up", "normal", 2650.0, at)}
     plan = [
         (1, "Core CPI m/m", Impact.HIGH, EventKind.RELEASE, "USD"),
         (3, "Fed Chair speaks", Impact.HIGH, EventKind.SPEECH, "USD"),

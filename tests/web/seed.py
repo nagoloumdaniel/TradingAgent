@@ -60,7 +60,7 @@ NOW = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
 WITNESS = "witness@1.0.0"
 BREAKOUT = "trend_breakout@1.0.0"
 XAU = "XAUUSD"
-BTC = "BTCUSD"
+EUR = "EURUSD"  # a neutral synthetic second market: the dashboard discovers markets in the DB
 
 # Stated once, asserted everywhere: the exact figures this dataset must produce.
 BALANCE = Decimal("1000.00")
@@ -68,7 +68,7 @@ EQUITY = Decimal("1012.00")
 EQUITY_PEAK = Decimal("1050.00")
 DRAWDOWN = Decimal("38.00")
 XAU_NOTIONAL = Decimal("53.00")
-BTC_NOTIONAL = Decimal("620.00")
+EUR_NOTIONAL = Decimal("7.70")
 REFUSED_RISK = Decimal("6.00")
 REPORT_CONTENT = "Rapport quotidien\nRésultat de la période : +15.75 EUR"
 
@@ -83,7 +83,7 @@ WEEK_PNL = Decimal("15.75")
 MONTH_PNL = Decimal("13.75")
 TOTAL_PNL = Decimal("16.75")
 XAU_PNL = Decimal("11.50")  # 12.50 - 4.00 + 3.00
-BTC_PNL = Decimal("5.25")  # 7.25 - 2.00
+EUR_PNL = Decimal("5.25")  # 7.25 - 2.00
 MAX_DRAWDOWN = Decimal("4.00")  # from the realized peak of 20.75 down to 16.75
 
 # Chains: (market, strategy, direction, generated_at, closed_at or None, pnl, risk, mode).
@@ -99,7 +99,7 @@ _CLOSED_CHAINS: tuple[tuple[Any, ...], ...] = (
         TradingMode.PAPER,
     ),
     (
-        BTC,
+        EUR,
         BREAKOUT,
         Direction.BUY,
         timedelta(hours=7, minutes=30),
@@ -119,7 +119,7 @@ _CLOSED_CHAINS: tuple[tuple[Any, ...], ...] = (
         TradingMode.PAPER,
     ),
     (
-        BTC,
+        EUR,
         BREAKOUT,
         Direction.BUY,
         timedelta(days=6, hours=9),
@@ -146,7 +146,7 @@ class Seeded:
     """The row ids a test needs to build a link or a follow-up insert."""
 
     xau_signal_id: int
-    btc_signal_id: int
+    eur_signal_id: int
     losing_signal_id: int
     refused_signal_id: int
     report_id: int
@@ -193,7 +193,7 @@ def seed(engine: Engine) -> Seeded:
                     mode,
                 )
             )
-        xau_signal, btc_signal, losing_signal, _, _ = signals
+        xau_signal, eur_signal, losing_signal, _, _ = signals
 
         # Two positions still open, one per market.
         _chain(
@@ -212,15 +212,15 @@ def seed(engine: Engine) -> Seeded:
         _chain(
             connection,
             versions[BREAKOUT],
-            BTC,
+            EUR,
             Direction.SELL,
             NOW - timedelta(hours=1),
             None,
             None,
             Decimal("6.00"),
             TradingMode.PAPER,
-            volume=Decimal("0.01"),
-            open_price=62000.0,
+            volume=Decimal("7.00"),
+            open_price=1.1,
         )
 
         # A signal the risk engine refused: it has no order, and its carried risk is the
@@ -252,7 +252,7 @@ def seed(engine: Engine) -> Seeded:
 
         seeded = Seeded(
             xau_signal_id=xau_signal,
-            btc_signal_id=btc_signal,
+            eur_signal_id=eur_signal,
             losing_signal_id=losing_signal,
             refused_signal_id=refused_signal,
             report_id=report_id,
@@ -356,10 +356,10 @@ def _daily(engine: Engine) -> None:
     store = DailyPerformanceStore(engine)
     for days_ago, mode, market, ref, pnl, risk in (
         (17, TradingMode.PAPER, XAU, WITNESS, Decimal("3.00"), Decimal("5.00")),
-        (6, TradingMode.PAPER, BTC, BREAKOUT, Decimal("-2.00"), Decimal("6.00")),
+        (6, TradingMode.PAPER, EUR, BREAKOUT, Decimal("-2.00"), Decimal("6.00")),
         (1, TradingMode.PAPER, XAU, WITNESS, Decimal("12.50"), Decimal("5.00")),
         (0, TradingMode.PAPER, XAU, WITNESS, Decimal("-4.00"), Decimal("5.00")),
-        (0, TradingMode.DEMO, BTC, BREAKOUT, Decimal("7.25"), Decimal("6.00")),
+        (0, TradingMode.DEMO, EUR, BREAKOUT, Decimal("7.25"), Decimal("6.00")),
     ):
         store.apply_trade(
             day=NOW - timedelta(days=days_ago),
@@ -391,6 +391,7 @@ def _chain(
 ) -> int:
     """One signal → one order → one position → (one trade). Returns the signal id."""
     signal = _signal(connection, version_id, market, direction, generated_at)
+    band = 10.0 if open_price >= 100 else 0.01  # stops stay positive on a ~1.1 quote
     order = _one(
         connection,
         OrderRow,
@@ -400,8 +401,8 @@ def _chain(
         direction=direction,
         volume=volume,
         requested_price=open_price,
-        stop_loss=open_price - 10,
-        take_profit=open_price + 10,
+        stop_loss=open_price - band,
+        take_profit=open_price + band,
         mode=mode,
         state=OrderState.FILLED,
         broker_order_ticket=None,
@@ -419,8 +420,8 @@ def _chain(
         direction=direction,
         volume=volume,
         open_price=open_price,
-        stop_loss=open_price - 10,
-        take_profit=open_price + 10,
+        stop_loss=open_price - band,
+        take_profit=open_price + band,
         mode=mode,
         state=PositionState.OPEN if closed_at is None else PositionState.CLOSED,
         opened_at=generated_at,
@@ -455,7 +456,7 @@ def _chain(
                 position_id=position,
                 mode=mode,
                 closed_at=closed_at,
-                close_price=open_price + 5,
+                close_price=open_price + band / 2,
                 pnl_eur=pnl,
                 risk_eur=risk,
                 exit_reason=exit_reason,
@@ -533,7 +534,7 @@ def _events(connection: Connection) -> None:
 def _halt(connection: Connection) -> None:
     connection.execute(
         insert(HaltCommandRow).values(
-            scope="market:BTCUSD",
+            scope="market:EURUSD",
             action=HaltAction.HALT,
             close_positions=False,
             source=HaltSource.TELEGRAM,
@@ -545,7 +546,7 @@ def _halt(connection: Connection) -> None:
 
 
 def _candles(connection: Connection) -> None:
-    for symbol, opened_at in ((XAU, NOW - timedelta(hours=1)), (BTC, NOW - timedelta(hours=30))):
+    for symbol, opened_at in ((XAU, NOW - timedelta(hours=1)), (EUR, NOW - timedelta(hours=30))):
         connection.execute(
             insert(CandleRow).values(
                 symbol=symbol,
@@ -595,7 +596,7 @@ def _registry(connection: Connection) -> None:
     )
     connection.execute(
         insert(StrategyRegistryRow).values(
-            market=BTC,
+            market=EUR,
             ref=BREAKOUT,
             strategy_id="trend_breakout",
             version="1.0.0",
@@ -630,7 +631,7 @@ def _research(connection: Connection) -> None:
     )
     for ref, market, stage, passed, detail, age in (
         (WITNESS, XAU, ValidationStage.WALK_FORWARD, True, {"folds": 6}, 11),
-        (BREAKOUT, BTC, ValidationStage.MONTE_CARLO, False, {"p_value": 0.21}, 9),
+        (BREAKOUT, EUR, ValidationStage.MONTE_CARLO, False, {"p_value": 0.21}, 9),
     ):
         connection.execute(
             insert(ValidationRunRow).values(

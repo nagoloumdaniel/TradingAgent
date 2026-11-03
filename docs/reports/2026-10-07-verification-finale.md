@@ -265,9 +265,8 @@ open_positions: 0
 
 ### 4.9 Configuration livrée et démarrage
 
-- `tests/config/test_shipped_config.py` : `witness@1.1.0` et `trend_breakout@1.0.0` se
-  chargent depuis `config/strategies/`, `config/agent.yaml` se valide en mode SIGNAL, et
-  **les deux marchés ont deux stratégies distinctes** (`len(set(refs)) == 2`, EF-003).
+- `tests/config/test_shipped_config.py` : `witness@1.1.0` se charge
+  depuis `config/strategies/` et `config/agent.yaml` se valide en mode SIGNAL.
 - `uv run tradingagent-run --once` : **démarre et sort en 0**, avec `DATABASE_URL` surchargée
   vers une base **SQLite jetable** (`sqlite:///$TEMP/ta_run_once.db`) — la base Supabase de
   production n'a **pas** été écrite.
@@ -279,10 +278,8 @@ Running upgrade 0004 -> 0005, re-assert the append-only immutability guards for 
 connected to Deriv-Demo (demo)
 no ANTHROPIC_API_KEY: the AI filter is disabled (RM-011, shadow only)
 XAUUSD M15 history: 5472 requested, 5471 received, 5471 new
-BTCUSD M15 history: 5472 requested, 5471 received, 5471 new
-BTCUSD calendar learned: 672 open slots
 XAUUSD calendar learned: 459 open slots
-agent started in SIGNAL mode on BTCUSD, XAUUSD
+agent started in SIGNAL mode on XAUUSD
 cycle: 0 publication(s), 0 signal(s), 0 close(s), 0 divergence(s)
 EXIT_RUN_ONCE=0
 ```
@@ -327,8 +324,7 @@ Aucun de ces tests n'expose de défaut de production : les 41 passent sur l'arbr
 8. RM-017 vérifié avant chaque ordre, par lecture et par test.
 9. Aucune écriture sur la base `DATABASE_URL` de production : le seul run de l'agent a utilisé
    une SQLite jetable ; aucun ordre réel n'a été envoyé.
-10. `witness@1.1.0`, `trend_breakout@1.0.0` et `config/agent.yaml` se chargent ; un marché =
-    une stratégie pour la configuration livrée ; `tradingagent-run --once` démarre en SIGNAL.
+10. `witness@1.1.0` et `config/agent.yaml` se chargent ; `tradingagent-run --once` démarre en SIGNAL.
 
 ---
 

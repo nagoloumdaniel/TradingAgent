@@ -2,7 +2,7 @@
 
 **Ce que ces tests verrouillent.** `protocol.SealedSet` comptait ses ouvertures en memoire, donc
 un nouveau `split_dataset` rendait un jeu scelle neuf et le meme holdout pouvait etre lu
-indefiniment. Apres avoir ouvert celui du BTCUSD pour valider `vwap_pullback@1.3.0`, `audit_log`
+indefiniment. Apres avoir ouvert un holdout pour valider une strategie, `audit_log`
 ne contenait aucune ligne le mentionnant : la regle « un holdout se depense » n'etait tenue par
 rien de persistant.
 
@@ -29,7 +29,7 @@ from tradingagent.storage.holdout import (
 
 NOW = datetime(2026, 10, 11, 1, 30, tzinfo=UTC)
 IDENTITY = holdout_identity(
-    dataset_id="mt5-BTCUSD-M15-2026-10-09", market="BTCUSD", fingerprint="a" * 64
+    dataset_id="mt5-EURUSD-M15-2026-10-09", market="EURUSD", fingerprint="a" * 64
 )
 
 

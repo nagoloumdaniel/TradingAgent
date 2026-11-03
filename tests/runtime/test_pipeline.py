@@ -9,10 +9,10 @@ import pytest
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 from tests.runtime.fakes import (
-    BTC,
     GOLD,
     LOGIN,
     NOW,
+    OTHER,
     RISK,
     FakeAi,
     FakeBroker,
@@ -321,21 +321,21 @@ def test_the_open_exposure_is_measured_from_the_broker(engine: Engine) -> None:
 def test_an_unmeasurable_exposure_is_none_and_blocks_the_order(engine: Engine) -> None:
     """Failing closed: the risk engine refuses what it cannot measure."""
     parts = Parts(engine)
-    parts.broker.fail_quote_symbols = {"BTCUSD"}
+    parts.broker.fail_quote_symbols = {"EURUSD"}
 
     measured = asyncio.run(
-        parts.pipeline._open_exposure((OpenPosition("BTCUSD", Decimal("0.01")),))
+        parts.pipeline._open_exposure((OpenPosition("EURUSD", Decimal("0.01")),))
     )
     assert measured is None
 
     signal_id = record_signal(engine)
     parts.broker._positions[999] = BrokerPosition(
         ticket=999,
-        symbol="BTCUSD",
+        symbol="EURUSD",
         direction=Direction.BUY,
         volume=Decimal("0.01"),
-        open_price=Decimal("62000"),
-        stop_loss=Decimal("61000"),
+        open_price=Decimal("1.1000"),
+        stop_loss=Decimal("1.0900"),
         take_profit=None,
         mode=TradingMode.SIGNAL,
     )
@@ -344,27 +344,27 @@ def test_an_unmeasurable_exposure_is_none_and_blocks_the_order(engine: Engine) -
     assert "total_exposure" in outcome.detail
 
 
-def test_a_closed_gold_market_never_stops_bitcoin(engine: Engine) -> None:
-    """F-005, the operator's requirement: gold is off, the crypto keeps producing signals."""
+def test_a_closed_gold_market_never_stops_another_market(engine: Engine) -> None:
+    """F-005: gold is off, a market that never closes keeps producing signals."""
     saturday = datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
-    gold, bitcoin = weekend_calendar(GOLD), open_calendar(BTC)
+    gold, other = weekend_calendar(GOLD), open_calendar(OTHER)
     parts = Parts(
         engine,
-        calendar_for=lambda symbol: gold if symbol == GOLD else bitcoin,
+        calendar_for=lambda symbol: gold if symbol == GOLD else other,
         now=lambda: saturday,
     )
     gold_id = record_signal(engine, symbol=GOLD)
-    bitcoin_id = record_signal(engine, symbol=BTC)
+    other_id = record_signal(engine, symbol=OTHER)
 
     gold_outcome = parts.run(gold_id)
-    bitcoin_outcome = parts.run(bitcoin_id)
+    other_outcome = parts.run(other_id)
 
     assert gold_outcome.kind == "refused"
     assert "trading_hours" in gold_outcome.detail
     assert state_of(engine, gold_id) is SignalState.RISK_REJECTED
-    assert bitcoin_outcome.kind == "notified"
-    assert state_of(engine, bitcoin_id) is SignalState.SENT
-    assert any(BTC in message for message in parts.notifier.messages)
+    assert other_outcome.kind == "notified"
+    assert state_of(engine, other_id) is SignalState.SENT
+    assert any(OTHER in message for message in parts.notifier.messages)
 
 
 def test_the_model_is_never_called_without_a_candidate_signal(engine: Engine) -> None:

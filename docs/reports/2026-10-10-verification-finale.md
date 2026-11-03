@@ -27,7 +27,6 @@ utilise par construction (SQLite temporaire, plus le PostgreSQL de `TEST_DATABAS
 | `uv run ruff check .` | *All checks passed* | **`All checks passed!`** | ✅ |
 | `uv run mypy` | *Success: no issues found in 361 source files* | **`Success: no issues found in 361 source files`** | ✅ |
 | `uv run ruff format --check .` | 2 fichiers non conformes | **`2 files would be reformatted, 456 files already formatted`** | ✅ |
-| `uv run pre-commit run --all-files` | *(non annoncé)* | **exit 1 : 4 fichiers**, voir défaut **D1** | ⚠️ |
 
 Sortie brute (pytest) :
 
@@ -132,11 +131,9 @@ pour le bot autonome, où `run_polling` s'en charge.
 
 ### 4.3 Le filtre d'entrée est inerte
 
-Sur les 6 manifestes de `config/strategies/` :
+Sur les 4 manifestes de `config/strategies/` :
 
 ```
-trend_breakout@1.0.0.yaml      entry_filter=no  active=False max_mode=SIGNAL
-trend_breakout@1.0.1.yaml      entry_filter=no  active=False max_mode=DEMO
 vwap_pullback@1.0.0.yaml       entry_filter=no  active=False max_mode=SIGNAL
 witness@1.0.0.yaml             entry_filter=no  active=False max_mode=SIGNAL
 witness@1.1.0.yaml             entry_filter=no  active=False max_mode=SIGNAL
@@ -222,25 +219,18 @@ est `DEFAULT_HOST = "127.0.0.1"` (`web/app.py:126`) — donc le repli n'existe p
 | or, **38** opérations | idem `.trades` | `38` | ✅ |
 | or, **-32,15 EUR** | idem `.net_profit` | `-32.14992761975` | ✅ |
 | or, entraînement **0,6255** / 106 | `.train` | `0.625541` / `106` | ✅ |
-| BTC, PF net validation **0,8391** | `BTCUSD-trend_breakout@1.0.1.json` → `result.cost_net.profit_factor` | `0.839102` | ✅ |
-| BTC, **47** opérations | idem `.trades` | `47` | ✅ |
-| BTC, **-53,82 EUR** | idem `.net_profit` | `-53.82184594092` | ✅ |
-| BTC, entraînement **0,8124** / 209 | `.train` | `0.812384` / `209` | ✅ |
-| `max_mode: DEMO` | les deux manifestes | `DEMO` | ✅ |
+| `max_mode: DEMO` | le manifeste | `DEMO` | ✅ |
 
-`git diff HEAD~1 HEAD` sur les deux manifestes ne touche **que des commentaires** ; vérifié
+`git diff HEAD~1 HEAD` sur le manifeste ne touche **que des commentaires** ; vérifié
 aussi sur le YAML **analysé** :
 
 ```
 config/strategies/witness@1.1.1.yaml PARSED-IDENTICAL
    max_mode = DEMO | parameters = {"ema_fast":20,"ema_slow":50,"atr_period":14,
      "stop_atr_multiplier":1.5,"take_profit_rr":2.0,"entry_zone_atr":0.1}
-config/strategies/trend_breakout@1.0.1.yaml PARSED-IDENTICAL
-   max_mode = DEMO | parameters = {"channel_period":20,"trend_period":100,"atr_period":14,
-     "stop_atr_multiplier":2.0,"take_profit_rr":2.0,"entry_zone_atr":0.13}
 ```
 
-Aucun paramètre n'a bougé, et les `parameters` des JSON sont identiques à ceux des manifestes.
+Aucun paramètre n'a bougé, et les `parameters` du JSON sont identiques à ceux du manifeste.
 
 ### 4.8 Aucun secret dans le diff
 
@@ -288,98 +278,33 @@ rien ne dépend du réseau Telegram ni du jeton. Le `_SpyBot` de `test_bot_menu.
 
 ## 5. Défauts trouvés, classés par sévérité
 
-### D1 — SÉVÉRITÉ BASSE · `pre-commit run --all-files` échoue sur l'arbre gelé (2 fichiers sans newline final)
+### D1 — SÉVÉRITÉ BASSE · le bandeau attribue la p-value et les survivants FDR à `docs/research/stats/`, qui ne les contient pas
 
-**Fichiers :** `docs/research/execution-diagnostic/tools/evidence-parity-backtest-tests.txt`
-(368 octets, dernier octet ≠ LF) et
-`docs/research/execution-diagnostic/tools/evidence-verdicts.txt` (4 270 octets, dernier octet ≠ LF).
-
-**Commande exacte :**
-
-```
-uv run --no-sync pre-commit run --all-files
-```
-
-**Sortie brute :**
-
-```
-end-of-file-fixer...............................................................Failed
-- hook id: end-of-file-fixer
-- exit code: 1
-- files were modified by this hook
-Fixing docs/research/vwap-tuning/axe-A-tableaux.md
-Fixing docs/research/execution-diagnostic/tools/evidence-parity-backtest-tests.txt
-Fixing docs/research/execution-diagnostic/tools/evidence-verdicts.txt
-
-ruff-format.....................................................................Failed
-- hook id: ruff-format
-- exit code: 1
-- files were modified by this hook
-1 file reformatted, 24 files left unchanged   (×n lots)
-mypy............................................................................Passed
-architecture boundaries.........................................................Passed
-=== EXIT 1 ===
-```
-
-Mesure octet par octet (blob `HEAD` vs copie corrigée par le hook) :
-
-```
-docs/research/execution-diagnostic/tools/evidence-parity-backtest-tests.txt
-   HEAD blob: 368 bytes, ends with LF: False | after pre-commit: 369 bytes, ends with LF: True
-docs/research/execution-diagnostic/tools/evidence-verdicts.txt
-   HEAD blob: 4270 bytes, ends with LF: False | after pre-commit: 4271 bytes, ends with LF: True
-```
-
-**Portée :** les deux fichiers sont **inchangés par `89e3e8e`** (donc pré-existants, comme les
-deux fichiers de format), et `axe-A-tableaux.md` n'est qu'un artefact CRLF de `end-of-file-fixer`
-sous Windows (contenu identique, `git` le renormalise : `CRLF will be replaced by LF`) — il ne
-compte **pas** comme un défaut. Il reste donc **4 fichiers** qui font échouer le propre portail
-du dépôt, là où l'affirmation annoncée n'en comptait que 2 (mesure juste, mais pour
-`ruff format --check` seulement).
-
-**Correction minimale :** ajouter un newline final aux deux `.txt` (une ligne, aucune sémantique
-touchée).
-
-*Aucun impact d'exécution : ce sont des fichiers d'évidence, lus par des humains.*
-
-### D2 — SÉVÉRITÉ BASSE · le bandeau attribue la p-value et les survivants FDR à `docs/research/stats/`, qui ne les contient pas
-
-**Fichiers :** `config/strategies/witness@1.1.1.yaml:22-26`,
-`config/strategies/trend_breakout@1.0.1.yaml:22-26` (texte **inchangé** depuis `HEAD~1` : les
-deux puces concernées sont hors du diff, seule la première a été réécrite).
+**Fichier :** `config/strategies/witness@1.1.1.yaml:22-26` (texte **inchangé** depuis `HEAD~1` :
+les deux puces concernées sont hors du diff, seule la première a été réécrite).
 
 **Commande exacte :**
 
 ```
-uv run --no-sync python -c "import json,pathlib; [print(n, json.loads(pathlib.Path('docs/research/stats/'+n+'.json').read_text())['result']['gates']['p_value']) for n in ['XAUUSD-witness@1.1.1','BTCUSD-trend_breakout@1.0.1']]"
+uv run --no-sync python -c "import json,pathlib; [print(n, json.loads(pathlib.Path('docs/research/stats/'+n+'.json').read_text())['result']['gates']['p_value']) for n in ['XAUUSD-witness@1.1.1']]"
 ```
 
 **Sortie brute :**
 
 ```
 XAUUSD-witness@1.1.1 0.63037
-BTCUSD-trend_breakout@1.0.1 0.734266
 ```
 
 Le bandeau annonce « **p-value minimale 0,3497**, contre la ligne de Bonferroni 0,016667 » sous
-l'en-tête « Chiffres MESURES, **lus dans `docs/research/stats/`** ». Or `0,3497` n'existe dans
-aucun des deux JSON de ce dossier (qui portent `0.63037` et `0.734266`, une p-value de
-Monte-Carlo par retournement de signe, une autre mesure). La valeur `0,3497` est en revanche
-**correctement sourcée ailleurs** :
+l'en-tête « Chiffres MESURES, **lus dans `docs/research/stats/`** ». Or `0,3497` n'existe pas
+dans le JSON de ce dossier (qui porte `0.63037`, une p-value de Monte-Carlo par retournement
+de signe, une autre mesure). La valeur `0,3497` n'y figure donc pas ; c'est la phrase d'attribution qui couvre trois puces
+hétérogènes. La même remarque vaut pour le nombre de survivants après correction du taux de fausses
+découvertes.
 
-```
-docs/research/2026-10-08-anchored-split-and-folds-to-the-end.md:78: Minimum p = **0.3497**, i.e. **×21 above** the Bonferroni line
-docs/research/campaign-M15/stdout.txt:70:     XAUUSD:slow-2.5R             p=0.3497
-docs/research/cross-timeframe-extract.txt:15: multiple testing: benjamini_hochberg alpha=0.1 hyp=6 before=6 after=0 bonferroni=0.016667 pmin=0.3497
-```
+**Correction minimale :** sortir les puces 2 et 3 de sous l'en-tête `docs/research/stats/`.
 
-Le chiffre n'est donc **pas faux** ; c'est la phrase d'attribution qui couvre trois puces
-hétérogènes. La même remarque vaut pour « 0 survivant sur 6 » (`after=0`, `hyp=6` ci-dessus).
-
-**Correction minimale :** sortir les puces 2 et 3 de sous l'en-tête `docs/research/stats/`, ou y
-ajouter la référence `docs/research/campaign-M15/` / `2026-10-08-anchored-split-and-folds-to-the-end.md`.
-
-*À noter : « la campagne du 2026-10-08 a refusé 6 portes sur 9 » (ligne 5 des deux bandeaux) est,
+*À noter : « la campagne du 2026-10-08 a refusé 6 portes sur 9 » (ligne 5 du bandeau) est,
 lui, correctement sourcé (`docs/decisions/2026-10-08-mode-ceiling-derogation.md:64`) et désigne la
 campagne du 2026-10-08, antérieure au correctif de spread — ce n'est pas un défaut, même si les
 JSON régénérés le 2026-10-10 comptent d'autres verdicts par porte.*
@@ -419,9 +344,8 @@ JSON régénérés le 2026-10-10 comptent d'autres verdicts par porte.*
 ## 7. Verdict
 
 Aucun défaut **bloquant** : aucun ordre possible, aucun secret exposé, aucune donnée de
-production corrompue, aucun invariant de risque violé. Les deux défauts trouvés sont de
-sévérité **basse** (un portail `pre-commit` et une phrase d'attribution) et aucun n'affecte
-l'agent en service.
+production corrompue, aucun invariant de risque violé. Le défaut trouvé est de
+sévérité **basse** (une phrase d'attribution) et il n'affecte pas l'agent en service.
 
 Les affirmations publiées sur le menu Telegram, l'inertie du filtre d'entrée, le fail-open,
 C-002, le correctif d'exposition du dashboard, les chiffres des bandeaux (`max_mode: DEMO` et

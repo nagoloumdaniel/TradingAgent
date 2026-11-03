@@ -1,4 +1,4 @@
-"""XAUUSD and BTCUSD never share a table.
+"""XAUUSD and EURUSD never share a table.
 
 The operator's rule: a log, a strategy list, a report list, a risk view or a position list
 shows *one* market, and the market is a parameter of the query — not a column the reader has
@@ -34,29 +34,29 @@ def _symbols(body: str, table_id: str = "positions-body") -> list[str]:
 def test_the_query_layer_knows_which_markets_exist(populated: seed.Seeded, engine: Engine) -> None:
     del populated
 
-    assert queries.available_markets(engine) == (seed.BTC, seed.XAU)
+    assert queries.available_markets(engine) == (seed.EUR, seed.XAU)
 
 
 def test_the_default_market_prefers_gold() -> None:
-    assert paging.default_market([seed.BTC, seed.XAU]) == seed.XAU
-    assert paging.default_market([seed.BTC]) == seed.BTC
+    assert paging.default_market([seed.EUR, seed.XAU]) == seed.XAU
+    assert paging.default_market([seed.EUR]) == seed.EUR
     assert paging.default_market([]) == paging.ALL_MARKETS
 
 
 def test_an_unknown_market_falls_back_to_the_default() -> None:
-    assert paging.resolve_market("NOPE", [seed.BTC, seed.XAU]) == seed.XAU
-    assert paging.resolve_market("", [seed.BTC, seed.XAU]) == seed.XAU
-    assert paging.resolve_market(seed.BTC, [seed.BTC, seed.XAU]) == seed.BTC
+    assert paging.resolve_market("NOPE", [seed.EUR, seed.XAU]) == seed.XAU
+    assert paging.resolve_market("", [seed.EUR, seed.XAU]) == seed.XAU
+    assert paging.resolve_market(seed.EUR, [seed.EUR, seed.XAU]) == seed.EUR
 
 
 def test_the_positions_query_filters_on_the_market(populated: seed.Seeded, engine: Engine) -> None:
     del populated
 
-    page = queries.position_page(engine, seed.NOW, market=seed.BTC)
+    page = queries.position_page(engine, seed.NOW, market=seed.EUR)
 
-    assert page.market == seed.BTC
-    assert page.rows, "the seeded BTC position must be found"
-    assert {row.symbol for row in page.rows} == {seed.BTC}
+    assert page.market == seed.EUR
+    assert page.rows, "the seeded EUR position must be found"
+    assert {row.symbol for row in page.rows} == {seed.EUR}
 
 
 def test_the_positions_page_opens_on_one_market(seeded_client: TestClient) -> None:
@@ -65,15 +65,15 @@ def test_the_positions_page_opens_on_one_market(seeded_client: TestClient) -> No
 
     assert symbols
     assert seed.XAU in symbols
-    assert seed.BTC not in symbols
+    assert seed.EUR not in symbols
     assert 'name="market"' in body
 
 
 def test_the_positions_page_can_be_asked_for_the_other_market(seeded_client: TestClient) -> None:
-    symbols = _symbols(seeded_client.get("/positions", params={"market": seed.BTC}).text)
+    symbols = _symbols(seeded_client.get("/positions", params={"market": seed.EUR}).text)
 
     assert symbols
-    assert set(symbols) == {seed.BTC}
+    assert set(symbols) == {seed.EUR}
 
 
 def test_a_stale_market_never_mixes_the_two(seeded_client: TestClient) -> None:
@@ -87,15 +87,15 @@ def test_the_positions_pager_keeps_the_market(seeded_client: TestClient, engine:
     for index in range(14):
         seed.add_chain(
             engine,
-            market=seed.BTC,
+            market=seed.EUR,
             generated_at=seed.NOW - timedelta(minutes=index + 1),
             closed=True,
         )
-    body = seeded_client.get("/positions", params={"market": seed.BTC}).text
+    body = seeded_client.get("/positions", params={"market": seed.EUR}).text
     pager = [href for href in re.findall(r'href="([^"]*)"', body) if "page=2" in href]
 
-    assert pager, "the BTC history must span two pages"
-    assert all(f"market={seed.BTC}" in href for href in pager)
+    assert pager, "the EUR history must span two pages"
+    assert all(f"market={seed.EUR}" in href for href in pager)
 
 
 def _market_select(body: str) -> str:
@@ -111,16 +111,16 @@ def test_the_trades_page_opens_on_one_market(seeded_client: TestClient) -> None:
     assert body  # the display is not empty
     assert symbols
     assert seed.XAU in symbols
-    assert seed.BTC not in symbols
-    assert seed.BTC in _market_select(body)  # the other market is offered, not displayed
+    assert seed.EUR not in symbols
+    assert seed.EUR in _market_select(body)  # the other market is offered, not displayed
 
 
 def test_the_trades_page_can_be_asked_for_the_other_market(seeded_client: TestClient) -> None:
-    body = seeded_client.get("/trades", params={"market": seed.BTC}).text
+    body = seeded_client.get("/trades", params={"market": seed.EUR}).text
     symbols = _symbols(body, "trades-body")
 
     assert symbols
-    assert set(symbols) == {seed.BTC}
+    assert set(symbols) == {seed.EUR}
 
 
 def test_the_market_selector_lists_the_markets_the_database_holds(
@@ -129,6 +129,6 @@ def test_the_market_selector_lists_the_markets_the_database_holds(
     selector = _market_select(seeded_client.get("/trades").text)
 
     assert f'value="{seed.XAU}"' in selector
-    assert f'value="{seed.BTC}"' in selector
+    assert f'value="{seed.EUR}"' in selector
     # No "all markets" escape hatch: a table that mixes the two is the defect being removed.
     assert '<option value=""' not in selector

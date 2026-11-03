@@ -4,7 +4,7 @@ The sealed out-of-sample set is the only evidence in this project that no select
 and reading it is what spends it. `protocol.SealedSet` has always counted its unlocks -- but in
 memory. A fresh `split_dataset` hands out a fresh sealed set with the counter back at zero, so
 the same holdout could be opened again and again and nothing recorded it. Verified on
-2026-10-10: after opening BTCUSD's holdout to validate `vwap_pullback@1.3.0`, `audit_log` held
+2026-10-10: after opening a holdout to validate `vwap_pullback@1.3.0`, `audit_log` held
 not one row mentioning it. An assertion nobody can check afterwards is not a guarantee.
 
 So the trace becomes a table. `identity` carries the dataset it was cut from, and it is

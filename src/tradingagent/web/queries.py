@@ -2333,8 +2333,8 @@ def _event_market(column: Any, market: str) -> Any | None:
     ``system_events.symbol`` is null for what concerns the account as a whole — a clock
     mismatch, a kill switch, a mode command. Filtering on equality alone would hide them
     behind every market selector, which on a risk page is the one alert the operator must
-    not lose. Two instruments still never share a table: BTCUSD events stay out of the
-    XAUUSD page. An empty market is not a market: it means "nothing to separate" and adds
+    not lose. Two instruments never share a table: one market's events stay out of
+    another's page. An empty market is not a market: it means "nothing to separate" and adds
     no condition at all.
     """
     if not market:
@@ -3452,7 +3452,7 @@ def scalping_view(
         sizes=by_size(trades, size_of(engine), SIZE_EDGES),
         costs=cost_summary(trades),
         # The execution costs are read from the telemetry of the same market: a latency
-        # measured on BTCUSD under an XAUUSD distribution would describe neither.
+        # measured on one market under another's distribution would describe neither.
         execution=execution_costs(engine, symbol=market or None),
     )
 

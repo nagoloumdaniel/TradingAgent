@@ -83,7 +83,7 @@ class FaireconomySource:
             return self._failure(now, 200, "format inattendu : tableau JSON attendu")
         events = tuple(self._parse(payload))
         if not events and not self._optional and now.weekday() < 5:
-            # A weekday export with nothing for gold or bitcoin is a broken export, not a quiet
+            # A weekday export with nothing for gold is a broken export, not a quiet
             # week (the dollar alone has a release most days): it must not count as a refresh.
             return self._failure(
                 now, 200, f"{EMPTY_CALENDAR} : réponse 200 sans aucune annonce pertinente"

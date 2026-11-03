@@ -67,8 +67,8 @@ from tradingagent.strategies.registry import REGISTRY
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = ROOT / "docs" / "research"
-MARKETS = ("frxXAUUSD", "cryBTCUSD", "cryETHUSD")
-START_PRICES = {"frxXAUUSD": 2000.0, "cryBTCUSD": 60_000.0, "cryETHUSD": 3_000.0}
+MARKETS = ("frxXAUUSD",)
+START_PRICES = {"frxXAUUSD": 2000.0}
 START = datetime(2026, 1, 5, tzinfo=UTC)
 TIMEFRAME = Timeframe.M15
 DEFAULT_BARS = 1_500
@@ -127,18 +127,18 @@ def candidate_specs(symbols: Sequence[str]) -> list[CandidateSpec]:
 
 def build_common_factor(bars: int) -> list[float]:
     stream = DeterministicRandom(SYNTHETIC_SEED)
-    # A market-wide factor plus per-market idio noise: the campaign has to measure how
-    # much of the crypto move is really the same risk as gold.
+    # A market-wide factor plus per-market idio noise, so the campaign can measure how
+    # much of one market's move is the same risk as another's.
     return [stream.gauss() for _ in range(bars)]
 
 
 def synthetic_markets(bars: int) -> dict[str, CandleDataset]:
     factor = build_common_factor(bars)
     # `beta` is the per-bar return loading on the unit factor, so the resulting
-    # correlations are realistic: BTC and ETH share most of their risk, gold much less.
-    betas = {"frxXAUUSD": 0.0006, "cryBTCUSD": 0.0025, "cryETHUSD": 0.0025}
-    volatilities = {"frxXAUUSD": 0.0012, "cryBTCUSD": 0.0015, "cryETHUSD": 0.0012}
-    drift = {"frxXAUUSD": 0.00002, "cryBTCUSD": 0.00004, "cryETHUSD": 0.00003}
+    # correlations are realistic.
+    betas = {"frxXAUUSD": 0.0006}
+    volatilities = {"frxXAUUSD": 0.0012}
+    drift = {"frxXAUUSD": 0.00002}
     datasets: dict[str, CandleDataset] = {}
     for index, market in enumerate(MARKETS):
         regimes = (

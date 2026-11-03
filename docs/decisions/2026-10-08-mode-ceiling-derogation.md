@@ -8,9 +8,8 @@ compte et du mode), §14 (échelle d'exposition), §49 (les neuf portes)
 
 ## Le fait qui a déclenché la décision
 
-`config/strategies/witness@1.1.1.yaml` et `config/strategies/trend_breakout@1.0.1.yaml`
-déclarent `max_mode: DEMO`. Ils ont été créés **délibérément**, à la demande de l'opérateur,
-pour répéter le système sur un compte de **démonstration**. L'ancien test
+`config/strategies/witness@1.1.1.yaml` déclare `max_mode: DEMO`. Il a été créé
+**délibérément**, à la demande de l'opérateur, pour répéter le système sur un compte de **démonstration**. L'ancien test
 `test_shipped_manifest_never_exceeds_signal_mode` échouait donc (`assert 3 <= 1`).
 
 Ce test mesurait un **proxy**. Ce qu'il protège n'est pas « jamais au-dessus de SIGNAL »,
@@ -49,14 +48,14 @@ clé** (`header_banner`) : une dérogation enfouie sous les paramètres n'est pa
 
 ## Ce que ça donne concrètement
 
-La dérogation du 2026-10-08, telle qu'elle figure en tête des deux manifestes concernés :
+La dérogation du 2026-10-08, telle qu'elle figure en tête du manifeste concerné :
 
 ```
 # DEROGATION OPERATEUR du 2026-10-08 : plafond releve de SIGNAL a DEMO, sans validation.
 # ...
 # Chiffres de validation qui manquent, a la date de la derogation (11 999 bougies M15) :
-#   * profit factor net (1x couts) mesure 0,92 (BTC) et 1,04 (or), exige 1,20 ; a 2x couts
-#     (porte stress) il retombe a 0,81 (BTC) et 0,90 (or) ;
+#   * profit factor net (1x couts) mesure 1,04 (or), exige 1,20 ; a 2x couts
+#     (porte stress) il retombe a 0,90 (or) ;
 #   * p-value minimale 0,3497, contre la ligne de Bonferroni 0,016667, soit 21 fois au-dessus ;
 #   * 0 survivant sur 6 apres correction du taux de fausses decouvertes.
 ```

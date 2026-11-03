@@ -150,7 +150,7 @@ def campaign_report(probability: float = 0.62) -> tuple[CampaignReport, MarketRe
     )
     report = CampaignReport(
         markets=(market,),
-        correlations=(CorrelationPair("XAUUSD", "BTCUSD", 0.33, 2_000),),
+        correlations=(CorrelationPair("XAUUSD", "EURUSD", 0.33, 2_000),),
         gate_verdicts=evaluate_campaign_gates((market,), THRESHOLDS),
     )
     return report, market
@@ -301,7 +301,7 @@ def test_the_gate_figure_helper_reads_the_worst_market_reading() -> None:
         evidence={
             "markets": {
                 "XAUUSD": {"ratio": 0.0},
-                "BTCUSD": {"ratio": 0.5},
+                "EURUSD": {"ratio": 0.5},
             },
             "failed_markets": ["XAUUSD"],
         },

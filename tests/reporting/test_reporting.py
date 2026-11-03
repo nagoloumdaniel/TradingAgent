@@ -253,23 +253,23 @@ def test_a_failing_narrator_does_not_lose_the_numeric_report(engine: Engine) -> 
 # --- the market a report can be filed under (F-022, /reports filter) -------------
 
 
-def seed_btc_signal(engine: Engine, at: datetime) -> None:
+def seed_eurusd_signal(engine: Engine, at: datetime) -> None:
     with Session(engine) as session:
         version = session.scalars(select(StrategyVersionRow)).first()
         assert version is not None
         session.add(
             SignalRow(
-                idempotency_key=f"trend_breakout@1.0.0:BTCUSD:M15:{at:%Y-%m-%dT%H:%MZ}",
+                idempotency_key=f"trend_breakout@1.0.0:EURUSD:M15:{at:%Y-%m-%dT%H:%MZ}",
                 strategy_version_id=version.id,
-                symbol="BTCUSD",
+                symbol="EURUSD",
                 timeframe=Timeframe.M15,
                 direction=Direction.SELL,
                 mode=TradingMode.DEMO,
-                observed_price=60000.0,
-                entry_low=59990.0,
-                entry_high=60010.0,
-                stop_loss=60100.0,
-                take_profits=[59800.0],
+                observed_price=1.1000,
+                entry_low=1.0999,
+                entry_high=1.1001,
+                stop_loss=1.1010,
+                take_profits=[1.0980],
                 reason="crossover",
                 indicators={},
                 generated_at=at,
@@ -301,7 +301,7 @@ def test_the_daily_report_of_a_single_market_window_is_filed_under_that_market(
 
 def test_a_window_that_traded_two_markets_has_no_single_market(engine: Engine) -> None:
     seed_trading_day(engine, D2, Decimal("85.00"))
-    seed_btc_signal(engine, D2 + timedelta(hours=4))
+    seed_eurusd_signal(engine, D2 + timedelta(hours=4))
 
     assert ReportGeneratorOf(engine).sole_market(Window(Period.DAILY, D2, D3)) is None
 

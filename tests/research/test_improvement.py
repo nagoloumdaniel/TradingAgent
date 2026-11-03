@@ -144,7 +144,7 @@ def test_nothing_is_accepted_when_no_attempt_beats_the_incumbent() -> None:
 def test_every_attempt_is_kept_even_when_one_is_accepted() -> None:
     """The search must be auditable: a reader sees what was tried and why it was rejected."""
     outcome = search_improvement(
-        market="BTCUSD",
+        market="EURUSD",
         incumbent=INCUMBENT,
         incumbent_label="trend_breakout@1.0.0",
         candidates=[Candidate(label, {}) for label in ("a", "b")],

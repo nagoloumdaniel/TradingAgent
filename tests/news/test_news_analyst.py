@@ -13,7 +13,6 @@ from tradingagent.news.analyst import (
 )
 from tradingagent.news.config import NewsConfig
 from tradingagent.news.model import (
-    BTCUSD,
     XAUUSD,
     Bias,
     EconomicEvent,
@@ -30,7 +29,6 @@ NOW = datetime(2026, 10, 30, 6, 0, tzinfo=UTC)
 AT = datetime(2026, 10, 30, 12, 30, tzinfo=UTC)
 UP = {
     XAUUSD: MarketState(XAUUSD, "up", "normal", 4000.0, NOW),
-    BTCUSD: MarketState(BTCUSD, "up", "normal", 80000.0, NOW),
 }
 
 
@@ -87,14 +85,7 @@ def market(**override: object) -> dict[str, object]:
 
 
 def answer(ids: list[str], **override: object) -> str:
-    return json.dumps(
-        {
-            "events": [
-                {"id": i, "markets": {XAUUSD: market(**override), BTCUSD: market(**override)}}
-                for i in ids
-            ]
-        }
-    )
+    return json.dumps({"events": [{"id": i, "markets": {XAUUSD: market(**override)}} for i in ids]})
 
 
 def build(
@@ -145,7 +136,7 @@ def test_the_stance_is_bounded_by_the_rules_not_the_model() -> None:
 
 
 def test_a_buy_against_the_trend_becomes_wait() -> None:
-    down = {m: MarketState(m, "down", "normal", 1.0, NOW) for m in (XAUUSD, BTCUSD)}
+    down = {m: MarketState(m, "down", "normal", 1.0, NOW) for m in (XAUUSD,)}
     analyst, _ = build(FakeModel(answer(["e1"])))
     result = asyncio.run(analyst.analyse([make()], down, NOW))
     assert {v.stance for v in result.analyses[0].verdicts} == {Stance.WAIT}
@@ -166,21 +157,14 @@ def test_influence_cannot_stray_far_from_the_deterministic_score() -> None:
         "pas du json",
         "{}",
         '{"events": "oups"}',
-        json.dumps({"events": [{"id": "e1", "markets": {XAUUSD: market()}}]}),  # one market only
+        json.dumps({"events": [{"id": "e1", "markets": {}}]}),  # no market at all
         json.dumps(
-            {"events": [{"id": "e1", "markets": {XAUUSD: market(bias="moon"), BTCUSD: market()}}]}
-        ),
-        json.dumps(
-            {"events": [{"id": "e1", "markets": {XAUUSD: market(confidence=7), BTCUSD: market()}}]}
-        ),
-        json.dumps(
-            {
-                "events": [
-                    {"id": "e1", "markets": {XAUUSD: market(stance="all-in"), BTCUSD: market()}}
-                ]
-            }
-        ),
-        json.dumps({"events": [{"id": "zz", "markets": {XAUUSD: market(), BTCUSD: market()}}]}),
+            {"events": [{"id": "e1", "markets": {XAUUSD: market(), "EURUSD": market()}}]}
+        ),  # a market we do not trade
+        json.dumps({"events": [{"id": "e1", "markets": {XAUUSD: market(bias="moon")}}]}),
+        json.dumps({"events": [{"id": "e1", "markets": {XAUUSD: market(confidence=7)}}]}),
+        json.dumps({"events": [{"id": "e1", "markets": {XAUUSD: market(stance="all-in")}}]}),
+        json.dumps({"events": [{"id": "zz", "markets": {XAUUSD: market()}}]}),
     ],
 )
 def test_an_unusable_answer_falls_back_to_the_rules(bad: str) -> None:
@@ -189,7 +173,7 @@ def test_an_unusable_answer_falls_back_to_the_rules(bad: str) -> None:
     [analysis] = result.analyses
     assert analysis.source == "fallback" and analysis.model == "deterministic"
     assert result.from_model == 0 and "règles" in result.note
-    assert len(analysis.verdicts) == 2
+    assert len(analysis.verdicts) == 1
 
 
 def test_one_bad_entry_does_not_cost_the_batch() -> None:
@@ -197,8 +181,8 @@ def test_one_bad_entry_does_not_cost_the_batch() -> None:
     reply = json.dumps(
         {
             "events": [
-                {"id": "e1", "markets": {XAUUSD: market(bias="???"), BTCUSD: market()}},
-                {"id": "e2", "markets": {XAUUSD: market(), BTCUSD: market()}},
+                {"id": "e1", "markets": {XAUUSD: market(bias="???")}},
+                {"id": "e2", "markets": {XAUUSD: market()}},
             ]
         }
     )
@@ -309,7 +293,6 @@ def brief_answer(**override: object) -> str:
             "headline": "Journée dominée par le CPI américain.",
             "markets": {
                 XAUUSD: gold,
-                BTCUSD: {"bias": "neutral", "stance": "wait", "summary": "Rien de propre."},
             },
         }
     )
@@ -320,7 +303,7 @@ def test_the_brief_is_the_models_when_valid_and_journalled() -> None:
     analyst, journal = build(model)
     brief = asyncio.run(analyst.brief("2026-10-30", [make()], {}, UP, NOW))
     assert brief.source == "ai" and brief.headline.startswith("Journée dominée")
-    assert [m.symbol for m in brief.markets] == [XAUUSD, BTCUSD]
+    assert [m.symbol for m in brief.markets] == [XAUUSD]
     assert journal.calls[0].purpose == PURPOSE_BRIEF
 
 

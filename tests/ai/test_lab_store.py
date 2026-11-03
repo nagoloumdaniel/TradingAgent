@@ -105,7 +105,7 @@ def test_an_analysis_cost_is_kept(engine: Engine) -> None:
 def test_recent_analyses_filters_and_returns_the_most_recent_first(engine: Engine) -> None:
     store = LabStore(engine)
     store.record_analysis(an_analysis(market="frxXAUUSD"))
-    store.record_analysis(an_analysis(market="BTCUSD"))
+    store.record_analysis(an_analysis(market="EURUSD"))
     newest = store.record_analysis(
         an_analysis(
             market="frxXAUUSD",

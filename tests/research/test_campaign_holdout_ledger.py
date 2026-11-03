@@ -23,11 +23,11 @@ def test_both_sides_build_the_same_identity() -> None:
     """The one assertion that keeps the two formulas from drifting apart."""
 
     class _Dataset:
-        dataset_id = "mt5-BTCUSD-M15-2026-10-09"
+        dataset_id = "mt5-EURUSD-M15-2026-10-09"
         fingerprint = "a" * 64
 
-    assert holdout_identity_for(_Dataset(), "BTCUSD") == holdout_identity(  # type: ignore[arg-type]
-        dataset_id="mt5-BTCUSD-M15-2026-10-09", market="BTCUSD", fingerprint="a" * 64
+    assert holdout_identity_for(_Dataset(), "EURUSD") == holdout_identity(  # type: ignore[arg-type]
+        dataset_id="mt5-EURUSD-M15-2026-10-09", market="EURUSD", fingerprint="a" * 64
     )
 
 

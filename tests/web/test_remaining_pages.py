@@ -254,11 +254,11 @@ def test_the_strategies_page_opens_on_one_market(seeded_client: TestClient) -> N
 
     assert seed.WITNESS in body
     assert seed.BREAKOUT not in body
-    assert seed.BTC in body  # offered by the selector, never displayed
+    assert seed.EUR in body  # offered by the selector, never displayed
 
 
 def test_the_strategies_page_can_be_asked_for_the_other_market(seeded_client: TestClient) -> None:
-    body = seeded_client.get("/strategies", params={"market": seed.BTC}).text
+    body = seeded_client.get("/strategies", params={"market": seed.EUR}).text
 
     assert seed.BREAKOUT in body
     assert seed.WITNESS not in body
@@ -341,12 +341,12 @@ def test_the_ai_lab_separates_the_markets(seeded_client: TestClient) -> None:
     xau = seeded_client.get("/ai-lab").text
 
     assert "walk_forward" in xau  # the XAU validation
-    assert "monte_carlo" not in xau  # the BTC one stays out
+    assert "monte_carlo" not in xau  # the EUR one stays out
 
-    btc = seeded_client.get("/ai-lab", params={"market": seed.BTC}).text
+    eur = seeded_client.get("/ai-lab", params={"market": seed.EUR}).text
 
-    assert "monte_carlo" in btc
-    assert "walk_forward" not in btc
+    assert "monte_carlo" in eur
+    assert "walk_forward" not in eur
 
 
 def test_the_ai_lab_search_says_when_it_finds_nothing(seeded_client: TestClient) -> None:
@@ -374,10 +374,10 @@ def test_the_ai_lab_queries_count_and_limit_in_sql(engine: Engine, populated: ob
 
 
 def test_the_scalping_page_filters_the_trades_on_the_market(seeded_client: TestClient) -> None:
-    """Three closed XAU trades and two BTC ones: the market is a query parameter."""
+    """Three closed XAU trades and two EUR ones: the market is a query parameter."""
     assert _value(seeded_client.get("/scalping").text, "scalping-trades") == "3"
     assert (
-        _value(seeded_client.get("/scalping", params={"market": seed.BTC}).text, "scalping-trades")
+        _value(seeded_client.get("/scalping", params={"market": seed.EUR}).text, "scalping-trades")
         == "2"
     )
 
@@ -385,7 +385,7 @@ def test_the_scalping_page_filters_the_trades_on_the_market(seeded_client: TestC
 def test_the_scalping_read_filters_on_the_market_in_sql(engine: Engine, populated: object) -> None:
     del populated
 
-    statements = _sql(engine, lambda: queries.scalping_view(engine, market=seed.BTC))
+    statements = _sql(engine, lambda: queries.scalping_view(engine, market=seed.EUR))
 
     assert any("SYMBOL = ?" in statement for statement in statements), statements
 
@@ -440,16 +440,16 @@ def test_every_scalping_cut_stays_within_a_display(
 def test_the_risk_events_are_separated_by_market(seeded_client: TestClient, engine: Engine) -> None:
     """One market at a time — plus the account-wide events, which belong to every market."""
     _event(engine, "xau_only", seed.NOW - timedelta(minutes=1), symbol=seed.XAU)
-    _event(engine, "btc_only", seed.NOW - timedelta(minutes=2), symbol=seed.BTC)
+    _event(engine, "eur_only", seed.NOW - timedelta(minutes=2), symbol=seed.EUR)
     _event(engine, "compte", seed.NOW - timedelta(minutes=3), symbol=None)
 
     xau = _tbody(seeded_client.get("/risk").text, "risk-events-body")
-    btc = _tbody(seeded_client.get("/risk", params={"market": seed.BTC}).text, "risk-events-body")
+    eur = _tbody(seeded_client.get("/risk", params={"market": seed.EUR}).text, "risk-events-body")
 
     assert "xau_only" in xau and "compte" in xau
-    assert "btc_only" not in xau  # two instruments never share the table
-    assert "btc_only" in btc and "compte" in btc
-    assert "xau_only" not in btc
+    assert "eur_only" not in xau  # two instruments never share the table
+    assert "eur_only" in eur and "compte" in eur
+    assert "xau_only" not in eur
 
 
 def test_the_risk_page_offers_the_markets_the_events_name(seeded_client: TestClient) -> None:
@@ -553,24 +553,24 @@ def test_the_system_logs_are_separated_by_market(seeded_client: TestClient, engi
             insert(ExecutionEventRow).values(
                 order_id=None,
                 signal_id=None,
-                symbol=seed.BTC,
+                symbol=seed.EUR,
                 kind=ExecutionEventKind.ORDER_SENT,
-                detail={"sonde": "btc"},
+                detail={"sonde": "eur"},
                 occurred_at=seed.NOW - timedelta(minutes=1),
             )
         )
-    _event(engine, "btc_alerte", seed.NOW - timedelta(minutes=1), symbol=seed.BTC)
+    _event(engine, "eur_alerte", seed.NOW - timedelta(minutes=1), symbol=seed.EUR)
 
     body = seeded_client.get("/system").text
 
-    assert "btc_alerte" not in _tbody(body, "errors-body")  # XAUUSD is the default
-    assert "BTCUSD" not in _tbody(body, "telemetry-body")
+    assert "eur_alerte" not in _tbody(body, "errors-body")  # XAUUSD is the default
+    assert "EURUSD" not in _tbody(body, "telemetry-body")
 
-    btc = seeded_client.get("/system", params={"market": seed.BTC}).text
+    eur = seeded_client.get("/system", params={"market": seed.EUR}).text
 
-    assert "btc_alerte" in _tbody(btc, "errors-body")
-    assert "BTCUSD" in _tbody(btc, "telemetry-body")
-    assert "XAUUSD" not in _tbody(btc, "telemetry-body")
+    assert "eur_alerte" in _tbody(eur, "errors-body")
+    assert "EURUSD" in _tbody(eur, "telemetry-body")
+    assert "XAUUSD" not in _tbody(eur, "telemetry-body")
 
 
 def test_the_system_queries_count_and_limit_in_sql(engine: Engine, populated: object) -> None:

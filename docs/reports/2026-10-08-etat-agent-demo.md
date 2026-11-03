@@ -23,7 +23,7 @@ Ce document ne remplace pas les trois rapports détaillés qu'il résume :
 ### 1.1 L'agent s'est arrêté deux heures sans le dire (corrigé)
 
 Dans `system_events` : **383 événements CRITICAL `clock_mismatch`**, du 2026-10-07 21:51:54 au
-23:59:39 UTC, soit **2 h 08**, tous avec le même motif : `no tick on BTCUSD to verify the server
+23:59:39 UTC, soit **2 h 08**, tous avec le même motif : `no tick on <symbole sonde> to verify the server
 clock`. Chaque cycle de 20 secondes était abandonné avant la lecture des bougies, avant la
 réconciliation, avant le battement des EA, avant les rapports.
 
@@ -99,22 +99,19 @@ spécification du courtier avant tout envoi.
 | Compte | démo Deriv, **EUR**, solde ≈ **5 496,67 €** (0,5 % de risque par opération = 27,48 €) |
 | Instance | **une seule**, vivante, `uv run tradingagent-run` |
 | Connexion | MT5 démo vérifiée de bout en bout : lecture de bougies UTC closes et **ouverture d'un ordre démo avec stop natif, relecture, clôture** (`RUN_MT5_LIVE=1 uv run pytest -m mt5_live -v`, 2 tests verts) |
-| Données | bougies XAUUSD et BTCUSD M15 stockées, à jour à la dernière bougie close |
+| Données | bougies XAUUSD M15 stockées, à jour à la dernière bougie close |
 | Positions | **0** ouverte, 0 ordre, 0 exécution, 0 trade |
-| Signaux | 2 depuis l'origine : 1 envoyé (or, en mode SIGNAL), 1 refusé par le contrôle de zone d'entrée (BTC) |
+| Signaux | 1 depuis l'origine : 1 envoyé (or, en mode SIGNAL) |
 | Erreurs d'horloge depuis le redémarrage | **aucune** |
 
-**Pourquoi aucun trade encore ?** Trois raisons factuelles, aucune n'est un défaut :
+**Pourquoi aucun trade encore ?** Deux raisons factuelles, aucune n'est un défaut :
 
 1. le mode DEMO n'est actif que depuis 02:41 UTC ; auparavant l'agent était en mode SIGNAL, qui
    notifie sans exécuter ;
-2. les deux stratégies livrées sont en **M15** : elles ne peuvent produire un signal qu'à la
-   clôture d'une bougie de 15 minutes, et elles sont sélectives ;
-3. un signal sur deux a été **refusé par le contrôle de zone d'entrée** : le prix était sorti de
-   la zone entre la clôture de la bougie et l'évaluation du risque. C'est volontaire — on ne
-   poursuit pas le prix — et cela réduit mécaniquement le nombre d'ordres.
+2. la stratégie livrée est en **M15** : elle ne peut produire un signal qu'à la
+   clôture d'une bougie de 15 minutes, et elle est sélective.
 
-**À attendre** : quelques signaux par jour et par marché, pas davantage. Il n'y a rien à réparer
+**À attendre** : quelques signaux par jour, pas davantage. Il n'y a rien à réparer
 de plus pour que le premier trade arrive ; il faut qu'une configuration se présente aux conditions
 de la stratégie.
 
@@ -122,16 +119,16 @@ de la stratégie.
 
 ## 3. La demande de « petits gains très répétitifs » — la mesure
 
-Mesuré sur les six jeux gelés du dépôt (11 999 bougies, XAUUSD et BTCUSD en M15, M5, M1) avec le
+Mesuré sur les trois jeux gelés du dépôt (11 999 bougies, XAUUSD en M15, M5, M1) avec le
 modèle de coûts réel du projet (spread 0,5 bp, slippage 0,2 bp, commission 0,50 € par opération).
 Détail complet et reproductible : `docs/research/2026-10-08-petits-gains-repetitifs.md` §
 `uv run python scripts/analysis/scalping_truth.py`.
 
 | Question | Réponse mesurée |
 |---|---|
-| Combien faudrait-il gagner de plus par opération pour être rentable ? | En **M1 sur l'or : ×4,84** l'espérance brute mesurée (0,0432 → 0,2091 R/op). **×4,10** au dimensionnement réel du compte. M1 BTC : ×1,89 |
+| Combien faudrait-il gagner de plus par opération pour être rentable ? | En **M1 sur l'or : ×4,84** l'espérance brute mesurée (0,0432 → 0,2091 R/op). **×4,10** au dimensionnement réel du compte |
 | Que devient une suite de petits gains à espérance négative ? | P(compte encore positif) après 100 / 500 / 1000 opérations, M1 or : **0,108 / 0,003 / 0,000** |
-| Que fait un doublement de mise après une perte ? | **7 pertes consécutives bloquent** la série (3 517,87 € à engager pour 2 006,28 € restants), **8 l'effacent** ; la probabilité d'une telle suite sur 1000 opérations est **1,0000** ; ruine simulée **97,1 % à 99,9 %**, contre 0,0 % à 12,0 % à mise constante |
+| Que fait un doublement de mise après une perte ? | **7 pertes consécutives bloquent** la série (3 517,87 € à engager pour 2 006,28 € restants), **8 l'effacent** ; la probabilité d'une telle suite sur 1000 opérations est **1,0000** ; ruine simulée **97,1 % à 99,6 %**, contre 0,0 % à 6,9 % à mise constante |
 | Au-delà de quelle fréquence la vitesse devient-elle destructrice ? | Le coefficient est **négatif** : 0 opération/jour est le seul régime non perdant. Au rythme mesuré, **−127,03 €/jour** en M1 or (−2,31 %/jour) ; le frein de perte quotidienne de 2 % tombe en **0,87 jour de marché** |
 
 **Le mécanisme, en une phrase** : le spread et le slippage sont des distances de prix fixes, alors
@@ -140,16 +137,15 @@ fond, et **la même charge en points devient une part de plus en plus grande du 
 0,086 R par opération en M15, 0,109 en M5, 0,209 en M1 sur l'or — pendant que le gain brut par
 opération, lui, **baisse** (0,077 → 0,048 → 0,043 R).
 
-Deux réserves honnêtes, publiées dans le document : une cellule sur dix-huit est nette-positive
-(XAUUSD M15 au dimensionnement réel, +2,11 €/jour) et un candidat sur dix-huit franchit la porte
+Deux réserves honnêtes, publiées dans le document : une cellule sur neuf est nette-positive
+(XAUUSD M15 au dimensionnement réel, +2,11 €/jour) et un candidat sur neuf franchit la porte
 `costs` — tous deux rejetés par la rétention hors échantillon (0,00) et par la correction du taux
-de fausses découvertes (0 survivant sur 6). Autrement dit : il n'y a pas de gain caché à aller
+de fausses découvertes (aucun survivant). Autrement dit : il n'y a pas de gain caché à aller
 chercher, mais il n'y a pas non plus de démonstration qu'aucune stratégie ne puisse jamais
 fonctionner — seulement qu'aucune de celles testées ici, sur ces données, ne le fait.
 
-**Et les stratégies actuellement en démonstration ?** `witness@1.1.1` (or) et
-`trend_breakout@1.0.1` (BTC) sont déployées en DEMO **par dérogation opérateur écrite**, sans
-validation : la campagne du 2026-10-08 a refusé **6 portes sur 9**, avec une p-value minimale de
+**Et la stratégie actuellement en démonstration ?** `witness@1.1.1` (or) est déployée en
+DEMO **par dérogation opérateur écrite**, sans validation : la campagne du 2026-10-08 a refusé **6 portes sur 9**, avec une p-value minimale de
 0,3497 contre une ligne de Bonferroni à 0,016667. Le mode démo sert donc à **répéter la
 mécanique** — exécution, stops, clôtures, notifications, statistiques — pas à démontrer une
 rentabilité.
@@ -162,7 +158,7 @@ rentabilité.
    survit ni à la fermeture de sa console, ni à un redémarrage de la machine. Pour du 24/7 :
    `pwsh -File scripts/register_service.ps1` **en administrateur** (documenté dans
    `docs/operations/exploitation.md` §1).
-2. **Deux EA ne sont pas installés** dans le terminal : `ea_offline` a été enregistré. L'agent
+2. **L'EA n'est pas installé** dans le terminal : `ea_offline` a été enregistré. L'agent
    tourne sans (l'EA est un filet de sécurité local, pas une dépendance), mais le kill switch
    local n'existe pas. Procédure : `docs/ea/README.md`.
 3. **Défauts consignés, non corrigés** (détail dans le rapport d'audit) : le contrôle croisé de la

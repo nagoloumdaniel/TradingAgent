@@ -23,7 +23,7 @@
 |---|---|---|---|
 | Compte utilisé | Deriv — Conditions générales (deriv.com) | compte de démonstration/argent réel, entité contractante, pays de résidence déclaré | x vérifié ☐ refusé ☐ à revoir |
 | Trading automatisé | Deriv — Conditions générales et centre d'aide (help.deriv.com) | le recours à un Expert Advisor / bot d'exécution automatique est-il autorisé, encadré, ou interdit sur le type de compte visé ? | x vérifié ☐ refusé ☐ à revoir |
-| Instruments | Deriv — pages produit et informations réglementaires (deriv.com) | les instruments prévus (`frxXAUUSD`, CFD crypto) sont-ils accessibles à un résident français depuis l'entité du compte ? | x vérifié ☐ refusé ☐ à revoir |
+| Instruments | Deriv — pages produit et informations réglementaires (deriv.com) | les instruments prévus (`frxXAUUSD`) sont-ils accessibles à un résident français depuis l'entité du compte ? | x vérifié ☐ refusé ☐ à revoir |
 | Pays restreints | Deriv — informations réglementaires / liste des pays non desservis | le pays de résidence n'est pas exclu, et aucun contournement n'est nécessaire | x vérifié ☐ refusé ☐ à revoir |
 | Accès API / terminal | Deriv — documentation officielle et conditions d'API | l'automatisation via le terminal retenu respecte les conditions (pas de scraping, pas de latence abusive) | x vérifié ☐ refusé ☐ à revoir |
 | Sanctions et embargo | Union européenne — mesures restrictives (EUR-Lex, règlements du Conseil) ; Trésor français | ni l'opérateur ni les flux ne sont visés par une mesure restrictive | x vérifié ☐ refusé ☐ à revoir |
@@ -57,9 +57,8 @@
 
 | Point | Source officielle à consulter | Ce qu'il faut vérifier | Décision |
 |---|---|---|---|
-| Imposition des plus-values | impots.gouv.fr — plus-values de cession de valeurs mobilières et prélèvement forfaitaire unique | quel régime s'applique aux CFD et à la crypto, et à quel taux ? | x vérifié ☐ refusé ☐ à revoir |
+| Imposition des plus-values | impots.gouv.fr — plus-values de cession de valeurs mobilières et prélèvement forfaitaire unique | quel régime s'applique aux CFD sur l'or, et à quel taux ? | x vérifié ☐ refusé ☐ à revoir |
 | Pertes | impots.gouv.fr — imputation des moins-values | comment les pertes sont reportées, et sur quelle durée | x vérifié ☐ refusé ☐ à revoir |
-| Crypto-actifs | impots.gouv.fr — fiscalité des actifs numériques | régime propre aux cessions d'actifs numériques, formulaires et taux | x vérifié ☐ refusé ☐ à revoir |
 | Déclarations | impots.gouv.fr — campagnes déclaratives | formulaires annuels, échéances, justificatifs à conserver | x vérifié ☐ refusé ☐ à revoir |
 | Justificatifs | impots.gouv.fr | les exports du projet (`docs/reports/`, exports CSV) suffisent-ils comme pièces justificatives ? | x vérifié ☐ refusé ☐ à revoir |
 

@@ -19,16 +19,14 @@ DEFAULT_COMMISSION = Decimal("0")
 
 #: Spread par défaut d'un backtest, en fraction du prix. **Mesuré sur le courtier, pas supposé.**
 #:
-#: 2,24 points de base = les 18,424 USD cotés sur BTCUSD à ~82 400 USD le 2026-10-09, lus dans
-#: les décisions de risque enregistrées. Le modèle qui régnait avant valait 0,5 point de base,
-#: **4,5 fois moins**, et c'est le poste qui décide de la rentabilité : au spread observé, le
-#: profit factor du jeu complet BTCUSD passe de 0,9314 à 0,8693 sans qu'aucune autre hypothèse
-#: ne change.
+#: 0,75 point de base = les 0,31 USD cotés sur XAUUSD à ~4 130 USD le 2026-10-09, lus dans les
+#: décisions de risque enregistrées. Le modèle qui régnait avant valait 0,5 point de base, et
+#: c'est le poste qui décide de la rentabilité.
 #:
 #: Ce que ce chiffre n'est pas : une distribution. Il vient de onze décisions d'une seule
 #: journée, et la fréquence horaire du spread reste inconnue. C'est une mesure datée, et le
 #: champ `source` de `campaign_costs` sert à dire d'où elle vient quand on s'en écarte.
-DEFAULT_SPREAD_FRACTION = 2.24e-4
+DEFAULT_SPREAD_FRACTION = 7.5e-5
 DEFAULT_SLIPPAGE_FRACTION = 2e-5
 DEFAULT_COMMISSION_EUR = Decimal("0.5")
 

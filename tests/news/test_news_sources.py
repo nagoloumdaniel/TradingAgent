@@ -74,7 +74,7 @@ def test_the_weekly_calendar_is_parsed_into_utc_events() -> None:
     assert result.covers == (result.events[0].starts_at, result.events[-1].starts_at)
 
 
-def test_only_what_matters_to_gold_and_bitcoin_is_kept() -> None:
+def test_only_what_matters_to_gold_is_kept() -> None:
     result = fetch_calendar(ok(fixture("faireconomy_thisweek.json")))
     raw = json.loads(fixture("faireconomy_thisweek.json"))
     assert len(result.events) < len(raw)
@@ -280,33 +280,25 @@ def test_fxstreet_items_are_filed_under_the_market_they_talk_about() -> None:
     assert gold.starts_at == datetime(2026, 10, 30, 11, 10, 2, tzinfo=UTC)
 
 
-def test_crypto_feeds_keep_bitcoin_and_market_moving_items() -> None:
-    for name in ("coindesk", "cointelegraph"):
-        result = fetch_rss(name, fixture(f"{name}.xml"))
-        assert result.report.ok
-        assert all(e.currency == "BTC" for e in result.events)
-        assert all(e.source == name for e in result.events)
-
-
 def test_html_in_descriptions_is_stripped() -> None:
-    body = b"""<rss><channel><item><title>Bitcoin ETF flows</title>
-    <description>&lt;p&gt;Spot &lt;b&gt;bitcoin&lt;/b&gt; ETF inflows&lt;/p&gt;</description>
+    body = b"""<rss><channel><item><title>Gold ETF flows</title>
+    <description>&lt;p&gt;Spot &lt;b&gt;gold&lt;/b&gt; ETF inflows&lt;/p&gt;</description>
     <pubDate>Fri, 30 Oct 2026 14:00:00 +0000</pubDate></item></channel></rss>"""
-    result = fetch_rss("coindesk", body)
-    assert result.events[0].summary == "Spot bitcoin ETF inflows"
+    result = fetch_rss("fxstreet", body)
+    assert result.events[0].summary == "Spot gold ETF inflows"
 
 
 def test_a_feed_declaring_a_dtd_or_entity_is_refused() -> None:
     body = b"""<?xml version="1.0"?><!DOCTYPE rss [<!ENTITY a "aaaa">]>
     <rss><channel><item><title>&a;</title></item></channel></rss>"""
-    result = fetch_rss("coindesk", body)
+    result = fetch_rss("fxstreet", body)
     assert not result.report.ok
     assert "DTD" in (result.report.error or "")
     assert result.events == ()
 
 
 BOMB_TEXT = """<?xml version="1.0" encoding="{enc}"?><!DOCTYPE rss [<!ENTITY a "aaaa">]>
-<rss><channel><item><title>Bitcoin &a;</title>
+<rss><channel><item><title>Gold &a;</title>
 <pubDate>Fri, 30 Oct 2026 14:00:00 +0000</pubDate></item></channel></rss>"""
 
 
@@ -324,7 +316,7 @@ def test_a_dtd_hidden_behind_a_non_utf8_encoding_is_refused_too(
     encoding: str, codec: str, bom: bytes
 ) -> None:
     body = bom + BOMB_TEXT.format(enc=encoding).encode(codec)
-    result = fetch_rss("coindesk", body)
+    result = fetch_rss("fxstreet", body)
     assert not result.report.ok
     assert result.events == ()
     assert "UTF-8" in (result.report.error or "")
@@ -332,41 +324,41 @@ def test_a_dtd_hidden_behind_a_non_utf8_encoding_is_refused_too(
 
 def test_a_utf8_feed_with_a_byte_order_mark_still_parses() -> None:
     body = codecs.BOM_UTF8 + (
-        b"<rss><channel><item><title>Bitcoin ETF flows</title>"
+        b"<rss><channel><item><title>Gold ETF flows</title>"
         b"<pubDate>Fri, 30 Oct 2026 14:00:00 +0000</pubDate></item></channel></rss>"
     )
-    result = fetch_rss("coindesk", body)
+    result = fetch_rss("fxstreet", body)
     assert result.report.ok
-    assert [event.title for event in result.events] == ["Bitcoin ETF flows"]
+    assert [event.title for event in result.events] == ["Gold ETF flows"]
 
 
 def test_a_declared_encoding_cannot_change_how_the_checked_text_is_read() -> None:
     # Valid UTF-8 that merely *claims* another encoding: what was guarded is what is parsed.
     body = (
         b'<?xml version="1.0" encoding="cp037"?>'
-        b"<rss><channel><item><title>Bitcoin ETF flows</title>"
+        b"<rss><channel><item><title>Gold ETF flows</title>"
         b"<pubDate>Fri, 30 Oct 2026 14:00:00 +0000</pubDate></item></channel></rss>"
     )
-    result = fetch_rss("coindesk", body)
+    result = fetch_rss("fxstreet", body)
     assert result.report.ok
-    assert [event.title for event in result.events] == ["Bitcoin ETF flows"]
+    assert [event.title for event in result.events] == ["Gold ETF flows"]
 
 
 def test_broken_xml_is_reported_not_raised() -> None:
-    result = fetch_rss("coindesk", b"<rss><channel><item>")
+    result = fetch_rss("fxstreet", b"<rss><channel><item>")
     assert not result.report.ok
     assert "XML" in (result.report.error or "")
 
 
 def test_an_rss_http_failure_is_reported() -> None:
-    assert not fetch_rss("coindesk", b"", status=503).report.ok
-    limited = fetch_rss("coindesk", b"", status=429)
+    assert not fetch_rss("fxstreet", b"", status=503).report.ok
+    limited = fetch_rss("fxstreet", b"", status=429)
     assert limited.report.retry_after == 600
 
 
 def test_an_rss_transport_error_is_reported() -> None:
-    http = FakeHttp({spec("coindesk").url: HttpError("ConnectionResetError")})
-    result = asyncio.run(RssSource(spec("coindesk"), http).fetch(NOW))
+    http = FakeHttp({spec("fxstreet").url: HttpError("ConnectionResetError")})
+    result = asyncio.run(RssSource(spec("fxstreet"), http).fetch(NOW))
     assert not result.report.ok
 
 

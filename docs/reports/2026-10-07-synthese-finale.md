@@ -59,12 +59,10 @@ ne le porte. Le chaînon manquant est désormais livré :
 
 ### 2.2 Configuration de production
 
-- `config/agent.yaml` : `XAUUSD` → `witness@1.1.0`, `BTCUSD` → `trend_breakout@1.0.0`
-  (EF-003 : une stratégie distincte par marché, avec deux règles réellement différentes).
+- `config/agent.yaml` : `XAUUSD` → `witness@1.1.0`.
 - `config/strategies/witness@1.1.0.yaml` : remplace le symbole inexistant `frxXAUUSD`.
   `witness@1.0.0` est conservé intact : un manifeste déjà utilisé ne se réécrit jamais.
-- `config/strategies/trend_breakout@1.0.0.yaml` : cassure de canal de Donchian filtrée par
-  une EMA longue. Les deux manifestes restent plafonnés à `max_mode: SIGNAL` (RM-016).
+- Le manifeste reste plafonné à `max_mode: SIGNAL` (RM-016).
 
 ### 2.3 Exécution (TASK-070, 081 à 085)
 
@@ -139,7 +137,7 @@ n'appartient pas à un agent.
 | Quality gate phase 5 | durée | 7 jours en continu, redémarrage automatique observé |
 | Restauration « machine vierge » | manipulation | exécuter `docs/operations/backup-restore.md` sur une machine neuve |
 | Validation par un tiers | humain | faire suivre `docs/operations/` à quelqu'un qui n'a pas développé le système |
-| Levier crypto / Q-07 | marché | aucun historique crypto réel exploitable ici ; Q-22 (capital réel) non tranchée |
+| Capital réel / Q-22 | décision | non tranchée |
 | Phase 9 (exécution réelle) | décision | ne démarre pas avant TASK-090 signée |
 
 ## 5. Clés d'environnement

@@ -18,7 +18,7 @@ STEP = timedelta(minutes=15)
 NOW = datetime(2026, 10, 6, 12, 7, tzinfo=UTC)  # a Tuesday
 LAST_CLOSED = datetime(2026, 10, 6, 11, 45, tzinfo=UTC)
 ALWAYS_OPEN = learn_calendar(
-    "BTCUSD",
+    "EURUSD",
     [Candle(Timeframe.M15, NOW - STEP * (i + 1), 1.0, 1.0, 1.0, 1.0) for i in range(8 * 7 * 96)],
     NOW,
 )
@@ -56,23 +56,23 @@ def store(tmp_path: Path) -> Iterator[CandleStore]:
 
 def sync(source: FakeSource, store: CandleStore, warmup: int = 50) -> int:
     history = HistorySync(source, store, now=lambda: NOW)
-    return asyncio.run(history.sync("BTCUSD", Timeframe.M15, warmup)).inserted
+    return asyncio.run(history.sync("EURUSD", Timeframe.M15, warmup)).inserted
 
 
 def test_first_start_downloads_the_warmup_history(store: CandleStore) -> None:
     source = FakeSource(series(LAST_CLOSED, 500))
     assert sync(source, store, warmup=200) == 200
     assert source.requests == [200]
-    assert store.latest("BTCUSD", Timeframe.M15, 500) == series(LAST_CLOSED, 200)
+    assert store.latest("EURUSD", Timeframe.M15, 500) == series(LAST_CLOSED, 200)
 
 
 def test_catch_up_after_an_outage_creates_no_duplicate(store: CandleStore) -> None:
     outage_start = LAST_CLOSED - STEP * 30
-    store.save("BTCUSD", series(outage_start, 100), NOW)
+    store.save("EURUSD", series(outage_start, 100), NOW)
     source = FakeSource(series(LAST_CLOSED, 500))
     assert sync(source, store) == 30
     assert source.requests[0] >= 31
-    assert store.latest("BTCUSD", Timeframe.M15, 1000) == series(LAST_CLOSED, 130)
+    assert store.latest("EURUSD", Timeframe.M15, 1000) == series(LAST_CLOSED, 130)
 
 
 def test_restart_right_after_a_sync_inserts_nothing(store: CandleStore) -> None:
@@ -82,12 +82,12 @@ def test_restart_right_after_a_sync_inserts_nothing(store: CandleStore) -> None:
 
 
 def test_outage_longer_than_the_broker_serves_leaves_a_recorded_hole(store: CandleStore) -> None:
-    store.save("BTCUSD", series(LAST_CLOSED - STEP * 300, 10), NOW)
+    store.save("EURUSD", series(LAST_CLOSED - STEP * 300, 10), NOW)
     source = FakeSource(series(LAST_CLOSED, 1000), limit=100)
     sync(source, store)
     history = HistorySync(source, store, now=lambda: NOW)
     start = LAST_CLOSED - STEP * 309
-    holes = history.missing("BTCUSD", Timeframe.M15, ALWAYS_OPEN, start, NOW)
+    holes = history.missing("EURUSD", Timeframe.M15, ALWAYS_OPEN, start, NOW)
     assert holes[0] == LAST_CLOSED - STEP * 299
     assert holes[-1] == LAST_CLOSED - STEP * 100
     assert len(holes) == 200
@@ -98,10 +98,10 @@ def test_a_continuous_day_reports_no_hole(store: CandleStore) -> None:
     sync(source, store, warmup=200)
     history = HistorySync(source, store, now=lambda: NOW)
     day_ago = NOW - timedelta(hours=24)
-    assert history.missing("BTCUSD", Timeframe.M15, ALWAYS_OPEN, day_ago, NOW) == []
+    assert history.missing("EURUSD", Timeframe.M15, ALWAYS_OPEN, day_ago, NOW) == []
 
 
 def test_the_bar_still_forming_is_never_reported_missing(store: CandleStore) -> None:
     sync(FakeSource(series(LAST_CLOSED, 100)), store)
     history = HistorySync(FakeSource([]), store, now=lambda: NOW)
-    assert history.missing("BTCUSD", Timeframe.M15, ALWAYS_OPEN, LAST_CLOSED, NOW) == []
+    assert history.missing("EURUSD", Timeframe.M15, ALWAYS_OPEN, LAST_CLOSED, NOW) == []

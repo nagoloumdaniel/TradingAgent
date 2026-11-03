@@ -7,9 +7,7 @@ assez de points**, et ecrire noir sur blanc ce que la couverture ne permet pas d
 
 **Ce que le spread doit etre compare a.** Pas au dollar : a l'ATR M15. C'est ce rapport-la qui
 decide si une porte d'entree du depot est calibree, parce que le risque d'une operation s'exprime
-en ATR. Le 2026-10-10, un releve court a donne 18,80 $ pour le BTC, soit **0,306 ATR M15**, contre
-0,740 $ pour l'or, soit **0,185 ATR** : le bitcoin coute donc environ **1,65 fois plus cher que
-l'or en proportion du mouvement qu'il offre**. C'est un fait de structure, pas de reglage.
+en ATR. Le 2026-10-10, un releve court a donne 0,740 $ pour l'or, soit **0,185 ATR M15**.
 
     uv run python scripts/analysis/aggregate_spread.py
     uv run python scripts/analysis/aggregate_spread.py --min-per-hour 20
@@ -177,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     print(
         "\nCe que ce releve ne dit pas, et qu'aucune ligne ci-dessus ne doit faire oublier :\n"
-        "  * rien sur les publications macro, qui sont les pics de spread du BTC ;\n"
+        "  * rien sur les publications macro, qui sont les pics de spread de l'or ;\n"
         "  * rien sur la stabilite du courtier dans le temps — un releve est un instantane ;\n"
         "  * rien sur l'impact, le slippage ou les requotes, qui ne se lisent pas dans un tick."
     )

@@ -92,11 +92,11 @@ class HostileClient:
         payload = {
             "decision": self.decision,
             "reason": "je réécris les niveaux",
-            "text": "Achat immédiat BTCUSD, volume 100.",
+            "text": "Achat immédiat XAUUSD, volume 100.",
             "stop_loss": 0.0,  # loosened to nothing
             "take_profit": 999_999.0,
             "volume": 100.0,
-            "new_signal": "BUY BTCUSD now",
+            "new_signal": "BUY XAUUSD now",
             "max_mode": "LIVE",
         }
         return AiReply(

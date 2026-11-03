@@ -1,9 +1,9 @@
 """Research campaigns across markets (F-025, TASK-064, TASK-066).
 
 A campaign runs the same candidate set on several markets, compares them on identical
-indicators, and selects on robustness rather than on net profit. Gold and crypto are
-competing for the same risk budget, so the campaign also measures the correlation between
-their returns: two highly correlated markets are one position in disguise.
+indicators, and selects on robustness rather than on net profit. When several markets
+compete for the same risk budget, the campaign also measures the correlation between their
+returns: two highly correlated markets are one position in disguise.
 
 Since TASK-066 a campaign also *validates*. Every candidate of every market is measured on
 every gate of §49 a frozen history can decide -- the backtest itself, its costs, the

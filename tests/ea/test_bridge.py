@@ -76,7 +76,7 @@ def write_report(reports_dir: Path, symbol: str, payload: dict) -> Path:
     return path
 
 
-def report_payload(symbol: str = "BTCUSD", heartbeat: datetime = NOW) -> dict:
+def report_payload(symbol: str = "XAUUSD", heartbeat: datetime = NOW) -> dict:
     return {
         "protocol_version": PROTOCOL_VERSION,
         "ea_version": "1.0.0",
@@ -124,7 +124,7 @@ def test_publish_round_trips_through_read_reports(tmp_path: Path) -> None:
     directory = tmp_path / "bridge"
     publish_state(
         directory,
-        "BTCUSD",
+        "XAUUSD",
         magic=3031,
         positions=[expected_position()],
         orders=[authorised_order()],
@@ -132,10 +132,10 @@ def test_publish_round_trips_through_read_reports(tmp_path: Path) -> None:
         now=frozen(NOW),
     )
 
-    state = read_json(state_path(directory, "BTCUSD"))
+    state = read_json(state_path(directory, "XAUUSD"))
     assert state is not None
     assert state["protocol_version"] == PROTOCOL_VERSION
-    assert state["symbol"] == "BTCUSD"
+    assert state["symbol"] == "XAUUSD"
     assert state["revision"] == 1
     assert state["published_at"] == "2026-10-07T06:00:00+00:00"
     assert state["positions"][0]["stop_loss"] == 62_000.0
@@ -146,15 +146,15 @@ def test_publish_round_trips_through_read_reports(tmp_path: Path) -> None:
 
 
 def test_unlimited_positions_are_published_as_zero_for_the_ea(tmp_path: Path) -> None:
-    publish_state(tmp_path, "BTCUSD", magic=3031, max_positions=None, now=frozen(NOW))
-    state = read_json(state_path(tmp_path, "BTCUSD"))
+    publish_state(tmp_path, "XAUUSD", magic=3031, max_positions=None, now=frozen(NOW))
+    state = read_json(state_path(tmp_path, "XAUUSD"))
     assert state is not None
     assert state["limits"]["max_positions"] == 0
 
 
 def test_a_position_cap_is_published_unchanged(tmp_path: Path) -> None:
-    publish_state(tmp_path, "BTCUSD", magic=3031, max_positions=3, now=frozen(NOW))
-    state = read_json(state_path(tmp_path, "BTCUSD"))
+    publish_state(tmp_path, "XAUUSD", magic=3031, max_positions=3, now=frozen(NOW))
+    state = read_json(state_path(tmp_path, "XAUUSD"))
     assert state is not None
     assert state["limits"]["max_positions"] == 3
 
@@ -168,46 +168,46 @@ def test_publish_state_writes_under_the_state_directory(tmp_path: Path) -> None:
 
 def test_revision_auto_increments_without_the_caller_tracking_it(tmp_path: Path) -> None:
     for expected in (1, 2, 3):
-        publish_state(tmp_path, "BTCUSD", magic=3031, now=frozen(NOW))
-        state = read_json(state_path(tmp_path, "BTCUSD"))
+        publish_state(tmp_path, "XAUUSD", magic=3031, now=frozen(NOW))
+        state = read_json(state_path(tmp_path, "XAUUSD"))
         assert state is not None
         assert state["revision"] == expected
 
 
 def test_revision_can_be_forced_and_overrides_the_auto_counter(tmp_path: Path) -> None:
-    publish_state(tmp_path, "BTCUSD", magic=3031, now=frozen(NOW))
-    publish_state(tmp_path, "BTCUSD", magic=3031, revision=99, now=frozen(NOW))
-    state = read_json(state_path(tmp_path, "BTCUSD"))
+    publish_state(tmp_path, "XAUUSD", magic=3031, now=frozen(NOW))
+    publish_state(tmp_path, "XAUUSD", magic=3031, revision=99, now=frozen(NOW))
+    state = read_json(state_path(tmp_path, "XAUUSD"))
     assert state is not None
     assert state["revision"] == 99
 
 
 def test_a_corrupt_previous_state_restarts_the_revision_at_one(tmp_path: Path) -> None:
-    path = state_path(tmp_path, "BTCUSD")
+    path = state_path(tmp_path, "XAUUSD")
     path.parent.mkdir(parents=True)
     path.write_text("{not json", encoding="utf-8")
-    publish_state(tmp_path, "BTCUSD", magic=3031, now=frozen(NOW))
+    publish_state(tmp_path, "XAUUSD", magic=3031, now=frozen(NOW))
     state = read_json(path)
     assert state is not None
     assert state["revision"] == 1
 
 
 def test_kill_switch_is_published_and_read_back(tmp_path: Path) -> None:
-    publish_state(tmp_path, "BTCUSD", magic=3031, kill_switch=True, now=frozen(NOW))
-    state = read_json(state_path(tmp_path, "BTCUSD"))
+    publish_state(tmp_path, "XAUUSD", magic=3031, kill_switch=True, now=frozen(NOW))
+    state = read_json(state_path(tmp_path, "XAUUSD"))
     assert state is not None
     assert state["kill_switch"] is True
 
 
 def test_publish_refuses_a_naive_clock(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
-        publish_state(tmp_path, "BTCUSD", magic=3031, now=frozen(NOW.replace(tzinfo=None)))
+        publish_state(tmp_path, "XAUUSD", magic=3031, now=frozen(NOW.replace(tzinfo=None)))
 
 
 def test_the_published_epoch_is_the_same_instant_as_the_iso_stamp(tmp_path: Path) -> None:
     """MQL5 reads the epoch because it has no date parser; both must agree."""
-    publish_state(tmp_path, "BTCUSD", magic=3031, now=frozen(NOW))
-    state = read_json(state_path(tmp_path, "BTCUSD"))
+    publish_state(tmp_path, "XAUUSD", magic=3031, now=frozen(NOW))
+    state = read_json(state_path(tmp_path, "XAUUSD"))
     assert state is not None
     assert state["published_epoch"] == int(NOW.timestamp())
 
@@ -221,7 +221,7 @@ def test_the_state_file_is_pure_ascii_so_mql5_can_read_it(tmp_path: Path) -> Non
         stop_loss=62_000.0,
         comment="déclenchement à 62 000 €",
     )
-    path = publish_state(tmp_path, "BTCUSD", magic=3031, positions=[position], now=frozen(NOW))
+    path = publish_state(tmp_path, "XAUUSD", magic=3031, positions=[position], now=frozen(NOW))
     raw = path.read_bytes()
     assert all(byte < 128 for byte in raw)
     assert b"\\u00e9" in raw
@@ -231,7 +231,7 @@ def test_an_absent_state_age_is_not_a_negative_age(tmp_path: Path) -> None:
     reports = tmp_path / "reports"
     payload = report_payload()
     payload["state_age_seconds"] = -1
-    write_report(reports, "BTCUSD", payload)
+    write_report(reports, "XAUUSD", payload)
 
     read = read_reports(reports, now=frozen(NOW))
     assert read[0].state_age_seconds is None
@@ -241,26 +241,26 @@ def test_an_absent_state_age_is_not_a_negative_age(tmp_path: Path) -> None:
 
 
 def test_an_atomic_write_leaves_neither_temporary_nor_partial_file(tmp_path: Path) -> None:
-    publish_state(tmp_path, "BTCUSD", magic=3031, positions=[expected_position()], now=frozen(NOW))
+    publish_state(tmp_path, "XAUUSD", magic=3031, positions=[expected_position()], now=frozen(NOW))
     state_dir = tmp_path / "state"
-    assert [entry.name for entry in state_dir.iterdir()] == ["BTCUSD_state.json"]
+    assert [entry.name for entry in state_dir.iterdir()] == ["XAUUSD_state.json"]
 
 
 def test_a_failed_replace_keeps_the_previous_document_and_cleans_up(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    publish_state(tmp_path, "BTCUSD", magic=3031, revision=1, now=frozen(NOW))
-    before = state_path(tmp_path, "BTCUSD").read_bytes()
+    publish_state(tmp_path, "XAUUSD", magic=3031, revision=1, now=frozen(NOW))
+    before = state_path(tmp_path, "XAUUSD").read_bytes()
 
     def boom(*_: object, **__: object) -> None:
         raise OSError("the disk said no")
 
     monkeypatch.setattr(os, "replace", boom)
     with pytest.raises(OSError, match="the disk said no"):
-        publish_state(tmp_path, "BTCUSD", magic=3031, revision=2, now=frozen(NOW))
+        publish_state(tmp_path, "XAUUSD", magic=3031, revision=2, now=frozen(NOW))
 
-    assert state_path(tmp_path, "BTCUSD").read_bytes() == before
-    assert [entry.name for entry in (tmp_path / "state").iterdir()] == ["BTCUSD_state.json"]
+    assert state_path(tmp_path, "XAUUSD").read_bytes() == before
+    assert [entry.name for entry in (tmp_path / "state").iterdir()] == ["XAUUSD_state.json"]
 
 
 # -- Windows rename refusals -----------------------------------------------------------
@@ -468,13 +468,13 @@ def test_a_refused_cleanup_does_not_mask_the_real_error(
 
 def test_reading_a_directory_that_does_not_exist_is_empty_not_an_error(tmp_path: Path) -> None:
     assert read_reports(tmp_path / "nowhere") == ()
-    assert read_events(tmp_path / "nowhere", "BTCUSD") == ()
+    assert read_events(tmp_path / "nowhere", "XAUUSD") == ()
 
 
 def test_a_corrupt_report_is_skipped_without_raising(tmp_path: Path) -> None:
     reports = tmp_path / "reports"
     reports.mkdir()
-    (reports / "BTCUSD_report.json").write_text('{"symbol": "BTC', encoding="utf-8")
+    (reports / "EURUSD_report.json").write_text('{"symbol": "EUR', encoding="utf-8")
     write_report(reports, "XAUUSD", report_payload("XAUUSD"))
 
     assert [report.symbol for report in read_reports(reports)] == ["XAUUSD"]
@@ -484,7 +484,7 @@ def test_a_report_without_a_heartbeat_is_skipped(tmp_path: Path) -> None:
     reports = tmp_path / "reports"
     payload = report_payload()
     del payload["updated_at"]
-    write_report(reports, "BTCUSD", payload)
+    write_report(reports, "XAUUSD", payload)
 
     assert read_reports(reports) == ()
 
@@ -492,10 +492,10 @@ def test_a_report_without_a_heartbeat_is_skipped(tmp_path: Path) -> None:
 def test_reports_are_read_in_symbol_order_with_their_events(tmp_path: Path) -> None:
     reports = tmp_path / "reports"
     write_report(reports, "XAUUSD", report_payload("XAUUSD"))
-    write_report(reports, "BTCUSD", report_payload("BTCUSD"))
+    write_report(reports, "EURUSD", report_payload("EURUSD"))
 
     read = read_reports(reports, now=frozen(NOW + timedelta(seconds=1)))
-    assert [report.symbol for report in read] == ["BTCUSD", "XAUUSD"]
+    assert [report.symbol for report in read] == ["EURUSD", "XAUUSD"]
     assert read[0].status is EaStatus.ONLINE
     assert read[0].magic == 3031
     assert read[0].applied_revision == 7
@@ -511,7 +511,7 @@ def test_a_naive_heartbeat_is_read_as_utc(tmp_path: Path) -> None:
     reports = tmp_path / "reports"
     payload = report_payload()
     payload["updated_at"] = "2026-10-07T06:00:00"
-    write_report(reports, "BTCUSD", payload)
+    write_report(reports, "XAUUSD", payload)
 
     read = read_reports(reports, now=frozen(NOW + timedelta(seconds=1)))
     assert read[0].heartbeat_at == NOW
@@ -523,7 +523,7 @@ def test_a_broken_position_entry_does_not_lose_the_rest_of_the_report(tmp_path: 
     payload = report_payload()
     payload["positions"].append({"ticket": "not a number"})
     payload["events"].append({"kind": "NO_TIMESTAMP"})
-    write_report(reports, "BTCUSD", payload)
+    write_report(reports, "XAUUSD", payload)
 
     read = read_reports(reports, now=frozen(NOW))
     assert [position.ticket for position in read[0].positions] == [5001]
@@ -533,7 +533,7 @@ def test_a_broken_position_entry_does_not_lose_the_rest_of_the_report(tmp_path: 
 def test_the_event_journal_skips_unreadable_lines(tmp_path: Path) -> None:
     reports = tmp_path / "reports"
     reports.mkdir(parents=True)
-    path = events_path(reports, "BTCUSD")
+    path = events_path(reports, "XAUUSD")
     good = json.dumps(
         {
             "seq": 1,
@@ -545,7 +545,7 @@ def test_the_event_journal_skips_unreadable_lines(tmp_path: Path) -> None:
     )
     path.write_text(f"{good}\n\nnot json at all\n", encoding="utf-8")
 
-    events = read_events(reports, "BTCUSD")
+    events = read_events(reports, "XAUUSD")
     assert [event.kind for event in events] == ["KILL_SWITCH"]
     assert events[0].severity == "CRITICAL"
 
@@ -563,7 +563,7 @@ def test_newest_events_are_returned_most_recent_first(tmp_path: Path) -> None:
         }
         for seq in range(1, 6)
     ]
-    write_report(reports, "BTCUSD", payload)
+    write_report(reports, "XAUUSD", payload)
 
     read = read_reports(reports, now=frozen(NOW))
     assert [event.seq for event in newest_events(read, limit=2)] == [5, 4]

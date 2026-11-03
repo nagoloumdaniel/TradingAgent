@@ -38,7 +38,7 @@ EA_COMMENT_LIMIT = 31
 # The shape the production pipeline uses: `SignalPipeline._execute` fills `OrderRequest.comment`
 # with `order_comment(idempotency_key)`, twelve hex characters, and that value is what the
 # broker used to treat as a prefix.
-PRODUCTION_KEY = "trend_breakout@1.0.1:BTCUSD:M15:2026-10-09T03:45Z"
+PRODUCTION_KEY = "vwap_pullback@1.1.0:XAUUSD:M15:2026-10-09T03:45Z"
 
 
 def broker(terminal: SimulatedTerminal, log: FakeLog) -> MT5Broker:
@@ -147,8 +147,8 @@ def test_distinct_keys_never_share_a_comment_across_the_real_key_space() -> None
     Signals are `reference:symbol:timeframe:timestamp` at the strategy's own schedule (M15
     here) and closes are `close:ticket:reason`. Every digest is 64 bits and never truncated.
     """
-    references = ("witness@1.1.1", "trend_breakout@1.0.1", "vwap_pullback@1.0.0")
-    symbols = ("XAUUSD", "BTCUSD")
+    references = ("witness@1.1.1", "vwap_pullback@1.1.0")
+    symbols = ("XAUUSD",)
     timeframes = ("M1", "M5", "M15")
     start = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -163,7 +163,7 @@ def test_distinct_keys_never_share_a_comment_across_the_real_key_space() -> None
                     for step in range(8640)
                 )
     keys.extend(f"close:{ticket}:stop_loss" for ticket in range(1, 20_001))
-    assert len(keys) == 175_520
+    assert len(keys) == 71_840
     assert len(set(keys)) == len(keys), "the generated key space already holds a duplicate"
 
     comments = [key_comment(key) for key in keys]

@@ -19,7 +19,7 @@ def test_trades_come_from_the_reporting_reader(populated: seed.Seeded, engine: E
     trades = queries.all_trades(engine)
     assert [trade.closed_at for trade in trades] == sorted(trade.closed_at for trade in trades)
     assert sum((trade.pnl_eur for trade in trades), Decimal(0)) == seed.TOTAL_PNL
-    assert {trade.symbol for trade in trades} == {seed.XAU, seed.BTC}
+    assert {trade.symbol for trade in trades} == {seed.XAU, seed.EUR}
 
 
 def test_overview_totals_match_the_stated_dataset(populated: seed.Seeded, engine: Engine) -> None:
@@ -39,15 +39,15 @@ def test_overview_totals_match_the_stated_dataset(populated: seed.Seeded, engine
 def test_markets_are_split_and_sum_to_the_total(populated: seed.Seeded, engine: Engine) -> None:
     overview = queries.overview(engine, seed.NOW)
     by_market = {summary.market: summary for summary in overview.markets}
-    assert set(by_market) == {seed.XAU, seed.BTC}
+    assert set(by_market) == {seed.XAU, seed.EUR}
     assert by_market[seed.XAU].performance.net_profit == seed.XAU_PNL
-    assert by_market[seed.BTC].performance.net_profit == seed.BTC_PNL
+    assert by_market[seed.EUR].performance.net_profit == seed.EUR_PNL
     assert sum((summary.performance.net_profit for summary in overview.markets), Decimal(0)) == (
         overview.total.net_profit
     )
     assert by_market[seed.XAU].open_positions == 1
     assert by_market[seed.XAU].notional == seed.XAU_NOTIONAL
-    assert by_market[seed.BTC].notional == seed.BTC_NOTIONAL
+    assert by_market[seed.EUR].notional == seed.EUR_NOTIONAL
 
 
 def test_account_figures_read_the_snapshots(populated: seed.Seeded, engine: Engine) -> None:
@@ -68,17 +68,17 @@ def test_account_figures_on_an_empty_database(empty_engine: Engine) -> None:
 
 def test_open_positions_carry_volume_and_notional(populated: seed.Seeded, engine: Engine) -> None:
     positions = queries.open_positions(engine, seed.NOW)
-    assert [position.symbol for position in positions] == [seed.XAU, seed.BTC]
+    assert [position.symbol for position in positions] == [seed.XAU, seed.EUR]
     notionals = {position.symbol: position.notional for position in positions}
     assert notionals[seed.XAU] == seed.XAU_NOTIONAL
-    assert notionals[seed.BTC] == seed.BTC_NOTIONAL
+    assert notionals[seed.EUR] == seed.EUR_NOTIONAL
     assert [position.age for position in positions] == [timedelta(hours=2), timedelta(hours=1)]
 
 
 def test_filters_select_on_market_strategy_and_mode(populated: seed.Seeded, engine: Engine) -> None:
     entries = queries.all_trade_entries(engine)
     assert len(entries) == 5
-    assert len(queries.TradeFilters(market=seed.BTC).apply_entries(entries)) == 2
+    assert len(queries.TradeFilters(market=seed.EUR).apply_entries(entries)) == 2
     assert len(queries.TradeFilters(strategy=seed.WITNESS).apply_entries(entries)) == 3
     assert len(queries.TradeFilters(mode=TradingMode.DEMO).apply_entries(entries)) == 1
     assert (
@@ -89,7 +89,7 @@ def test_filters_select_on_market_strategy_and_mode(populated: seed.Seeded, engi
         )
         == 3
     )
-    assert queries.selectable_markets(entry.trade for entry in entries) == [seed.BTC, seed.XAU]
+    assert queries.selectable_markets(entry.trade for entry in entries) == [seed.EUR, seed.XAU]
 
 
 def test_trade_detail_carries_the_signal_and_the_risk_verdict(
@@ -140,7 +140,7 @@ def test_a_traded_reference_absent_from_the_registry_is_still_shown(
     unregistered = views[seed.BREAKOUT]
     assert unregistered.status is None
     assert unregistered.origin is None
-    assert unregistered.performance.net_profit == seed.BTC_PNL
+    assert unregistered.performance.net_profit == seed.EUR_PNL
 
 
 def test_ai_lab_reads_analyses_and_proposals(populated: seed.Seeded, engine: Engine) -> None:
@@ -159,15 +159,15 @@ def test_risk_view_reports_exposure_limits_and_the_halt_history(
 ) -> None:
     view = queries.risk_view(engine, seed.NOW, AGENT_CONFIG)
     assert view.halt.halted is False
-    assert view.halted_markets == ("BTCUSD",)
+    assert view.halted_markets == ("EURUSD",)
     assert view.halted_pairs == ()
     assert view.refusals.count == 1
     assert view.refusals.avoided_risk_eur == seed.REFUSED_RISK
     exposures = {exposure.market: exposure for exposure in view.exposures}
     assert exposures[seed.XAU].notional == seed.XAU_NOTIONAL
-    assert exposures[seed.BTC].notional == seed.BTC_NOTIONAL
+    assert exposures[seed.EUR].notional == seed.EUR_NOTIONAL
     # The two lists that grow without bound are pages now: counted in SQL, ten rows a time.
-    assert [command.scope for command in view.history.rows] == ["market:BTCUSD"]
+    assert [command.scope for command in view.history.rows] == ["market:EURUSD"]
     assert view.history.rows[0].reason == "volatilité excessive"
     assert {"broker_disconnected", "clock_mismatch", "cycle"} <= {
         event.kind for event in view.events.rows
@@ -220,9 +220,9 @@ def test_a_global_halt_is_reported_as_halted(populated: seed.Seeded, engine: Eng
 
 def test_market_health_reports_candle_freshness(populated: seed.Seeded, engine: Engine) -> None:
     health = {entry.symbol: entry for entry in queries.market_health(engine, seed.NOW)}
-    assert set(health) == {seed.XAU, seed.BTC}
+    assert set(health) == {seed.XAU, seed.EUR}
     assert health[seed.XAU].candle_age == timedelta(hours=1)
-    assert health[seed.BTC].candle_age == timedelta(hours=30)
+    assert health[seed.EUR].candle_age == timedelta(hours=30)
     assert health[seed.XAU].last_event_kind is not None
 
 
@@ -244,7 +244,7 @@ def test_system_view_assembles_every_probe(populated: seed.Seeded, engine: Engin
     view = queries.system_view(engine, seed.NOW)
     assert view.database.ok is True
     assert view.halt.halted is False
-    assert {entry.symbol for entry in view.markets} == {seed.XAU, seed.BTC}
+    assert {entry.symbol for entry in view.markets} == {seed.XAU, seed.EUR}
     assert view.telemetry.total == 4
     assert {event.kind for event in view.errors.rows} == {"broker_disconnected", "clock_mismatch"}
 

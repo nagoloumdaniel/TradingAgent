@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Installe et compile les deux Expert Advisors Guardian dans le terminal MetaTrader 5.
+    Installe et compile l'Expert Advisor Guardian dans le terminal MetaTrader 5.
 
 .DESCRIPTION
     Copie `mt5/Experts/TradingAgent` dans le dossier de données du terminal, puis recompile
@@ -126,8 +126,8 @@ if ($failures.Count -gt 0) {
 Write-Output ''
 Write-Output 'Expert Advisors installes et compiles.'
 Write-Output 'Il reste, dans le terminal :'
-Write-Output '  1. ouvrir un graphique BTCUSD et un graphique XAUUSD'
-Write-Output '  2. glisser BTCUSD_Guardian sur BTCUSD, XAUUSD_Guardian sur XAUUSD'
+Write-Output '  1. ouvrir un graphique XAUUSD'
+Write-Output '  2. glisser XAUUSD_Guardian sur le graphique XAUUSD'
 Write-Output '  3. activer Algo Trading (le bouton de la barre d''outils)'
 Write-Output '  4. verifier : uv run tradingagent-web, page Systeme, ou le rapport dans'
 Write-Output "     $bridge\reports"

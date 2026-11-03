@@ -1,9 +1,9 @@
 """La géométrie de sortie est-elle la cause ? Balayage a regle de decision fixee d'avance.
 
-**La question, posee par la mesure precedente.** `vwap_pullback@1.1.0` perd sur les deux
-marches : PF net 0,68 (BTC) et 0,55 (or) en validation, pour un gain moyen de 6 EUR contre une
-perte moyenne de 11 EUR. Une reussite de 55 % ne suffit pas a ce rapport. La detection produit
-pourtant 709 et 656 operations : la regle trouve des trades, c'est la sortie qui ne paie pas.
+**La question, posee par la mesure precedente.** `vwap_pullback@1.1.0` perd sur l'or :
+PF net 0,55 en validation, pour un gain moyen de 6 EUR contre une perte moyenne de 11 EUR. Une
+reussite de 55 % ne suffit pas a ce rapport. La detection produit pourtant 656 operations : la
+regle trouve des trades, c'est la sortie qui ne paie pas.
 
 **La regle de decision est ecrite AVANT de regarder les chiffres, et ne sera pas ajustee.**
 
@@ -87,9 +87,8 @@ def _refs_from_agent_config(path: Path) -> dict[str, str]:
     """Which manifest each market runs, read from `config/agent.yaml` and not assumed.
 
     Since the 2026-10-10 split every market has its **own** version (EF-003), and a manifest
-    only declares the symbols it serves. Hard-coding one ref for both markets is what made this
-    script fail on its second geometry with `symbol 'BTCUSD' is not allowed by
-    vwap_pullback@1.1.0` — the harness refusing, rightly, to measure gold's manifest on bitcoin.
+    only declares the symbols it serves. Hard-coding one ref for every market would let the harness
+    refuse, rightly, to measure a manifest on a symbol it does not serve.
     """
     import yaml
 

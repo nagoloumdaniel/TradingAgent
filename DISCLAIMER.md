@@ -1,7 +1,7 @@
 # Avertissement sur les risques
 
-TradingAgent est un projet logiciel, pas un conseil en investissement. Le trading de CFD,
-d'or et de cryptomonnaies à effet de levier comporte un risque élevé de perte, pouvant
+TradingAgent est un projet logiciel, pas un conseil en investissement. Le trading de CFD
+sur l'or (XAUUSD) à effet de levier comporte un risque élevé de perte, pouvant
 dépasser le capital engagé.
 
 - Les performances passées, backtests et campagnes paper ne garantissent aucun résultat futur.

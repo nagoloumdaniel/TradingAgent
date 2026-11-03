@@ -74,8 +74,8 @@ def test_an_empty_page_says_why_it_is_empty() -> None:
     assert _page(total=0, pages=1, rows=(), query="zzz").empty_message == (
         "Aucun trade pour « zzz »."
     )
-    assert _page(total=0, pages=1, rows=(), query="", market="BTCUSD").empty_message == (
-        "Aucun trade pour BTCUSD."
+    assert _page(total=0, pages=1, rows=(), query="", market="EURUSD").empty_message == (
+        "Aucun trade pour EURUSD."
     )
 
 

@@ -128,10 +128,10 @@ def test_series_are_kept_apart_by_symbol_and_timeframe(engine: Engine) -> None:
     store = CandleStore(engine)
     hourly = [Candle(Timeframe.H1, START, 1.0, 1.0, 1.0, 1.0)]
     assert store.save("XAUUSD", m15(0, 4), INGESTED) == 4
-    assert store.save("BTCUSD", m15(0, 4), INGESTED) == 4
+    assert store.save("EURUSD", m15(0, 4), INGESTED) == 4
     assert store.save("XAUUSD", hourly, INGESTED) == 1
     assert store.latest("XAUUSD", Timeframe.H1, 10) == hourly
-    assert len(store.latest("BTCUSD", Timeframe.M15, 10)) == 4
+    assert len(store.latest("EURUSD", Timeframe.M15, 10)) == 4
 
 
 def test_latest_returns_the_most_recent_candles_oldest_first(engine: Engine) -> None:

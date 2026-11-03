@@ -13,9 +13,9 @@ from sqlalchemy import Engine, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from tests.runtime.fakes import (
-    BTC,
     LOGIN,
     NOW,
+    OTHER,
     RISK,
     FakeBroker,
     FakeNotifier,
@@ -60,7 +60,7 @@ from tradingagent.strategies.registry import REGISTRY
 ROOT = Path(__file__).resolve().parents[2]
 SHIPPED_STRATEGIES = ROOT / "config" / "strategies"
 SHIPPED_AGENT = ROOT / "config" / "agent.yaml"
-BROKER_SYMBOLS = {"XAUUSD", "BTCUSD"}
+BROKER_SYMBOLS = {"XAUUSD"}
 
 
 class FakeMarket:
@@ -112,7 +112,7 @@ class UnverifiableClockMarket(FakeMarket):
 
     async def verify_clock(self) -> None:
         if not self.clock_ok:
-            raise ClockUnverifiableError("no tick on BTCUSD to verify the server clock")
+            raise ClockUnverifiableError("no tick on XAUUSD to verify the server clock")
 
 
 class MutableClock:
@@ -402,7 +402,7 @@ class RestartableMarket(FakeMarket):
     async def verify_clock(self) -> None:
         self.calls.append("verify_clock")
         if self.dead:
-            raise ClockMismatchError("no tick on BTCUSD to verify the server clock")
+            raise ClockMismatchError("no tick on XAUUSD to verify the server clock")
 
 
 def test_a_restarted_terminal_is_survivable(engine: Engine) -> None:
@@ -852,20 +852,20 @@ def test_an_ea_that_stops_beating_is_reported_offline(engine: Engine, tmp_path: 
 # --- the weekend the agent starts into ------------------------------------------------------
 #
 # 2026-10-03 is a Saturday, 2026-10-05 the Monday after. The loop must announce the gold
-# closure once, stop gold, and leave bitcoin alone.
+# closure once, stop gold, and leave another, never-closing market alone.
 
 SATURDAY = datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
 MONDAY = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
 
 
 def test_a_weekend_start_announces_the_gold_closure_once(engine: Engine) -> None:
-    calendars = {"XAUUSD": weekend_calendar("XAUUSD"), "BTCUSD": open_calendar(BTC)}
+    calendars = {"XAUUSD": weekend_calendar("XAUUSD"), OTHER: open_calendar(OTHER)}
     loop, _, _, sent = build_loop(
         engine,
         calendars=calendars,
         subscriptions=(
             Subscription("XAUUSD", Timeframe.M15),
-            Subscription("BTCUSD", Timeframe.M15),
+            Subscription(OTHER, Timeframe.M15),
         ),
         now=SATURDAY,
     )
@@ -877,7 +877,7 @@ def test_a_weekend_start_announces_the_gold_closure_once(engine: Engine) -> None
     assert len(closures) == 1
     assert "XAUUSD" in closures[0]
     assert HaltStore(engine).is_halted(session_scope("XAUUSD")) is True
-    assert HaltStore(engine).is_halted(session_scope("BTCUSD")) is False
+    assert HaltStore(engine).is_halted(session_scope(OTHER)) is False
     # Gold stopping for its weekend is not the whole agent stopping.
     assert HaltStore(engine).status().halted is False
 

@@ -25,7 +25,7 @@ NOW = datetime(2026, 10, 7, 6, 0, 0, tzinfo=UTC)
 
 def state(positions: tuple[ExpectedPosition, ...] = (), revision: int = 7) -> EaState:
     return EaState(
-        symbol="BTCUSD",
+        symbol="XAUUSD",
         magic=3031,
         revision=revision,
         published_at=NOW,
@@ -35,7 +35,7 @@ def state(positions: tuple[ExpectedPosition, ...] = (), revision: int = 7) -> Ea
 
 def report(positions: tuple[ReportedPosition, ...] = (), revision: int = 7) -> EaReport:
     return EaReport(
-        symbol="BTCUSD",
+        symbol="XAUUSD",
         magic=3031,
         protocol_version=1,
         ea_version="1.0.0",
@@ -74,7 +74,7 @@ def seen(
 ) -> ReportedPosition:
     return ReportedPosition(
         ticket=ticket,
-        symbol="BTCUSD",
+        symbol="XAUUSD",
         direction=direction,
         volume=volume,
         price_open=63_000.0,
@@ -139,7 +139,7 @@ def test_a_revision_the_ea_never_applied_is_a_divergence() -> None:
 
 def test_a_symbol_or_magic_mismatch_is_a_divergence() -> None:
     other = EaReport(
-        symbol="XAUUSD",
+        symbol="EURUSD",
         magic=9999,
         protocol_version=1,
         ea_version="1.0.0",
@@ -162,7 +162,7 @@ def test_the_comparison_is_available_from_a_written_report(tmp_path: Path) -> No
     """The end-to-end shape: publish, read back, compare — with no terminal anywhere."""
     publish_state(
         tmp_path,
-        "BTCUSD",
+        "XAUUSD",
         magic=3031,
         positions=[expected()],
         now=lambda: NOW,
@@ -170,14 +170,14 @@ def test_the_comparison_is_available_from_a_written_report(tmp_path: Path) -> No
     reports = tmp_path / "reports"
     reports.mkdir()
     payload = {
-        "symbol": "BTCUSD",
+        "symbol": "XAUUSD",
         "magic": 3031,
         "updated_at": "2026-10-07T06:00:00Z",
         "applied_revision": 1,
         "positions": [
             {
                 "ticket": 5001,
-                "symbol": "BTCUSD",
+                "symbol": "XAUUSD",
                 "direction": "BUY",
                 "volume": 0.01,
                 "price_open": 63_000.0,
@@ -189,7 +189,7 @@ def test_the_comparison_is_available_from_a_written_report(tmp_path: Path) -> No
         ],
         "events": [],
     }
-    (reports / "BTCUSD_report.json").write_text(json.dumps(payload), encoding="utf-8")
+    (reports / "XAUUSD_report.json").write_text(json.dumps(payload), encoding="utf-8")
 
     read = read_reports(reports, now=lambda: NOW)
     assert compare_expected(state((expected(),), revision=1), read[0]) == ()

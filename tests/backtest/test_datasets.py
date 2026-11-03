@@ -179,13 +179,13 @@ def test_two_markets_fetched_the_same_day_are_both_loaded(tmp_path) -> None:
         replace(
             gold_dataset(),
             dataset_id="mt5-2026-10-07",  # same day, same id, different market
-            symbol="BTCUSD",
+            symbol="EURUSD",
         )
     )
 
     found = store.load_all()
 
-    assert set(found) == {GOLD, "BTCUSD"}
+    assert set(found) == {GOLD, "EURUSD"}
 
 
 def test_two_datasets_for_one_symbol_are_refused_not_arbitrated(tmp_path) -> None:
@@ -219,8 +219,8 @@ def test_synthetic_common_factor_drives_correlation() -> None:
     stream = DeterministicRandom(3)
     factor = [stream.gauss() for _ in range(200)]
     gold = synthetic_dataset("gold", GOLD, M15, START, regimes, seed=1, common_returns=factor)
-    btc = synthetic_dataset("btc", "cryBTCUSD", M15, START, regimes, seed=2, common_returns=factor)
-    assert gold.fingerprint != btc.fingerprint
+    other = synthetic_dataset("other", "EURUSD", M15, START, regimes, seed=2, common_returns=factor)
+    assert gold.fingerprint != other.fingerprint
     assert gold.header()["format"] == DATASET_FORMAT
 
 
@@ -350,13 +350,13 @@ def test_the_volume_draws_do_not_move_the_synthetic_prices() -> None:
 
 
 def test_the_frozen_datasets_still_load_without_volume() -> None:
-    """The eight real datasets frozen before volume existed, read back from disk.
+    """The four real datasets frozen before volume existed, read back from disk.
 
     `load_dataset` recomputes the SHA-256 of every line and refuses a mismatch, so a green
     run here is the proof that the new field did not touch a byte they already carry.
     """
     paths = sorted(FROZEN_DATASETS.rglob("*.jsonl"))
-    assert len(paths) >= 8, f"only {len(paths)} frozen dataset(s) under {FROZEN_DATASETS}"
+    assert len(paths) >= 4, f"only {len(paths)} frozen dataset(s) under {FROZEN_DATASETS}"
 
     for path in paths:
         dataset = load_dataset(path)

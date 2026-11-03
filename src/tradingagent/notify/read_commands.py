@@ -214,8 +214,8 @@ def _report_buttons(at: datetime) -> Keyboard:
 # --- The per-market control centre -------------------------------------------
 #
 # One market is one market: every line below is read for the requested symbol, never for
-# "the markets" at large. XAUUSD and BTCUSD share no state here, so a halt or a position on
-# one can never be displayed as if it belonged to the other.
+# "the markets" at large. Markets share no state here, so a halt or a position on one can
+# never be displayed as if it belonged to another.
 
 
 def market_handler(

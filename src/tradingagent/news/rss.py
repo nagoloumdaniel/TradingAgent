@@ -1,13 +1,12 @@
 """Unscheduled items from public RSS feeds: central-bank releases, speeches, market news.
 
-Only what can move gold or bitcoin is kept: each feed carries a keyword filter, and an item that
+Only what can move gold is kept: each feed carries a keyword filter, and an item that
 does not match it is dropped here rather than stored and hidden later. Items are headlines (or
 speeches), dated at their publication time -- they are *news the market has already seen or is
 seeing*, not a schedule, so they never open a blackout window by themselves (see `blackout`).
 
 Feeds verified 2026-10-30, all HTTP 200: federalreserve.gov/feeds/press_all.xml, speeches.xml,
-press_monetary.xml; ecb.europa.eu/rss/press.html; fxstreet.com/rss/news; coindesk.com/arc/
-outboundfeeds/rss/; cointelegraph.com/rss.
+press_monetary.xml; ecb.europa.eu/rss/press.html; fxstreet.com/rss/news.
 
 XML is parsed with the standard library after refusing any document that declares a DTD or an
 entity: an RSS feed never needs one, and refusing them removes the entity-expansion class of
@@ -37,8 +36,8 @@ SUMMARY_CHARS = 400
 class FeedSpec:
     name: str
     url: str
-    #: The currency code the items are filed under (USD, EUR, BTC, XAU) -- or "auto" to choose
-    #: per item from its text (gold -> XAU, bitcoin -> BTC, otherwise USD).
+    #: The currency code the items are filed under (USD, EUR, XAU) -- or "auto" to choose
+    #: per item from its text (gold -> XAU, otherwise USD).
     currency: str
     keywords: re.Pattern[str]
     kind: EventKind = EventKind.HEADLINE
@@ -60,13 +59,8 @@ _MONETARY = (
 )
 _MARKET = (
     r"\bgold\b|\bxau|bullion|\bfed\b|fomc|powell|dollar|\busd\b|inflation|\bcpi\b|\bnfp\b|payroll"
-    r"|treasury|yields?|rate (cut|hike|decision)|bitcoin|\bbtc\b|tariff|safe[- ]haven"
+    r"|treasury|yields?|rate (cut|hike|decision)|tariff|safe[- ]haven"
 )
-_CRYPTO = (
-    r"bitcoin|\bbtc\b|\betf\b|\bsec\b|regulat|\bfed\b|fomc|stablecoin|liquidat|crypto market"
-    r"|treasury|tariff"
-)
-
 FEEDS: tuple[FeedSpec, ...] = (
     FeedSpec(
         "fed_press",
@@ -104,22 +98,6 @@ FEEDS: tuple[FeedSpec, ...] = (
         "auto",
         _pattern(_MARKET),
         high_titles=_pattern(r"\bfomc\b|\bnfp\b|non[- ]?farm|\bcpi\b|rate decision"),
-        base_impact=Impact.LOW,
-    ),
-    FeedSpec(
-        "coindesk",
-        "https://www.coindesk.com/arc/outboundfeeds/rss/",
-        "BTC",
-        _pattern(_CRYPTO),
-        high_titles=_pattern(r"bitcoin etf|\bsec\b|\bban\b|liquidat"),
-        base_impact=Impact.LOW,
-    ),
-    FeedSpec(
-        "cointelegraph",
-        "https://cointelegraph.com/rss",
-        "BTC",
-        _pattern(_CRYPTO),
-        high_titles=_pattern(r"bitcoin etf|\bsec\b|\bban\b|liquidat"),
         base_impact=Impact.LOW,
     ),
 )
@@ -228,14 +206,11 @@ class RssSource:
 
 
 _GOLD = re.compile(r"\bgold\b|\bxau|bullion", re.IGNORECASE)
-_BITCOIN = re.compile(r"bitcoin|\bbtc\b", re.IGNORECASE)
 
 
 def _auto_currency(text: str) -> str:
     if _GOLD.search(text):
         return "XAU"
-    if _BITCOIN.search(text):
-        return "BTC"
     return "USD"
 
 

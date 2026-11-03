@@ -60,7 +60,7 @@ class ClockUnverifiableError(Exception):
 
     Conflating them is what wedged the agent on 2026-10-07. Between 21:51:54 and 23:59:39
     UTC, 383 consecutive cycles were dropped as if the clock had moved — every one of them
-    recording a CRITICAL `clock_mismatch` whose reason was "no tick on BTCUSD" — and the
+    recording a CRITICAL `clock_mismatch` whose reason was "no tick on the probe symbol" — and the
     recovery path could never succeed, because it verified the clock *before* it selected
     the symbol, so the tick it was waiting for could never arrive. The agent stayed alive
     doing nothing for two hours and eight minutes.
@@ -133,7 +133,7 @@ class MarketDataClient:
         nothing was going to produce.
 
         The probe is part of what this client watches, never beside it: the composition
-        root passes a configured market as `clock_probe_symbol` (`app.py` passes BTCUSD,
+        root passes a configured market as `clock_probe_symbol` (`app.py` passes XAUUSD,
         which `config/agent.yaml` also trades), so this adds no symbol nobody asked for.
         """
         if await self._call(self._terminal.select, self._probe):

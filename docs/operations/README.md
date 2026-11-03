@@ -22,7 +22,7 @@ Les autres documents d'exploitation du système v3 :
 |---|---|
 | [../web/README.md](../web/README.md) | Lancer et lire le tableau de bord |
 | [../web/DESIGN.md](../web/DESIGN.md) | Comprendre le système de design et ses règles |
-| [../ea/README.md](../ea/README.md) | Compiler et installer les deux Expert Advisors |
+| [../ea/README.md](../ea/README.md) | Compiler et installer l'Expert Advisor |
 | [../ea/protocole-pont.md](../ea/protocole-pont.md) | Format des échanges entre l'agent et les EA |
 | [../registry/README.md](../registry/README.md) | Cycle de vie et promotion d'une stratégie |
 | [../ai_lab/README.md](../ai_lab/README.md) | Ce que fait l'IA, et ce qu'elle ne peut pas faire |

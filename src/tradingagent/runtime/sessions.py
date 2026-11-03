@@ -1,7 +1,7 @@
 """Market sessions: what the agent stops while a market is closed, and reopens by itself.
 
-Gold closes on Friday evening and reopens on Sunday night; a crypto CFD quotes around the
-clock. The learned calendar already knows both (TASK-014), so this module invents no second
+Gold closes on Friday evening and reopens on Sunday night. The learned calendar already
+knows it (TASK-014), so this module invents no second
 notion of trading hours: it turns the calendar's answer into two operator-visible effects and
 nothing else.
 

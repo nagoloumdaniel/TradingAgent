@@ -26,7 +26,6 @@ from tradingagent.news.config import DEFAULT_NEWS_CONFIG
 from tradingagent.news.fallback import fallback_analysis
 from tradingagent.news.market_state import MarketStateReader
 from tradingagent.news.model import (
-    BTCUSD,
     XAUUSD,
     Bias,
     DailyBrief,
@@ -115,7 +114,6 @@ COUNTRY_CODES = {
     "AUD": "AU",
     "NZD": "NZ",
     "CNY": "CN",
-    "BTC": "₿",
     "XAU": "Au",
 }
 
@@ -127,8 +125,6 @@ SOURCE_LABELS = {
     "fed_speeches": "Réserve fédérale : discours",
     "ecb_press": "BCE : communiqués",
     "fxstreet": "FXStreet : actualités",
-    "coindesk": "CoinDesk",
-    "cointelegraph": "Cointelegraph",
 }
 CALENDAR_SOURCE = "faireconomy"
 
@@ -924,7 +920,7 @@ def build_calendar(
         brief = None
 
     outlook = _outlook(
-        (XAUUSD, BTCUSD),
+        (XAUUSD,),
         states,
         [*selected_views, *day_headline_views],
         brief_model if selected == today else None,

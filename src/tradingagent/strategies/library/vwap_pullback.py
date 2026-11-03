@@ -1,4 +1,4 @@
-"""Stratégie BTCUSD : VWAP ancré à la journée, momentum, pullback.
+"""Stratégie VWAP pullback : VWAP ancré à la journée, momentum, pullback.
 
 **Ce que la règle fait, et pourquoi dans cet ordre.** Le VWAP ancré à 00:00 UTC est le prix
 moyen réellement payé sur la journée : au-dessus, les acheteurs du jour sont gagnants, en
@@ -95,7 +95,7 @@ class VwapPullbackParameters(BaseModel):
     #: Les séances pendant lesquelles la règle a le droit de parler. **Vide = aucune contrainte.**
     #:
     #: Le VWAP du jour est un niveau que le marché défend quand il est là. À 04:00 UTC, le
-    #: bitcoin se traite encore, mais le flux qui pourrait repousser le niveau est à Londres et
+    #: marché se traite encore, mais le flux qui pourrait repousser le niveau est à Londres et
     #: à New York, pas à Tokyo : un contact sur un carnet mince est une barre traversée, pas un
     #: rejet. Lire la séance de la **bougie qui déclenche** — `candles[-1].open_time` — et non
     #: l'horloge de la machine, garde la règle pure et rejouable.

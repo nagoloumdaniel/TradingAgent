@@ -51,9 +51,9 @@ def test_an_empty_directory_reports_no_ea_at_all(tmp_path: Path) -> None:
 
 
 def test_a_fresh_heartbeat_is_online(tmp_path: Path) -> None:
-    write_report(tmp_path, "BTCUSD", heartbeat_report("BTCUSD", NOW))
+    write_report(tmp_path, "XAUUSD", heartbeat_report("XAUUSD", NOW))
     assert ea_health(tmp_path, now=frozen(NOW + timedelta(seconds=2))) == {
-        "BTCUSD": EaStatus.ONLINE
+        "XAUUSD": EaStatus.ONLINE
     }
 
 
@@ -64,53 +64,53 @@ def test_a_stale_heartbeat_is_offline(tmp_path: Path) -> None:
 
 
 def test_the_timeout_is_configurable(tmp_path: Path) -> None:
-    write_report(tmp_path, "BTCUSD", heartbeat_report("BTCUSD", NOW))
+    write_report(tmp_path, "XAUUSD", heartbeat_report("XAUUSD", NOW))
     late = NOW + timedelta(seconds=30)
-    assert ea_health(tmp_path, now=frozen(late), timeout_seconds=60) == {"BTCUSD": EaStatus.ONLINE}
-    assert ea_health(tmp_path, now=frozen(late), timeout_seconds=5) == {"BTCUSD": EaStatus.OFFLINE}
+    assert ea_health(tmp_path, now=frozen(late), timeout_seconds=60) == {"XAUUSD": EaStatus.ONLINE}
+    assert ea_health(tmp_path, now=frozen(late), timeout_seconds=5) == {"XAUUSD": EaStatus.OFFLINE}
 
 
 def test_a_corrupt_report_is_offline_without_raising(tmp_path: Path) -> None:
-    write_report(tmp_path, "BTCUSD", '{"symbol": "BTCUSD", "updated_at": "2026-10')
-    assert ea_health(tmp_path, now=frozen(NOW)) == {"BTCUSD": EaStatus.OFFLINE}
+    write_report(tmp_path, "XAUUSD", '{"symbol": "XAUUSD", "updated_at": "2026-10')
+    assert ea_health(tmp_path, now=frozen(NOW)) == {"XAUUSD": EaStatus.OFFLINE}
 
 
 def test_a_report_missing_its_heartbeat_is_offline(tmp_path: Path) -> None:
-    write_report(tmp_path, "BTCUSD", {"symbol": "BTCUSD", "positions": []})
-    assert ea_health(tmp_path, now=frozen(NOW)) == {"BTCUSD": EaStatus.OFFLINE}
+    write_report(tmp_path, "XAUUSD", {"symbol": "XAUUSD", "positions": []})
+    assert ea_health(tmp_path, now=frozen(NOW)) == {"XAUUSD": EaStatus.OFFLINE}
 
 
 def test_a_report_that_is_not_an_object_is_offline(tmp_path: Path) -> None:
-    write_report(tmp_path, "BTCUSD", ["not", "an", "object"])
-    assert ea_health(tmp_path, now=frozen(NOW)) == {"BTCUSD": EaStatus.OFFLINE}
+    write_report(tmp_path, "XAUUSD", ["not", "an", "object"])
+    assert ea_health(tmp_path, now=frozen(NOW)) == {"XAUUSD": EaStatus.OFFLINE}
 
 
 def test_the_symbol_comes_from_the_report_and_falls_back_to_the_file_name(
     tmp_path: Path,
 ) -> None:
-    write_report(tmp_path, "BTCUSD", heartbeat_report("BTCUSD.micro", NOW))
+    write_report(tmp_path, "EURUSD", heartbeat_report("EURUSD.micro", NOW))
     write_report(tmp_path, "XAUUSD", "{{{")
     assert ea_health(tmp_path, now=frozen(NOW)) == {
-        "BTCUSD.micro": EaStatus.ONLINE,
+        "EURUSD.micro": EaStatus.ONLINE,
         "XAUUSD": EaStatus.OFFLINE,
     }
 
 
 def test_two_eas_are_reported_independently(tmp_path: Path) -> None:
-    write_report(tmp_path, "BTCUSD", heartbeat_report("BTCUSD", NOW))
+    write_report(tmp_path, "EURUSD", heartbeat_report("EURUSD", NOW))
     write_report(tmp_path, "XAUUSD", heartbeat_report("XAUUSD", NOW - timedelta(minutes=5)))
     assert ea_health(tmp_path, now=frozen(NOW)) == {
-        "BTCUSD": EaStatus.ONLINE,
+        "EURUSD": EaStatus.ONLINE,
         "XAUUSD": EaStatus.OFFLINE,
     }
 
 
 def test_only_report_files_are_considered(tmp_path: Path) -> None:
-    write_report(tmp_path, "BTCUSD", heartbeat_report("BTCUSD", NOW))
-    (tmp_path / "BTCUSD_events.jsonl").write_text("", encoding="utf-8")
-    (tmp_path / "BTCUSD_state.json").write_text("{}", encoding="utf-8")
+    write_report(tmp_path, "XAUUSD", heartbeat_report("XAUUSD", NOW))
+    (tmp_path / "XAUUSD_events.jsonl").write_text("", encoding="utf-8")
+    (tmp_path / "XAUUSD_state.json").write_text("{}", encoding="utf-8")
     (tmp_path / "notes.txt").write_text("ignore me", encoding="utf-8")
-    assert list(ea_health(tmp_path, now=frozen(NOW))) == ["BTCUSD"]
+    assert list(ea_health(tmp_path, now=frozen(NOW))) == ["XAUUSD"]
 
 
 def test_the_suffix_is_the_published_contract() -> None:

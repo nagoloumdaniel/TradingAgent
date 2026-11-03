@@ -151,11 +151,11 @@ def test_a_degradation_fires_on_its_own() -> None:
 
 
 def test_markets_are_counted_apart() -> None:
-    """A motif repeating on gold says nothing about bitcoin."""
+    """A motif repeating on gold says nothing about another market."""
     rows = [
         analysis(market="XAUUSD", at=NOW),
         analysis(market="XAUUSD", at=NOW - timedelta(days=1)),
-        analysis(market="BTCUSD", at=NOW),
+        analysis(market="EURUSD", at=NOW),
     ]
 
     patterns = failure_patterns(rows, trigger=3, now=NOW)
@@ -166,12 +166,12 @@ def test_markets_are_counted_apart() -> None:
 def test_the_most_repeated_pattern_comes_first() -> None:
     rows = [
         *[analysis(market="XAUUSD", at=NOW - timedelta(days=index)) for index in range(3)],
-        *[analysis(market="BTCUSD", at=NOW - timedelta(days=index)) for index in range(6)],
+        *[analysis(market="EURUSD", at=NOW - timedelta(days=index)) for index in range(6)],
     ]
 
     patterns = failure_patterns(rows, trigger=3, now=NOW)
 
-    assert [pattern.market for pattern in patterns] == ["BTCUSD", "XAUUSD"]
+    assert [pattern.market for pattern in patterns] == ["EURUSD", "XAUUSD"]
 
 
 def test_distinct_reasons_are_kept_but_bounded() -> None:

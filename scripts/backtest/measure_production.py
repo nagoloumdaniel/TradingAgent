@@ -1,7 +1,7 @@
 """Mesure consolidee : les strategies de production, sur leurs jeux reels, avec et sans couts.
 
     uv run python scripts/backtest/measure_production.py
-    uv run python scripts/backtest/measure_production.py --symbol BTCUSD
+    uv run python scripts/backtest/measure_production.py --symbol XAUUSD
 
 Pourquoi ce script : `run_campaign.py` evalue des candidats de recherche contre les 9 portes.
 Ici on veut le chiffre brut des strategies **de production** telles que `agent.yaml` les
@@ -147,7 +147,6 @@ def main() -> int:
     catalogue = load_catalogue()
     assignments = {
         "XAUUSD": "witness@1.1.1",
-        "BTCUSD": "trend_breakout@1.0.1",
     }
     selected = {args.symbol: assignments[args.symbol]} if args.symbol else assignments
     print(f"strategies de production mesurees : {selected}")

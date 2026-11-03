@@ -119,7 +119,7 @@ def test_a_quarantine_survives_a_restart(engine: Engine, tmp_path: Path) -> None
     PersistentQuarantine(HaltStore(engine)).quarantine("flaky@1.0.0", "XAUUSD", "3 errors", NOW)
     restarted = PersistentQuarantine(HaltStore(engine))
     assert restarted.is_quarantined("flaky@1.0.0", "XAUUSD")
-    assert not restarted.is_quarantined("flaky@1.0.0", "BTCUSD")
+    assert not restarted.is_quarantined("flaky@1.0.0", "EURUSD")
     assert restarted.quarantined() == {("flaky@1.0.0", "XAUUSD")}
     restarted.rearm("flaky@1.0.0", "XAUUSD", actor="me")
     assert restarted.quarantined() == set()

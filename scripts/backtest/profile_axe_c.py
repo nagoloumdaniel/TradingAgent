@@ -226,7 +226,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     _use_utf8_when_redirected()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--datasets", type=Path, default=DATASET_DIR)
-    parser.add_argument("--market", default="BTCUSD")
+    parser.add_argument("--market", default="XAUUSD")
     parser.add_argument("--bars", type=int, default=0, help="ne garder que les N dernières bougies")
     parser.add_argument("--profile", action="store_true", help="profiler avec cProfile")
     parser.add_argument("--top", type=int, default=20)

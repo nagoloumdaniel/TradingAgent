@@ -42,12 +42,12 @@ def test_a_market_the_config_declares_is_the_one_measured(tmp_path: Path) -> Non
         tmp_path / "agent.yaml",
         [
             {"symbol": "XAUUSD", "enabled": True, "strategy": "witness@9.9.9"},
-            {"symbol": "BTCUSD", "enabled": True, "strategy": "trend_breakout@9.9.9"},
+            {"symbol": "EURUSD", "enabled": True, "strategy": "witness@9.9.8"},
         ],
     )
 
     assert improve.incumbent_ref("XAUUSD", path) == "witness@9.9.9"
-    assert improve.incumbent_ref("BTCUSD", path) == "trend_breakout@9.9.9"
+    assert improve.incumbent_ref("EURUSD", path) == "witness@9.9.8"
 
 
 def test_a_disabled_market_is_not_measured(tmp_path: Path) -> None:
@@ -55,7 +55,7 @@ def test_a_disabled_market_is_not_measured(tmp_path: Path) -> None:
         tmp_path / "agent.yaml",
         [
             {"symbol": "XAUUSD", "enabled": True, "strategy": "witness@9.9.9"},
-            {"symbol": "BTCUSD", "enabled": False, "strategy": "trend_breakout@9.9.9"},
+            {"symbol": "EURUSD", "enabled": False, "strategy": "witness@9.9.8"},
         ],
     )
 
@@ -68,8 +68,8 @@ def test_an_undeclared_market_is_refused_instead_of_guessed(tmp_path: Path) -> N
         [{"symbol": "XAUUSD", "enabled": True, "strategy": "witness@9.9.9"}],
     )
 
-    with pytest.raises(SystemExit, match="BTCUSD"):
-        improve.incumbent_ref("BTCUSD", path)
+    with pytest.raises(SystemExit, match="EURUSD"):
+        improve.incumbent_ref("EURUSD", path)
 
 
 def test_the_script_keeps_no_remembered_version() -> None:

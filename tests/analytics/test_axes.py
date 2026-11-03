@@ -36,7 +36,7 @@ def a_trade(
 
 
 def test_global_axis_puts_everything_in_one_bucket() -> None:
-    trades = [a_trade(), a_trade(symbol="BTCUSD")]
+    trades = [a_trade(), a_trade(symbol="EURUSD")]
 
     assert group(trades, Axis.GLOBAL) == {"global": trades}
 
@@ -44,14 +44,14 @@ def test_global_axis_puts_everything_in_one_bucket() -> None:
 def test_each_axis_groups_by_its_own_field() -> None:
     trades = [
         a_trade(symbol="XAUUSD"),
-        a_trade(symbol="BTCUSD"),
+        a_trade(symbol="EURUSD"),
         a_trade(ref="trend@2.0.0"),
         a_trade(direction=Direction.SELL),
         a_trade(timeframe=Timeframe.H1),
         a_trade(mode=TradingMode.PAPER),
     ]
 
-    assert set(group(trades, Axis.MARKET)) == {"XAUUSD", "BTCUSD"}
+    assert set(group(trades, Axis.MARKET)) == {"XAUUSD", "EURUSD"}
     assert set(group(trades, Axis.STRATEGY)) == {"witness@1.0.0", "trend@2.0.0"}
     assert set(group(trades, Axis.DIRECTION)) == {"BUY", "SELL"}
     assert set(group(trades, Axis.TIMEFRAME)) == {"M15", "H1"}
@@ -68,7 +68,7 @@ def test_calendar_axes_come_from_the_closing_time() -> None:
 
 
 def test_every_trade_falls_in_exactly_one_bucket_per_axis() -> None:
-    trades = [a_trade(), a_trade(symbol="BTCUSD"), a_trade(mode=TradingMode.PAPER)]
+    trades = [a_trade(), a_trade(symbol="EURUSD"), a_trade(mode=TradingMode.PAPER)]
 
     for axis in Axis:
         buckets = group(trades, axis)

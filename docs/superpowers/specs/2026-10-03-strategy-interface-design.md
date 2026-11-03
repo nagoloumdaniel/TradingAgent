@@ -218,7 +218,7 @@ neuf portes du §49 : une dérogation borne le plafond à `DEMO`, jamais au comp
 | Critère | Vérification |
 |---|---|
 | Deux marchés tournent avec deux stratégies différentes sans interférer | deux stratégies de test évaluées en alternance sur deux symboles, résultats identiques à leurs évaluations isolées |
-| Une stratégie de l'or est refusée sur une paire crypto | `load_agent_config` signale RM-003 avec la ligne du symbole |
+| Une stratégie de l'or est refusée sur une paire hors périmètre | `load_agent_config` signale RM-003 avec la ligne du symbole |
 | Un manifeste invalide est refusé avec sa ligne | tests de `load_strategy_catalog` |
 | Historique insuffisant : la stratégie n'est pas appelée | stratégie espion qui compte ses appels |
 | Aucune lecture du futur | `check_strategy_contract` sur une stratégie de test, plus un test qui ajoute des bougies futures |

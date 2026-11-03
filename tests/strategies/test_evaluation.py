@@ -267,8 +267,8 @@ def test_strategy_id_mismatch_is_a_programming_error() -> None:
 
 
 def test_symbol_outside_the_manifest_is_a_programming_error() -> None:
-    with pytest.raises(ValueError, match="cryBTCUSD"):
-        evaluate(Spy(), manifest(), "cryBTCUSD", {Timeframe.M15: M15}, close_of(Timeframe.M15, 5))
+    with pytest.raises(ValueError, match="EURUSD"):
+        evaluate(Spy(), manifest(), "EURUSD", {Timeframe.M15: M15}, close_of(Timeframe.M15, 5))
 
 
 def test_naive_evaluation_time_is_a_programming_error() -> None:
@@ -306,20 +306,20 @@ def test_future_candles_do_not_change_the_decision() -> None:
 def test_two_markets_with_two_strategies_do_not_interfere() -> None:
     breakout, dip = Breakout(NoParameters()), Dip(NoParameters())
     gold = M15
-    crypto = series(Timeframe.M15, [50, 48, 51, 47, 46, 49, 45, 44, 48, 43, 42, 47])
+    other = series(Timeframe.M15, [50, 48, 51, 47, 46, 49, 45, 44, 48, 43, 42, 47])
     times = [close_of(Timeframe.M15, index) for index in range(3, 12)]
 
     def on_gold(at: datetime) -> Outcome:
         return evaluate(breakout, manifest("breakout"), GOLD, {Timeframe.M15: gold}, at)
 
-    def on_crypto(at: datetime) -> Outcome:
-        built = manifest("dip", symbols=("cryBTCUSD",))
-        return evaluate(dip, built, "cryBTCUSD", {Timeframe.M15: crypto}, at)
+    def on_other(at: datetime) -> Outcome:
+        built = manifest("dip", symbols=("EURUSD",))
+        return evaluate(dip, built, "EURUSD", {Timeframe.M15: other}, at)
 
-    isolated = ([on_gold(at) for at in times], [on_crypto(at) for at in times])
+    isolated = ([on_gold(at) for at in times], [on_other(at) for at in times])
     interleaved: tuple[list[Outcome], list[Outcome]] = ([], [])
     for at in times:
-        interleaved[1].append(on_crypto(at))
+        interleaved[1].append(on_other(at))
         interleaved[0].append(on_gold(at))
     assert interleaved == isolated
     for outcomes in isolated:

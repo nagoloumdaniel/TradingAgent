@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 import pytest
 
 from tradingagent.news.model import (
-    BTCUSD,
     XAUUSD,
     EconomicEvent,
     EventKind,
@@ -101,11 +100,10 @@ def test_the_dollar_matters_more_than_a_minor_currency() -> None:
     assert usd > nzd
 
 
-def test_each_market_weighs_its_own_catalysts() -> None:
-    etf = make("Bitcoin ETF approved by SEC", currency="BTC", kind=EventKind.HEADLINE)
-    assert influence_score(etf, BTCUSD) > influence_score(etf, XAUUSD)
+def test_gold_weighs_its_own_catalysts() -> None:
     gold = make("Gold hits record as bullion rallies", currency="XAU", kind=EventKind.HEADLINE)
-    assert influence_score(gold, XAUUSD) > influence_score(gold, BTCUSD)
+    other = make("Furniture orders slow down", currency="XAU", kind=EventKind.HEADLINE)
+    assert influence_score(gold, XAUUSD) > influence_score(other, XAUUSD)
 
 
 def test_a_surprise_adds_points_only_when_the_actual_is_known() -> None:
@@ -125,7 +123,7 @@ def test_the_surprise_is_capped_and_a_zero_forecast_does_not_explode() -> None:
 def test_the_score_never_leaves_zero_to_one_hundred() -> None:
     huge = make("Non-Farm Employment Change", forecast="100K", previous="100K", actual="900K")
     assert influence_score(huge, XAUUSD) == 100
-    assert influence_score(make(currency="XYZ", impact=Impact.LOW), BTCUSD) >= 0
+    assert influence_score(make(currency="XYZ", impact=Impact.LOW), XAUUSD) >= 0
 
 
 def test_a_minor_headline_is_discounted() -> None:

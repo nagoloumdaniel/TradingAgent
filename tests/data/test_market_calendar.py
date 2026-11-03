@@ -53,7 +53,7 @@ def gold_like(moment: datetime) -> bool:
 
 
 def test_a_market_trading_around_the_clock_is_always_open() -> None:
-    calendar = learn_calendar("BTCUSD", history(lambda _: True), NOW)
+    calendar = learn_calendar("SYNTH247", history(lambda _: True), NOW)
     assert calendar.always_open
     assert calendar.status_at(datetime(2026, 10, 3, 3, 30, tzinfo=UTC)) is SlotStatus.OPEN
 
@@ -123,7 +123,7 @@ def test_candles_other_than_m15_are_refused() -> None:
 
 
 def test_naive_moment_is_refused() -> None:
-    calendar = learn_calendar("BTCUSD", history(lambda _: True), NOW)
+    calendar = learn_calendar("SYNTH247", history(lambda _: True), NOW)
     with pytest.raises(ValueError, match="UTC"):
         calendar.status_at(datetime(2026, 10, 3, 12))  # noqa: DTZ001 - the point of the test
 
@@ -145,10 +145,10 @@ def test_gold_is_not_open_over_the_weekend_and_is_open_on_monday() -> None:
 
 
 def test_a_seven_day_market_stays_open_on_the_weekend() -> None:
-    bitcoin = learn_calendar("BTCUSD", history(lambda _: True), NOW)
+    around_the_clock = learn_calendar("SYNTH247", history(lambda _: True), NOW)
 
-    assert is_open(bitcoin, SATURDAY_NOON) is True
-    assert is_open(bitcoin, SUNDAY_NOON) is True
+    assert is_open(around_the_clock, SATURDAY_NOON) is True
+    assert is_open(around_the_clock, SUNDAY_NOON) is True
 
 
 def test_without_a_calendar_nothing_is_proven_open() -> None:
@@ -216,6 +216,6 @@ def test_the_reopening_is_found_by_the_same_calendar() -> None:
 
 
 def test_an_always_open_market_has_no_closure_to_measure() -> None:
-    bitcoin = learn_calendar("BTCUSD", history(lambda _: True), NOW)
+    around_the_clock = learn_calendar("SYNTH247", history(lambda _: True), NOW)
 
-    assert closure_ends_at(bitcoin, SATURDAY_NOON) == SATURDAY_NOON
+    assert closure_ends_at(around_the_clock, SATURDAY_NOON) == SATURDAY_NOON

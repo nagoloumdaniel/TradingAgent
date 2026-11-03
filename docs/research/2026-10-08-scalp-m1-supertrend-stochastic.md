@@ -1,7 +1,7 @@
 # La stratégie M1 publiée à 87,11 % — ce que la mesure en dit ici
 
 **Date :** 2026-10-08 · **Famille :** `scalp_triple_filter` · **Jeu :** `docs/research/datasets/M1/`
-(XAUUSD et BTCUSD, 11 999 bougies chacun, gelés le 2026-10-08)
+(XAUUSD, 11 999 bougies, gelées le 2026-10-08)
 **Aucune promotion, aucun seuil touché, aucun manifeste écrit dans `config/strategies/`.**
 
 **En une phrase :** implémentée telle que décrite — Supertrend + Stochastic + EMA d'unité
@@ -112,7 +112,7 @@ franchie ou échouée** : elles n'ont pas pu être évaluées.
 
 ### 4.2 Le scellé n'a jamais été ouvert
 
-0 ouverture sur les deux marchés. Les 2 401 bougies scellées de chaque marché restent
+0 ouverture. Les 2 401 bougies scellées restent
 intactes, donc réutilisables — **mais aucun p-value n'a été calculée**, et la correction de
 sélection multiple n'a rien eu à démettre.
 

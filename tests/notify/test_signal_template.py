@@ -98,7 +98,7 @@ def test_the_risk_reward_ratio_of_a_sell() -> None:
     # Sell: mid entry 20.00, stop 20.50 (risk 0.50), first target 19.00 (reward 1.00).
     message = render_signal_message(
         a_notice(
-            symbol="BTCUSD",
+            symbol="XAUUSD",
             direction=Direction.SELL,
             observed_price=20.10,
             entry_low=19.50,

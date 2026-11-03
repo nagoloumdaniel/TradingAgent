@@ -53,8 +53,7 @@ class RiskProfile(_Strict):
     max_spread_stop_pct: Percent = Decimal(10)
     margin_usage_pct: Percent = Decimal(50)
     max_volume: Decimal | None = Field(default=None, gt=0)
-    # §21: total notional across every market, as a percentage of the capital. Gold and
-    # bitcoin are treated as fully correlated, so their exposures simply add up.
+    # §21: total notional across every market, as a percentage of the capital.
     max_total_exposure_pct: Percent = Decimal(200)
     # §21: tolerated slippage, in multiples of the observed spread. 1 means "never worse
     # than the spread".

@@ -142,7 +142,7 @@ def test_the_open_positions_cap_cannot_be_exceeded() -> None:
         context().portfolio,
         open_positions=(
             OpenPosition("XAUUSD", Decimal("0.01")),
-            OpenPosition("BTCUSD", Decimal("0.01")),
+            OpenPosition("EURUSD", Decimal("0.01")),
         ),
     )
     names = refusal_names(context(portfolio=portfolio))

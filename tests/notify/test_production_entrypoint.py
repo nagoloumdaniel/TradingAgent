@@ -46,7 +46,7 @@ def _service(settings: Settings) -> CommandService:
         settings,
         HaltStore(engine),
         CandleStore(engine),
-        (("XAUUSD", True), ("BTCUSD", True)),
+        (("XAUUSD", True), ("GBPUSD", True)),
         lambda: datetime(2026, 10, 8, tzinfo=UTC),
     )
 

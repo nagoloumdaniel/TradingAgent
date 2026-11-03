@@ -82,9 +82,6 @@ def context(mode: TradingMode = TradingMode.DEMO, **changes: Any) -> RiskContext
     return replace(base, **changes)
 
 
-# The specification's example 3: bitcoin in demo, bounded by margin at 1:2 leverage.
-BTC_LIKE = context(
-    spec=InstrumentSpec("BTCUSD", D(1), D("0.01"), D("0.01"), D(100), D("0.01"), 10),
-    quote=MarketQuote(D(84000), D(84010), D("92.00"), D(37634), USD),
-    intent=TradeIntent(2, "BTCUSD", Direction.BUY, D(83990), D(84020), D("83905.8738")),
-)
+# The specification's example 3, on gold: 500 EUR of free margin bounds the size at the minimum
+# lot (500 x 0.5 / 18,393 = 0.0136 lot), well under the 0.0251 lot the risk allows.
+MARGIN_BOUND = context(account=AccountState(LOGIN, True, "EUR", EQUITY, D(500)))

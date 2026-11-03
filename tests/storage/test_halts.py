@@ -121,10 +121,10 @@ def test_an_unreadable_state_halts_trading(tmp_path: Path) -> None:
 
 def test_quarantined_pairs_are_the_halted_pair_scopes(engine: Engine) -> None:
     store = HaltStore(engine)
-    gold, btc = pair_scope("witness@1.0.0", "XAUUSD"), pair_scope("witness@1.0.0", "BTCUSD")
+    gold, eur = pair_scope("witness@1.0.0", "XAUUSD"), pair_scope("witness@1.0.0", "EURUSD")
     store.issue(command(scope=gold, source=HaltSource.AUTOMATIC))
-    store.issue(command(scope=btc, source=HaltSource.AUTOMATIC, minutes=1))
-    store.issue(command(HaltAction.RESUME, scope=btc, minutes=2))
+    store.issue(command(scope=eur, source=HaltSource.AUTOMATIC, minutes=1))
+    store.issue(command(HaltAction.RESUME, scope=eur, minutes=2))
     assert store.halted_pairs() == {("witness@1.0.0", "XAUUSD")}
     assert not store.status().halted  # a quarantine does not halt the whole agent
 

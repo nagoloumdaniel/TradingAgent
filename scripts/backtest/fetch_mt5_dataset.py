@@ -34,7 +34,7 @@ from tradingagent.data.terminal import Credentials
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = ROOT / "docs" / "research" / "datasets"
-CLOCK_PROBE = "BTCUSD"  # 24/7 market: a fresh tick is always available on the MT5 side
+CLOCK_PROBE = "XAUUSD"  # closed on weekends: fetch on a weekday, when a fresh tick exists
 DEFAULT_SYMBOL = "XAUUSD"  # MT5 name; the Deriv API calls the same market frxXAUUSD
 
 

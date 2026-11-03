@@ -61,7 +61,7 @@ Le modèle à copier est [`.env.example`](../../.env.example).
 | `MT5_SERVER` | Serveur du courtier | Doit correspondre à celui du terminal. **Où :** la même carte de compte (ex. `Deriv-Demo`) |
 | `MT5_PASSWORD` | Mot de passe **investisseur** (lecture seule) | **Où :** terminal MT5 → Outils → Options → Serveur → « Changez le mot de passe investisseur ». Jamais le mot de passe de l'espace client Deriv ; mot de passe principal uniquement pour l'exécution (phase 8) |
 | `MT5_TERMINAL_PATH` | Chemin de `terminal64.exe` | Optionnel si un seul terminal installé |
-| `EA_FILES_DIR` | Répertoire d'échange avec les deux Expert Advisors | **Pas** sous `MT5_TERMINAL_PATH` : c'est `%APPDATA%\MetaQuotes\Terminal\<instance>\MQL5\Files\TradingAgent`. Vide = l'agent tourne sans EA, état valide |
+| `EA_FILES_DIR` | Répertoire d'échange avec l'Expert Advisor | **Pas** sous `MT5_TERMINAL_PATH` : c'est `%APPDATA%\MetaQuotes\Terminal\<instance>\MQL5\Files\TradingAgent`. Vide = l'agent tourne sans EA, état valide |
 | `TELEGRAM_BOT_TOKEN` | Jeton du bot BotFather | **Où :** Telegram → `@BotFather` → `/newbot`. Affiché une seule fois |
 | `TELEGRAM_ALLOWED_USER_IDS` | Identifiants Telegram autorisés, séparés par des virgules | **Où :** Telegram → `@userinfobot`. Liste blanche ; les inconnus sont refusés silencieusement |
 | `DEEPSEEK_API_KEY` | Clé du modèle (DeepSeek, seul fournisseur) | **Où :** `platform.deepseek.com` → API Keys. **Optionnelle** : sans elle l'agent tourne, le filtre IA n'est pas câblé et l'AI Lab reste déterministe (RM-011). DeepSeek sert un point d'entrée compatible Anthropic, d'où le client `anthropic` |

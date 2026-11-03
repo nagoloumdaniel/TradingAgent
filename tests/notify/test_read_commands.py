@@ -182,12 +182,12 @@ def test_markets_lists_each_configured_market(engine: Engine) -> None:
             )
         )
         session.commit()
-    handler = markets_handler((("XAUUSD", True), ("BTCUSD", False)), CandleStore(engine))
+    handler = markets_handler((("XAUUSD", True), ("GBPUSD", False)), CandleStore(engine))
 
     answer = run(handler, a_request())
 
     assert "XAUUSD" in answer and "activé" in answer
-    assert "BTCUSD" in answer and "désactivé" in answer
+    assert "GBPUSD" in answer and "désactivé" in answer
 
 
 def test_markets_shows_the_age_of_the_last_candle(engine: Engine) -> None:
@@ -214,11 +214,11 @@ def test_markets_shows_the_age_of_the_last_candle(engine: Engine) -> None:
 
 
 def test_markets_reports_a_market_without_candles(engine: Engine) -> None:
-    handler = markets_handler((("BTCUSD", True),), CandleStore(engine))
+    handler = markets_handler((("GBPUSD", True),), CandleStore(engine))
 
     answer = run(handler, a_request())
 
-    assert "BTCUSD" in answer and "aucune bougie" in answer
+    assert "GBPUSD" in answer and "aucune bougie" in answer
 
 
 # --- /signals ---------------------------------------------------------------
@@ -348,7 +348,7 @@ def test_every_read_command_answers_in_under_two_seconds_on_a_month_of_data(engi
                 source="mt5",
                 ingested_at=T0,
             )
-            for symbol in ("XAUUSD", "BTCUSD")
+            for symbol in ("XAUUSD", "GBPUSD")
             for i in range(bars)
         )
         version = seed_version(session)
@@ -356,7 +356,7 @@ def test_every_read_command_answers_in_under_two_seconds_on_a_month_of_data(engi
             position = seed_position(session, version, n, state=PositionState.CLOSED)
             seed_trade(session, position, Decimal("1.00"), T0 - timedelta(hours=n))
         session.commit()
-    markets = (("XAUUSD", True), ("BTCUSD", True))
+    markets = (("XAUUSD", True), ("GBPUSD", True))
     handlers = {
         "status": status_handler(
             HaltStore(engine),

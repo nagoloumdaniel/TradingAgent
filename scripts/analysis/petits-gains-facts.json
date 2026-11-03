@@ -15,58 +15,6 @@
   "cellules": [
     {
       "timeframe": "M1",
-      "symbole": "BTCUSD",
-      "dataset_id": "mt5-BTCUSD-M1-2026-10-08",
-      "prix": 83124.293,
-      "spread_prix": 4.156215,
-      "slippage_prix": 1.662486,
-      "commission_eur": 0.5,
-      "bougies_validation": 2399,
-      "jours": 1.6722222222222223,
-      "operations": 128,
-      "operations_par_jour": 76.54485049833887,
-      "brut_eur": 160.65711687695003,
-      "net_eur": -143.17909041805999,
-      "cout_eur": 303.83620729501,
-      "spread_eur": 114.35357108124003,
-      "slippage_eur": 125.48263621377001,
-      "commission_totale_eur": 63.999999999999986,
-      "atr_median": 38.105686633086485,
-      "distance_stop_effective": 39.926912904443824,
-      "brut_par_op_r": 0.12551337256011721,
-      "cout_par_op_r": 0.23737203694922657,
-      "net_par_op_r": -0.11185866438910935,
-      "cout_par_op_r_demo": 0.20556487006454915,
-      "net_par_op_r_demo": -0.08005149750443194,
-      "candidats": [
-        {
-          "label": "fast-1.5R",
-          "operations": 73,
-          "brut_eur": 36.69172301625,
-          "net_eur": -97.98378516094,
-          "pf_brut": 1.0853704521104126,
-          "pf_net_1x": 0.7958113735556729
-        },
-        {
-          "label": "balanced-2R",
-          "operations": 37,
-          "brut_eur": 96.08427464583,
-          "net_eur": -37.46220589676,
-          "pf_brut": 1.4462383945177057,
-          "pf_net_1x": 0.8696355117446829
-        },
-        {
-          "label": "slow-2.5R",
-          "operations": 18,
-          "brut_eur": 27.88111921487,
-          "net_eur": -7.73309936036,
-          "pf_brut": 1.2323426601239167,
-          "pf_net_1x": 0.9414789839727691
-        }
-      ]
-    },
-    {
-      "timeframe": "M1",
       "symbole": "XAUUSD",
       "dataset_id": "mt5-XAUUSD-M1-2026-10-08",
       "prix": 4278.15,
@@ -119,58 +67,6 @@
     },
     {
       "timeframe": "M15",
-      "symbole": "BTCUSD",
-      "dataset_id": "mt5-BTCUSD-2026-10-08",
-      "prix": 63637.76,
-      "spread_prix": 3.181888,
-      "slippage_prix": 1.272755,
-      "commission_eur": 0.5,
-      "bougies_validation": 2399,
-      "jours": 25.0625,
-      "operations": 106,
-      "operations_par_jour": 4.229426433915212,
-      "brut_eur": -35.23570341399,
-      "net_eur": -109.71417401618001,
-      "cout_eur": 74.47847060219001,
-      "spread_eur": 12.000496657340001,
-      "slippage_eur": 9.477973944849992,
-      "commission_totale_eur": 53.000000000000014,
-      "atr_median": 213.71140280336334,
-      "distance_stop_effective": 282.65708450307363,
-      "brut_par_op_r": -0.03324122963583963,
-      "cout_par_op_r": 0.0702627081152736,
-      "net_par_op_r": -0.10350393775111323,
-      "cout_par_op_r_demo": 0.03845554123059613,
-      "net_par_op_r_demo": -0.07169677086643575,
-      "candidats": [
-        {
-          "label": "fast-1.5R",
-          "operations": 57,
-          "brut_eur": 11.13091819901,
-          "net_eur": -29.90230437222,
-          "pf_brut": 1.0333734305293139,
-          "pf_net_1x": 0.915718432082609
-        },
-        {
-          "label": "balanced-2R",
-          "operations": 33,
-          "brut_eur": 10.56634818508,
-          "net_eur": -12.3525058473,
-          "pf_brut": 1.0503159437384761,
-          "pf_net_1x": 0.9446259460542761
-        },
-        {
-          "label": "slow-2.5R",
-          "operations": 16,
-          "brut_eur": -56.93296979808,
-          "net_eur": -67.45936379666,
-          "pf_brut": 0.568452466530098,
-          "pf_net_1x": 0.5176196601907626
-        }
-      ]
-    },
-    {
-      "timeframe": "M15",
       "symbole": "XAUUSD",
       "dataset_id": "mt5-XAUUSD-2026-10-08",
       "prix": 4660.23,
@@ -218,58 +114,6 @@
           "net_eur": 29.86888740306,
           "pf_brut": 1.3316991759409333,
           "pf_net_1x": 1.1865813423955311
-        }
-      ]
-    },
-    {
-      "timeframe": "M5",
-      "symbole": "BTCUSD",
-      "dataset_id": "mt5-BTCUSD-M5-2026-10-08",
-      "prix": 78845.239,
-      "spread_prix": 3.942262,
-      "slippage_prix": 1.576905,
-      "commission_eur": 0.5,
-      "bougies_validation": 2399,
-      "jours": 8.364583333333334,
-      "operations": 128,
-      "operations_par_jour": 15.302615193026151,
-      "brut_eur": -104.71276908551,
-      "net_eur": -230.27769327263002,
-      "cout_eur": 125.56492418712001,
-      "spread_eur": 34.71723122792001,
-      "slippage_eur": 26.847692959200003,
-      "commission_totale_eur": 64.0,
-      "atr_median": 116.07921915754925,
-      "distance_stop_effective": 147.5348549507391,
-      "brut_par_op_r": -0.0818068508480547,
-      "cout_par_op_r": 0.0980975970211875,
-      "net_par_op_r": -0.1799044478692422,
-      "cout_par_op_r_demo": 0.06629043013651006,
-      "net_par_op_r_demo": -0.14809728098456476,
-      "candidats": [
-        {
-          "label": "fast-1.5R",
-          "operations": 63,
-          "brut_eur": -32.61317958249,
-          "net_eur": -94.21223020852,
-          "pf_brut": 0.9200015915682195,
-          "pf_net_1x": 0.7841666325331719
-        },
-        {
-          "label": "balanced-2R",
-          "operations": 40,
-          "brut_eur": 2.89971783167,
-          "net_eur": -37.81675874509,
-          "pf_brut": 1.0104640108503868,
-          "pf_net_1x": 0.8729010919874337
-        },
-        {
-          "label": "slow-2.5R",
-          "operations": 25,
-          "brut_eur": -74.99930733469,
-          "net_eur": -98.24870431902,
-          "pf_brut": 0.62500346332655,
-          "pf_net_1x": 0.5459719741627216
         }
       ]
     },
@@ -329,34 +173,6 @@
   "question_1": [
     {
       "timeframe": "M1",
-      "symbol": "BTCUSD",
-      "repere": "backtest 10 €",
-      "risque_eur": 10.0,
-      "brut_mesure_r": 0.12551337256011721,
-      "cout_par_op_r": 0.2373720369492266,
-      "brut_requis_r": 0.2373720369492266,
-      "brut_requis_eur": 2.3737203694922657,
-      "brut_requis_prix": 9.477532645222192,
-      "brut_mesure_prix": 5.011361494550809,
-      "multiple": 1.8912091365844892,
-      "signe_a_inverser": false
-    },
-    {
-      "timeframe": "M1",
-      "symbol": "BTCUSD",
-      "repere": "démo réel",
-      "risque_eur": 27.48335,
-      "brut_mesure_r": 0.12551337256011721,
-      "cout_par_op_r": 0.20556487006454915,
-      "brut_requis_r": 0.20556487006454915,
-      "brut_requis_eur": 5.649611271688527,
-      "brut_requis_prix": 8.207570663280565,
-      "brut_mesure_prix": 5.011361494550809,
-      "multiple": 1.6377925783652225,
-      "signe_a_inverser": false
-    },
-    {
-      "timeframe": "M1",
       "symbol": "XAUUSD",
       "repere": "backtest 10 €",
       "risque_eur": 10.0,
@@ -385,34 +201,6 @@
     },
     {
       "timeframe": "M15",
-      "symbol": "BTCUSD",
-      "repere": "backtest 10 €",
-      "risque_eur": 10.0,
-      "brut_mesure_r": -0.03324122963583963,
-      "cout_par_op_r": 0.07026270811527358,
-      "brut_requis_r": 0.07026270811527358,
-      "brut_requis_eur": 0.7026270811527358,
-      "brut_requis_prix": 19.86025222515368,
-      "brut_mesure_prix": -9.395869054163597,
-      "multiple": null,
-      "signe_a_inverser": true
-    },
-    {
-      "timeframe": "M15",
-      "symbol": "BTCUSD",
-      "repere": "démo réel",
-      "risque_eur": 27.48335,
-      "brut_mesure_r": -0.03324122963583963,
-      "cout_par_op_r": 0.03845554123059613,
-      "brut_requis_r": 0.03845554123059613,
-      "brut_requis_eur": 1.0568870990799042,
-      "brut_requis_prix": 10.869731167228043,
-      "brut_mesure_prix": -9.395869054163597,
-      "multiple": null,
-      "signe_a_inverser": true
-    },
-    {
-      "timeframe": "M15",
       "symbol": "XAUUSD",
       "repere": "backtest 10 €",
       "risque_eur": 10.0,
@@ -438,34 +226,6 @@
       "brut_mesure_prix": 0.8906250473604448,
       "multiple": 0.7083744104839514,
       "signe_a_inverser": false
-    },
-    {
-      "timeframe": "M5",
-      "symbol": "BTCUSD",
-      "repere": "backtest 10 €",
-      "risque_eur": 10.0,
-      "brut_mesure_r": -0.0818068508480547,
-      "cout_par_op_r": 0.0980975970211875,
-      "brut_requis_r": 0.0980975970211875,
-      "brut_requis_eur": 0.980975970211875,
-      "brut_requis_prix": 14.472814747536953,
-      "brut_mesure_prix": -12.069361873844496,
-      "multiple": null,
-      "signe_a_inverser": true
-    },
-    {
-      "timeframe": "M5",
-      "symbol": "BTCUSD",
-      "repere": "démo réel",
-      "risque_eur": 27.48335,
-      "brut_mesure_r": -0.0818068508480547,
-      "cout_par_op_r": 0.06629043013651006,
-      "brut_requis_r": 0.06629043013651006,
-      "brut_requis_eur": 1.821883093092254,
-      "brut_requis_prix": 9.780148994812116,
-      "brut_mesure_prix": -12.069361873844496,
-      "multiple": null,
-      "signe_a_inverser": true
     },
     {
       "timeframe": "M5",
@@ -498,40 +258,6 @@
   ],
   "question_2": {
     "marche_aleatoire": {
-      "10eur-M1-BTCUSD": {
-        "par_pas": {
-          "esperance_nette_r": -0.11185866438910931,
-          "ecart_type_r": 1.3828965720052797
-        },
-        "checkpoints": {
-          "100": {
-            "probabilite_positive": 0.2105,
-            "esperance_cumulee_r": -11.02401879429205,
-            "probabilite_jamais_sous_zero": 0.019,
-            "approximation_normale": 0.20929431984881464,
-            "derive_seule_r": -11.185866438910931
-          },
-          "500": {
-            "probabilite_positive": 0.0375,
-            "esperance_cumulee_r": -55.2667620940757,
-            "probabilite_jamais_sous_zero": 0.0005,
-            "approximation_normale": 0.035249331662213834,
-            "derive_seule_r": -55.929332194554654
-          },
-          "1000": {
-            "probabilite_positive": 0.005,
-            "esperance_cumulee_r": -111.67954641784397,
-            "probabilite_jamais_sous_zero": 0.0,
-            "approximation_normale": 0.005265642435773821,
-            "derive_seule_r": -111.85866438910931
-          }
-        },
-        "final": {
-          "median_r": -111.82066958313628,
-          "p05_r": -181.15286525882834,
-          "p95_r": -40.70856433349771
-        }
-      },
       "10eur-M1-XAUUSD": {
         "par_pas": {
           "esperance_nette_r": -0.1658555365499,
@@ -564,40 +290,6 @@
           "median_r": -166.11011566248482,
           "p05_r": -236.64498246818692,
           "p95_r": -95.9325478301958
-        }
-      },
-      "10eur-M15-BTCUSD": {
-        "par_pas": {
-          "esperance_nette_r": -0.10350393775111319,
-          "ecart_type_r": 1.3102792162321992
-        },
-        "checkpoints": {
-          "100": {
-            "probabilite_positive": 0.21725,
-            "esperance_cumulee_r": -10.153635491357408,
-            "probabilite_jamais_sous_zero": 0.01525,
-            "approximation_normale": 0.21478198126405657,
-            "derive_seule_r": -10.35039377511132
-          },
-          "500": {
-            "probabilite_positive": 0.04375,
-            "esperance_cumulee_r": -50.49464157228939,
-            "probabilite_jamais_sous_zero": 0.0005,
-            "approximation_normale": 0.03866814443459016,
-            "derive_seule_r": -51.75196887555659
-          },
-          "1000": {
-            "probabilite_positive": 0.008,
-            "esperance_cumulee_r": -102.01818488371767,
-            "probabilite_jamais_sous_zero": 0.0,
-            "approximation_normale": 0.006244750283163902,
-            "derive_seule_r": -103.50393775111318
-          }
-        },
-        "final": {
-          "median_r": -102.92015373037124,
-          "p05_r": -169.7161742466244,
-          "p95_r": -33.90159922836005
         }
       },
       "10eur-M15-XAUUSD": {
@@ -634,40 +326,6 @@
           "p95_r": 63.596719315778756
         }
       },
-      "10eur-M5-BTCUSD": {
-        "par_pas": {
-          "esperance_nette_r": -0.17990444786924217,
-          "ecart_type_r": 1.370499204309887
-        },
-        "checkpoints": {
-          "100": {
-            "probabilite_positive": 0.09425,
-            "esperance_cumulee_r": -18.181649494070395,
-            "probabilite_jamais_sous_zero": 0.00575,
-            "approximation_normale": 0.09464323735174918,
-            "derive_seule_r": -17.99044478692422
-          },
-          "500": {
-            "probabilite_positive": 0.002,
-            "esperance_cumulee_r": -89.92665949540422,
-            "probabilite_jamais_sous_zero": 0.0,
-            "approximation_normale": 0.0016662856903631451,
-            "derive_seule_r": -89.95222393462109
-          },
-          "1000": {
-            "probabilite_positive": 0.0,
-            "esperance_cumulee_r": -180.73443430504258,
-            "probabilite_jamais_sous_zero": 0.0,
-            "approximation_normale": 1.6544114388061804e-05,
-            "derive_seule_r": -179.90444786924218
-          }
-        },
-        "final": {
-          "median_r": -180.6869230677718,
-          "p05_r": -254.01223324034427,
-          "p95_r": -110.48009270175973
-        }
-      },
       "10eur-M5-XAUUSD": {
         "par_pas": {
           "esperance_nette_r": -0.06158674500493855,
@@ -700,40 +358,6 @@
           "median_r": -62.53137166647872,
           "p05_r": -139.73880447486246,
           "p95_r": 12.456855777927256
-        }
-      },
-      "demo-M1-BTCUSD": {
-        "par_pas": {
-          "esperance_nette_r": -0.08005149750443197,
-          "ecart_type_r": 1.3828965720052797
-        },
-        "checkpoints": {
-          "100": {
-            "probabilite_positive": 0.277,
-            "esperance_cumulee_r": -8.006457319002559,
-            "probabilite_jamais_sous_zero": 0.0235,
-            "approximation_normale": 0.2813390237117397,
-            "derive_seule_r": -8.005149750443197
-          },
-          "500": {
-            "probabilite_positive": 0.103,
-            "esperance_cumulee_r": -40.32587227450856,
-            "probabilite_jamais_sous_zero": 0.0035,
-            "approximation_normale": 0.09776557031924693,
-            "derive_seule_r": -40.02574875221598
-          },
-          "1000": {
-            "probabilite_positive": 0.0335,
-            "esperance_cumulee_r": -80.41858994276058,
-            "probabilite_jamais_sous_zero": 0.0005,
-            "approximation_normale": 0.03358444645626124,
-            "derive_seule_r": -80.05149750443196
-          }
-        },
-        "final": {
-          "median_r": -80.31118972769016,
-          "p05_r": -152.65364484101673,
-          "p95_r": -7.837947952519134
         }
       },
       "demo-M1-XAUUSD": {
@@ -770,40 +394,6 @@
           "p95_r": -60.2114204623444
         }
       },
-      "demo-M15-BTCUSD": {
-        "par_pas": {
-          "esperance_nette_r": -0.07169677086643565,
-          "ecart_type_r": 1.3102792162321992
-        },
-        "checkpoints": {
-          "100": {
-            "probabilite_positive": 0.29275,
-            "esperance_cumulee_r": -6.925718907734107,
-            "probabilite_jamais_sous_zero": 0.024,
-            "approximation_normale": 0.29212514498353304,
-            "derive_seule_r": -7.169677086643565
-          },
-          "500": {
-            "probabilite_positive": 0.10975,
-            "esperance_cumulee_r": -36.282036058624776,
-            "probabilite_jamais_sous_zero": 0.00325,
-            "approximation_normale": 0.11056153429142929,
-            "derive_seule_r": -35.84838543321783
-          },
-          "1000": {
-            "probabilite_positive": 0.042,
-            "esperance_cumulee_r": -72.04420388100249,
-            "probabilite_jamais_sous_zero": 0.0,
-            "approximation_normale": 0.04178324519311283,
-            "derive_seule_r": -71.69677086643566
-          }
-        },
-        "final": {
-          "median_r": -73.00923797759833,
-          "p05_r": -139.75583073143957,
-          "p95_r": -2.7045361212234442
-        }
-      },
       "demo-M15-XAUUSD": {
         "par_pas": {
           "esperance_nette_r": 0.02234404777019362,
@@ -836,40 +426,6 @@
           "median_r": 20.533356119644825,
           "p05_r": -51.2034247544684,
           "p95_r": 94.41488314102881
-        }
-      },
-      "demo-M5-BTCUSD": {
-        "par_pas": {
-          "esperance_nette_r": -0.14809728098456482,
-          "ecart_type_r": 1.370499204309887
-        },
-        "checkpoints": {
-          "100": {
-            "probabilite_positive": 0.134,
-            "esperance_cumulee_r": -14.845169752757696,
-            "probabilite_jamais_sous_zero": 0.008,
-            "approximation_normale": 0.13993569534262335,
-            "derive_seule_r": -14.809728098456482
-          },
-          "500": {
-            "probabilite_positive": 0.00925,
-            "esperance_cumulee_r": -74.34543235960321,
-            "probabilite_jamais_sous_zero": 0.0005,
-            "approximation_normale": 0.007839275592304629,
-            "derive_seule_r": -74.0486404922824
-          },
-          "1000": {
-            "probabilite_positive": 0.0,
-            "esperance_cumulee_r": -149.0324222596942,
-            "probabilite_jamais_sous_zero": 0.0,
-            "approximation_normale": 0.0003163631127160449,
-            "derive_seule_r": -148.0972809845648
-          }
-        },
-        "final": {
-          "median_r": -148.85845975375756,
-          "p05_r": -219.54701794314295,
-          "p95_r": -77.76374490176474
         }
       },
       "demo-M5-XAUUSD": {
@@ -908,49 +464,6 @@
       }
     },
     "martingale": {
-      "M1-BTCUSD": {
-        "perte_par_operation": 0.5859375,
-        "table": {
-          "mise_initiale_eur": 27.48335,
-          "solde_eur": 5496.67,
-          "pertes_consecutives_qui_bloquent": 7,
-          "mise_apres_blocage_eur": 3517.8688,
-          "solde_restant_apres_blocage_eur": 2006.2845499999999,
-          "pertes_consecutives_qui_epuisent": 8,
-          "cumul_perdu_eur": 7008.25425,
-          "probabilite_par_horizon": {
-            "100": {
-              "probabilite_mise_impossible": 0.6362914169461108,
-              "probabilite_solde_epuise": 0.434777797612977
-            },
-            "500": {
-              "probabilite_mise_impossible": 0.9948286056306288,
-              "probabilite_solde_epuise": 0.9498734114905932
-            },
-            "1000": {
-              "probabilite_mise_impossible": 0.9999746092637881,
-              "probabilite_solde_epuise": 0.997574064117901
-            }
-          },
-          "probabilite_perte_par_operation": 0.5859375
-        },
-        "simulation_1000_operations": {
-          "probabilite_ruine": 0.979,
-          "probabilite_solde_epuise": 0.084,
-          "gain_median_eur": -3371.717765052669,
-          "gain_moyen_eur": -1742.453104754849,
-          "p05_eur": -5908.242995263527,
-          "p95_eur": 5540.734111814965,
-          "mise_maximale_mediane_eur": 7035.7376
-        },
-        "mise_constante_1000_operations": {
-          "probabilite_ruine": 0.004,
-          "gain_median_eur": -2174.6678701386695,
-          "gain_moyen_eur": -2180.6073375203327,
-          "p05_eur": -4203.300612306686,
-          "p95_eur": -149.00339923895808
-        }
-      },
       "M1-XAUUSD": {
         "perte_par_operation": 0.6230769230769231,
         "table": {
@@ -994,49 +507,6 @@
           "p95_eur": -1720.4515977042297
         }
       },
-      "M15-BTCUSD": {
-        "perte_par_operation": 0.6509433962264151,
-        "table": {
-          "mise_initiale_eur": 27.48335,
-          "solde_eur": 5496.67,
-          "pertes_consecutives_qui_bloquent": 7,
-          "mise_apres_blocage_eur": 3517.8688,
-          "solde_restant_apres_blocage_eur": 2006.2845499999999,
-          "pertes_consecutives_qui_epuisent": 8,
-          "cumul_perdu_eur": 7008.25425,
-          "probabilite_par_horizon": {
-            "100": {
-              "probabilite_mise_impossible": 0.8526909540706388,
-              "probabilite_solde_epuise": 0.6932152776748481
-            },
-            "500": {
-              "probabilite_mise_impossible": 0.9999524847016055,
-              "probabilite_solde_epuise": 0.9979454553751349
-            },
-            "1000": {
-              "probabilite_mise_impossible": 0.999999997946056,
-              "probabilite_solde_epuise": 0.9999960638839743
-            }
-          },
-          "probabilite_perte_par_operation": 0.6509433962264151
-        },
-        "simulation_1000_operations": {
-          "probabilite_ruine": 0.995,
-          "probabilite_solde_epuise": 0.008,
-          "gain_median_eur": -2902.728029227809,
-          "gain_moyen_eur": -1078.9752573602477,
-          "p05_eur": -5091.947254137761,
-          "p95_eur": 6195.761913339982,
-          "mise_maximale_mediane_eur": 7035.7376
-        },
-        "mise_constante_1000_operations": {
-          "probabilite_ruine": 0.001,
-          "gain_median_eur": -1987.5759293546084,
-          "gain_moyen_eur": -2004.6083356289623,
-          "p05_eur": -3930.5728559775266,
-          "p95_eur": -182.71952544705164
-        }
-      },
       "M15-XAUUSD": {
         "perte_par_operation": 0.6129032258064516,
         "table": {
@@ -1078,49 +548,6 @@
           "gain_moyen_eur": 598.5373727152222,
           "p05_eur": -1396.9770188258753,
           "p95_eur": 2540.43486916659
-        }
-      },
-      "M5-BTCUSD": {
-        "perte_par_operation": 0.65625,
-        "table": {
-          "mise_initiale_eur": 27.48335,
-          "solde_eur": 5496.67,
-          "pertes_consecutives_qui_bloquent": 7,
-          "mise_apres_blocage_eur": 3517.8688,
-          "solde_restant_apres_blocage_eur": 2006.2845499999999,
-          "pertes_consecutives_qui_epuisent": 8,
-          "cumul_perdu_eur": 7008.25425,
-          "probabilite_par_horizon": {
-            "100": {
-              "probabilite_mise_impossible": 0.8662657660541427,
-              "probabilite_solde_epuise": 0.7133694813285992
-            },
-            "500": {
-              "probabilite_mise_impossible": 0.9999712162560589,
-              "probabilite_solde_epuise": 0.9985592061499854
-            },
-            "1000": {
-              "probabilite_mise_impossible": 0.9999999992496236,
-              "probabilite_solde_epuise": 0.9999980715822643
-            }
-          },
-          "probabilite_perte_par_operation": 0.65625
-        },
-        "simulation_1000_operations": {
-          "probabilite_ruine": 0.999,
-          "probabilite_solde_epuise": 0.049,
-          "gain_median_eur": -3297.12951491464,
-          "gain_moyen_eur": -2679.153376200914,
-          "p05_eur": -5494.693765588085,
-          "p95_eur": 1157.2999711745415,
-          "mise_maximale_mediane_eur": 3517.8688
-        },
-        "mise_constante_1000_operations": {
-          "probabilite_ruine": 0.12,
-          "gain_median_eur": -4042.9532495426183,
-          "gain_moyen_eur": -4072.3672232463036,
-          "p05_eur": -6045.645073232361,
-          "p95_eur": -2140.957152460182
         }
       },
       "M5-XAUUSD": {
@@ -1168,25 +595,13 @@
       }
     },
     "seuil_atr_rentabilite": {
-      "M1-BTCUSD": {
-        "10eur": 66.04734248929775,
-        "demo": 46.472535507199275
-      },
       "M1-XAUUSD": {
         "10eur": null,
         "demo": 10.263234266654866
       },
-      "M15-BTCUSD": {
-        "10eur": null,
-        "demo": null
-      },
       "M15-XAUUSD": {
         "10eur": 10.504311885843563,
         "demo": 4.785766938459087
-      },
-      "M5-BTCUSD": {
-        "10eur": null,
-        "demo": null
       },
       "M5-XAUUSD": {
         "10eur": null,
@@ -1195,20 +610,6 @@
     }
   },
   "question_3": [
-    {
-      "timeframe": "M1",
-      "symbol": "BTCUSD",
-      "ops_par_jour": 76.54485049833887,
-      "risque_eur": 27.48335,
-      "cout_par_op_r": 0.20556487006454915,
-      "cout_par_op_eur": 5.649611271688527,
-      "net_par_op_r": -0.08005149750443194,
-      "net_par_op_eur": -2.2000833239384296,
-      "eur_par_jour": -168.40504911475554,
-      "eur_par_jour_en_pct_du_solde": -3.063764954322445,
-      "jours_pour_2pct": 0.6527915913322085,
-      "jours_pour_10pct": 3.263957956661043
-    },
     {
       "timeframe": "M1",
       "symbol": "XAUUSD",
@@ -1222,20 +623,6 @@
       "eur_par_jour_en_pct_du_solde": -2.311093645360993,
       "jours_pour_2pct": 0.8653911554014939,
       "jours_pour_10pct": 4.32695577700747
-    },
-    {
-      "timeframe": "M15",
-      "symbol": "BTCUSD",
-      "ops_par_jour": 4.229426433915212,
-      "risque_eur": 27.48335,
-      "cout_par_op_r": 0.03845554123059613,
-      "cout_par_op_eur": 1.0568870990799042,
-      "net_par_op_r": -0.07169677086643575,
-      "net_par_op_eur": -1.9704674475920572,
-      "eur_par_jour": -8.333947110015284,
-      "eur_par_jour_en_pct_du_solde": -0.15161810896443273,
-      "jours_pour_2pct": 13.191036437930837,
-      "jours_pour_10pct": 65.95518218965418
     },
     {
       "timeframe": "M15",
@@ -1253,20 +640,6 @@
     },
     {
       "timeframe": "M5",
-      "symbol": "BTCUSD",
-      "ops_par_jour": 15.302615193026151,
-      "risque_eur": 27.48335,
-      "cout_par_op_r": 0.06629043013651006,
-      "cout_par_op_eur": 1.821883093092254,
-      "net_par_op_r": -0.14809728098456476,
-      "net_par_op_eur": -4.070209407347138,
-      "eur_par_jour": -62.284848315668285,
-      "eur_par_jour_en_pct_du_solde": -1.1331378510201318,
-      "jours_pour_2pct": 1.7650103190882351,
-      "jours_pour_10pct": 8.825051595441176
-    },
-    {
-      "timeframe": "M5",
       "symbol": "XAUUSD",
       "ops_par_jour": 12.09693053311793,
       "risque_eur": 27.48335,
@@ -1281,170 +654,6 @@
     }
   ],
   "atr_et_spread": {
-    "M1-BTCUSD-risque 10 €": [
-      {
-        "atr": 0.25,
-        "distance_stop": 0.375,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 19.99983032,
-        "brut_requis_prix": 7.49993637,
-        "marge_sur_brut_mesure_r": -19.874316947439883
-      },
-      {
-        "atr": 0.5,
-        "distance_stop": 0.75,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 10.02491516,
-        "brut_requis_prix": 7.518686370000001,
-        "marge_sur_brut_mesure_r": -9.899401787439883
-      },
-      {
-        "atr": 1.0,
-        "distance_stop": 1.5,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 5.03745758,
-        "brut_requis_prix": 7.55618637,
-        "marge_sur_brut_mesure_r": -4.911944207439882
-      },
-      {
-        "atr": 38.105686633086485,
-        "distance_stop": 57.158529949629724,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 0.1808848631445334,
-        "brut_requis_prix": 10.339112867481486,
-        "marge_sur_brut_mesure_r": -0.05537149058441618
-      },
-      {
-        "atr": 2.0,
-        "distance_stop": 3.0,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 2.54372879,
-        "brut_requis_prix": 7.63118637,
-        "marge_sur_brut_mesure_r": -2.4182154174398827
-      },
-      {
-        "atr": 4.0,
-        "distance_stop": 6.0,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 1.296864395,
-        "brut_requis_prix": 7.78118637,
-        "marge_sur_brut_mesure_r": -1.1713510224398829
-      },
-      {
-        "atr": 8.0,
-        "distance_stop": 12.0,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 0.6734321975,
-        "brut_requis_prix": 8.081186370000001,
-        "marge_sur_brut_mesure_r": -0.5479188249398829
-      },
-      {
-        "atr": 16.0,
-        "distance_stop": 24.0,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 0.36171609875,
-        "brut_requis_prix": 8.681186369999999,
-        "marge_sur_brut_mesure_r": -0.23620272618988278
-      }
-    ],
-    "M1-BTCUSD-risque démo": [
-      {
-        "atr": 0.25,
-        "distance_stop": 0.375,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 19.968023153115322,
-        "brut_requis_prix": 7.488008682418245,
-        "marge_sur_brut_mesure_r": -19.842509780555204
-      },
-      {
-        "atr": 0.5,
-        "distance_stop": 0.75,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 9.993107993115323,
-        "brut_requis_prix": 7.494830994836493,
-        "marge_sur_brut_mesure_r": -9.867594620555206
-      },
-      {
-        "atr": 1.0,
-        "distance_stop": 1.5,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 5.0056504131153226,
-        "brut_requis_prix": 7.508475619672984,
-        "marge_sur_brut_mesure_r": -4.880137040555205
-      },
-      {
-        "atr": 38.105686633086485,
-        "distance_stop": 57.158529949629724,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 0.14907769625985595,
-        "brut_requis_prix": 8.52106196649078,
-        "marge_sur_brut_mesure_r": -0.023564323699738737
-      },
-      {
-        "atr": 2.0,
-        "distance_stop": 3.0,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 2.5119216231153225,
-        "brut_requis_prix": 7.535764869345968,
-        "marge_sur_brut_mesure_r": -2.3864082505552053
-      },
-      {
-        "atr": 4.0,
-        "distance_stop": 6.0,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 1.2650572281153225,
-        "brut_requis_prix": 7.590343368691935,
-        "marge_sur_brut_mesure_r": -1.1395438555552053
-      },
-      {
-        "atr": 8.0,
-        "distance_stop": 12.0,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 0.6416250306153226,
-        "brut_requis_prix": 7.699500367383871,
-        "marge_sur_brut_mesure_r": -0.5161116580552054
-      },
-      {
-        "atr": 16.0,
-        "distance_stop": 24.0,
-        "spread_prix": 4.156214650000001,
-        "slippage_prix": 1.6624858600000003,
-        "cout_prix_aller_retour": 7.4811863700000005,
-        "cout_par_op_r": 0.32990893186532255,
-        "brut_requis_prix": 7.917814364767741,
-        "marge_sur_brut_mesure_r": -0.20439555930520534
-      }
-    ],
     "M1-XAUUSD-risque 10 €": [
       {
         "atr": 0.25,
@@ -1788,32 +997,6 @@
       "min_stability_score": 0.5,
       "min_trades": 30,
       "version": "campaign-20261007"
-    },
-    "selection_multiple": {
-      "M15": {
-        "hypotheses": 6,
-        "decouvertes_avant": 6,
-        "decouvertes_apres": 0,
-        "alpha": 0.1,
-        "p_value_min": 0.34965034965034963,
-        "generated_at": "2026-10-08T02:28:52.711334+00:00"
-      },
-      "M5": {
-        "hypotheses": 6,
-        "decouvertes_avant": 6,
-        "decouvertes_apres": 0,
-        "alpha": 0.1,
-        "p_value_min": 0.3756243756243756,
-        "generated_at": "2026-10-08T02:29:32.280612+00:00"
-      },
-      "M1": {
-        "hypotheses": 6,
-        "decouvertes_avant": 6,
-        "decouvertes_apres": 0,
-        "alpha": 0.1,
-        "p_value_min": 0.5714285714285714,
-        "generated_at": "2026-10-08T02:30:19.754643+00:00"
-      }
     }
   }
 }

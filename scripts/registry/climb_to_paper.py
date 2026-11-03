@@ -52,7 +52,7 @@ START = StrategyStatus.DISCOVERED
 
 REASON = (
     "decision de l'operateur du 2026-10-10 : vwap_pullback remplace witness et trend_breakout "
-    "sur les deux marches, en demonstration, apres mesure (PF net 0,68 BTC et 0,55 or en "
+    "en demonstration, apres mesure (PF net 0,55 or en "
     "validation, contre 1,20 exige). Aucune porte du §49 n'est franchie : le plafond DEMO est "
     "une derogation, pas une validation."
 )

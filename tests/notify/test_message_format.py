@@ -68,13 +68,13 @@ def signal(**overrides: object) -> str:
 
 def an_opened(**overrides: object) -> str:
     values: dict[str, object] = {
-        "symbol": "BTCUSD",
+        "symbol": "XAUUSD",
         "direction": Direction.BUY,
         "volume": Decimal("0.01"),
-        "entry_price": Decimal("84010.5"),
-        "stop_loss": Decimal("83900"),
-        "take_profit": Decimal("84500"),
-        "strategy_ref": "trend_breakout@1.0.0",
+        "entry_price": Decimal("2650.5"),
+        "stop_loss": Decimal("2645"),
+        "take_profit": Decimal("2660"),
+        "strategy_ref": "vwap_pullback@1.1.0",
         "mode": TradingMode.DEMO,
         "ticket": 555001,
     }
@@ -84,7 +84,7 @@ def an_opened(**overrides: object) -> str:
 
 def a_closed(**overrides: object) -> str:
     values: dict[str, object] = {
-        "symbol": "BTCUSD",
+        "symbol": "XAUUSD",
         "pnl": Decimal("10.00"),
         "balance": Decimal("1010.00"),
         "currency": "USD",
@@ -159,15 +159,15 @@ def test_hostile_data_in_every_text_field_stays_escaped() -> None:
 
 
 def test_a_hostile_position_symbol_stays_escaped() -> None:
-    opened = an_opened(symbol="<b>BTCUSD</b>", strategy_ref="<i>strat</i>")
-    assert "<b>BTCUSD</b>" not in opened
-    assert "&lt;b&gt;BTCUSD&lt;/b&gt;" in opened
+    opened = an_opened(symbol="<b>XAUUSD</b>", strategy_ref="<i>strat</i>")
+    assert "<b>XAUUSD</b>" not in opened
+    assert "&lt;b&gt;XAUUSD&lt;/b&gt;" in opened
     assert "<i>strat</i>" not in opened
     assert_telegram_html(opened)
 
 
 def test_a_hostile_closed_symbol_stays_escaped() -> None:
-    closed = a_closed(symbol="<b>BTCUSD</b>", pnl=Decimal("-5.00"))
-    assert "<b>BTCUSD</b>" not in closed
-    assert "&lt;b&gt;BTCUSD&lt;/b&gt;" in closed
+    closed = a_closed(symbol="<b>XAUUSD</b>", pnl=Decimal("-5.00"))
+    assert "<b>XAUUSD</b>" not in closed
+    assert "&lt;b&gt;XAUUSD&lt;/b&gt;" in closed
     assert_telegram_html(closed)

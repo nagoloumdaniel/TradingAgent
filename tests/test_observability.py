@@ -169,7 +169,7 @@ def test_metrics_never_read_the_clock_implicitly() -> None:
     metrics = Metrics(now=lambda: current)
     metrics.set_connection("frxXAUUSD", True)
     current = current + timedelta(seconds=90)
-    metrics.set_connection("BTCUSD", False)
+    metrics.set_connection("EURUSD", False)
     snapshot = metrics.snapshot()
     assert snapshot["uptime_seconds"] == pytest.approx(90.0)
     assert snapshot["available"] is False
@@ -178,7 +178,7 @@ def test_metrics_never_read_the_clock_implicitly() -> None:
         "since": datetime(2026, 10, 7, 4, 30, tzinfo=UTC).isoformat(),
         "seconds": 90.0,
     }
-    assert snapshot["connections"]["BTCUSD"]["seconds"] == 0.0
+    assert snapshot["connections"]["EURUSD"]["seconds"] == 0.0
 
 
 def test_availability_is_true_when_every_connection_is_up() -> None:

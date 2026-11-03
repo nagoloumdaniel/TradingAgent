@@ -2,9 +2,9 @@
 
 > **Pour un exécutant, humain ou agent.** Ce document dérive de `CAHIER_DES_CHARGES.md`. Les deux se lisent ensemble : la roadmap dit quoi faire, le cahier dit pourquoi. Les tâches utilisent des cases à cocher pour le suivi. Aucune tâche ne doit être déclarée terminée sans que ses critères d'acceptation aient été vérifiés par exécution réelle.
 
-**Objectif :** livrer un agent qui surveille l'or et deux à quatre cryptomonnaies sur Deriv, envoie des signaux sur Telegram, mesure ses performances, et peut être promu vers l'exécution automatique après validation.
+**Objectif :** livrer un agent qui surveille l'or (XAUUSD) sur Deriv, envoie des signaux sur Telegram, mesure ses performances, et peut être promu vers l'exécution automatique après validation.
 
-**Spécification source :** `CAHIER_DES_CHARGES.md` version 1.1
+**Spécification source :** `CAHIER_DES_CHARGES.md` version 1.3
 
 ---
 
@@ -16,9 +16,9 @@ Section de référence partagée. Les tâches y renvoient au lieu de répéter.
 Agent autonome 24/7. Aucune interface graphique. Telegram est l'unique surface d'interaction. Opérateur unique, résident français.
 
 ### Marchés
-**`XAUUSD` (or) et `BTCUSD` (bitcoin), décision de l'opérateur du 2026-10-04 (Q-07).** Le BTC cote en continu, ce qui garantit à l'agent un marché actif le week-end. Les indices synthétiques sont **hors périmètre** : visibles sur MT5 mais refusés à l'exécution pour un résident français (C-008, ordre de test du 2026-10-04). **Avec 100 €, aucun des deux marchés n'est éligible au mode réel** (Q-22) ; la démonstration n'est pas concernée.
+**`XAUUSD` (or) uniquement, décision de l'opérateur du 2026-11-03 (périmètre réduit à l'or).** Un second marché avait été retenu le 2026-10-04 (Q-07) ; il est abandonné, avec ses stratégies, ses jeux de données et son EA. L'or ferme le week-end : l'agent est inactif du vendredi soir au dimanche soir. Les indices synthétiques sont **hors périmètre** : visibles sur MT5 mais refusés à l'exécution pour un résident français (C-008, ordre de test du 2026-10-04). **Avec 100 €, l'or n'est pas éligible au mode réel** (Q-22) ; la démonstration n'est pas concernée.
 
-**Suivi à faire :** ~~le manifeste `witness@1.0.0` référence encore `frxXAUUSD`, un nom qui n'existe pas sur MT5. Il faudra publier une version qui autorise `XAUUSD` et `BTCUSD` au moment de créer `agent.yaml`.~~ **Fait le 2026-10-07 :** `witness@1.0.0` est conservé tel quel (un manifeste déjà utilisé ne se réécrit jamais), `witness@1.1.0` autorise `XAUUSD`, et une seconde stratégie `trend_breakout@1.0.0` autorise `BTCUSD`. `config/agent.yaml` affecte une stratégie distincte à chaque marché (EF-003). Voir `docs/decisions/2026-10-07-runtime-integration.md`, D-06.
+**Suivi à faire :** ~~le manifeste `witness@1.0.0` référence encore `frxXAUUSD`, un nom qui n'existe pas sur MT5. Il faudra publier une version qui autorise `XAUUSD` au moment de créer `agent.yaml`.~~ **Fait le 2026-10-07 :** `witness@1.0.0` est conservé tel quel (un manifeste déjà utilisé ne se réécrit jamais), `witness@1.1.0` autorise `XAUUSD`. `config/agent.yaml` affecte une stratégie à l'or. Voir `docs/decisions/2026-10-07-runtime-integration.md`, D-06.
 
 ### Capital et risque
 Capital de référence réel : 100 €. Cette contrainte impose un risque par opération de 2 à 5 % en mode réel, contre 0,5 % en démonstration, voir C-009 et RM-005 révisée.
@@ -52,7 +52,7 @@ Aucun secret dans le dépôt. Jeton Deriv limité à la lecture et à la négoci
 Voir les contradictions C-001 à C-007 du cahier. Quatre d'entre elles doivent être tranchées avant le code : C-001, C-002, C-003, C-004.
 
 ### Contraintes
-API Deriv : quotas, types de contrats disponibles, tailles minimales négociables et profondeur d'historique à vérifier avant toute conception d'exécution. Or fermé le week-end, crypto ouverte en continu. Capital réel de 100 €, qui contraint le risque par opération. Serveur de faible capacité, de l'ordre de deux cœurs virtuels et quatre gigaoctets de mémoire.
+API Deriv : quotas, types de contrats disponibles, tailles minimales négociables et profondeur d'historique à vérifier avant toute conception d'exécution. Or fermé le week-end. Capital réel de 100 €, qui contraint le risque par opération. Serveur de faible capacité, de l'ordre de deux cœurs virtuels et quatre gigaoctets de mémoire.
 
 ---
 
@@ -95,7 +95,7 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 - **Objectif :** obtenir de l'opérateur une réponse écrite aux questions Q-01 à Q-08 du cahier.
 - **Avancement au 2026-10-01 :** Q-02, Q-03, Q-04, Q-06, Q-08, Q-09, Q-10 et Q-11 sont résolues et consignées dans le cahier version 1.1. Restent Q-01, tranchée en TASK-004, et Q-05, action opérateur.
 - **Actions restantes :**
-  1. **Action opérateur, bloquante, révisée le 2026-10-03 :** ouvrir un **compte démo Deriv MT5** donnant accès à l'or et à la crypto, installer le terminal MetaTrader 5 sur le poste Windows, puis renseigner dans `.env` `MT5_LOGIN`, `MT5_SERVER` et `MT5_PASSWORD` avec le **mot de passe investisseur**, en lecture seule. L'identifiant d'application et le jeton d'API Deriv ne sont plus nécessaires (C-010) ;
+  1. **Action opérateur, bloquante, révisée le 2026-10-03 :** ouvrir un **compte démo Deriv MT5** donnant accès à l'or, installer le terminal MetaTrader 5 sur le poste Windows, puis renseigner dans `.env` `MT5_LOGIN`, `MT5_SERVER` et `MT5_PASSWORD` avec le **mot de passe investisseur**, en lecture seule. L'identifiant d'application et le jeton d'API Deriv ne sont plus nécessaires (C-010) ;
   2. créer deux jeux de secrets distincts, l'un pour la démonstration, l'autre pour le réel, et ne jamais les mélanger ;
   3. reporter les décisions déjà closes dans le dossier de décisions d'architecture du dépôt.
 - **Critères d'acceptation :**
@@ -104,7 +104,7 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
   - [x] aucune décision n'est laissée implicite — prouvé par les décisions closes de la phase 0 (CAHIER_DES_CHARGES.md v1.1) et docs/decisions/2026-10-07-runtime-integration.md
 - **Validation :** relecture par l'opérateur, plus tentative d'ordre effectivement refusée.
 
-> **Décisions closes le 2026-10-01, ne plus rouvrir :** Python 3.12 partout (C-004) · `backtest` en paquet séparé jamais chargé en production, mais partageant `strategies` et `analytics` (C-001) · IA en veto asymétrique, mode `shadow` par défaut (C-002) · périmètre or et crypto, capital 100 € (C-008, C-009) · **accès au courtier par Deriv MT5, Windows obligatoire (C-003, C-010, tranchés le 2026-10-03)**. Plus aucune décision d'architecture ouverte ; reste à mesurer les spécifications de contrat (TASK-003) pour écrire la formule de taille (TASK-004).
+> **Décisions closes le 2026-10-01, ne plus rouvrir :** Python 3.12 partout (C-004) · `backtest` en paquet séparé jamais chargé en production, mais partageant `strategies` et `analytics` (C-001) · IA en veto asymétrique, mode `shadow` par défaut (C-002) · périmètre or (réduit à l'or seul le 2026-11-03), capital 100 € (C-008, C-009) · **accès au courtier par Deriv MT5, Windows obligatoire (C-003, C-010, tranchés le 2026-10-03)**. Plus aucune décision d'architecture ouverte ; reste à mesurer les spécifications de contrat (TASK-003) pour écrire la formule de taille (TASK-004).
 
 ### TASK-002 — Dépôt, outillage et structure
 
@@ -137,14 +137,14 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 - [x] Statut : **DONE le 2026-10-04** · **Rapport :** `docs/reports/2026-10-03-mt5-capabilities.md`, relevé brut `.json` et script `scripts/explore_mt5.py`, en lecture seule.
 - **Résultats décisifs :** or inéligible au réel avec 100 € (marge 183,93 €) ; seul SOL est à la fois éligible au réel et raisonnablement coûteux en spread ; serveur démo à l'heure universelle, sans heure d'été ; valeur du tick MT5 fiable seulement pour l'or ; indices synthétiques présents sur le compte démo ; historique suffisant (H1 depuis 2011).
 - **Erreurs de mesure rencontrées, corrigées avant publication :** un historique faussement vide, causé par le refus en bloc de MT5 au-delà du plafond de bougies du terminal ; une relance qui n'a jamais exécuté le script, parce qu'un contrôle de style l'enchaînait en `&&` alors que le code retour affiché était celui d'un `echo` final ; une absence de cotation XRP et LTC qui s'est révélée passagère.
-- **Restent à faire :** mesure des spreads crypto un jour de semaine (préalable à Q-07) ; vérification du refus d'ordre avec le mot de passe investisseur (TASK-001), **le mot de passe actuellement configuré autorisant le trading**.
+- **Restent à faire :** vérification du refus d'ordre avec le mot de passe investisseur (TASK-001), **le mot de passe actuellement configuré autorisant le trading**.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-001 (Q-05), TASK-002
 - **Skills :** `market-data` pour la qualité de flux et la profondeur d'historique, `commodities` et `currencies-and-fx` pour lire les spécifications de l'or
 - **Objectif :** remplacer par des faits mesurés les points marqués à confirmer en section 12.1 du cahier. C'est la tâche la plus importante de la phase 0 : elle conditionne la formule de taille et l'éligibilité au mode réel.
 - **Actions :**
   1. écrire un script d'exploration jetable, hors des paquets de production, qui se connecte au terminal avec le **mot de passe investisseur** ;
   2. relever le type de compte, la devise, le levier, et vérifier que le compte est bien un compte de démonstration ;
-  3. relever les symboles visibles : nom exact de l'or, liste des cryptomonnaies disponibles ;
+  3. relever les symboles visibles : nom exact de l'or ;
   4. pour chaque symbole candidat, relever les spécifications de contrat : taille de contrat, lot minimal, pas de lot, lot maximal, taille et valeur du tick, devise de marge et de profit, marge requise pour le lot minimal, distance minimale du stop au prix, mode d'exécution, spread observé ;
   5. **calculer le risque minimal incompressible en euros** pour le lot minimal et une distance de stop typique, et le comparer au plafond de 5 % du capital réel, soit 5 €, pour appliquer RM-019 ; vérifier aussi que la **marge** du lot minimal tient dans 100 € (R-17) ;
   6. mesurer la profondeur d'historique disponible par unité de temps, en bougies et en ticks ;
@@ -156,7 +156,7 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
   - [x] chaque point à confirmer de la section 12.1 a une réponse factuelle, datée, avec les valeurs brutes renvoyées par le terminal en annexe — prouvé par docs/reports/2026-10-03-mt5-capabilities.md et son relevé brut .json
   - [x] **le lot minimal, le risque minimal et la marge minimale sont chiffrés en euros pour chaque symbole, et l'éligibilité au mode réel est tranchée** (RM-019, Q-21, R-17) — prouvé par le rapport TASK-003 et tests/risk/test_checks.py (test_gold_is_live_eligible_with_a_tight_enough_stop)
   - [x] le décalage horaire du serveur est mesuré et sa règle d'évolution établie — prouvé par le rapport TASK-003 et tests/data/test_server_clock.py
-  - [x] la liste des cryptomonnaies candidates est établie, avec spread observé et profondeur d'historique — prouvé par docs/reports/2026-10-03-mt5-capabilities.md
+  - [ ] ~~la liste des symboles du second marché est établie, avec spread observé et profondeur d'historique~~ — abandonnée (périmètre or uniquement, 2026-11-03)
   - [x] si la profondeur d'historique est insuffisante pour un backtest significatif, le risque R-03 est remonté immédiatement — sans objet : la profondeur a été jugée suffisante (H1 depuis 2011) dans le rapport TASK-003
 - **Validation :** relecture du rapport par l'opérateur.
 
@@ -164,7 +164,7 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 
 - [x] Statut : **DONE le 2026-10-04, en attente d'approbation de l'opérateur.** La formule et les règles RM-004, RM-008 et RM-012 sont écrites dans le cahier, section 9, avec trois exemples calculés à partir du relevé de TASK-003, dont un refus pour taille inférieure au lot minimal.
 - **Choix structurants :** perte par lot calculée par le terminal sur 1 lot entier ; **recoupée par un calcul indépendant, refus au-delà de 2 % d'écart** ; arrondi toujours vers le bas en décimal exact ; volume borné par la moitié de la marge libre ; `trade_tick_value` interdit ; stop jamais élargi automatiquement ; stop relu sur la position après exécution.
-- **Constat à retenir :** sur le BTC, la marge limite le volume bien avant le risque. Le risque réel sera d'environ 0,1 % par opération en démonstration, au lieu de 0,5 %.
+- **Constat à retenir :** l'exemple 3 de référence (second marché, borné par la marge) est abandonnée (périmètre or uniquement, 2026-11-03).
 - **Transmis à TASK-035 :** les trois exemples deviennent des cas de test, et les paramètres `f = 0,5` et seuil de recoupement de 2 % entrent dans la configuration du risque.
 - **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-003
 - **Objectif :** en déduire la sémantique exacte du risque pour des positions MT5.
@@ -172,9 +172,9 @@ Objectif : lever les décisions bloquantes et poser un dépôt dans lequel la pr
 - **Actions :**
   1. réécrire les règles RM-004 à RM-008 dans leur forme définitive pour des lots MT5 ;
   2. définir la formule de taille : à partir du capital, du pourcentage de risque, de la distance du stop en prix, de la taille et de la valeur du tick, du lot minimal et du pas de lot, en arrondissant **toujours vers le bas** au pas de lot, et en refusant si le résultat est inférieur au lot minimal ;
-  3. traiter la conversion de devise : les profits de l'or et de la crypto sont en dollars, le capital en euros.
+  3. traiter la conversion de devise : les profits de l'or sont en dollars, le capital en euros.
 - **Critères d'acceptation :**
-  - [x] la formule de taille est exprimée sans ambiguïté d'unité et validée par un calcul manuel sur trois exemples, dont un où l'arrondi au pas de lot fait tomber sous le lot minimal — prouvé par tests/risk/test_sizing.py (test_example_1_gold_demo, test_example_2_gold_live_is_refused_below_the_minimum_lot, test_example_3_btc_demo_is_bounded_by_margin)
+  - [x] la formule de taille est exprimée sans ambiguïté d'unité et validée par un calcul manuel sur deux exemples sur l'or, dont un où l'arrondi au pas de lot fait tomber sous le lot minimal — prouvé par tests/risk/test_sizing.py (test_example_1_gold_demo, test_example_2_gold_live_is_refused_below_the_minimum_lot) ; le troisième exemple, sur le second marché, est abandonnée (périmètre or uniquement, 2026-11-03)
   - [x] la conversion euro-dollar est explicite, avec sa source de taux — prouvé par risk/model.py (profit_to_eur) et tests/execution/test_mt5_broker.py (test_quote_derives_the_eur_loss_and_margin_from_the_terminal)
 - **Validation :** approbation de l'opérateur. **Bloque toute la phase 3 côté risque et toute la phase 8.**
 
@@ -253,7 +253,7 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
 - **Livré :** `data/terminal.py` (interface), `data/mt5_terminal.py` (seul importateur de `MetaTrader5`, vérifié par le test d'architecture), `data/server_clock.py` (unique point de conversion en UTC), `data/market_data.py` (client asynchrone).
 - **Garanties, prouvées par huit mutations toutes attrapées :** contrôle bloquant du compte au démarrage (numéro et type face au mode, RM-017) ; décalage horaire du serveur vérifié au démarrage et sur demande ; **bougie en formation toujours écartée** ; jamais plus de 99 999 bougies par demande ; chaque bougie publiée une seule fois, rattrapage dans l'ordre après une absence ; tous les appels MT5 sur un fil unique ; un symbole en erreur n'arrête pas les autres ; reprise avec délai croissant plafonné à 60 s, pause seulement entre deux tentatives, et rétablissement de la sélection de symboles.
 - **⚠ Défaut réel découvert par le test de fumée :** juste après la sélection d'un symbole, **le terminal peut renvoyer un historique en cache périmé mais complet** en nombre de bougies. Le premier lancement réel a échoué sur ce point, le second est passé une fois le terminal synchronisé. Défense ajoutée : la dernière bougie doit contenir l'heure du dernier tick, sinon le client relit, puis refuse. Un marché fermé, comme l'or le week-end, n'est pas confondu avec un historique en retard.
-- **Choix à connaître :** le premier appel à `poll_new` fixe une référence sans rien publier ; le chargement de l'historique au démarrage relève de TASK-013. Le symbole de référence pour l'horloge doit coter en continu : c'est le BTC.
+- **Choix à connaître :** le premier appel à `poll_new` fixe une référence sans rien publier ; le chargement de l'historique au démarrage relève de TASK-013. Le symbole de référence pour l'horloge devait coter en continu ; le second marché qui le fournissait est abandonnée (périmètre or uniquement, 2026-11-03), l'or fermant le week-end.
 - **Pour l'appelant (TASK-012, TASK-034) :** vérifier l'horloge régulièrement avec `verify_clock`, et traiter `ClockMismatchError` et `AccountMismatchError` comme des arrêts, pas comme des erreurs passagères.
 - **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-003, TASK-006 · **Couvre :** F-001, F-003, RM-017
 - **Skills :** `test-driven-development`, `market-data`
@@ -323,10 +323,10 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
   - `data/history.py` (`HistorySync`) : au démarrage et après une reconnexion, l'agent demande le préchauffage, ou tout ce qui manque depuis la dernière bougie stockée si c'est plus long. Une bougie de recouvrement prouve la jointure. `missing()` recense chaque trou pendant les heures ouvertes ; la bougie en formation n'est jamais comptée.
   - `quality.missing_bars` : le recensement complet, réutilisé par `assess_series`.
 - **Validation réelle :** compte démo, base SQLite jetable, le 2026-10-04.
-  - Rapatriement : 500 bougies M15 pour l'or, 499 pour le BTC (la bougie en formation est écartée).
+  - Rapatriement : 500 bougies M15 pour l'or (la bougie en formation est écartée).
   - Seconde synchronisation : 0 insertion.
   - Coupure simulée de 40 bougies : exactement 40 réinsérées, total inchangé.
-  - Contrôle de continuité sur 24 h : 0 trou sur les deux symboles.
+  - Contrôle de continuité sur 24 h : 0 trou sur l'or.
 - **Écart, ticks :** aucun tick n'est persisté. L'agent interroge les bougies (C-010) et ne garde que le dernier tick en mémoire, pour le verrou de fraîcheur. La table `ticks` et sa purge à 30 jours du cahier des charges sont sans objet tant qu'aucune agrégation locale n'est requise.
 - **Reste à faire :**
   - action 4, la collecte continue, se branche dans la boucle de l'agent (TASK-034) ;
@@ -345,16 +345,16 @@ Objectif : un flux fiable, dont l'état de santé est connu, et sur lequel aucun
 ### TASK-014 — Horaires de marché
 
 - [x] Statut : **DONE le 2026-10-04**. 14 tests, plus une validation sur les données réelles du compte démo.
-- **Corrigé le jour même : granularité au quart d'heure, apprise sur les bougies M15.** La version horaire aurait produit une fausse alerte chaque vendredi : l'or cesse de coter à 20 h 45 UTC, à l'intérieur d'une heure qui cote par ailleurs. Résultat réel : or ouvert 459 quarts d'heure sur 672, BTC 672 sur 672.
+- **Corrigé le jour même : granularité au quart d'heure, apprise sur les bougies M15.** La version horaire aurait produit une fausse alerte chaque vendredi : l'or cesse de coter à 20 h 45 UTC, à l'intérieur d'une heure qui cote par ailleurs. Résultat réel : or ouvert 459 quarts d'heure sur 672.
 - **Approche validée par l'opérateur :** le paquet MT5 ne fournit pas les horaires, donc `data/market_calendar.py` les **apprend sur les 8 dernières semaines de bougies** du courtier. Un créneau horaire est ouvert s'il a coté dans au moins 75 % de ses occurrences, incertain s'il n'a coté que certaines semaines, fermé sinon. Le calendrier doit être réappris chaque jour, ce qui absorbe les changements d'heure d'été américains en quelques semaines, l'heure concernée restant incertaine dans l'intervalle.
-- **Résultat sur données réelles :** BTC ouvert 168 heures sur 168. Or ouvert 115 heures sur 168 : pause quotidienne à 21 h UTC du lundi au jeudi, fermeture le vendredi à 21 h, réouverture le dimanche à 22 h UTC.
+- **Résultat sur données réelles :** Or ouvert 115 heures sur 168 : pause quotidienne à 21 h UTC du lundi au jeudi, fermeture le vendredi à 21 h, réouverture le dimanche à 22 h UTC.
 - **Critère « réouverture détectée sans redémarrage » :** couvert par le verrou de fraîcheur du tick (TASK-012) et le réapprentissage quotidien, à brancher dans la boucle de l'agent (TASK-034).
 - **Observation réelle sur un week-end complet :** pas encore faite. Les données apprises en couvrent huit, ce qui la rend largement redondante ; elle reste à consigner une fois l'agent en marche continue.
 - **Priorité :** P1 · **Complexité :** S · **Dépendances :** TASK-010 · **Couvre :** F-005, EF-020
 - **Actions :** interroger périodiquement les horaires par symbole, les mettre en cache, exposer l'état de marché, et gérer les jours fériés tels que retournés par l'API.
 - **Critères d'acceptation :**
   - [ ] l'état de l'or bascule correctement à la fermeture et à la réouverture de fin de semaine, vérifié sur un week-end réel — en attente : observation réelle d'un week-end complet non encore consignée ; le calendrier est appris sur huit semaines de bougies réelles (tests/data/test_market_calendar.py::test_weekend_and_daily_break_are_learned)
-  - [x] les marchés crypto restent ouverts en continu, week-end compris — prouvé par tests/data/test_market_calendar.py (test_a_market_trading_around_the_clock_is_always_open) et tests/data/test_quality.py (test_a_market_open_around_the_clock_has_no_closed_hours)
+  - [ ] ~~les marchés ouverts en continu restent ouverts, week-end compris~~ — abandonnée (périmètre or uniquement, 2026-11-03)
 - **Validation :** observation sur un week-end complet, consignée.
 
 ### QUALITY GATE — Phase 1
@@ -522,10 +522,10 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
   3. implémenter le chargeur avec validation stricte ;
   4. faire échouer le chargement si un symbole n'est pas dans les symboles autorisés du manifeste, conformément à RM-003.
 - **Critères d'acceptation :**
-  - [x] deux marchés tournent simultanément avec deux stratégies différentes et n'interfèrent pas — prouvé par tests/strategies/test_evaluation.py (test_two_markets_with_two_strategies_do_not_interfere)
-  - [x] une stratégie déclarée pour l'or est refusée sur une paire crypto — prouvé par tests/config/test_agent_config.py (test_strategy_is_refused_on_a_symbol_it_does_not_allow) et tests/strategies/test_evaluation.py (test_symbol_outside_the_manifest_is_a_programming_error)
+  - [ ] ~~deux marchés tournent simultanément avec deux stratégies différentes et n'interfèrent pas~~ (EF-003) — abandonnée (périmètre or uniquement, 2026-11-03)
+  - [x] une stratégie déclarée pour l'or est refusée sur un symbole que son manifeste n'autorise pas — prouvé par tests/config/test_agent_config.py (test_strategy_is_refused_on_a_symbol_it_does_not_allow) et tests/strategies/test_evaluation.py (test_symbol_outside_the_manifest_is_a_programming_error)
   - [x] un manifeste invalide est refusé et l'ancienne configuration reste active — prouvé par tests/config/test_catalog_reload.py (test_an_invalid_file_refuses_the_reload_and_keeps_serving)
-- **Validation :** tests, plus essai à deux marchés.
+- **Validation :** tests, plus essai à deux marchés (essai abandonné, périmètre or uniquement, 2026-11-03).
 
 ### TASK-032 — Versionnement et rechargement
 
@@ -730,7 +730,7 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 - **Livré :**
   - `runtime/` : `loop.py` (`AgentLoop` : horloge, reconnexion, interrogation des bougies, stockage, génération, pipeline, suivi des clôtures, réconciliation, limites, instantanés de compte, rapports, alertes), `pipeline.py` (`SignalPipeline` : filtre IA, décision de risque, notification avec reprise, exécution), `portfolio.py` (photo de la situation pour le moteur de risque), `ports.py` (protocols structurels : le runtime n'importe jamais `execution`).
   - `app.py` : racine de composition. Seul module avec `risk` à importer `execution`, conformément à l'exception déjà prévue par le test d'architecture. Construit le terminal MT5, le client de données, le catalogue de stratégies, le broker (MT5 ou paper), le notifier Telegram, le gardien, les alertes, les rapports et la boucle ; refuse le démarrage si un symbole configuré n'existe pas sur le compte.
-  - `config/agent.yaml` : `XAUUSD` → `witness@1.1.0`, `BTCUSD` → `trend_breakout@1.0.0` (EF-003), profils de risque simulé et réel (RM-005 à RM-007).
+  - `config/agent.yaml` : `XAUUSD` → `witness@1.1.0`, profils de risque simulé et réel (RM-005 à RM-007).
   - Commande `uv run tradingagent-run`, avec `--once` et `--cycles N` pour la vérification.
   - Commande Telegram `/report daily|weekly|monthly` (manquante de TASK-022).
 - **Reste à l'opérateur :** les essais manuels Telegram sur le serveur, et la session réelle de coût du filtre IA (TASK-037).
@@ -742,7 +742,7 @@ Objectif : produire des signaux corrects et rendre structurellement impossible q
 - [x] Le test d'architecture confirme que seul `risk` atteint `execution` (plus la racine de composition `tradingagent.app`, seule exception prévue)
 - [x] Le test de réponse de modèle malveillante passe
 - [x] L'arrêt d'urgence a été déclenché et vérifié, procédure consignée
-- [x] Deux marchés tournent avec deux stratégies distinctes (`witness@1.1.0` sur l'or, `trend_breakout@1.0.0` sur le BTC)
+- [ ] ~~Deux marchés tournent avec deux stratégies distinctes~~ (EF-003) — abandonnée (périmètre or uniquement, 2026-11-03)
 - [x] Aucun doublon de signal sous concurrence et après redémarrage
 - [x] Revue de code du paquet `risk` effectuée (TASK-035, 9 points corrigés sur 10)
 
@@ -926,7 +926,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-060 — Jeux de données historiques versionnés
 
-- [x] Statut : **DONE le 2026-10-07.** `backtest/datasets.py` : JSONL immuable (l'écriture refuse d'écraser un jeu existant, l'empreinte SHA-256 est revérifiée au chargement), identifiant, période, source, empreinte. Trous recensés par `data.quality.missing_bars`, jamais comblés. Jeu réel produit : `docs/research/datasets/XAUUSD-M15-mt5-2026-10-07.jsonl` (3 999 bougies M15, 2026-08-06 → 2026-10-07 UTC, 18 trous recensés, offset serveur 0:00:00). Aucun jeu crypto réel : la profondeur disponible est limitée et Q-07 n'est pas clos par les données.
+- [x] Statut : **DONE le 2026-10-07.** `backtest/datasets.py` : JSONL immuable (l'écriture refuse d'écraser un jeu existant, l'empreinte SHA-256 est revérifiée au chargement), identifiant, période, source, empreinte. Trous recensés par `data.quality.missing_bars`, jamais comblés. Jeu réel produit : `docs/research/datasets/XAUUSD-M15-mt5-2026-10-07.jsonl` (3 999 bougies M15, 2026-08-06 → 2026-10-07 UTC, 18 trous recensés, offset serveur 0:00:00).
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-013 · **Couvre :** F-025
 - **Actions :** télécharger l'historique disponible par symbole, contrôler doublons et trous, figer des jeux de données immuables et identifiés, séparer les données brutes des indicateurs calculés.
 - **Critères d'acceptation :**
@@ -976,16 +976,15 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 ### TASK-064 — Campagnes de recherche par marché
 
 - [x] Statut : **DONE le 2026-10-07, sur les données disponibles.** `research/campaign.py` + `scripts/backtest/run_campaign.py` : exploration multi-marchés, comparaison sur les mêmes indicateurs, sélection sur la robustesse (test décisif : une stratégie « greedy » à 1 000 € de profit mal notée est battue par une stratégie « steady » à 100 € stable), corrélations mesurées. Campagne réelle exécutée sur les 3 999 bougies XAUUSD M15 : sélection `balanced-2R` sur la stabilité (train +65,6 €, validation +27,9 €, net après coûts +15,9 €, facteur de profit 1,18), **promotion refusée** (14 trades hors échantillon < 30, rétention 0,43 < 0,50, dispersion 0,62 > 0,50, score 0,41 < 0,50). Conclusion honnête : la stratégie de référence n'a pas d'avantage démontré.
-- **Limite :** la campagne crypto n'a pas de jeu de données réel exploitable ici ; Q-07 reste donc ouvert, avec des corrélations mesurées sur données synthétiques (BTC/ETH 0,770 ; BTC/XAUUSD 0,394 ; ETH/XAUUSD 0,413).
 - **Priorité :** P0 · **Complexité :** XL · **Dépendances :** TASK-063
 - **Skills :** `dispatching-parallel-agents` et `subagent-driven-development` pour explorer plusieurs hypothèses en parallèle, chaque sous-agent ne recevant qu'un jeu de données et un manifeste
 - **Actions :** explorer le comportement de chaque marché, formuler des hypothèses, les tester, comparer sur les mêmes indicateurs, et sélectionner sur la robustesse plutôt que sur le profit brut.
-- **Attention particulière au périmètre 1.1 :** l'or et la crypto n'ont ni la même volatilité, ni la même structure de tendance, ni le même comportement de week-end. Aucune stratégie n'est transférable de l'un à l'autre, conformément à RM-003. La crypto cotant en continu, la notion de bougie journalière et de séance y est différente, ce qui affecte les indicateurs dépendant d'une clôture de séance.
+- **Périmètre réduit à l'or (2026-11-03) :** la recherche ne porte plus que sur l'or. Aucune stratégie n'est transférable à un autre marché sans validation propre, conformément à RM-003.
 - **Critères d'acceptation :**
   - [x] pour chaque marché retenu, un rapport de backtest reproductible existe — prouvé par tests/research/test_campaign.py (test_campaign_runs_every_market_and_keeps_the_holdout_sealed) et docs/research/2026-10-07-campaign.json
   - [x] la sélection est justifiée par la stabilité hors échantillon, pas par le profit net — prouvé par tests/research/test_campaign.py (test_selection_ignores_raw_net_profit)
-  - [ ] les deux à quatre cryptomonnaies définitives sont arrêtées, ce qui clôt Q-07, avec vérification que les paires retenues ne sont pas fortement corrélées entre elles — en attente : Q-07 reste ouvert, aucun historique crypto réel exploitable ; les corrélations n'ont été mesurées que sur données synthétiques
-  - [x] la corrélation entre l'or et chaque crypto retenue est mesurée, afin de ne pas cumuler involontairement le même risque sur plusieurs positions simultanées — prouvé par tests/research/test_campaign.py (test_campaign_measures_the_gold_crypto_correlation) ; mesure faite sur données synthétiques faute d'historique crypto réel, limite documentée
+  - [ ] ~~les symboles du second marché sont arrêtés, ce qui clôt Q-07~~ — abandonnée (périmètre or uniquement, 2026-11-03)
+  - [ ] ~~la corrélation entre l'or et chaque symbole du second marché est mesurée~~ — abandonnée (périmètre or uniquement, 2026-11-03)
 
 ### TASK-065 — Critères de validation et promotion
 
@@ -998,7 +997,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-066 — Volume de marché de bout en bout
 
-- [x] Statut : **DONE le 2026-11-03.** Le champ `volume` a été ajouté à `Candle` (keyword-only, défaut `None`), la règle de sommation à l'agrégation est écrite et testée (« tout ou `None` »), et la propagation depuis `copy_rates_from_pos` est faite. **Défaut trouvé en chemin :** `mt5_terminal.rates()` lisait `r["time"]`, `r["open"]`, `r["high"]`, `r["low"]`, `r["close"]` et **jetait `r["tick_volume"]`** depuis l'origine du projet. La demande de l'opérateur du 2026-10-08 (stratégie BTC à VWAP) a rendu ce gaspillage visible : **un VWAP ne peut pas exister sans volume.**
+- [x] Statut : **DONE le 2026-11-03.** Le champ `volume` a été ajouté à `Candle` (keyword-only, défaut `None`), la règle de sommation à l'agrégation est écrite et testée (« tout ou `None` »), et la propagation depuis `copy_rates_from_pos` est faite. **Défaut trouvé en chemin :** `mt5_terminal.rates()` lisait `r["time"]`, `r["open"]`, `r["high"]`, `r["low"]`, `r["close"]` et **jetait `r["tick_volume"]`** depuis l'origine du projet. La demande de l'opérateur du 2026-10-08 (stratégie à VWAP) a rendu ce gaspillage visible : **un VWAP ne peut pas exister sans volume.**
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-060 · **Couvre :** F-001, F-002, F-006
 - **Décision d'opérateur du 2026-10-08 :** le tick volume est retenu comme mesure de volume. Ce n'est pas le volume réel échangé, qui n'est pas disponible sur ce courtier ; c'est un **décompte de ticks**, et tout indicateur pondéré par ce volume doit le dire.
 - **Actions :**
@@ -1014,25 +1013,25 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - [x] l'adaptateur MT5 ne jette plus `tick_volume` — prouvé par `tests/data/test_market_data.py`
   - [x] un jeu gelé avec volume se relit à l'identique et son empreinte change avec le volume — prouvé par `tests/backtest/test_datasets.py`
   - [x] la base conserve le volume : colonne `tick_volume` ajoutée par la migration `0008`, `NULL` pour tout l'historique antérieur (jamais `0`, qui serait une mesure inventée) — prouvé par `tests/storage/test_candles.py`, et le contrôle de dérive modèle/migration `test_models_and_migration_do_not_drift` refuse un type qui divergent. **La migration est appliquée automatiquement au démarrage de l'agent** (`app.py:744` appelle `upgrade`).
-  - [x] **re-geler un jeu de données avec volume** — fait le 2026-11-03 : BTCUSD M15 (59 999 bougies, jusqu'au 2026-11-02 23:30 UTC, empreinte `f73d0375…`) et BTCUSD H1 (59 999 bougies depuis 2019-12-28, empreinte `64afc7dc…`) dans `docs/research/datasets-volume/{M15,H1}/`, 0 bougie sans volume, relus à l'identique. Les jeux du 2026-10-09 restent intacts. Volume = tick volume (décision d'opérateur du 2026-10-08)
+  - [ ] ~~**re-geler un jeu de données avec volume**~~ — abandonnée (périmètre or uniquement, 2026-11-03) pour le second marché. Le jeu avec volume qui subsiste est `docs/research/datasets-volume/XAUUSD-M15-mt5-XAUUSD-M15-2026-10-09.jsonl` (tick volume, décision d'opérateur du 2026-10-08)
 - **Skills :** `test-driven-development`, `market-data`
 
-### TASK-067 — Stratégie de base BTCUSD : VWAP, momentum, pullback/retest
+### TASK-067 — Stratégie de base VWAP, momentum, pullback/retest (second marché) — abandonnée (périmètre or uniquement, 2026-11-03)
 
-- [x] Statut : **DONE le 2026-11-03.** Le texte d'origine (« spécification reçue, non implémentée ») était **périmé** : la roadmap n'avait pas suivi le code. Le VWAP ancré à 00:00 UTC (TASK-068), la stratégie `vwap_pullback@1.4.0` (retracement vers le VWAP suivi d'un rejet confirmé, TP1 0,8 R avec clôture partielle puis stop à break-even, TP2 1,5 R), le trailing sur structure du harnais (`trailing_stop_swing_strength`) et les filtres de session, de tendance et de volume existaient déjà ; la dérogation d'opérateur du 2026-10-09 l'active en démonstration (commit `4cac7f2`). Les deux derniers écarts, **swap** et **coût total**, sont comblés par cette tâche.
+- [ ] Statut : **abandonnée (périmètre or uniquement, 2026-11-03).** Cette tâche visait la stratégie du second marché ; elle, ses jeux de données et sa configuration sont retirés du dépôt. Les livrables transverses ci-dessous (VWAP ancré à 00:00 UTC, TASK-068 ; trailing sur structure du harnais, TASK-106 ; swap en points et contrôle de coût total) restent en place et servent l'or.
 - **Priorité :** P0 · **Complexité :** L (réduite à M après relecture du code) · **Dépendances :** TASK-066, TASK-060, TASK-063
 - **Ce qui a été livré ici :**
   1. **Swap dans le backtest.** `CostModel.swap_per_day` (distance de prix par jour de détention, proratisée à la seconde, **0 par défaut** : les chiffres publiés ne bougent pas, test à l'appui). `SymbolSpec.swap_long/swap_short` est lu sur `symbol_info` du terminal, **uniquement en mode points** ; tout autre mode reste `None`, jamais une valeur supposée ;
   2. **Contrôle de coût total dans le moteur de risque**, pas dans la stratégie (décision d'opérateur du 2026-10-08) : `check_total_cost` compare spread + commission + un jour de swap à la distance jusqu'à TP1. Il ne peut que **refuser** (C-002). Plafond `max_cost_to_target`, **livré à 0,5** (décision d'opérateur du 2026-11-03, `config/agent.yaml`) : le coût total ne peut pas dépasser la moitié de la distance jusqu'à TP1, donc un trade qui n'atteint que son premier objectif garde au moins 50 % de cette distance en gain net (au-delà de 1, TP1 perdrait de l'argent). `null` désactive. Valeur de principe, pas calibrée sur une mesure de coûts réels ; à recaler après la campagne papier. Commission et swap inconnus comptent pour zéro et la raison le dit ;
   3. **TP1 porté par l'intention de trade** (`TradeIntent.take_profit`), alimenté par le pipeline.
-- **Ce qui reste hors périmètre, et pourquoi :** le seuil est posé (0,5) et `MT5Broker.quote` renseigne désormais `commission` (historique de deals des 60 derniers jours, aller-retour par lot converti en prix) et `swap_per_day` (swap du sens du trade, un crédit compte pour zéro) ; sans historique ou sans swap en points, la valeur reste inconnue. Le `PaperBroker` ne les renseigne pas (aucune valeur réelle) ; l'efficacité du filtre de tendance relève d'une campagne de recherche distincte. L'unité M1 ne peut pas porter un backtest (~12 000 bougies, 8,4 jours pour le BTC) : le walk-forward se fait en H1 et M15.
+- **Ce qui reste hors périmètre, et pourquoi :** le seuil est posé (0,5) et `MT5Broker.quote` renseigne désormais `commission` (historique de deals des 60 derniers jours, aller-retour par lot converti en prix) et `swap_per_day` (swap du sens du trade, un crédit compte pour zéro) ; sans historique ou sans swap en points, la valeur reste inconnue. Le `PaperBroker` ne les renseigne pas (aucune valeur réelle) ; l'efficacité du filtre de tendance relève d'une campagne de recherche distincte. L'unité M1 ne peut pas porter un backtest (~12 000 bougies disponibles) : le walk-forward se fait en H1 et M15.
 - **Critères d'acceptation :**
   - [x] le VWAP ancré à 00:00 UTC existe, testé, et **refuse de produire une valeur sur une série sans volume** (`tests/indicators/test_vwap.py`)
-  - [x] la règle d'entrée est un candidat de recherche mesuré par les 9 portes, jamais promu directement
+  - [ ] ~~la règle d'entrée est un candidat de recherche mesuré par les 9 portes, jamais promu directement~~ — abandonnée (périmètre or uniquement, 2026-11-03)
   - [x] l'écart entre la spec et le code est consigné (ci-dessus)
   - [x] le swap est modélisé, désactivé par défaut, et ne change aucun chiffre publié
   - [x] un contrôle de coût total existe côté risque et ne peut que refuser
-- **Skills :** `test-driven-development`, `market-data`, `crypto`
+- **Skills :** `test-driven-development`, `market-data`
 
 ### TASK-068 — VWAP de session ancré à 00:00 UTC
 
@@ -1056,7 +1055,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 - **Priorité :** P1 · **Complexité :** M · **Dépendances :** aucune · **Couvre :** spec d'opérateur du 2026-10-08 §2, §3, §4, §15
 - **Pourquoi cette tâche existe :** la découverte la plus utile qu'une analyse puisse faire — « cette stratégie gagne en tendance forte et perd en range » — est **indétectable** dans le dépôt. Rien ne dit si le marché tend, oscille, casse ou s'endort, et un opérateur ne lit pas la même chose à 03:00 et à 14:00.
 - **Décisions de conception, chacune pour une raison :**
-  1. **la pente est normalisée par l'ATR**, et la normalisation vit dans `slope_in_atr`, pas dans le seuil. Une pente de 2 points vaut beaucoup sur l'or à 4 000 et rien sur le bitcoin à 80 000 : un seuil en points serait absurde sur l'un ou trop strict sur l'autre ;
+  1. **la pente est normalisée par l'ATR**, et la normalisation vit dans `slope_in_atr`, pas dans le seuil. Une pente de 2 points vaut beaucoup sur l'or à 4 000 et rien sur un instrument qui cote à 80 000 : un seuil en points serait absurde sur l'un ou trop strict sur l'autre ;
   2. **le régime de volatilité est un rapport**, ATR courant sur sa propre moyenne. Un ATR de 3 points ne dit rien seul ;
   3. **le canal de structure exclut la barre courante.** L'y inclure rendrait toute cassure impossible, le plus haut courant contenant par construction la clôture courante ;
   4. **les séances sont en UTC**, donc en heure d'hiver pour Londres et New York. C'est assumé et nommé : la dérive d'une heure une partie de l'année vaut mieux qu'une correction non mesurée ;
@@ -1140,52 +1139,13 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-105 — Premier franchissement de seuil hors échantillon, et sa réfutation par le protocole complet
 
-- [x] Statut : **DONE le 2026-10-09**, et **aucune promotion n'en découle.** Cette tâche porte **deux résultats opposés**, et le second prime sur le premier.
+- [ ] Statut : **abandonnée (périmètre or uniquement, 2026-11-03).** Cette tâche ne portait que sur le second marché (jeu H1 natif, mesure unique sur paramètres gelés, puis protocole complet sur le même jeu). Ses jeux de données et ses résultats sont retirés du dépôt. Aucune promotion n'en avait découlé.
 - **Priorité :** P0 · **Complexité :** S · **Dépendances :** TASK-104 · **Couvre :** EF-032, EF-033, EF-034
-- **1. Ce qui a été trouvé — mesure unique sur paramètres gelés.** Le rapport de recherche demandait « du BTCUSD H1 natif depuis 2011, jamais lu ». Il a été récupéré du terminal Deriv le 2026-10-09 — **87 694 bougies, 2011-03-23 → 2026-10-09**, empreinte `e467bc32…` — et les paramètres gelés du candidat survivant (`ema_fast=25, ema_slow=50, atr=14, stop=1,5 ATR, tp=1,7`) y ont été appliqués **une seule fois**, sans aucun ajustement.
-
-| Bloc | Ops | Réussite | Net | PF |
-|---|---|---|---|---|
-| Total 2011 → 2026 | 179 | 45,8 % | +300,64 € | 1,291 |
-| **dont 2011-2024 — jamais vu** | **136** | **44,9 %** | **+186,73 €** | **1,233** |
-| dont 2025-2026 — déjà vu | 43 | 48,8 % | +113,91 € | 1,493 |
-
-- **Pourquoi c'est notable :** le seuil du dépôt est `min_profit_factor_net = 1,20`. C'est la **première fois qu'une règle de ce projet franchit un seuil hors des données qui l'ont produite** — 136 opérations, PF **1,233**.
-- **2. Et pourquoi cela ne veut PAS dire « piste validée ».** Le **protocole complet** (walk-forward à **68 plis**, robustesse des paramètres, correction de sélection multiple) a ensuite tourné sur le **même jeu**, avec un **scellé neuf de 17 540 bougies** : **8 candidats rejetés sur 8** — 7 `overfitting`, 1 `unstable`.
-
-| Candidat | Plis rentables | Dispersion | Rétention | Stabilité | Cause |
-|---|---|---|---|---|---|
-| 01 | **52,9 %** | 0,45 | 0,58 | **0,42** | `unstable` |
-| 05 | 48,5 % | 0,51 | −2,01 | 0,08 | `overfitting` |
-| 00 | 44,1 % | 1,69 | −3,05 | 0,10 | `overfitting` |
-| 02 | 42,6 % | 5,14 | −0,09 | 0,10 | `overfitting` |
-| 04 | 35,3 % | 0,24 | −1,60 | 0,25 | `overfitting` |
-| 06 | 36,8 % | 0,73 | −0,25 | 0,09 | `overfitting` |
-| 03 | 33,8 % | 0,40 | −0,77 | 0,12 | `overfitting` |
-| 07 | 30,9 % | 0,52 | −0,65 | 0,06 | `overfitting` |
-
-**Sept candidats sur huit ont une rétention hors échantillon négative** (−0,09 à −3,05).
-- **La leçon méthode, la plus importante de la phase :** un paramètre gelé appliqué en continu sur une longue série **capitalise sur des régimes favorables traversés d'affilée**. Un walk-forward exige que la règle **retrouve** son avantage à chaque fenêtre. La première mesure dit « cette règle a gagné sur cette histoire » ; la seconde dit « cette règle ne se reproduit pas ». **La seconde est la seule qui compte pour trader demain.**
-- **Conséquence directe :** le PF de 1,233 décrit correctement une mesure et **ne doit jamais être présenté comme un edge**. Aucune promotion, aucun plafond relevé, `config/strategies/` intact, `BreakoutOnly` hors du registre de production.
-- **La piste à retenir, et elle est étroite :** le candidat **01 franchit le seuil des plis (52,9 %, une première)** avec une dispersion saine (0,45) et tombe sur la stabilité de **0,42 contre 0,50 — de 0,08**. C'est le deuxième candidat du projet à échouer d'aussi peu.
-- **Le scellé neuf de 17 540 bougies H1 n'a pas été ouvert** : il reste disponible pour une prochaine tentative.
-- **Décomposition par période (mesure du point 1) :** 2011-2014 → **0 opération** ; 2015-2018 → 20 ops, PF 1,581 ; 2019-2022 → 70 ops, PF 1,241 ; 2023-2026 → 89 ops, PF 1,273.
-- **Le silence de 2011-2014 est un fait de marché, pas un bug :** le terminal ne sert que **278 à 366 bougies H1 par an** de 2011 à 2015, contre 3 692 en 2016 et ~8 700 ensuite. Le BTC des débuts traitait à peine, donc les heures sans échange n'existent pas dans les données. Une règle qui exige la cassure d'un canal de 50 heures n'a rien à faire dans un marché qui n'ouvre que quand quelqu'un échange.
-- **Les deux limites qui interdisent de crier victoire :**
-  1. **Le modèle de coûts est invraisemblable avant 2019.** Il applique `0,00007 × prix` de spread : à 0,87 $ le BTC en 2011, cela suppose **0,006 centime** de spread, quand le réel se comptait en pour cent. Le backtest est donc optimiste d'un ordre de grandeur sur la première décennie, et le PF de 1,581 (2015-2018) n'est pas fiable. **La fenêtre crédible est 2019-2026 : PF 1,259 sur 159 opérations.** C'est le chiffre à retenir.
-  2. **L'instrument n'est pas le même sur quinze ans** : le BTC à 1 $ sur un marché naissant et celui à 90 000 $ sur un marché institutionnel ne sont pas le même actif. Qu'un résultat tienne sur les deux est encourageant ; cela ne prouve pas qu'une règle les couvre.
-- **Ce que ce test ne fait pas :** il ne consomme pas le scellé M15 du BTC (jeu neuf), mais il **ne valide pas non plus** le réglage M15 — c'est un autre marché en pratique. Le scellé M15 reste **entamé à 3 ouvertures**.
-- **Critères d'acceptation :**
-  - [x] le jeu natif est gelé et versionné, avec son empreinte — `docs/research/datasets-native-h1/`
-  - [x] les paramètres sont appliqués une seule fois, sans ajustement — `scripts/backtest/confirm_breakout_h1.py`
-  - [x] le protocole complet tourne sur le même jeu, avec un scellé neuf resté fermé
-  - [x] les deux résultats opposés sont documentés ensemble, sans que le flatteur masque le décisif
-  - [x] **aucune promotion**
-- **Skills :** `test-driven-development`, `statistical-rigor`
+- **La leçon de méthode reste valable :** un paramètre gelé appliqué en continu sur une longue série capitalise sur des régimes favorables traversés d'affilée. Un walk-forward exige que la règle retrouve son avantage à chaque pli ; un profit factor issu d'une telle mesure ne doit jamais être présenté comme un edge.
 
 ### TASK-106 — Trailing sur structure : le verrou de TASK-067 est levé
 
-- [x] Statut : **DONE le 2026-10-09.** Le chantier d'architecture annoncé depuis onze rounds comme « le verrou de la stratégie BTC » est fait.
+- [x] Statut : **DONE le 2026-10-09.** Le chantier d'architecture annoncé depuis onze rounds comme « le verrou de la stratégie VWAP » est fait.
 - **Priorité :** P0 · **Complexité :** M · **Dépendances :** TASK-069, `indicators/structure.py` · **Couvre :** EF-036, EF-037
 - **Le problème, tel qu'il était écrit dans la roadmap :** « `last_swing_low` donne le niveau dont un trailing sur structure a besoin — mais le harnais ne sait toujours faire qu'un trailing à **distance fixe** (`harness.py:74`), et `SignalCandidate` fige ses niveaux au moment de la décision. La brique de calcul est là ; le chantier d'architecture reste à faire. »
 - **Pourquoi ça change quelque chose :** un trailing à distance fixe **recule quand la volatilité monte**, même si la tendance est intacte : il sort sur du bruit. Suivre les creux successifs laisse respirer un mouvement qui continue et **serre** quand la structure se dégrade — un creux plus haut veut dire que le marché refuse de redescendre.
@@ -1196,7 +1156,7 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
   - La boucle de trailing combine désormais les deux styles : suivre la structure **et** une distance ATR est possible.
 - **La garantie qui rend la chose utilisable, et elle est testée :** le harnais ne lit que les barres **jusqu'à la courante incluse**. Un creux n'étant confirmé qu'après `strength` barres, un swing non confirmé ne peut pas entrer dans le stop. `test_an_unconfirmed_swing_never_raises_the_stop` le prouve : le prix forme un creux à 98 puis s'effondre **avant** confirmation, et le stop n'est pas monté.
 - **Prix :** 8 tests dans `tests/backtest/test_structural_trailing.py`, 1 dans `tests/indicators/test_structure.py`. **Deux de mes fixtures étaient fausses** — des barres incohérentes (`low=104 > open=102,5`) que `Candle` refuse, et une assertion qui attendait `14,0` là où `13,0` est le **dernier** sommet confirmé. Le constructeur et la fonction avaient raison tous les deux.
-- **Ce qui reste pour la stratégie BTC (TASK-067) :** le trailing sur structure est disponible, mais la règle VWAP + momentum + pullback **n'est pas écrite**, et le TP1 partiel à 0,8 R suivi du passage à break-even est un comportement du **harnais** (`partial_exit_fractions` + `move_stop_to_breakeven_after_first_target`) qu'il faut configurer et mesurer, pas coder.
+- **Ce qui reste, hors de cette tâche :** le trailing sur structure est disponible, mais le TP1 partiel à 0,8 R suivi du passage à break-even est un comportement du **harnais** (`partial_exit_fractions` + `move_stop_to_breakeven_after_first_target`) qu'il faut configurer et mesurer, pas coder. La règle de la stratégie du second marché (TASK-067) est abandonnée (périmètre or uniquement, 2026-11-03).
 - **Skills :** `test-driven-development`
 
 ### QUALITY GATE — Phase 7 — **Fin de la V1**
@@ -1412,7 +1372,7 @@ TASK-001 ──► TASK-002 ──► TASK-003 ──► TASK-004 ────�
 | TASK-010 | En tant qu'opérateur, je veux que l'agent reste connecté au marché sans mon intervention, afin de ne rien manquer | P0 | TASK-003 | Reconnexion automatique vérifiée |
 | TASK-012 | En tant qu'opérateur, je veux qu'aucun signal ne soit produit sur des données douteuses, afin de ne pas agir sur du bruit | P0 | TASK-011 | Quatre scénarios dégradés bloquent le signal |
 | TASK-020 | En tant qu'opérateur, je veux être le seul à pouvoir piloter l'agent, afin d'éviter toute action non désirée | P0 | TASK-005 | Identifiant inconnu refusé |
-| TASK-031 | En tant qu'opérateur, je veux affecter une stratégie différente à chaque marché, afin de respecter leurs comportements distincts | P0 | TASK-030 | Deux marchés, deux stratégies |
+| TASK-031 | En tant qu'opérateur, je veux affecter une stratégie différente à chaque marché, afin de respecter leurs comportements distincts | P0 | TASK-030 | ~~Deux marchés, deux stratégies~~ abandonnée (périmètre or uniquement, 2026-11-03) |
 | TASK-034 | En tant qu'opérateur, je veux recevoir un signal par bougie et pas davantage, afin de ne pas ouvrir plusieurs fois la même position | P0 | TASK-031 | Unicité garantie par la base |
 | TASK-035 | En tant qu'opérateur, je veux qu'une couche indépendante puisse refuser toute opération, afin de protéger mon capital même en cas d'erreur de stratégie | P0 | TASK-004 | Chaque contrôle testé |
 | TASK-036 | En tant qu'opérateur, je veux pouvoir tout arrêter immédiatement, afin de reprendre la main en cas d'anomalie | P0 | TASK-035 | Arrêt survit au redémarrage |
@@ -1449,7 +1409,7 @@ Les risques R-01 à R-12 sont définis en section 18 du cahier. Leur prise en ch
 
 Skills réellement disponibles dans cet environnement, vérifiés présents.
 
-**Mise à jour 1.1 :** quarante skills de trading et de finance ont été installés dans `~/.claude/skills/`, sélectionnés parmi deux cent quatre-vingt-deux disponibles dans cinq dépôts publics. Le tri a écarté tout ce qui vise les actions américaines, les options, Interactive Brokers, le conseil patrimonial et la vente, sans rapport avec un agent Deriv sur l'or et la crypto. La section suivante mappe ces quarante skills aux tâches.
+**Mise à jour 1.1 :** quarante skills de trading et de finance ont été installés dans `~/.claude/skills/`, sélectionnés parmi deux cent quatre-vingt-deux disponibles dans cinq dépôts publics. Le tri a écarté tout ce qui vise les actions américaines, les options, Interactive Brokers, le conseil patrimonial et la vente, sans rapport avec un agent Deriv sur l'or. La section suivante mappe ces quarante skills aux tâches.
 
 ### Skills de domaine installés, par tâche
 
@@ -1485,7 +1445,7 @@ Ces skills apportent le savoir métier que ni le cahier ni la roadmap ne peuvent
 
 **Skills installés mais non mappés, et pourquoi.** `mt5-robot-tester` : l'option C, MetaTrader 5, est désormais retenue, mais ce skill teste en lot des robots écrits en MQL5 via le testeur de stratégies du terminal. Nos stratégies sont en Python et passent par `evaluate()`. Il ne s'applique pas, sauf si l'on décidait un jour de comparer nos résultats à ceux du testeur MT5.
 
-**Avertissement d'usage.** Ces skills proviennent de dépôts publics orientés actions américaines et courtiers américains. Leurs exemples, leurs seuils chiffrés et leurs références réglementaires ne s'appliquent pas tels quels à un compte Deriv européen négociant de l'or et de la crypto avec 100 €. **Ils apportent la méthode, jamais les valeurs.** Toute valeur numérique issue d'un de ces skills doit être revalidée contre le cahier des charges avant d'entrer dans le code.
+**Avertissement d'usage.** Ces skills proviennent de dépôts publics orientés actions américaines et courtiers américains. Leurs exemples, leurs seuils chiffrés et leurs références réglementaires ne s'appliquent pas tels quels à un compte Deriv européen négociant de l'or avec 100 €. **Ils apportent la méthode, jamais les valeurs.** Toute valeur numérique issue d'un de ces skills doit être revalidée contre le cahier des charges avant d'entrer dans le code.
 
 ### Skills de méthode
 
@@ -1524,12 +1484,11 @@ Ces skills apportent le savoir métier que ni le cahier ni la roadmap ne peuvent
 | ~242 skills des 5 dépôts de trading, non installés | Voir le détail ci-dessous |
 | Options, greeks, chaînes d'options, PMCC, collars, 0DTE (~20) | Deriv ne propose pas ces produits sur le périmètre retenu |
 | Interactive Brokers, `ib-*` (~14) | Courtier différent, API différente |
-| Screeners d'actions américaines : CANSLIM, VCP, Finviz, Stockbee, PEAD (~20) | Ni l'or ni la crypto ne sont des actions. Pas de fondamentaux, pas de résultats trimestriels |
-| Résultats, fondamentaux, initiés, flux institutionnels (~15) | Ces données n'existent pas pour l'or au comptant ni pour la crypto |
+| Screeners d'actions américaines : CANSLIM, VCP, Finviz, Stockbee, PEAD (~20) | L'or n'est pas une action. Pas de fondamentaux, pas de résultats trimestriels |
+| Résultats, fondamentaux, initiés, flux institutionnels (~15) | Ces données n'existent pas pour l'or au comptant |
 | Conseil patrimonial et conformité américaine, dépôt JoelLewis (~60) | Réglementation américaine, gestion pour compte de tiers. Hors périmètre, l'opérateur gère son propre capital sous droit français |
 | Vente et croissance, dépôt scientiacapital (~80) | Prospection, courriels à froid, CRM. Aucun rapport avec le projet |
-| `anthropic-skills:ccxt-typescript` | Places crypto, TypeScript. Deriv n'y figure pas, la stack est Python |
-| `anthropic-skills:polymarket-btc-midcandle` | Marché de prédiction, périmètre sans rapport |
+| Skills de places d'échange et de marchés de prédiction | Hors périmètre : Deriv n'y figure pas, la stack est Python |
 | Ensemble des skills marketing, environ quarante-six | Aucun besoin de commercialisation, outil personnel |
 | Ensemble des skills de design, animation, Figma, vidéo | Aucune interface graphique |
 | `react-best-practices`, `composition-patterns`, skills mobiles | Aucun frontend |
@@ -1618,7 +1577,7 @@ Pour toute tâche touchant `risk`, `execution` ou `ai`, une revue de code est ex
 
 **Skills.** Tous les skills cités ont été vérifiés comme présents dans le catalogue installé. L'absence de skill de trading est signalée explicitement plutôt que comblée par une invention.
 
-**Révision 1.1.** Le périmètre marchés a changé après vérification du compte : les indices synthétiques sont indisponibles depuis la France, remplacés par deux à quatre cryptomonnaies. Le capital de référence est fixé à 100 €, ce qui introduit la règle RM-019 et des seuils de risque différenciés par mode. Quarante skills de domaine ont été installés et mappés aux tâches. L'architecture n'est pas affectée : elle était multi-marchés et agnostique quant à la classe d'actif, ce qui a limité l'impact d'un changement de périmètre majeur à de la configuration et à de la recherche.
+**Révision 1.1.** Le périmètre marchés a changé après vérification du compte : les indices synthétiques sont indisponibles depuis la France, remplacés par l'or (un second marché y avait été ajouté, abandonné le 2026-11-03). Le capital de référence est fixé à 100 €, ce qui introduit la règle RM-019 et des seuils de risque différenciés par mode. Quarante skills de domaine ont été installés et mappés aux tâches. L'architecture n'est pas affectée : elle était multi-marchés et agnostique quant à la classe d'actif, ce qui a limité l'impact d'un changement de périmètre majeur à de la configuration et à de la recherche.
 
 **Point d'attention introduit en 1.1.** À 100 € de capital, le mode réel ne produit pas de statistiques interprétables. Le risque le plus sérieux du projet n'est plus technique mais interprétatif : conclure qu'une stratégie fonctionne ou échoue à partir d'une poignée d'opérations réelles. Le risque R-14 traite ce point, et la séparation stricte des chiffres réels et de démonstration dans les rapports en est la seule protection.
 
