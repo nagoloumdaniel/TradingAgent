@@ -647,6 +647,9 @@ def _close(position: _Position, bar: Candle, config: BacktestConfig) -> Trade:
         fraction * sign * (exit_price - position.entry_price) / position.risk_price
         for fraction, exit_price in position.contributions
     )
+    if position.risk_price > 0:
+        swap = config.costs.swap_for(bar.close_time - position.opened_at)
+        realized -= swap / position.risk_price
     pnl = Decimal(str(config.risk_eur)) * Decimal(repr(round(realized, 12)))
     pnl -= config.costs.commission()
     return Trade(

@@ -37,6 +37,13 @@ def test_every_check_passes_on_a_sound_trade(name: str) -> None:
     assert result.name == name
 
 
+def with_target(**quote_changes: Any) -> RiskContext:
+    # Gold buy at ask 2400.2, first target 2402.2: 2.0 away. The spread is 0.2.
+    base = context(intent=replace(GOLD_BUY, take_profit=D("2402.2")))
+    capped = replace(base.limits, max_cost_to_target=D("0.25"))
+    return replace(base, limits=capped, quote=replace(base.quote, **quote_changes))
+
+
 REFUSALS = {
     "not_halted/operator_halt": context(halt=HaltStatus(True, False, ("global: stop (server)",))),
     "stop_loss/missing": context(intent=replace(GOLD_BUY, stop_loss=None)),
@@ -61,6 +68,7 @@ REFUSALS = {
     "trades_today/limit": portfolio(trades_today=4),
     "spread/wide": context(quote=replace(GOLD_QUOTE, bid=D("2398.7"), ask=D("2400.2"))),
     "spread/no_stop": context(intent=replace(GOLD_BUY, stop_loss=None)),
+    "total_cost/eats_the_target": with_target(commission=D("0.5")),
     "margin/insufficient": context(account=replace(context().account, free_margin=D(300))),
     "margin/unknown": context(quote=replace(GOLD_QUOTE, margin_one_lot=None)),
     "account_currency/usd": context(account=replace(context().account, currency="USD")),
@@ -370,3 +378,47 @@ def test_a_disabled_rule_never_stops_but_reports_the_streak() -> None:
 def test_the_limit_comes_from_the_configuration() -> None:
     assert context().limits.stop_after_losses_per_day == 3
     assert context(TradingMode.LIVE).limits.stop_after_losses_per_day == 3
+
+
+# --- TASK-067: total cost against the first target; refuses only, never creates ---------
+
+
+def test_total_cost_is_not_enforced_unless_a_ceiling_is_set() -> None:
+    wide = context(
+        intent=replace(GOLD_BUY, take_profit=D("2400.4")),
+        quote=replace(GOLD_QUOTE, commission=D(5)),
+    )
+    result = run("total_cost", wide)
+    assert result.passed
+    assert "not enforced" in result.reason
+
+
+def test_total_cost_within_the_ceiling_passes() -> None:
+    # 0.2 spread / 2.0 target = 0.10, under 0.25.
+    assert run("total_cost", with_target()).passed
+
+
+def test_commission_and_swap_count_toward_the_total() -> None:
+    # 0.2 + 0.2 commission + 0.15 swap = 0.55 against a 0.5 ceiling (0.25 * 2.0).
+    result = run("total_cost", with_target(commission=D("0.2"), swap_per_day=D("0.15")))
+    assert not result.passed
+    assert "0.55" in result.reason
+
+
+def test_an_unknown_swap_is_not_invented() -> None:
+    result = run("total_cost", with_target(swap_per_day=None))
+    assert result.passed
+    assert "swap" in result.reason and "unknown" in result.reason
+
+
+def test_a_ceiling_without_a_target_refuses() -> None:
+    base = with_target()
+    result = run("total_cost", replace(base, intent=replace(base.intent, take_profit=None)))
+    assert not result.passed
+    assert result.blocked_by == "take_profit"
+
+
+def test_a_target_on_the_wrong_side_refuses() -> None:
+    base = with_target()
+    result = run("total_cost", replace(base, intent=replace(base.intent, take_profit=D(2390))))
+    assert not result.passed

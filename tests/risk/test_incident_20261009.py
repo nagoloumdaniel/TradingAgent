@@ -188,7 +188,7 @@ def test_each_stored_refusal_is_the_entry_zone_and_nothing_else(stored: Stored) 
 def test_the_other_seventeen_controls_passed_on_those_signals(stored: Stored) -> None:
     """No limit, no halt, no cooldown, no margin shortage: only the entry price was refused."""
     record = decide(stored.context(), LOGIN).checks_record()
-    assert len(record) == 19
+    assert len(record) == 20  # 19 until TASK-067 added total_cost; it passes unenforced
     assert all(entry["passed"] for name, entry in record.items() if name != "entry_zone")
     assert record["sizing"]["passed"], record["sizing"]["reason"]
 

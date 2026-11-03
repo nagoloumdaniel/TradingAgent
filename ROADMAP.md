@@ -1019,17 +1019,19 @@ Parallélisable avec les phases 2 à 5 dès que TASK-013 fournit des données. E
 
 ### TASK-067 — Stratégie de base BTCUSD : VWAP, momentum, pullback/retest
 
-- [ ] Statut : **SPÉCIFICATION REÇUE le 2026-10-08, non implémentée.** Spécification d'opérateur : régime par unité de temps (H1 → régime, M15 → structure et VWAP, M5 → setup, M1 → exécution), filtre de tendance à trois conditions, entrée sur **retracement vers le VWAP suivi d'un rejet confirmé**, sortie en trois temps (TP1 0,8 R avec 50 % de clôture puis stop à break-even, TP2 1,5 R, puis trailing), et six filtres avant entrée (structure, momentum, volume, volatilité, spread, coût).
-- **Priorité :** P0 · **Complexité :** L · **Dépendances :** TASK-066, TASK-060, TASK-063
-- **Ce que la spec exige et que le dépôt ne sait pas encore faire — à ne pas découvrir en cours de route :**
-  1. **Le trailing sur structure est structurellement impossible aujourd'hui.** `SignalCandidate` fige entrée, stop et objectifs au moment de la décision, et une stratégie est une fonction pure sans mémoire (`strategies/base.py:53`). Suivre les *higher lows* après l'entrée demande que la position se souvienne de la structure. `harness.py:74` ne sait faire qu'un trailing à **distance fixe** (`trailing_stop_atr`). C'est un chantier d'architecture, pas un paramètre ;
-  2. **`funding` n'existe pas sur ce courtier** : c'est du **swap** (financement overnight), et `CostModel` ne connaît que spread, slippage et commission. **Aucun backtest du dépôt n'a jamais payé de swap.** Pour une stratégie qui garde des positions, c'est un angle mort à combler avant de juger ;
-  3. **le filtre de coût appartient au moteur de risque**, pas à la stratégie (décision d'opérateur du 2026-10-08) : une stratégie n'a pas accès au courtier, au spread courant ni à la commission, et l'invariant « seul `risk` engage du capital » doit rester vrai ;
-  4. **l'unité d'exécution M1 ne peut pas porter un backtest** : le courtier sert ~12 000 bougies M1 (8,4 jours pour le BTC). Le walk-forward doit se faire en **H1 et M15**, où l'historique est profond (BTCUSD H1 depuis 2011-03-23, 87 573 bougies).
+- [x] Statut : **DONE le 2026-11-03.** Le texte d'origine (« spécification reçue, non implémentée ») était **périmé** : la roadmap n'avait pas suivi le code. Le VWAP ancré à 00:00 UTC (TASK-068), la stratégie `vwap_pullback@1.4.0` (retracement vers le VWAP suivi d'un rejet confirmé, TP1 0,8 R avec clôture partielle puis stop à break-even, TP2 1,5 R), le trailing sur structure du harnais (`trailing_stop_swing_strength`) et les filtres de session, de tendance et de volume existaient déjà ; la dérogation d'opérateur du 2026-10-09 l'active en démonstration (commit `4cac7f2`). Les deux derniers écarts, **swap** et **coût total**, sont comblés par cette tâche.
+- **Priorité :** P0 · **Complexité :** L (réduite à M après relecture du code) · **Dépendances :** TASK-066, TASK-060, TASK-063
+- **Ce qui a été livré ici :**
+  1. **Swap dans le backtest.** `CostModel.swap_per_day` (distance de prix par jour de détention, proratisée à la seconde, **0 par défaut** : les chiffres publiés ne bougent pas, test à l'appui). `SymbolSpec.swap_long/swap_short` est lu sur `symbol_info` du terminal, **uniquement en mode points** ; tout autre mode reste `None`, jamais une valeur supposée ;
+  2. **Contrôle de coût total dans le moteur de risque**, pas dans la stratégie (décision d'opérateur du 2026-10-08) : `check_total_cost` compare spread + commission + un jour de swap à la distance jusqu'à TP1. Il ne peut que **refuser** (C-002). Plafond `max_cost_to_target`, **non appliqué par défaut** (None) : le ratio est journalisé, aucun seuil n'est inventé. Commission et swap inconnus comptent pour zéro et la raison le dit ;
+  3. **TP1 porté par l'intention de trade** (`TradeIntent.take_profit`), alimenté par le pipeline.
+- **Ce qui reste hors périmètre, et pourquoi :** le choix du seuil `max_cost_to_target` et le renseignement de `commission` / `swap_per_day` dans les cotations du courtier dépendent d'une mesure sur le terminal et d'une décision d'opérateur ; l'efficacité du filtre de tendance relève d'une campagne de recherche distincte. L'unité M1 ne peut pas porter un backtest (~12 000 bougies, 8,4 jours pour le BTC) : le walk-forward se fait en H1 et M15.
 - **Critères d'acceptation :**
-  - [ ] le VWAP ancré à 00:00 UTC existe, testé, et **refuse de produire une valeur sur une série sans volume** plutôt que d'en inventer une — **à faire**
-  - [ ] la règle d'entrée est un candidat de recherche mesuré par les 9 portes, jamais promue directement
-  - [ ] l'écart entre la spec et le code est consigné (ci-dessus) avant toute implémentation
+  - [x] le VWAP ancré à 00:00 UTC existe, testé, et **refuse de produire une valeur sur une série sans volume** (`tests/indicators/test_vwap.py`)
+  - [x] la règle d'entrée est un candidat de recherche mesuré par les 9 portes, jamais promu directement
+  - [x] l'écart entre la spec et le code est consigné (ci-dessus)
+  - [x] le swap est modélisé, désactivé par défaut, et ne change aucun chiffre publié
+  - [x] un contrôle de coût total existe côté risque et ne peut que refuser
 - **Skills :** `test-driven-development`, `market-data`, `crypto`
 
 ### TASK-068 — VWAP de session ancré à 00:00 UTC

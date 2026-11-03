@@ -2,6 +2,7 @@
 
 import time
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import MetaTrader5 as mt5
 
@@ -36,6 +37,9 @@ _TIMEFRAMES = {
 }
 _HISTORY_SETTLE_SECONDS = 0.5
 _HISTORY_READS = 4
+
+
+_SWAP_MODE_POINTS = 1  # SYMBOL_SWAP_MODE_POINTS
 
 
 class Mt5Terminal:
@@ -141,6 +145,8 @@ class Mt5Terminal:
             point=float(info.point),
             stops_level=int(info.trade_stops_level),
             digits=int(info.digits),
+            swap_long=_swap_in_price(info, info.swap_long),
+            swap_short=_swap_in_price(info, info.swap_short),
         )
 
     def order_check(self, request: TradeRequest) -> TradeCheck:
@@ -273,3 +279,15 @@ class Mt5Terminal:
         if request.position_ticket is not None:
             fields["position"] = request.position_ticket
         return fields
+
+
+def _swap_in_price(info: Any, swap: float) -> float | None:
+    """The swap as a price distance per day, or None when the unit is not points.
+
+    MT5 reports the swap in the unit named by `swap_mode`. Points convert with the point
+    size alone; money and percentage modes need the tick value and the price at rollover,
+    which this reader does not have, so they stay unknown rather than approximate.
+    """
+    if int(info.swap_mode) != _SWAP_MODE_POINTS:
+        return None
+    return float(swap) * float(info.point)

@@ -8,6 +8,7 @@ if costs were twice as bad?` without touching the harness.
 import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
+from datetime import timedelta
 from decimal import Decimal
 
 from tradingagent.analytics.model import Performance, Trade
@@ -39,6 +40,8 @@ class CostModel:
     `spread` is the full bid/ask distance in price units; half of it is charged on each
     side. `slippage_atr_fraction` is a fraction of the ATR at decision time and
     `slippage_fixed` a constant price distance. `multiplier` scales every cost at once.
+    `swap_per_day` is the overnight financing, a price distance charged per day held (TASK-067).
+    It is zero unless the caller supplies the broker's figure: nothing here assumes one.
     """
 
     spread: float = 0.0
@@ -47,10 +50,13 @@ class CostModel:
     commission_per_trade: Decimal = DEFAULT_COMMISSION
     execution_delay_bars: int = 0
     multiplier: float = 1.0
+    swap_per_day: float = 0.0
 
     def __post_init__(self) -> None:
         if self.spread < 0 or self.slippage_atr_fraction < 0 or self.slippage_fixed < 0:
             raise ValueError("costs must not be negative")
+        if self.swap_per_day < 0:
+            raise ValueError("swap_per_day must not be negative")
         if self.commission_per_trade < 0:
             raise ValueError("commission must not be negative")
         if self.execution_delay_bars < 0:
@@ -68,6 +74,10 @@ class CostModel:
 
     def commission(self) -> Decimal:
         return self.commission_per_trade * Decimal(str(self.multiplier))
+
+    def swap_for(self, held: timedelta) -> float:
+        """Financing over the time held, in price units, prorated by the day."""
+        return self.multiplier * self.swap_per_day * held.total_seconds() / 86400.0
 
     def fill_price(self, reference: float, direction: Direction, atr: float | None) -> float:
         """The price a market order would really get: worse than the observed one."""
@@ -89,6 +99,7 @@ class CostModel:
             "commission_per_trade": str(self.commission_per_trade),
             "execution_delay_bars": self.execution_delay_bars,
             "multiplier": self.multiplier,
+            "swap_per_day": self.swap_per_day,
         }
 
 

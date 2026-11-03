@@ -42,6 +42,8 @@ class TradeIntent:
     entry_low: Decimal
     entry_high: Decimal
     stop_loss: Decimal | None
+    #: First target (TP1). Only read by `check_total_cost`; None means the caller has none.
+    take_profit: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +82,11 @@ class MarketQuote:
     # estimate is available: the unconditional guard is then `check_entry_zone`, which
     # already requires the executable price to stay inside the signal's zone.
     expected_slippage: Decimal | None = None
+    # TASK-067: round-trip commission and one day of swap, in quote-currency price units and
+    # adverse to the trade. None means the broker value is unknown: it is reported as such and
+    # never replaced by a guess.
+    commission: Decimal | None = None
+    swap_per_day: Decimal | None = None
 
     def entry_price(self, direction: Direction) -> Decimal:
         return self.ask if direction is Direction.BUY else self.bid
@@ -216,6 +223,9 @@ class RiskLimits:
     # Consecutive losses closed within one UTC day that stop trading until 00:00 UTC.
     # None disables the rule.
     stop_after_losses_per_day: int | None = DEFAULT_STOP_AFTER_LOSSES_PER_DAY
+    # TASK-067: ceiling on (spread + commission + swap) as a fraction of the distance to TP1.
+    # None means not enforced: the ratio is reported, nothing is refused.
+    max_cost_to_target: Decimal | None = None
 
     @property
     def is_live(self) -> bool:

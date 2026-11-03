@@ -86,3 +86,25 @@ def test_a_cost_stress_degrades_the_result_coherently() -> None:
     base = compare_costs(without, with_costs)
     hard = compare_costs(without, stressed)
     assert hard.net_profit_delta <= base.net_profit_delta < Decimal(0)
+
+
+# --- TASK-067: swap per day held, off by default -------------------------------------------
+
+
+def test_swap_is_zero_by_default() -> None:
+    from datetime import timedelta
+
+    assert CostModel().swap_for(timedelta(days=3)) == 0.0
+
+
+def test_swap_scales_with_the_time_held_and_the_multiplier() -> None:
+    from datetime import timedelta
+
+    model = CostModel(swap_per_day=2.0)
+    assert model.swap_for(timedelta(hours=12)) == 1.0
+    assert model.stressed(2.0).swap_for(timedelta(days=1)) == 4.0
+
+
+def test_a_negative_swap_is_refused() -> None:
+    with pytest.raises(ValueError, match="swap"):
+        CostModel(swap_per_day=-1.0)

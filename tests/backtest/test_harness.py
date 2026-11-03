@@ -518,3 +518,16 @@ def test_the_basis_is_inert_when_the_gate_is_off() -> None:
 
     assert plain.trades == shifted.trades
     assert plain.refused_entry_zone == shifted.refused_entry_zone == 0
+
+
+def test_swap_is_charged_per_day_held_in_r_of_the_risk_taken() -> None:
+    # Held one 15-minute bar; entry 100.2, stop 99.0 so one R is 1.2 price units. A swap of
+    # 96 units a day is 1.0 over a quarter of an hour: 1.0 / 1.2 R of the 10 EUR risked.
+    held = run(OneShot(NoParameters()), PNL_ROWS, costs=CostModel(swap_per_day=96.0))
+    assert float(held.trades[0].pnl_eur) == pytest.approx(15 - 10 / 1.2, abs=1e-6)
+
+
+def test_without_a_swap_the_published_numbers_do_not_change() -> None:
+    plain = run(OneShot(NoParameters()), PNL_ROWS)
+    explicit = run(OneShot(NoParameters()), PNL_ROWS, costs=CostModel(swap_per_day=0.0))
+    assert plain.trades[0].pnl_eur == explicit.trades[0].pnl_eur == Decimal("15")

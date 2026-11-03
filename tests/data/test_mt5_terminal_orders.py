@@ -73,3 +73,42 @@ def test_a_malformed_reply_is_a_terminal_error_not_an_attribute_error(
 
     with pytest.raises(TerminalError, match="order_send"):
         Mt5Terminal().order_send(any_order_request())
+
+
+# --- TASK-067: the swap the broker reports, read as price per day or not at all -------------
+
+
+def a_symbol_info(**changes: float) -> MagicMock:
+    fields = {
+        "trade_contract_size": 1.0,
+        "volume_min": 0.01,
+        "volume_step": 0.01,
+        "volume_max": 100.0,
+        "point": 0.01,
+        "trade_stops_level": 10,
+        "digits": 2,
+        "swap_mode": 1,  # SYMBOL_SWAP_MODE_POINTS
+        "swap_long": -300.0,
+        "swap_short": -50.0,
+    }
+    return MagicMock(**{**fields, **changes})
+
+
+def test_a_swap_in_points_becomes_a_price_distance_per_day(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(terminal_module.mt5, "symbol_info", lambda _s: a_symbol_info())
+
+    spec = Mt5Terminal().symbol_spec("BTCUSD")
+
+    assert spec is not None
+    assert spec.swap_long == pytest.approx(-3.0)  # -300 points * 0.01
+    assert spec.swap_short == pytest.approx(-0.5)
+
+
+def test_a_swap_in_another_unit_is_left_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Money or percentage modes need a conversion this code does not own: no guess."""
+    monkeypatch.setattr(terminal_module.mt5, "symbol_info", lambda _s: a_symbol_info(swap_mode=2))
+
+    spec = Mt5Terminal().symbol_spec("BTCUSD")
+
+    assert spec is not None
+    assert spec.swap_long is None and spec.swap_short is None

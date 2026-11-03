@@ -106,6 +106,11 @@ class SymbolSpec:
     point: float
     stops_level: int  # minimum stop distance, in points
     digits: int
+    #: Overnight financing per day for one unit, as a price distance; negative is a cost.
+    #: None when the broker reports it in a unit that is not points, or not at all. The
+    #: backtest never assumes a value (TASK-067).
+    swap_long: float | None = None
+    swap_short: float | None = None
 
 
 @dataclass(frozen=True)
