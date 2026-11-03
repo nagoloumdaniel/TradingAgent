@@ -17,7 +17,8 @@
             --muted: #55555c; --accent: #0e0e10; --ink: #fafafa; --bad: #b3261e; }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 24px;
+  body { margin: 0; min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center;
+         align-content: center; padding: 24px;
          background: var(--bg); color: var(--text);
          font: 15px/1.5 ui-sans-serif, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
   main { width: min(100%, 360px); padding: 28px 24px; border: 1px solid var(--line);
@@ -27,11 +28,17 @@
   h1 { margin: 0 0 6px; font-size: 18px; }
   p { margin: 0 0 16px; color: var(--muted); }
   label { display: block; margin: 0 0 6px; font-size: 13px; color: var(--muted); }
-  input { width: 100%; height: 48px; margin: 0 0 14px; padding: 0 14px; text-align: center;
-          letter-spacing: .6em; font: 600 22px ui-monospace, Consolas, monospace;
-          color: var(--text); background: transparent; border: 1px solid var(--line);
-          border-radius: 10px; }
-  input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pin { display: flex; gap: 10px; margin: 0 0 16px; }
+  .pin[hidden] { display: none; }
+  .pin input { flex: 1; width: 0; min-width: 0; height: 56px; padding: 0; text-align: center;
+               font: 600 24px ui-monospace, Consolas, monospace; color: var(--text);
+               background: transparent; border: 1px solid var(--line); border-radius: 10px; }
+  .pin input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pin input.filled { border-color: var(--accent); }
+  .pin-fallback { width: 100%; height: 48px; margin: 0 0 14px; padding: 0 14px; text-align: center;
+                  letter-spacing: .6em; font: 600 22px ui-monospace, Consolas, monospace;
+                  color: var(--text); background: transparent; border: 1px solid var(--line);
+                  border-radius: 10px; }
   button { width: 100%; height: 48px; border: 0; border-radius: 10px; cursor: pointer;
            background: var(--accent); color: var(--ink); font-family: inherit;
            font-size: 15px; font-weight: 600; }
@@ -54,18 +61,76 @@
   </p>
   {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
   <form method="post" action="/login" autocomplete="off">
-    <label for="pin">{% if setup %}Nouveau code{% else %}Code{% endif %}</label>
-    <input id="pin" name="pin" type="password" inputmode="numeric" pattern="{{ pin_pattern }}"
-           maxlength="{{ pin_length }}" minlength="{{ pin_length }}" required autofocus
-           autocomplete="{% if setup %}new-password{% else %}current-password{% endif %}">
-    {% if setup %}
-      <label for="confirm">Confirmer le code</label>
-      <input id="confirm" name="confirm" type="password" inputmode="numeric"
-             pattern="{{ pin_pattern }}" maxlength="{{ pin_length }}"
-             minlength="{{ pin_length }}" required autocomplete="new-password">
-    {% endif %}
+    {% macro pin_field(name, label, autocomplete) %}
+      <label id="{{ name }}-label">{{ label }}</label>
+      <div class="pin" data-pin="{{ name }}" role="group" aria-labelledby="{{ name }}-label" hidden>
+        {% for i in range(pin_length) %}
+          <input type="password" inputmode="numeric" maxlength="1" pattern="[0-9]"
+                 autocomplete="{{ autocomplete if i == 0 else 'off' }}"
+                 aria-label="Chiffre {{ i + 1 }} sur {{ pin_length }}"{% if name == 'pin' and i == 0 %} autofocus{% endif %}>
+        {% endfor %}
+        <input type="hidden" name="{{ name }}" value="">
+      </div>
+      <noscript>
+        <input class="pin-fallback" name="{{ name }}" type="password" inputmode="numeric"
+               pattern="{{ pin_pattern }}" maxlength="{{ pin_length }}" minlength="{{ pin_length }}"
+               aria-label="{{ label }}" required autocomplete="{{ autocomplete }}">
+      </noscript>
+    {% endmacro %}
+    {{ pin_field("pin", "Nouveau code" if setup else "Code", "new-password" if setup else "current-password") }}
+    {% if setup %}{{ pin_field("confirm", "Confirmer le code", "new-password") }}{% endif %}
     <button type="submit"{% if retry_after %} disabled{% endif %}>{% if setup %}Enregistrer{% else %}Entrer{% endif %}</button>
   </form>
 </main>
+<script>
+(function () {
+  var groups = document.querySelectorAll(".pin");
+  var form = document.querySelector("form");
+  groups.forEach(function (group) {
+    group.hidden = false;
+    var boxes = Array.prototype.slice.call(group.querySelectorAll("input[type=password]"));
+    var hidden = group.querySelector("input[type=hidden]");
+    function sync() {
+      hidden.value = boxes.map(function (b) { return b.value; }).join("");
+      boxes.forEach(function (b) { b.classList.toggle("filled", b.value !== ""); });
+    }
+    function fill(from, text) {
+      var digits = text.replace(/[^0-9]/g, "").split("");
+      for (var k = 0; k < digits.length && from + k < boxes.length; k++) boxes[from + k].value = digits[k];
+      sync();
+      var next = Math.min(from + digits.length, boxes.length - 1);
+      boxes[next].focus();
+    }
+    boxes.forEach(function (box, i) {
+      box.addEventListener("input", function () {
+        var v = box.value.replace(/[^0-9]/g, "");
+        box.value = "";
+        if (v) fill(i, v); else sync();
+      });
+      box.addEventListener("keydown", function (e) {
+        if (e.key === "Backspace" && box.value === "" && i > 0) {
+          boxes[i - 1].value = ""; boxes[i - 1].focus(); sync(); e.preventDefault();
+        } else if (e.key === "ArrowLeft" && i > 0) { boxes[i - 1].focus(); }
+        else if (e.key === "ArrowRight" && i < boxes.length - 1) { boxes[i + 1].focus(); }
+      });
+      box.addEventListener("paste", function (e) {
+        e.preventDefault();
+        fill(i, (e.clipboardData || window.clipboardData).getData("text"));
+      });
+      box.addEventListener("focus", function () { box.select(); });
+    });
+  });
+  form.addEventListener("submit", function (e) {
+    var ok = true;
+    groups.forEach(function (g) {
+      var h = g.querySelector("input[type=hidden]");
+      if (h.value.length !== g.querySelectorAll("input[type=password]").length) {
+        ok = false; g.querySelector("input[type=password]:not(.filled)").focus();
+      }
+    });
+    if (!ok) e.preventDefault();
+  });
+})();
+</script>
 </body>
 </html>
