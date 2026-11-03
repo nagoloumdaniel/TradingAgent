@@ -75,7 +75,7 @@ def test_system_page_says_when_there_is_no_bridge(seeded_client: TestClient) -> 
 def test_overview_draws_a_missing_bridge_as_an_idle_dot(seeded_client: TestClient) -> None:
     """The overview carries a state, not a sentence: one dot per market, no guardian table."""
     body = seeded_client.get("/").text
-    assert "Santé des marchés" in body
+    assert "Santé" in body
     assert 'data-state="idle"' in body
     assert "Gardiens EA" not in body
 

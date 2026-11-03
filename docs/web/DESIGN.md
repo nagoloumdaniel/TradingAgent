@@ -29,7 +29,7 @@ La pastille (`.dot`, macro `dot()` de `_macros.html`) porte l'état : `role="img
 - Carte Solde de l'accueil, coin haut droit : vert actif, rouge arrêt (la bannière rouge apparaît
   seulement pour donner les motifs), ambre si une garde EA est en arrêt, un EA est hors ligne, un
   marché n'a aucune donnée ou des données de plus de 24 h.
-- Accueil, « Santé des marchés » : deux pastilles par marché (EA, données).
+- Accueil, « Santé » : deux pastilles (EA, données) pour XAUUSD.
 - Positions : état du flux SSE (`role="status"`, `aria-live="polite"`, texte hors écran mis à jour).
 - Risque et Système : base de données, arrêt global.
 
@@ -38,7 +38,8 @@ La pastille (`.dot`, macro `dot()` de `_macros.html`) porte l'état : `role="img
 | Page | Changement |
 |---|---|
 | Chrome | Étiquette « lecture seule » retirée du bandeau ; pied de page réduit à l'heure de rendu UTC (la phrase sur l'EUR et l'UTC redisait les en-têtes). |
-| Accueil | Bannière « Trading actif » remplacée par la pastille. Quatre KPI en tête (solde, P&L du jour, positions ouvertes, drawdown). Résultat et statistiques en deux panneaux de chiffres au lieu de 14 cartes à notes. Positions ouvertes remontent avant « Par marché ». Les deux tableaux EA et données de marché (doublons de Système) deviennent « Santé des marchés ». |
+| Accueil | Bannière « Trading actif » remplacée par la pastille. Quatre KPI en tête (solde, P&L du jour, positions ouvertes, drawdown). Résultat et statistiques en deux panneaux de chiffres au lieu de 14 cartes à notes. Positions ouvertes remontent avant les statistiques. Les deux tableaux EA et données de marché (doublons de Système) deviennent « Santé ». |
+| Accueil (XAUUSD seul) | Camembert « Répartition par marché » et tableau « Par marché » retirés. Sélecteur de marché masqué tant qu'un seul marché existe. Carte « Marchés connus » retirée de Système. |
 | Positions | Paragraphe d'état remplacé par deux cartes (ouvertes avec pastille du flux, historique). Texte d'alertes retiré. |
 | Trades | Titre et phrase de sélection retirés (dans la légende du tableau). Exports globaux retirés (déjà dans Rapports). Notes « sur la sélection » retirées. |
 | Risque | Bannière « Aucun arrêt actif » et paragraphes « lecture seule » retirés ; état global en pastille. Tableau EA réduit à ce qui concerne le risque (le détail est dans Système). |

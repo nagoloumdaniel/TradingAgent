@@ -45,7 +45,7 @@ def test_navigation_lists_every_page(seeded_client: TestClient) -> None:
         assert f'href="{path}"' in body
 
 
-def test_overview_shows_the_dataset_and_the_total(seeded_client: TestClient) -> None:
+def test_overview_shows_the_dataset(seeded_client: TestClient) -> None:
     body = seeded_client.get("/").text
     assert "16.75" in body  # lifetime net profit
     assert "3.25" in body  # day
@@ -54,7 +54,6 @@ def test_overview_shows_the_dataset_and_the_total(seeded_client: TestClient) -> 
     assert "1012.00" in body  # equity
     assert "38.00" in body  # current drawdown
     assert "4.00" in body  # max drawdown from analytics
-    assert "TOTAL" in body
     assert "60.0 %" in body  # win rate: 3 of 5
     assert "3.79" in body  # profit factor 22.75 / 6.00
 

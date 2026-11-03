@@ -121,83 +121,7 @@
     <div class="chart is-loading" data-chart="pnl-bars" aria-busy="true"></div>
   </section>
 
-  <section class="mod" aria-labelledby="h-split">
-    {{ head("h-split", "pie", "Répartition par marché") }}
-    <div class="chart is-loading" data-chart="markets" aria-busy="true"></div>
-  </section>
-
-  <section class="mod wide" aria-labelledby="h-stats">
-    {{ head("h-stats", "gauge", "Performance", display.percent(t.win_rate) ~ " réussite") }}
-    {% if t.insufficient_sample %}
-      <div class="banner warn">{{ icon("alert-triangle") }}Échantillon insuffisant ({{ t.trades }} trades) : Sharpe et Sortino sont masqués.</div>
-    {% endif %}
-    <dl class="stats dense">
-      <div class="stat"><dt>Résultat net (total)</dt>
-        <dd class="{{ display.ratio_class(t.net_profit) }}">{{ display.money(t.net_profit, signed=True) }}
-          <small>{{ t.trades }} trade(s) clôturé(s)</small></dd></div>
-      <div class="stat" title="Gagnants / perdants"><dt>Trades</dt><dd>{{ t.trades }} <small>{{ t.wins }} / {{ t.losses }}</small></dd></div>
-      <div class="stat" title="Part des trades gagnants"><dt>Réussite</dt><dd>{{ display.percent(t.win_rate) }}</dd></div>
-      <div class="stat" title="Montants bruts : profit {{ display.money(t.gross_profit) }}, perte {{ display.money(t.gross_loss) }}"><dt>Facteur de profit</dt><dd>{{ display.ratio(t.profit_factor) }}</dd></div>
-      <div class="stat" title="Par trade. Gain moyen {{ display.number(t.average_win) }}, perte moyenne {{ display.number(t.average_loss) }}"><dt>Espérance</dt><dd>{{ display.number(t.expectancy) }}</dd></div>
-      <div class="stat" title="Meilleur et pire trade"><dt>Meilleur / pire</dt><dd>{{ display.money(t.best) }} <small>{{ display.money(t.worst) }}</small></dd></div>
-      <div class="stat" title="Séries consécutives, gagnantes / perdantes"><dt>Séries</dt><dd>{{ t.max_win_streak }} / {{ t.max_loss_streak }}</dd></div>
-      <div class="stat" title="Non annualisés (multiples rendement/risque)"><dt>Sharpe / Sortino</dt><dd>{{ display.ratio(t.sharpe) }} / {{ display.ratio(t.sortino) }}</dd></div>
-      <div class="stat" title="Par position clôturée"><dt>Durée moyenne</dt><dd>{{ display.duration(t.average_position_duration) }}</dd></div>
-      <div class="stat" title="Glissement moyen. Spread moyen {{ display.number(t.average_spread, 4) }}"><dt>Glissement / spread</dt><dd>{{ display.number(t.average_slippage, 4) }} <small>{{ display.number(t.average_spread, 4) }}</small></dd></div>
-      <div class="stat" title="Résultat net / risque engagé"><dt>Rendement / risque</dt><dd>{{ display.ratio(t.realized_rr) }}</dd></div>
-    </dl>
-  </section>
-</div>
-
-<div class="dash">
-{% call fold("h-markets", "layers", "Par marché", (data.markets | length) ~ " marché(s)", "span-2") %}
-
-<div class="table-wrap">
-<table>
-  <caption class="sr-only">Performance par marché</caption>
-  <thead>
-    <tr>
-      <th scope="col">Marché</th><th scope="col" class="num">Trades</th><th scope="col" class="num">Gagnants</th><th scope="col" class="num">Perdants</th>
-      <th scope="col" class="num">Réussite</th><th scope="col" class="num">Résultat net</th><th scope="col" class="num">Facteur de profit</th>
-      <th scope="col" class="num">Drawdown max</th><th scope="col" class="num">Positions ouvertes</th><th scope="col" class="num">Notionnel</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for market in data.markets %}
-      <tr>
-        <td>{{ market.market }}</td>
-        <td class="num">{{ market.performance.trades }}</td>
-        <td class="num">{{ market.performance.wins }}</td>
-        <td class="num">{{ market.performance.losses }}</td>
-        <td class="num">{{ display.percent(market.performance.win_rate) }}</td>
-        <td class="num {{ display.ratio_class(market.performance.net_profit) }}">{{ display.money(market.performance.net_profit, signed=True) }}</td>
-        <td class="num">{{ display.ratio(market.performance.profit_factor) }}</td>
-        <td class="num">{{ display.money(market.performance.max_drawdown) }}</td>
-        <td class="num">{{ market.open_positions }}</td>
-        <td class="num">{{ display.money(market.notional) }}</td>
-      </tr>
-    {% else %}
-      <tr><td colspan="10" class="empty">Aucun marché suivi.</td></tr>
-    {% endfor %}
-    <tr class="total">
-      <td>TOTAL</td>
-      <td class="num">{{ t.trades }}</td>
-      <td class="num">{{ t.wins }}</td>
-      <td class="num">{{ t.losses }}</td>
-      <td class="num">{{ display.percent(t.win_rate) }}</td>
-      <td class="num">{{ display.money(t.net_profit, signed=True) }}</td>
-      <td class="num">{{ display.ratio(t.profit_factor) }}</td>
-      <td class="num">{{ display.money(t.max_drawdown) }}</td>
-      <td class="num">{{ data.positions | length }}</td>
-      <td class="num">{{ display.money(data.markets | sum(attribute='notional')) }}</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-
-{% endcall %}
-
-{% call fold("h-health", "activity", "Santé des marchés", (health | length) ~ " marché(s)", "") %}
+{% call fold("h-health", "activity", "Santé", "", "") %}
 {# Santé par marché : deux pastilles. Le détail (battements, journal, protocole) vit sur
    la page Système ; on ne le recopie pas ici. #}
 {% set guardians = {} %}
@@ -225,6 +149,30 @@
 
 {% endcall %}
 
+  <section class="mod wide" aria-labelledby="h-stats">
+    {{ head("h-stats", "gauge", "Performance", display.percent(t.win_rate) ~ " réussite") }}
+    {% if t.insufficient_sample %}
+      <div class="banner warn">{{ icon("alert-triangle") }}Échantillon insuffisant ({{ t.trades }} trades) : Sharpe et Sortino sont masqués.</div>
+    {% endif %}
+    <dl class="stats dense">
+      <div class="stat"><dt>Résultat net (total)</dt>
+        <dd class="{{ display.ratio_class(t.net_profit) }}">{{ display.money(t.net_profit, signed=True) }}
+          <small>{{ t.trades }} trade(s) clôturé(s)</small></dd></div>
+      <div class="stat" title="Gagnants / perdants"><dt>Trades</dt><dd>{{ t.trades }} <small>{{ t.wins }} / {{ t.losses }}</small></dd></div>
+      <div class="stat" title="Part des trades gagnants"><dt>Réussite</dt><dd>{{ display.percent(t.win_rate) }}</dd></div>
+      <div class="stat" title="Montants bruts : profit {{ display.money(t.gross_profit) }}, perte {{ display.money(t.gross_loss) }}"><dt>Facteur de profit</dt><dd>{{ display.ratio(t.profit_factor) }}</dd></div>
+      <div class="stat" title="Par trade. Gain moyen {{ display.number(t.average_win) }}, perte moyenne {{ display.number(t.average_loss) }}"><dt>Espérance</dt><dd>{{ display.number(t.expectancy) }}</dd></div>
+      <div class="stat" title="Meilleur et pire trade"><dt>Meilleur / pire</dt><dd>{{ display.money(t.best) }} <small>{{ display.money(t.worst) }}</small></dd></div>
+      <div class="stat" title="Séries consécutives, gagnantes / perdantes"><dt>Séries</dt><dd>{{ t.max_win_streak }} / {{ t.max_loss_streak }}</dd></div>
+      <div class="stat" title="Non annualisés (multiples rendement/risque)"><dt>Sharpe / Sortino</dt><dd>{{ display.ratio(t.sharpe) }} / {{ display.ratio(t.sortino) }}</dd></div>
+      <div class="stat" title="Par position clôturée"><dt>Durée moyenne</dt><dd>{{ display.duration(t.average_position_duration) }}</dd></div>
+      <div class="stat" title="Glissement moyen. Spread moyen {{ display.number(t.average_spread, 4) }}"><dt>Glissement / spread</dt><dd>{{ display.number(t.average_slippage, 4) }} <small>{{ display.number(t.average_spread, 4) }}</small></dd></div>
+      <div class="stat" title="Résultat net / risque engagé"><dt>Rendement / risque</dt><dd>{{ display.ratio(t.realized_rr) }}</dd></div>
+    </dl>
+  </section>
+</div>
+
+<div class="dash">
 {% call fold("h-strat", "flask", "Stratégies", (data.strategies | length) ~ " au registre", "wide") %}
 
 <div class="table-wrap">

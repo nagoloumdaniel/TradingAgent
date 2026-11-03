@@ -16,8 +16,9 @@ def test_overview_embeds_chart_data_and_local_scripts(seeded_client: TestClient)
     body = seeded_client.get("/").text
     data = _payload(body)
     assert {"equity", "trades", "markets", "drawdown", "now"} <= set(data)
-    for kind in ("equity", "pnl-bars", "markets"):
+    for kind in ("equity", "pnl-bars"):
         assert f'data-chart="{kind}"' in body
+    assert 'data-chart="markets"' not in body
     assert "/static/js/charts.js" in body and "/static/js/ux.js" in body
     assert not re.search(r'(?:src|href)="https?://', body)
 
@@ -76,7 +77,7 @@ def test_replay_embeds_levels_for_the_interactive_chart(seeded_client: TestClien
 
 def test_heavy_modules_are_native_folds_with_a_key_value(seeded_client: TestClient) -> None:
     body = seeded_client.get("/").text
-    assert body.count('<details class="mod fold') >= 4
+    assert body.count('<details class="mod fold') >= 3
     assert 'class="fold-val"' in body
 
 
