@@ -23,7 +23,7 @@ proposed nothing, ever. Now the measured baseline and the accepted candidate are
 evidence, and `DailyLab._evidence` finds them.
 
 Nothing here promotes anything. An accepted variation is a *candidate*: it earns the gates
-like every other one, `max_mode` stays SIGNAL, and `write_candidate` still refuses to write
+like every other one, `max_mode` stays DEMO, and `write_candidate` still refuses to write
 under `config/strategies/`.
 
     uv run python scripts/backtest/improve.py
@@ -222,7 +222,7 @@ def config_for(market: str, dataset: CandleDataset) -> BacktestConfig:
     return BacktestConfig(
         symbol=market,
         costs=campaign_costs(price),
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         max_concurrent_positions=1,
     )
 
@@ -589,7 +589,7 @@ def write_attempts(
         "comparisons_made": comparisons,
         "decided_at": datetime.now(UTC).isoformat(),
         "note": (
-            "Candidat, pas une promotion. max_mode reste SIGNAL tant que les portes de "
+            "Candidat, pas une promotion. max_mode reste DEMO tant que les portes de "
             f"validation ne sont pas franchies. {comparisons} comparaison(s) ont été faites : "
             "ce nombre doit entrer dans la correction du test multiple."
         ),

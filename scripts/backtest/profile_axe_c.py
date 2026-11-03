@@ -98,7 +98,7 @@ def config_for(symbol: str, dataset: CandleDataset) -> BacktestConfig:
             slippage_fixed=round(price * 0.00002, 6),
             commission_per_trade=Decimal("0.5"),
         ),
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         max_concurrent_positions=1,
     )
 

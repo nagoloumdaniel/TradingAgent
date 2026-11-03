@@ -31,7 +31,7 @@ from tradingagent.strategies.manifest import StrategyManifest
 BASE = {
     "strategy_id": "digest_probe",
     "version": "1.0.0",
-    "max_mode": "SIGNAL",
+    "max_mode": "DEMO",
     "allowed_symbols": ["XAUUSD"],
     "timeframes": ["M15"],
     "history_bars": 300,

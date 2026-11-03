@@ -66,7 +66,7 @@ def test_invalid_mt5_login_blocks_startup(env: pytest.MonkeyPatch, login: str) -
 
 def test_default_mode_is_signal_and_live_is_off(env: pytest.MonkeyPatch) -> None:
     settings = load_settings()
-    assert settings.trading_mode is TradingMode.SIGNAL
+    assert settings.trading_mode is TradingMode.DEMO
     assert settings.live_trading_enabled is False
 
 

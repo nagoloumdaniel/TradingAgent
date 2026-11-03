@@ -45,7 +45,14 @@
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   button:active { transform: scale(.98); }
   .error { margin: 0 0 14px; color: var(--bad); font-size: 14px; }
-  @media (prefers-reduced-motion: reduce) { button:active { transform: none; } }
+  button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+  button.loading { position: relative; color: transparent; cursor: progress; }
+  button.loading::after { content: ""; position: absolute; inset: 0; margin: auto; width: 20px; height: 20px;
+                          border: 2px solid var(--ink); border-right-color: transparent; border-radius: 50%;
+                          animation: spin .7s linear infinite; }
+  .pin.busy input { opacity: .5; pointer-events: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { button:active { transform: none; } button.loading::after { animation-duration: 1.6s; } }
 </style>
 </head>
 <body>
@@ -86,6 +93,21 @@
 (function () {
   var groups = document.querySelectorAll(".pin");
   var form = document.querySelector("form");
+  var button = form.querySelector("button[type=submit]");
+  var sent = false;
+  function complete() {
+    var ok = true;
+    groups.forEach(function (g) {
+      if (g.querySelector("input[type=hidden]").value.length !== g.querySelectorAll("input[type=password]").length) ok = false;
+    });
+    return ok;
+  }
+  function autoSubmit() {
+    if (!sent && !button.disabled && complete()) form.requestSubmit();
+  }
+  window.addEventListener("pageshow", function (e) {
+    if (e.persisted) { sent = false; button.disabled = false; button.classList.remove("loading"); groups.forEach(function (g) { g.classList.remove("busy"); }); }
+  });
   groups.forEach(function (group) {
     group.hidden = false;
     var boxes = Array.prototype.slice.call(group.querySelectorAll("input[type=password]"));
@@ -100,6 +122,7 @@
       sync();
       var next = Math.min(from + digits.length, boxes.length - 1);
       boxes[next].focus();
+      autoSubmit();
     }
     boxes.forEach(function (box, i) {
       box.addEventListener("input", function () {
@@ -128,7 +151,12 @@
         ok = false; g.querySelector("input[type=password]:not(.filled)").focus();
       }
     });
-    if (!ok) e.preventDefault();
+    if (!ok || sent) { e.preventDefault(); return; }
+    sent = true;
+    button.classList.add("loading");
+    button.setAttribute("aria-busy", "true");
+    groups.forEach(function (g) { g.classList.add("busy"); });
+    setTimeout(function () { button.disabled = true; }, 0);
   });
 })();
 </script>

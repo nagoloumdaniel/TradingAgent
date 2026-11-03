@@ -28,7 +28,7 @@ NOW = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)
 MANIFEST = StrategyManifest(
     strategy_id="witness",
     version="1.0.0",
-    max_mode=TradingMode.SIGNAL,
+    max_mode=TradingMode.DEMO,
     allowed_symbols=("XAUUSD",),
     timeframes=(Timeframe.M15,),
     history_bars=20,

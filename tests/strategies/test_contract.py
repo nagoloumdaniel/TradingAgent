@@ -93,7 +93,7 @@ def manifest(strategy_id: str) -> StrategyManifest:
         {
             "strategy_id": strategy_id,
             "version": "1.0.0",
-            "max_mode": "SIGNAL",
+            "max_mode": "DEMO",
             "allowed_symbols": [GOLD],
             "timeframes": ["M15"],
             "history_bars": 3,

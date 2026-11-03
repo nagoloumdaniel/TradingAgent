@@ -483,7 +483,7 @@ def a_closed_trade_fact() -> ClosedTradeFact:
             strategy_ref=REF,
             direction=Direction.BUY,
             timeframe=Timeframe.M15,
-            mode=TradingMode.SIGNAL,
+            mode=TradingMode.DEMO,
             opened_at=NOW - timedelta(hours=4),
             closed_at=NOW - timedelta(hours=1),
             pnl_eur=Decimal("-12.5"),

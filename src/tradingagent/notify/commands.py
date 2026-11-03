@@ -31,9 +31,6 @@ Handler = Callable[[CommandRequest], Awaitable[str]]
 # The mode must never be ambiguous: real money is spelled out and flagged. This long form is
 # for the answers to a command, where the operator asked for the detail.
 MODE_LABELS = {
-    TradingMode.OBSERVATION: "OBSERVATION (aucun signal envoyé, aucun ordre)",
-    TradingMode.SIGNAL: "SIGNAL (signaux seulement, aucun ordre)",
-    TradingMode.PAPER: "PAPER (ordres simulés, aucun argent engagé)",
     TradingMode.DEMO: "DÉMO (ordres sur le compte de démonstration)",
     TradingMode.LIVE: "⚠️ RÉEL ⚠️ (ordres avec de l'argent réel)",
 }
@@ -41,9 +38,6 @@ MODE_LABELS = {
 # One word, for the messages the agent pushes without being asked: a signal is already
 # three lines of numbers, the parenthetical does not survive the trip to a phone.
 MODE_SHORT_LABELS = {
-    TradingMode.OBSERVATION: "OBSERVATION",
-    TradingMode.SIGNAL: "SIGNAL",
-    TradingMode.PAPER: "PAPER",
     TradingMode.DEMO: "DÉMO",
     TradingMode.LIVE: "RÉEL",
 }

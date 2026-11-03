@@ -79,8 +79,8 @@ def test_the_mode_is_unmistakable(mode: TradingMode, must_have: str, must_not_ha
 
 def test_the_parenthetical_mode_label_is_gone_from_the_pushed_message() -> None:
     """The operator asked for brief: one word, not a sentence inside a number block."""
-    message = render_signal_message(a_notice(mode=TradingMode.SIGNAL))
-    assert "Mode : SIGNAL" in message
+    message = render_signal_message(a_notice(mode=TradingMode.DEMO))
+    assert "Mode : DÉMO" in message
     assert "signaux seulement" not in message
 
 

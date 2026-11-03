@@ -1,8 +1,8 @@
 # Reference strategy: proves the mechanics end to end. NOT meant to be traded.
-# max_mode must stay SIGNAL (TASK-033); tests/strategies/test_witness.py enforces it.
+# max_mode is DEMO (TASK-033); tests/strategies/test_witness.py enforces it.
 strategy_id: witness
 version: 1.0.0
-max_mode: SIGNAL
+max_mode: DEMO
 allowed_symbols: [frxXAUUSD]
 timeframes: [M15]
 # 6 x ema_slow: recursive indicators need warm-up for backtest/production parity.

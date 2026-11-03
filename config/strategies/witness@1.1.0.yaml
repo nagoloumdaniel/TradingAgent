@@ -1,9 +1,9 @@
 # Production manifest for gold. Supersedes 1.0.0, which referenced the inexistent
-# `frxXAUUSD` (see ROADMAP.md, Project Context). max_mode stays SIGNAL until a strategy
+# `frxXAUUSD` (see ROADMAP.md, Project Context). max_mode stays DEMO until a strategy
 # is validated out of sample and promoted through TASK-065 (RM-016).
 strategy_id: witness
 version: 1.1.0
-max_mode: SIGNAL
+max_mode: DEMO
 allowed_symbols: [XAUUSD]
 timeframes: [M15]
 # 6 x ema_slow: recursive indicators need warm-up for backtest/production parity.

@@ -69,7 +69,7 @@ NOTABLE_REFUSALS = frozenset(
 )
 SEND_ATTEMPTS = 3
 SEND_BACKOFF_SECONDS = 2.0
-EXECUTING_MODES = frozenset({TradingMode.PAPER, TradingMode.DEMO, TradingMode.LIVE})
+EXECUTING_MODES = frozenset({TradingMode.DEMO, TradingMode.LIVE})
 
 
 @dataclass(frozen=True)

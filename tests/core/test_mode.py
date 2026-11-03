@@ -2,15 +2,11 @@ from tradingagent.core.mode import AiFilter, TradingMode, mode_rank
 
 
 def test_modes_are_ranked_from_least_to_most_exposed() -> None:
-    ordered = [
-        TradingMode.OBSERVATION,
-        TradingMode.SIGNAL,
-        TradingMode.PAPER,
-        TradingMode.DEMO,
-        TradingMode.LIVE,
-    ]
-    ranks = [mode_rank(mode) for mode in ordered]
-    assert ranks == sorted(set(ranks))
+    assert mode_rank(TradingMode.DEMO) < mode_rank(TradingMode.LIVE)
+
+
+def test_only_demo_and_live_exist() -> None:
+    assert {mode.value for mode in TradingMode} == {"DEMO", "LIVE"}
 
 
 def test_every_mode_has_a_rank() -> None:

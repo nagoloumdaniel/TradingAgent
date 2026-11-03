@@ -118,7 +118,7 @@ def test_realized_pnl_only_counts_the_requested_mode(engine: Engine) -> None:
     instance = journal(engine)
     for mode, ticket, at in (
         (TradingMode.DEMO, 1, NOW),
-        (TradingMode.PAPER, 2, NOW + timedelta(minutes=15)),
+        (TradingMode.LIVE, 2, NOW + timedelta(minutes=15)),
     ):
         signal_id = make_signal(engine, mode, at)
         order = request(key=f"key-{mode}", signal_id=signal_id, mode=mode)
@@ -144,7 +144,7 @@ def test_realized_pnl_only_counts_the_requested_mode(engine: Engine) -> None:
         )
 
     assert instance.realized_pnl(TradingMode.DEMO) == Decimal("5")
-    assert instance.realized_pnl(TradingMode.PAPER) == Decimal("-7")
+    assert instance.realized_pnl(TradingMode.LIVE) == Decimal("-7")
     with engine.connect() as connection:
         states = [row.state for row in connection.execute(select(PositionRow)).all()]
     assert states == [PositionState.CLOSED, PositionState.CLOSED]

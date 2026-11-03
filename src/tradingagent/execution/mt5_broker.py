@@ -15,7 +15,7 @@ The rules this module enforces, in order, for every single order:
    retries are spent, a stop that is still not there triggers an immediate close and an alert.
 5. Requested price, executed price and the gap between them are recorded, and the order,
    the fill and the position are journalled by the executor (the single writer of `orders`,
-   `positions`, `executions` and `trades`, PAPER and DEMO alike). `reconcile` collects the
+   `positions`, `executions` and `trades`, DEMO and LIVE alike). `reconcile` collects the
    closures the broker made on its own before comparing states, so a stop-out is a trade to
    journal rather than a divergence to halt on.
 """
@@ -139,7 +139,7 @@ def _utc_now() -> datetime:
 
 
 class MT5Broker:
-    """The DEMO and LIVE executor. PAPER is refused here and handled by PaperBroker."""
+    """The DEMO and LIVE executor."""
 
     def __init__(
         self,
@@ -157,8 +157,6 @@ class MT5Broker:
         stop_readback_attempts: int = STOP_READBACK_ATTEMPTS,
         stop_readback_pause: float = STOP_READBACK_PAUSE,
     ) -> None:
-        if mode is TradingMode.PAPER:
-            raise ValueError("PAPER mode uses PaperBroker, never the terminal")
         self._terminal = terminal
         self._log = log_
         self._login = login

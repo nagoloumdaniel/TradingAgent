@@ -35,9 +35,6 @@ EURO = "\N{EURO SIGN}"
 
 _DIRECTIONS = {Direction.BUY: "Achat", Direction.SELL: "Vente"}
 _MODES = {
-    TradingMode.OBSERVATION: "Observation",
-    TradingMode.SIGNAL: "Signal",
-    TradingMode.PAPER: "Papier",
     TradingMode.DEMO: "Démo",
     TradingMode.LIVE: "Réel",
 }

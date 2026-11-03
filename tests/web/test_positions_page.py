@@ -42,7 +42,7 @@ def _stack(engine: Engine, count: int = 13) -> list[int]:
                 direction=Direction.SELL if index % 4 == 1 else Direction.BUY,
                 generated_at=seed.NOW - timedelta(minutes=index + 1),
                 closed=True,
-                mode=TradingMode.DEMO if index == 0 else TradingMode.PAPER,
+                mode=TradingMode.DEMO if index == 0 else TradingMode.LIVE,
                 exit_reason="stop_loss" if index == 1 else "take_profit",
             )
         )

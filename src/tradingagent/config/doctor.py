@@ -110,8 +110,8 @@ KEYS: tuple[KeySpec, ...] = (
     ),
     KeySpec(
         "TRADING_MODE",
-        "mode de démarrage : OBSERVATION, SIGNAL, PAPER ou DEMO",
-        "Défaut SIGNAL. LIVE ne peut pas être posé ici seul (RM-000)",
+        "mode de démarrage : DEMO (démo) ou LIVE (réel)",
+        "Défaut DEMO. LIVE ne peut pas être posé ici seul (RM-000)",
         required=False,
     ),
     KeySpec(

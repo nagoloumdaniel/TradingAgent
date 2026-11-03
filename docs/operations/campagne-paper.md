@@ -4,17 +4,14 @@ Cette procédure couvre la mesure dans le temps qui manque entre « la stratégi
 « la stratégie est comparable à son backtest ». Elle dure **au moins trente jours** : c'est
 une exploitation, pas une vérification ponctuelle.
 
-Le principe est simple : l'agent tourne dans un mode **sans argent réel** — `PAPER`
-(remplissages simulés sur le flux réel) ou `DEMO` (remplissages réels sur le compte de
-démonstration) — ses opérations sont écrites dans les mêmes tables que les opérations réelles
+Le principe est simple : l'agent tourne dans le mode **sans argent réel** — `DEMO`
+(remplissages réels sur le compte de démonstration) — ses opérations sont écrites dans les mêmes tables que les opérations réelles
 (colonne `mode`), et `scripts/paper_campaign.py` les lit — sans jamais rien écrire — pour dire
 où en est la campagne.
 
-> **Les deux lieux comptent, le réel jamais.** `CAMPAIGN_MODES` vaut `{PAPER, DEMO}` : ce sont
-> les deux répétitions, et l'opérateur a demandé que les trente jours puissent courir dans
-> l'une ou l'autre. Le mode `LIVE` reste exclu (R-14) — un passage en réel est un objet
-> distinct, jugé sur ses propres chiffres. Le rapport nomme les lieux mesurés pour chaque
-> stratégie (`mesurée sur : DEMO`) afin qu'un mélange soit visible plutôt que silencieux.
+> **La démo compte, le réel jamais.** `CAMPAIGN_MODES` vaut `{DEMO}`. Le mode `LIVE` reste
+> exclu (R-14) — un passage en réel est un objet distinct, jugé sur ses propres chiffres. Le
+> rapport nomme le lieu mesuré pour chaque stratégie (`mesurée sur : DEMO`).
 
 ## 1. Les critères figés (Q-15)
 
@@ -41,13 +38,9 @@ Le verdict global est **ÉCHEC** dès qu'une stratégie échoue : une campagne n
 ## 2. Lancer l'agent dans un mode compté par la campagne
 
 Dans `.env`, la base doit être celle de l'agent (`DATABASE_URL`). Puis, dans le terminal
-du serveur, l'un des deux modes comptés :
+du serveur, le mode compté :
 
 ```powershell
-# PAPER : remplissages simulés, aucun ordre n'est émis
-$env:TRADING_MODE = "PAPER"
-uv run tradingagent-run
-
 # DEMO : ordres réels sur le compte de démonstration, argent fictif
 $env:TRADING_MODE = "DEMO"
 uv run tradingagent-run
@@ -55,24 +48,16 @@ uv run tradingagent-run
 
 Points de contrôle avant de démarrer :
 
-- `TRADING_MODE` vaut `PAPER` ou `DEMO` — **jamais** `LIVE` : la campagne ne compte que les
-  deux lieux sans argent réel (R-14) ;
+- `TRADING_MODE` vaut `DEMO` — **jamais** `LIVE` : la campagne ne compte que le lieu sans
+  argent réel (R-14) ;
 - `LIVE_TRADING_ENABLED` reste `false` : le mode réel exige de toute façon une confirmation
   opérateur (RM-000) ;
-- le terminal MT5 est connecté : le `PaperBroker` y lit les caractéristiques des symboles
-  même s'il n'envoie aucun ordre, et le `MT5Broker` y envoie les ordres en DEMO ;
+- le terminal MT5 est connecté : le `MT5Broker` y envoie les ordres en DEMO ;
 - `uv run tradingagent status` répond, et aucune quarantaine n'est active.
-
-Choisir entre les deux : `DEMO` engage la mécanique complète (ordres, stops, EA, courtier) et
-produit l'évidence la plus forte ; `PAPER` n'engage rien et se mesure sur le flux réel. Le
-rapport dit lequel a servi — il ne les confond jamais en silence.
 
 Sur une machine de production, l'agent est déjà lancé par le superviseur
 ([demarrage-automatique.md](demarrage-automatique.md)) : c'est `TRADING_MODE` dans `.env` qui
 décide du mode, pas la ligne de commande (voir [exploitation.md](exploitation.md)).
-
-En mode `PAPER`, le compte simulé démarre à **1 000 €** (décision D-07) : ce capital n'est
-pas le capital réel de 100 €, et aucun ordre réel n'est émis.
 
 ## 3. Suivre l'avancement chaque semaine
 
@@ -149,8 +134,8 @@ XAUUSD / witness@1.0.0 — EN COURS
 
 ## 6. Limites assumées
 
-- Le rapport mesure le **mode `PAPER` uniquement**. Démonstration et réel ne sont jamais
-  agrégés au mode papier (R-14) : chaque mode se compare séparément.
+- Le rapport mesure le **mode `DEMO` uniquement**. Le réel n'est jamais agrégé à la
+  démo (R-14) : chaque mode se compare séparément.
 - Les jours comptés sont **calendaires** : un week-end où le marché est fermé reste un jour
   de campagne, parce que Q-15 parle de durée, pas de séances.
 - La campagne ne remplace ni la comparaison au backtest ni la validation hors échantillon :

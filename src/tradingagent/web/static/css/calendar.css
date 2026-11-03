@@ -293,7 +293,6 @@ section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom:
 .cal-read-more { border: 0; background: none; margin-top: 8px; }
 .cal-read-more summary { padding: 4px 0; min-height: 32px; justify-content: flex-start; }
 .cal-read-more .cal-verdicts { padding: 4px 0 0; }
-.cal-aside > section.cal-sources { padding: 14px 16px 16px; }
 .cal-aside .cal-source-list li { grid-template-columns: minmax(0, 1fr) auto; }
 .cal-aside .cal-source-text { grid-column: 1 / -1; grid-row: 2; font-size: 12px; }
 
@@ -376,7 +375,6 @@ section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom:
 }
 
 /* The sources card is desktop-only: on a phone it only pushes the day's content down. */
-@media (max-width: 899px) { .cal-sources { display: none; } }
 
 /* -- v4 : score à gauche, contexte à droite (grand écran) ; sept jours sur toute la largeur ---- */
 .cal-top { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); margin-bottom: 18px; align-items: stretch; }
@@ -388,8 +386,6 @@ section.banner[aria-labelledby="cal-fresh"] { padding: 10px 14px; margin-bottom:
   .cal-top .cal-global-score { font-size: clamp(54px, 5vw, 72px); }
 }
 .cal-layout { grid-template-columns: minmax(0, 1fr); }
-.cal-sources { display: block; }
-@media (max-width: 899px) { .cal-sources { display: none; } }
 
 /* Les sept jours remplissent l'écran de gauche à droite, sans défilement, à toutes les largeurs. */
 .cal-strip, .cal-strip-wrap .cal-strip {

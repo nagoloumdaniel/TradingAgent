@@ -323,9 +323,6 @@ def enable_handler(halts: HaltStore, markets: Sequence[tuple[str, bool]] = ()) -
 
 # What each mode means for the operator's money, in the order of exposure.
 MODE_CHOICES: tuple[tuple[TradingMode, str, str], ...] = (
-    (TradingMode.OBSERVATION, "OBSERVATION", "il analyse et n'envoie rien, aucun ordre préparé"),
-    (TradingMode.SIGNAL, "SIGNAL", "il envoie les signaux sur Telegram, aucun ordre passé"),
-    (TradingMode.PAPER, "PAPER", "remplissages simulés, aucun ordre chez le courtier"),
     (TradingMode.DEMO, "DÉMO", "ordres réels sur le compte de démonstration, argent fictif"),
     (TradingMode.LIVE, "RÉEL", "argent réel, exige les 9 portes et l'accord du serveur"),
 )

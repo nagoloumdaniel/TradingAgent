@@ -80,21 +80,6 @@
       <p class="cal-meta">Générée le {{ cal.brief.generated }}.</p>
     </section>
     {% endif %}
-
-    <section class="cal-sources" aria-labelledby="h-src">
-      <h2 id="h-src" class="cal-h2">{{ icon("radio") }}Sources</h2>
-      <ul class="cal-source-list">
-        {% for s in cal.sources %}
-        <li data-ok="{{ 'yes' if s.ok else 'no' }}">
-          <span class="cal-source-name">{{ icon("check-circle" if s.ok else "x-circle") }}{{ s.label }}</span>
-          <span class="cal-source-text">{{ s.text }}</span>
-          <span class="cal-source-age">{{ s.age }}</span>
-        </li>
-        {% endfor %}
-      </ul>
-      <p class="cal-meta">{{ cal.ai_note }}</p>
-      <p class="cal-meta">{{ o.method }}</p>
-    </section>
   </aside>
 </div>
 

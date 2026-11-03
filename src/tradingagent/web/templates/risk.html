@@ -44,7 +44,6 @@
 </div>
 
 <form class="filters" method="get" action="/risk" role="search">
-  {% if markets %}{{ market_select(data.events, markets) }}{% endif %}
   {{ search_field("risk-q", "Recherche", data.events.query,
                   "type, marché, gravité, portée, motif") }}
   <div><button type="submit">{{ icon("search") }}Rechercher</button></div>

@@ -189,7 +189,7 @@ def config_for(market: str, dataset: CandleDataset) -> BacktestConfig:
     return BacktestConfig(
         symbol=market,
         costs=campaign_costs(dataset.candles[0].close),
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         max_concurrent_positions=1,
     )
 

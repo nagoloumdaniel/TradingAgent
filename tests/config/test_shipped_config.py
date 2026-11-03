@@ -28,7 +28,7 @@ def test_shipped_agent_config_loads_in_signal_mode() -> None:
         SHIPPED_AGENT,
         known_symbols=BROKER_SYMBOLS,
         strategies=strategies,
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
     )
     assert [market.symbol for market in config.markets] == ["XAUUSD"]
     refs = [market.strategy for market in config.markets]

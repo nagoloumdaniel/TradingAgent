@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # Hosted PostgreSQL, required: no silent fallback to a local file. The URL carries the
     # database password, so it is kept secret and redacted from logs.
     database_url: SecretStr
-    trading_mode: TradingMode = TradingMode.SIGNAL
+    trading_mode: TradingMode = TradingMode.DEMO
     live_trading_enabled: bool = False
     # Where the MQL5 Guardian EAs and the agent exchange their JSON files. Point it at
     # `<MT5 data folder>\MQL5\Files\TradingAgent`; unset means "no EA installed".
@@ -112,7 +112,7 @@ class BotSettings(DatabaseSettings):
 
     telegram_bot_token: SecretStr
     telegram_allowed_user_ids: Annotated[tuple[int, ...], NoDecode] = Field(min_length=1)
-    trading_mode: TradingMode = TradingMode.SIGNAL
+    trading_mode: TradingMode = TradingMode.DEMO
 
     @field_validator("telegram_bot_token")
     @classmethod

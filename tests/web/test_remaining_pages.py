@@ -452,11 +452,11 @@ def test_the_risk_events_are_separated_by_market(seeded_client: TestClient, engi
     assert "xau_only" not in eur
 
 
-def test_the_risk_page_offers_the_markets_the_events_name(seeded_client: TestClient) -> None:
+def test_the_risk_page_has_no_market_selector(seeded_client: TestClient) -> None:
     body = seeded_client.get("/risk").text
 
-    assert re.search(r'<select id="market".*?</select>', body, re.S) is not None
-    assert f'value="{seed.XAU}"' in body
+    assert re.search(r'<select id="market"', body) is None
+    assert "BTCUSD" not in body
 
 
 def test_the_risk_events_show_ten_at_most_and_page(

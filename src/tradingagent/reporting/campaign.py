@@ -14,7 +14,7 @@ frozen exit criteria, none of them renegotiable once the run has started:
 Two rules hold the report honest.
 
 *Every figure comes from `analytics`.* Operations, net P&L and drawdown are
-`compute_performance` on the closed `PAPER` trades, the same code a backtest runs, so a
+`compute_performance` on the closed `DEMO` trades, the same code a backtest runs, so a
 campaign and its reference are comparable by construction (C-001).
 
 *Nothing is recomputed by hand and no clock is read.* `progress` takes the reference
@@ -37,24 +37,23 @@ from tradingagent.core.mode import TradingMode
 from tradingagent.storage.account import ReportData
 from tradingagent.storage.daily import DailyPerformance, DailyPerformanceStore, day_floor
 
-#: The venues the campaign counts: the two where no real money is at stake. PAPER fills
-#: against the live feed, DEMO fills at the broker on fictitious money — a rehearsal is a
-#: rehearsal in both, and the operator asked for the thirty days to run in either.
+#: The venue the campaign counts: DEMO, where no real money is at stake (fills at the broker on
+#: fictitious money).
 #:
 #: LIVE is never part of it (R-14): a real-money run is a different object, judged by its own
 #: figures, and the report names the venues each strategy was measured on so a blend is
 #: visible rather than silent.
-CAMPAIGN_MODES = frozenset({TradingMode.PAPER, TradingMode.DEMO})
+CAMPAIGN_MODES = frozenset({TradingMode.DEMO})
 
 # Q-15, cahier des charges v3 (tableau des questions ouvertes) : durée de la campagne.
 Q15_MIN_DAYS = 30
 Q15_MIN_TRADES = 30
 Q15_RULE = (
     "Q-15 — la campagne dure au moins trente jours calendaires et produit au moins trente "
-    "opérations par stratégie, en mode PAPER ou DEMO (jamais en réel, R-14)."
+    "opérations par stratégie, en mode DEMO (jamais en réel, R-14)."
 )
 
-# 5 % of PAPER_STARTING_CAPITAL (1 000 €, décision D-07), the same ceiling as RM-005.
+# 5 % of the starting capital (1 000 €, décision D-07), the same ceiling as RM-005.
 CAMPAIGN_MAX_DRAWDOWN_EUR = Decimal("50")
 
 # The campaign has no configured start date: its first paper trade is one. Reading from a
@@ -130,8 +129,8 @@ class StrategyProgress:
     max_drawdown: Decimal
     criteria: tuple[Criterion, ...]
     verdict: Verdict
-    #: Which venues the pair was actually measured on ("DEMO", "PAPER", or both). Shown so a
-    #: blend is visible: the counts cover the two venues, the reader still knows which.
+    #: Which venues the pair was actually measured on ("DEMO"). Shown so the reader
+    #: still knows which venue the counts cover.
     venues: tuple[str, ...] = ()
 
     @property
@@ -320,7 +319,7 @@ def render(state: CampaignProgress) -> str:
     """The report, in French, ready for Telegram or for an operator's screen."""
     scope = "tous marchés" if state.market is None else state.market
     lines = [
-        f"Campagne PAPER + DEMO — état au {_stamp(state.at)} ({scope})",
+        f"Campagne DEMO — état au {_stamp(state.at)} ({scope})",
         f"Règle Q-15 : {state.plan.rule}",
         (
             f"Critères figés : {state.plan.min_days} jours calendaires minimum, "
@@ -331,9 +330,7 @@ def render(state: CampaignProgress) -> str:
     ]
     if not state.strategies:
         lines.append("")
-        lines.append(
-            "Aucune opération de campagne (PAPER ou DEMO) enregistrée : elle n'a pas commencé."
-        )
+        lines.append("Aucune opération de campagne (DEMO) enregistrée : elle n'a pas commencé.")
         return "\n".join(lines)
     for strategy in state.strategies:
         lines.append("")

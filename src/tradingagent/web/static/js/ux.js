@@ -337,3 +337,32 @@
     }, { rootMargin: "-56px 0px 0px 0px" }).observe(strip);
   })();
 })();
+
+
+/* Formulaires : au premier envoi, les boutons d'action sont grisés et affichent un état de
+   chargement, pour qu'un double clic ne rejoue pas l'action. Le retour arrière du navigateur
+   (pageshow) rend les boutons. */
+(function () {
+  document.addEventListener("submit", function (event) {
+    if (event.defaultPrevented) { return; }
+    var form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.dataset.busy === "1") { return; }
+    form.dataset.busy = "1";
+    var buttons = form.querySelectorAll("button:not([type=button])");
+    var submitter = event.submitter;
+    buttons.forEach(function (b) {
+      b.setAttribute("aria-busy", "true");
+      if (b === submitter || buttons.length === 1) { b.classList.add("is-loading"); }
+    });
+    setTimeout(function () { buttons.forEach(function (b) { b.disabled = true; }); }, 0);
+  });
+  window.addEventListener("pageshow", function (event) {
+    if (!event.persisted) { return; }
+    document.querySelectorAll("form[data-busy]").forEach(function (f) {
+      delete f.dataset.busy;
+      f.querySelectorAll("button").forEach(function (b) {
+        b.disabled = false; b.removeAttribute("aria-busy"); b.classList.remove("is-loading");
+      });
+    });
+  });
+})();

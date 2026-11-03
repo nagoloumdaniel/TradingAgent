@@ -94,7 +94,7 @@ def manifest(**overrides: Any) -> StrategyManifest:
     base: dict[str, Any] = {
         "strategy_id": "always",
         "version": "1.0.0",
-        "max_mode": "SIGNAL",
+        "max_mode": "DEMO",
         "allowed_symbols": [GOLD],
         "timeframes": ["M15"],
         "history_bars": HISTORY_BARS,
@@ -107,7 +107,7 @@ def loaded(**overrides: Any) -> LoadedStrategy:
 
 
 def config() -> BacktestConfig:
-    return BacktestConfig(symbol=GOLD, mode=TradingMode.SIGNAL, max_concurrent_positions=1)
+    return BacktestConfig(symbol=GOLD, mode=TradingMode.DEMO, max_concurrent_positions=1)
 
 
 def replay(**overrides: Any) -> BacktestResult:
@@ -284,7 +284,7 @@ def generate(engine: Engine, **overrides: Any) -> GenerationStatus:
         [loaded(**overrides)],
         CandleStore(engine),
         SignalRepository(engine),
-        agent_mode=TradingMode.SIGNAL,
+        agent_mode=TradingMode.DEMO,
     )
     [result] = generator.on_candle_closed(
         GOLD, trigger, always_open(), CLOSE + timedelta(seconds=30), CLOSE

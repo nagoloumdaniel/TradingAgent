@@ -41,7 +41,7 @@ READ_PATHS = (
     "/",
     "/positions",
     "/trades",
-    "/trades?market=XAUUSD&mode=PAPER",
+    "/trades?market=XAUUSD&mode=LIVE",
     "/trades/1",
     "/trades/9999",
     "/scalping",
