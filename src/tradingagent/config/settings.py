@@ -5,11 +5,7 @@ from pydantic import Field, SecretStr, ValidationError, field_validator, model_v
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from sqlalchemy import make_url
 
-from tradingagent.ai.provider import (
-    DEFAULT_ANTHROPIC_MODEL,
-    DEFAULT_DEEPSEEK_MODEL,
-    AiProvider,
-)
+from tradingagent.ai.provider import DEFAULT_DEEPSEEK_MODEL, AiProvider
 from tradingagent.config.errors import ConfigError
 from tradingagent.core.mode import TradingMode
 
@@ -27,15 +23,13 @@ class Settings(BaseSettings):
     # Optional on purpose: RM-011 covers an unavailable model, so the agent must start
     # without it. When absent, the AI filter is simply not wired and the deterministic
     # rules decide alone — never the other way round.
-    anthropic_api_key: SecretStr | None = None
-    # The provider this project is configured for. DeepSeek serves an Anthropic-compatible
-    # endpoint, so one client reaches both; only the base URL and the model name differ.
+    # DeepSeek is the model provider. It serves an Anthropic-compatible endpoint, so the
+    # `anthropic` SDK reaches it; no Anthropic key exists.
     deepseek_api_key: SecretStr | None = None
     ai_provider: AiProvider = AiProvider.AUTO
     # Model names are configuration, not constants: providers retire them, and a rename
     # should not require a code change and a release.
     deepseek_model: str = DEFAULT_DEEPSEEK_MODEL
-    anthropic_model: str = DEFAULT_ANTHROPIC_MODEL
     # Hosted PostgreSQL, required: no silent fallback to a local file. The URL carries the
     # database password, so it is kept secret and redacted from logs.
     database_url: SecretStr
@@ -52,7 +46,7 @@ class Settings(BaseSettings):
             raise ValueError("must not be blank")
         return value
 
-    @field_validator("anthropic_api_key", mode="before")
+    @field_validator("deepseek_api_key", mode="before")
     @classmethod
     def _blank_key_is_absent(cls, value: Any) -> Any:
         if isinstance(value, str) and not value.strip():
@@ -89,7 +83,7 @@ class Settings(BaseSettings):
     def secret_values(self) -> tuple[str, ...]:
         secrets = [
             secret.get_secret_value()
-            for secret in (self.mt5_password, self.telegram_bot_token, self.anthropic_api_key)
+            for secret in (self.mt5_password, self.telegram_bot_token, self.deepseek_api_key)
             if secret is not None
         ]
         database_password = make_url(self.database_url.get_secret_value()).password

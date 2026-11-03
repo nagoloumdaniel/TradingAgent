@@ -37,12 +37,11 @@ def test_every_required_setting_is_documented() -> None:
 
 
 def test_the_catalogue_documents_keys_settings_does_not_know() -> None:
-    """TEST_DATABASE_URL, BACKUP_PASSPHRASE and the web token are used by the tests, the
-    backup scripts and the dashboard — the agent never reads them, and they still belong in
-    the report."""
-    for name in ("TEST_DATABASE_URL", "BACKUP_PASSPHRASE", "TRADINGAGENT_WEB_TOKEN"):
+    """BACKUP_PASSPHRASE and the web token are used by the backup scripts and the dashboard
+    — the agent never reads them, and they still belong in the report."""
+    for name in ("BACKUP_PASSPHRASE", "TRADINGAGENT_WEB_TOKEN"):
         assert name in SPECS
-    assert "TEST_DATABASE_URL" not in Settings.model_fields
+        assert name not in Settings.model_fields
 
 
 def test_a_missing_file_is_an_empty_configuration_not_an_error(tmp_path: Path) -> None:
@@ -71,26 +70,18 @@ def test_a_blank_value_counts_as_empty(tmp_path: Path) -> None:
 def test_no_value_is_ever_printed(tmp_path: Path) -> None:
     # Obvious nonsense, and the only thing it can do here is prove it stays out of the
     # report. The scanner flags the shape, not the meaning, hence the allowlist.
-    secret = "sk-ant-super-secret-value"  # pragma: allowlist secret
-    diagnosis = diagnose(_write(tmp_path, f"MT5_LOGIN=12345\nANTHROPIC_API_KEY={secret}\n"))
+    secret = "sk-super-secret-value"  # pragma: allowlist secret
+    diagnosis = diagnose(_write(tmp_path, f"MT5_LOGIN=12345\nDEEPSEEK_API_KEY={secret}\n"))
     report = render(diagnosis)
     assert secret not in report
     assert "12345" not in report
-    assert "ANTHROPIC_API_KEY" in report  # the name is printed, never the value
+    assert "DEEPSEEK_API_KEY" in report  # the name is printed, never the value
 
 
 def test_the_report_says_where_to_get_a_missing_key(tmp_path: Path) -> None:
     report = render(diagnose(tmp_path / "absent.env"))
     assert "MT5_SERVER" in report
     assert "Deriv" in report  # the instructions travel with the report
-    assert "TEST_DATABASE_URL" in report
-
-
-def test_the_report_points_at_a_safe_test_database(tmp_path: Path) -> None:
-    """The one instruction that can destroy data if read too quickly."""
-    report = render(diagnose(tmp_path / "absent.env"))
-    assert "_test" in report
-    assert "détruisent" in report
 
 
 def test_comments_and_blank_lines_are_ignored(tmp_path: Path) -> None:

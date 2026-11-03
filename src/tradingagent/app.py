@@ -433,13 +433,10 @@ def _model_target(settings: Settings) -> ModelTarget | None:
     the answer.
     """
     deepseek = settings.deepseek_api_key
-    anthropic = settings.anthropic_api_key
     target = resolve_target(
         provider=settings.ai_provider,
         deepseek_key=deepseek.get_secret_value() if deepseek is not None else None,
-        anthropic_key=anthropic.get_secret_value() if anthropic is not None else None,
         deepseek_model=settings.deepseek_model,
-        anthropic_model=settings.anthropic_model,
     )
     if target is None:
         log.warning(

@@ -39,7 +39,7 @@ et `getaddrinfo` échoue avant même d'ouvrir une connexion TCP. Vérifié le 20
 
 Correctif : reprendre dans Supabase l'URI **Session pooler** (IPv4), de la forme
 `postgresql://postgres.<projet>:<mot de passe>@aws-<n>-<région>.pooler.supabase.com:5432/postgres`,
-et l'utiliser pour `DATABASE_URL` **et** `TEST_DATABASE_URL`. L'utilisateur devient
+et l'utiliser pour `DATABASE_URL`. L'utilisateur devient
 `postgres.<projet>` ; le mot de passe ne change pas. Vérifier ensuite :
 
 ```powershell
@@ -64,17 +64,14 @@ Le modèle à copier est [`.env.example`](../../.env.example).
 | `EA_FILES_DIR` | Répertoire d'échange avec les deux Expert Advisors | **Pas** sous `MT5_TERMINAL_PATH` : c'est `%APPDATA%\MetaQuotes\Terminal\<instance>\MQL5\Files\TradingAgent`. Vide = l'agent tourne sans EA, état valide |
 | `TELEGRAM_BOT_TOKEN` | Jeton du bot BotFather | **Où :** Telegram → `@BotFather` → `/newbot`. Affiché une seule fois |
 | `TELEGRAM_ALLOWED_USER_IDS` | Identifiants Telegram autorisés, séparés par des virgules | **Où :** Telegram → `@userinfobot`. Liste blanche ; les inconnus sont refusés silencieusement |
-| `DEEPSEEK_API_KEY` | Clé du fournisseur de modèle attendu sur ce projet | **Où :** `platform.deepseek.com` → API Keys. DeepSeek sert un point d'entrée **compatible Anthropic** : le même client dessert les deux fournisseurs, seul le tarif change |
-| `ANTHROPIC_API_KEY` | Clé du modèle Anthropic | **Où :** `console.anthropic.com` → Settings → API Keys. Les deux clés sont **optionnelles** : sans aucune, l'agent tourne, le filtre IA n'est pas câblé et l'AI Lab reste déterministe (RM-011) |
-| `AI_PROVIDER` | Quel fournisseur répond : `auto`, `deepseek`, `anthropic` ou `none` | Défaut `auto` : DeepSeek si sa clé est présente, sinon Anthropic, sinon aucun. Un choix explicite **ne retombe pas** sur l'autre fournisseur : une clé manquante est une erreur de configuration, pas une invitation à dépenser ailleurs |
+| `DEEPSEEK_API_KEY` | Clé du modèle (DeepSeek, seul fournisseur) | **Où :** `platform.deepseek.com` → API Keys. **Optionnelle** : sans elle l'agent tourne, le filtre IA n'est pas câblé et l'AI Lab reste déterministe (RM-011). DeepSeek sert un point d'entrée compatible Anthropic, d'où le client `anthropic` |
+| `AI_PROVIDER` | Modèle actif : `auto`, `deepseek` ou `none` | Défaut `auto` : DeepSeek si sa clé est présente, sinon aucun modèle. `none` coupe le modèle même avec une clé |
 | `DEEPSEEK_MODEL` | Nom du modèle DeepSeek | Défaut `deepseek-flash`. Les fournisseurs retirent des noms de modèles : c'est de la configuration, pas une constante du code |
-| `ANTHROPIC_MODEL` | Nom du modèle Anthropic | Défaut `claude-sonnet-4-5` |
 | `DATABASE_URL` | URI PostgreSQL (Supabase, pooler session) | **Où :** Supabase → Project Settings → Database → Connection string → *Session pooler*. Obligatoire : aucun repli sur un fichier local |
-| `TEST_DATABASE_URL` | Base des tests PostgreSQL (RLS, immuabilité, concurrence) | **Où :** un **second** projet Supabase. ⚠️ Ces tests détruisent toutes les tables : le garde-fou refuse la base de l'agent, et `doctor` dit lequel des deux cas s'applique |
 
 ### Les tests et la base de test
 
-Avec `TEST_DATABASE_URL` renseignée, `uv run pytest` exécute **les tests qui ont besoin
+Sans variable dédiée, ces tests se sautent. Avec `TEST_DATABASE_URL` posée dans l'environnement du shell (pas dans `.env`, `doctor` ne la demande plus), `uv run pytest` exécute **les tests qui ont besoin
 d'un vrai PostgreSQL** — immuabilité des tables append-only, RLS, verrous — soit 29 tests
 qui migrent le schéma **une fois par module** et coûtent une dizaine de secondes. La suite
 complète tourne alors en trois minutes.

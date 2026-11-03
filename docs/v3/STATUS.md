@@ -128,8 +128,8 @@ signature de conformité.
 1. **Opérateur, décision** : signer `docs/legal/2026-10-07-verification-operateur.md`.
 2. **Opérateur, infrastructure** : provisionner le serveur Windows (TASK-051).
 3. **Temps** : faire tourner la campagne paper 30 jours (`scripts/paper_campaign.py` la mesure).
-4. **Opérateur, clés** : `TEST_DATABASE_URL` (second projet Supabase en `_test`) et
-   `ANTHROPIC_API_KEY` (optionnelle). `BACKUP_PASSPHRASE` et `TRADINGAGENT_WEB_TOKEN` sont
+4. **Opérateur, clés** : `DEEPSEEK_API_KEY` (optionnelle, seul fournisseur du filtre IA). Plus de
+   `TEST_DATABASE_URL` ni de clé Anthropic dans `.env` (décision du 2026-11-03). `BACKUP_PASSPHRASE` et `TRADINGAGENT_WEB_TOKEN` sont
    désormais générés et renseignés.
 5. **Opérateur, terminal** : installer les deux EA (procédure dans `docs/ea/README.md`).
 6. **Fait mais à confirmer par un tiers** : restauration sur machine vierge, validation de la
