@@ -59,6 +59,10 @@ class RiskProfile(_Strict):
     # §21: tolerated slippage, in multiples of the observed spread. 1 means "never worse
     # than the spread".
     max_slippage_to_spread: Decimal = Field(default=Decimal(1), gt=0)
+    # TASK-067: ceiling on (spread + commission + one day of swap) as a fraction of the
+    # distance to TP1. At 0.5 a trade that only reaches its first target still keeps half of
+    # that distance as net gain; above 1 it would lose money at TP1. None = not enforced.
+    max_cost_to_target: Decimal | None = Field(default=Decimal("0.5"), gt=0, le=1)
 
     @model_validator(mode="after")
     def _coherent_limits(self) -> Self:

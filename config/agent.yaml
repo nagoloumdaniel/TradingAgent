@@ -47,6 +47,9 @@ risk:
     # 3 consecutive losses closed on the same UTC day: no new trade until 00:00 UTC (null = off).
     stop_after_consecutive_losses_per_day: 3
     max_spread_stop_pct: 10
+    # Spread + commission + one day of swap may eat at most half the distance to TP1, so a trade
+    # that reaches only its first target still nets a gain (TASK-067). null = not enforced.
+    max_cost_to_target: 0.5
     margin_usage_pct: 50
   live:
     reference_capital: 100
@@ -66,6 +69,9 @@ risk:
     cooldown_hours: 12
     stop_after_consecutive_losses_per_day: 3
     max_spread_stop_pct: 10
+    # Spread + commission + one day of swap may eat at most half the distance to TP1, so a trade
+    # that reaches only its first target still nets a gain (TASK-067). null = not enforced.
+    max_cost_to_target: 0.5
     margin_usage_pct: 50
 
 # Economic calendar (optional; every value below is the default, so the section can be omitted).

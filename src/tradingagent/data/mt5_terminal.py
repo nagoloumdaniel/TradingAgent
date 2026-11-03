@@ -226,6 +226,7 @@ class Mt5Terminal:
                 profit=float(d.profit + d.swap + d.commission),
                 comment=str(d.comment),
                 server_epoch=int(d.time),
+                commission=float(d.commission),
             )
             for d in raw
             if int(d.magic) == self._magic

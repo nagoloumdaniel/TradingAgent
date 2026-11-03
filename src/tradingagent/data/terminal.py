@@ -183,6 +183,8 @@ class DealInfo:
     profit: float  # profit + swap + commission, in the account currency
     comment: str
     server_epoch: int
+    #: Commission charged on this deal, account currency, negative when it is a cost.
+    commission: float = 0.0
 
 
 class TradingTerminal(Terminal, Protocol):

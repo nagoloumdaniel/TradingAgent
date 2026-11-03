@@ -44,3 +44,21 @@ def test_shipped_agent_config_loads_in_signal_mode() -> None:
     # RM-019: with 100 EUR neither market is eligible in live mode; the profile is still
     # declared so the refusal is a decision, not a crash.
     assert config.risk.live.reference_capital == 100
+
+
+def test_shipped_cost_ceiling_keeps_a_net_margin_at_the_first_target() -> None:
+    """TASK-067: costs may eat at most half the distance to TP1, so a trade that reaches its
+    first target and nothing more still ends in profit. Shipped, not left at None."""
+    from tradingagent.risk.model import limits_for
+
+    strategies = {
+        ref: loaded.manifest
+        for ref, loaded in load_strategy_catalog(SHIPPED_STRATEGIES, REGISTRY).items()
+    }
+    config = load_agent_config(
+        SHIPPED_AGENT, known_symbols=BROKER_SYMBOLS, strategies=strategies, mode=TradingMode.DEMO
+    )
+    for mode in (TradingMode.DEMO, TradingMode.LIVE):
+        ceiling = limits_for(mode, config.risk).max_cost_to_target
+        assert ceiling is not None and 0 < ceiling <= 1
+        assert ceiling == 0.5

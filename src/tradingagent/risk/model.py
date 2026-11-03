@@ -262,4 +262,5 @@ def limits_for(mode: TradingMode, config: RiskConfig) -> RiskLimits:
         max_total_exposure=profile.max_total_exposure_pct / HUNDRED,
         max_slippage_to_spread=profile.max_slippage_to_spread,
         stop_after_losses_per_day=profile.stop_after_consecutive_losses_per_day,
+        max_cost_to_target=profile.max_cost_to_target,
     )
