@@ -137,6 +137,14 @@ signature de conformité.
    Windows est reporté (point 2).
 6. **Fait mais à confirmer par un tiers** : restauration sur machine vierge, validation de la
    documentation d'exploitation.
+7. ~~Historique BTCUSD en base~~ — purgé le 2026-11-03 sur décision de l'opérateur (or seul).
+   Supprimés : 8 026 bougies, 64 signaux (et leurs décisions de risque, événements et appels IA),
+   19 ordres, 16 positions, 16 trades, 16 exécutions, 108 événements système, 9 rapports,
+   11 lignes de performance, 1 backtest, 4 entrées du registre. Les verdicts BTCUSD ont été
+   retirés des analyses et synthèses de news. Les déclencheurs d'immuabilité ont été désactivés
+   le temps de la transaction puis réactivés (7 sur 7 vérifiés) ; `audit_log` n'a pas été
+   touché. Sauvegarde préalable des lignes supprimées : `backups/btc-history-*.json`
+   (ignoré par git).
 
 État vérifié le 2026-10-07 par `uv run tradingagent doctor` : base joignable, schéma **à jour
 (0006)**, répertoire des EA présent, toutes les clés obligatoires renseignées. Aucune de ces
