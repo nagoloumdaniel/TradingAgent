@@ -150,4 +150,11 @@ jusqu'à 20 s avant d'être traitée. Changements : boucle à 3 s (`DEFAULT_POLL
 de compte toujours toutes les 5 minutes (désormais en secondes), `order_check` retiré du chemin
 d'envoi (aller-retour inutile, résultat purement informatif), flux SSE du tableau de bord à 1 s.
 Seuil de coût total `max_cost_to_target` = 0.5, commission et swap réels branchés dans les
-cotations MT5 (le swap BTCUSD est un taux annuel de -20 %, mode non supporté : reste inconnu).
+cotations MT5 (le swap BTCUSD est un taux annuel de -20 %, désormais converti en distance de prix au prix
+d'entrée sur 360 jours).
+
+Backtest BTCUSD trend_breakout@1.0.1, M15, 1812 opérations (2025-01-21 → 2026-10-08), avec le swap
+réel (≈ 49.5 de prix par jour, soit 20 %/360 × prix moyen) : coûts du dépôt -2156.89 EUR (PF 0.8364)
+sans swap, -2531.91 EUR (PF 0.8112, drawdown 2623.72) avec swap ; coûts x2 -4804.64 EUR. Le swap
+aggrave un résultat déjà négatif : il ne change aucune conclusion. Envoi Telegram réel exercé le
+2026-11-03 par `scripts/telegram_check.py` : message accepté par l'API (réception côté opérateur à confirmer).
