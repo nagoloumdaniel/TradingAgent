@@ -1,7 +1,7 @@
 import re
 import unicodedata
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -11,35 +11,17 @@ from tradingagent.config._yaml import Problem, read_yaml, render, validation_pro
 from tradingagent.config.errors import ConfigError
 from tradingagent.core.mode import TradingMode, mode_rank
 from tradingagent.core.states import ValidationStage
+from tradingagent.core.timeframe import Timeframe
 from tradingagent.strategies.base import Strategy
 from tradingagent.strategies.manifest import StrategyManifest
 
-#: The highest `max_mode` a manifest of `config/strategies/` may declare on its own.
-#:
-#: Above it, the ceiling is a **decision of the operator**, and RM-016 requires that decision
-#: to be explicit, dated, and to record the validation results it invokes. The invariant is
-#: therefore *no silent escalation*: a manifest may go higher, but only carrying the
-#: derogation below. A manifest that declares the same ceiling with no banner is refused --
-#: a comment is the only thing standing between a raised `max_mode` and an account, so the
+#: The highest `max_mode` a manifest of `config/strategies/` may declare on its own: DEMO, the
+#: demonstration account, where no real money is at stake. Above it sits LIVE, which is never
+#: granted silently: the header banner must carry the complete validation (see below). A
+#: comment is the only thing standing between a raised `max_mode` and the real account, so the
 #: catalog reads it and the load is all-or-nothing.
-MODE_CEILING = TradingMode.SIGNAL
+MODE_CEILING = TradingMode.DEMO
 
-#: The marker an operator derogation carries in the header banner.
-DEROGATION_MARKER = "DEROGATION OPERATEUR"
-
-#: What the banner must name, one entry per missing piece, with the reason a reader needs if
-#: it is absent. The figures are the *validation figures that are missing*: what was measured
-#: against what was required, how far the p-value is from the Bonferroni line, and how many
-#: candidates survived the false-discovery correction. "Validated" with no number is a claim.
-_DEROGATION_ITEMS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    (
-        "the net profit factor measured and the one required",
-        re.compile(r"profit\s+factor[^\n]*\d[^\n]*\d"),
-    ),
-    ("the minimum p-value", re.compile(r"p-?value[^\n]*\d")),
-    ("the Bonferroni line it was read against", re.compile(r"bonferroni[^\n]*\d")),
-    ("the survivors after the false-discovery correction", re.compile(r"\d+\s+survivant")),
-)
 _ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 _WHITESPACE = re.compile(r"\s+")
 
@@ -48,6 +30,12 @@ _WHITESPACE = re.compile(r"\s+")
 class LoadedStrategy:
     manifest: StrategyManifest
     strategy: Strategy[Any]
+    #: One strategy instance per scanned timeframe that has its own parameters; the others
+    #: use `strategy` unchanged.
+    by_timeframe: Mapping[Timeframe, Strategy[Any]] = field(default_factory=dict)
+
+    def strategy_for(self, timeframe: Timeframe) -> Strategy[Any]:
+        return self.by_timeframe.get(timeframe, self.strategy)
 
 
 def header_banner(text: str) -> str:
@@ -79,50 +67,25 @@ def _fold(text: str) -> str:
 def mode_ceiling_problems(text: str, max_mode: TradingMode) -> list[str]:
     """Why this `max_mode` may not be declared in this manifest, if it may not.
 
-    `SIGNAL` and below are nobody's business but the manifest's. Above the ceiling two
-    different documents are required, and they are not interchangeable:
-
-    * `PAPER` and `DEMO` take an **operator derogation** -- the marker
-      ``DEROGATION OPERATEUR``, an ISO date, and the validation figures that are missing.
-      This is the RM-016 decision written where the ceiling is declared.
-    * `LIVE` takes the **complete validation** of the nine gates of §49, each named in the
-      banner. A derogation is exactly what it means: a ceiling granted *without* validation,
-      so it can never be the document that opens the real account. DEMO is a bounded ceiling
-      -- a demonstration account -- and LIVE is above it in the exposure order.
+    `DEMO` is nobody's business but the manifest's. `LIVE` takes the **complete validation** of
+    the nine gates of §49, each named in the header banner, and its date: nothing short of that
+    opens the real account (RM-016, RM-017).
     """
     if mode_rank(max_mode) <= mode_rank(MODE_CEILING):
         return []
     banner = _fold(header_banner(text))
     stages = tuple(stage.value for stage in ValidationStage)
-    if max_mode is TradingMode.LIVE:
-        missing = [stage for stage in stages if stage not in banner]
-        if not missing and not _ISO_DATE.search(banner):
-            missing = ["its date"]
-        if missing:
-            return [
-                (
-                    "max_mode LIVE requires the complete validation of the nine gates of §49, "
-                    "named in the header banner (" + ", ".join(stages) + "), and its date; "
-                    "missing: " + ", ".join(missing) + ". An operator derogation raises the "
-                    "ceiling to DEMO only -- DEMO cannot reach a real account (RM-017) -- and a "
-                    "derogation is not a validation (RM-016)"
-                )
-            ]
-        return []
-    missing = [label for label, pattern in _DEROGATION_ITEMS if not pattern.search(banner)]
-    if not _ISO_DATE.search(banner):
-        missing.insert(0, "the date of the operator decision")
-    if DEROGATION_MARKER.lower() not in banner:
-        missing.insert(0, f"the marker {DEROGATION_MARKER!r}")
+    missing = [stage for stage in stages if stage not in banner]
+    if not missing and not _ISO_DATE.search(banner):
+        missing = ["its date"]
     if not missing:
         return []
     return [
         (
-            f"max_mode {max_mode} is above the {MODE_CEILING} ceiling without a documented "
-            "operator derogation: a manifest may not escalate silently. Write the decision in "
-            "a header banner -- the marker 'DEROGATION OPERATEUR', its ISO date, and the "
-            "validation figures that are missing -- or lower max_mode. Missing: "
-            + "; ".join(missing)
+            "max_mode LIVE requires the complete validation of the nine gates of §49, "
+            "named in the header banner (" + ", ".join(stages) + "), and its date; "
+            "missing: " + ", ".join(missing) + ". DEMO is the highest ceiling a manifest "
+            "may declare without it (RM-016, RM-017)"
         )
     ]
 
@@ -166,6 +129,7 @@ def load_strategy_catalog(
             )
         strategy_class = registry.get(manifest.strategy_id)
         parameters = None
+        per_timeframe: dict[Timeframe, Strategy[Any]] = {}
         if strategy_class is None:
             problems.append(
                 (("strategy_id",), f"strategy {manifest.strategy_id!r} is not registered in code")
@@ -175,11 +139,22 @@ def load_strategy_catalog(
                 parameters = strategy_class.parameters_model.model_validate(manifest.parameters)
             except ValidationError as error:
                 problems += validation_problems(error, prefix=("parameters",))
+            for timeframe in manifest.timeframe_parameters:
+                try:
+                    own = strategy_class.parameters_model.model_validate(
+                        manifest.parameters_for(timeframe)
+                    )
+                except ValidationError as error:
+                    problems += validation_problems(
+                        error, prefix=("timeframe_parameters", str(timeframe))
+                    )
+                else:
+                    per_timeframe[timeframe] = strategy_class(own)
 
         if problems or strategy_class is None or parameters is None:
             lines += document.locate(problems)
             continue
-        catalog[manifest.ref] = LoadedStrategy(manifest, strategy_class(parameters))
+        catalog[manifest.ref] = LoadedStrategy(manifest, strategy_class(parameters), per_timeframe)
 
     if lines:
         raise ConfigError(render("Invalid strategy manifests", lines))

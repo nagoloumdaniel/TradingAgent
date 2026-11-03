@@ -143,7 +143,9 @@ def test_the_shipped_agent_yaml_is_unlimited_with_the_daily_stop() -> None:
         assert profile.max_open_positions is None
         assert profile.max_positions_per_market is None
         assert profile.max_trades_per_day is None
-        assert profile.stop_after_consecutive_losses_per_day == 3
+    # Scalping: 4 losses per timeframe in DEMO; LIVE keeps the stricter 3.
+    assert config.risk.simulated.stop_after_consecutive_losses_per_day == 4
+    assert config.risk.live.stop_after_consecutive_losses_per_day == 3
 
 
 @pytest.mark.parametrize("mode", [TradingMode.DEMO, TradingMode.LIVE])
@@ -154,4 +156,4 @@ def test_the_risk_limits_carry_the_unlimited_values_and_the_daily_stop(mode: Tra
     assert limits.max_open_positions is None
     assert limits.max_positions_per_market is None
     assert limits.max_trades_per_day is None
-    assert limits.stop_after_losses_per_day == 3
+    assert limits.stop_after_losses_per_day == (4 if mode is TradingMode.DEMO else 3)

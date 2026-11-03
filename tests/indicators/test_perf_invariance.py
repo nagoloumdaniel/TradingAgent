@@ -537,7 +537,7 @@ class _VwapAtrProbe(Strategy[_ProbeParameters]):
 PROBE_MANIFEST = StrategyManifest(
     strategy_id="axe_c_probe",
     version="1.0.0",
-    max_mode=TradingMode.SIGNAL,
+    max_mode=TradingMode.DEMO,
     allowed_symbols=("XAUUSD",),
     timeframes=(Timeframe.M15,),
     history_bars=400,
@@ -572,7 +572,7 @@ def probe_config() -> BacktestConfig:
             slippage_fixed=0.6,
             commission_per_trade=Decimal("0.5"),
         ),
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         max_concurrent_positions=1,
         partial_exit_fractions=(0.5, 0.5),
         move_stop_to_breakeven_after_first_target=True,

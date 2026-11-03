@@ -69,7 +69,7 @@ class _EmitOnce(Strategy[_NoParameters]):
 MANIFEST = StrategyManifest(
     strategy_id="two_targets",
     version="1.0.0",
-    max_mode=TradingMode.SIGNAL,
+    max_mode=TradingMode.DEMO,
     allowed_symbols=["XAUUSD"],
     timeframes=[T],
     history_bars=20,
@@ -90,7 +90,7 @@ def _series(high: float) -> list[Candle]:
 
 
 def _realized_r(high: float, **overrides: object) -> float | None:
-    config = BacktestConfig(symbol="XAUUSD", mode=TradingMode.SIGNAL, **overrides)  # type: ignore[arg-type]
+    config = BacktestConfig(symbol="XAUUSD", mode=TradingMode.DEMO, **overrides)  # type: ignore[arg-type]
     result = run_backtest(_EmitOnce(_NoParameters()), MANIFEST, {T: _series(high)}, config)
     if not result.trades:
         return None
@@ -115,7 +115,7 @@ def test_the_first_target_only_exits_at_the_first_target(high: float) -> None:
 
 def test_the_default_still_keeps_every_target() -> None:
     """The flag defaults to off: no already-published measurement changes meaning."""
-    config = BacktestConfig(symbol="XAUUSD", mode=TradingMode.SIGNAL)
+    config = BacktestConfig(symbol="XAUUSD", mode=TradingMode.DEMO)
 
     assert config.targets_at_first_only is False
 

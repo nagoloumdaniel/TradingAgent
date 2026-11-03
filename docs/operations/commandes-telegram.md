@@ -50,7 +50,7 @@ l'exécute. Rien à retenir, rien à taper.
 Exemples de réponses :
 
 ```
-Mode : SIGNAL (signaux seulement, aucun ordre)
+Mode : DÉMO (ordres sur le compte de démonstration)
 État : en marche, aucun arrêt actif
 Marchés :
   frxXAUUSD : activé, dernière bougie 2026-10-07 04:15 UTC (clôturée il y a 6 min)
@@ -150,11 +150,10 @@ l'ordre, au lieu de faire croire à un arrêt qui n'aura pas lieu.
 ## Changer de mode
 
 ```
-/mode SIGNAL
 /mode DEMO
 ```
 
-Modes acceptés : `OBSERVATION`, `SIGNAL`, `PAPER`, `DEMO`. La commande **enregistre** la
+Modes acceptés : `DEMO` (démo). Le mode réel (`LIVE`) est refusé ici. La commande **enregistre** la
 demande ; l'agent l'applique à sa prochaine lecture de l'état.
 
 ```

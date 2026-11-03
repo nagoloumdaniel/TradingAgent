@@ -238,7 +238,7 @@ def test_the_template_proposes_only_valid_parameters() -> None:
         strategy = proposal.factory(proposal.parameters)
         assert isinstance(strategy, ScalpTripleFilter)
         assert proposal.manifest.timeframes == (Timeframe.M1, Timeframe.M5)
-        assert proposal.manifest.max_mode is TradingMode.SIGNAL
+        assert proposal.manifest.max_mode is TradingMode.DEMO
 
 
 def test_the_declared_history_covers_the_higher_timeframe_warm_up() -> None:

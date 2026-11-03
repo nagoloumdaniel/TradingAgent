@@ -99,7 +99,7 @@ class Flaky(Buyer):
 def loaded(
     strategy_class: type[Buyer],
     symbols: tuple[str, ...] = ("XAUUSD", "EURUSD"),
-    max_mode: TradingMode = TradingMode.SIGNAL,
+    max_mode: TradingMode = TradingMode.DEMO,
     history_bars: int = 20,
 ) -> LoadedStrategy:
     manifest = StrategyManifest(
@@ -140,7 +140,7 @@ def reset_counters() -> None:
 
 
 def generator(
-    engine: Engine, *strategies: LoadedStrategy, mode: TradingMode = TradingMode.SIGNAL
+    engine: Engine, *strategies: LoadedStrategy, mode: TradingMode = TradingMode.DEMO
 ) -> SignalGenerator:
     return SignalGenerator(
         strategies, CandleStore(engine), SignalRepository(engine), agent_mode=mode
@@ -187,7 +187,7 @@ def test_a_healthy_close_produces_a_recorded_signal(engine: Engine) -> None:
     assert signal.observed_price == trigger.close
     assert signal.generated_at == CLOSE
     assert signal.expires_at == CLOSE + 2 * STEP
-    assert signal.mode is TradingMode.SIGNAL
+    assert signal.mode is TradingMode.DEMO
 
 
 def test_the_same_close_evaluated_twice_records_one_signal(engine: Engine) -> None:
@@ -209,9 +209,9 @@ def test_a_restart_mid_candle_cannot_duplicate_the_signal(engine: Engine) -> Non
 @pytest.mark.parametrize(
     ("agent_mode", "max_mode", "expected"),
     [
-        (TradingMode.DEMO, TradingMode.SIGNAL, TradingMode.SIGNAL),
-        (TradingMode.OBSERVATION, TradingMode.SIGNAL, TradingMode.OBSERVATION),
-        (TradingMode.PAPER, TradingMode.LIVE, TradingMode.PAPER),
+        (TradingMode.DEMO, TradingMode.DEMO, TradingMode.DEMO),
+        (TradingMode.DEMO, TradingMode.DEMO, TradingMode.DEMO),
+        (TradingMode.DEMO, TradingMode.LIVE, TradingMode.DEMO),
     ],
 )
 def test_signal_mode_never_exceeds_the_strategy_promotion(
@@ -379,7 +379,7 @@ def test_a_quarantine_recorded_in_the_database_survives_a_restart(engine: Engine
             [loaded(Flaky)],
             CandleStore(engine),
             SignalRepository(engine),
-            agent_mode=TradingMode.SIGNAL,
+            agent_mode=TradingMode.DEMO,
             quarantine=PersistentQuarantine(HaltStore(engine)),
         )
 

@@ -19,7 +19,7 @@
 markets:
   - symbol: XAUUSD
     enabled: true
-    strategy: vwap_pullback@1.1.0
+    strategy: vwap_pullback@1.2.0
 risk:
   simulated:
     risk_per_trade_pct: 0.5
@@ -32,10 +32,12 @@ risk:
     max_open_positions: null
     max_positions_per_market: null
     max_trades_per_day: null
+    # Scalping (2026-11-03): no pause after losses; the daily loss limit is the brake.
     cooldown_after_losses: 3
-    cooldown_hours: 4
-    # 3 consecutive losses closed on the same UTC day: no new trade until 00:00 UTC (null = off).
-    stop_after_consecutive_losses_per_day: 3
+    cooldown_hours: 0
+    # 4 consecutive losses closed on the same UTC day on one timeframe (M1, M5, M15, M30): that
+    # timeframe takes no new trade until 00:00 UTC, the others keep trading (null = off).
+    stop_after_consecutive_losses_per_day: 4
     max_spread_stop_pct: 10
     # Spread + commission + one day of swap may eat at most half the distance to TP1, so a trade
     # that reaches only its first target still nets a gain (TASK-067). null = not enforced.
@@ -71,7 +73,7 @@ risk:
 # `fail_closed_when_blind` flips that for real money only: with it true AND trading_mode LIVE, a
 # calendar the gate cannot see (never fetched, older than max_staleness_minutes, or an empty
 # weekday export) REFUSES new signals with a motif instead of letting them through. It stays
-# reject-only (it never creates or loosens a signal). In SIGNAL/PAPER/DEMO it changes nothing:
+# reject-only (it never creates or loosens a signal). In DEMO it changes nothing:
 # the gate keeps failing open and says so with a `news_gate_degraded` warning (once per episode).
 # news:
 #   enabled: true

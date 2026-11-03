@@ -352,8 +352,7 @@ class AgentLoop:
 
         await self._guard_sessions(now)
         await self._retry_notifications()
-        for subscription in self._subscriptions:
-            await self._poll(subscription, now, report)
+        await self._poll_all(now, report)
 
         await self._drain_closures(report)
         await self._reconcile(now, report)
@@ -466,18 +465,28 @@ class AgentLoop:
             except Exception as error:
                 log.warning("%s session guard failed: %s", symbol, error)
 
-    async def _poll(self, subscription: Subscription, now: datetime, report: CycleReport) -> None:
+    async def _poll_all(self, now: datetime, report: CycleReport) -> None:
+        """Scalping: every (market, timeframe) series is polled concurrently, then its closed
+        candles are handled in subscription order, so one slow series never delays the others
+        and the order of the decisions stays deterministic."""
+        fetched = await asyncio.gather(*(self._fetch(s, now) for s in self._subscriptions))
+        for subscription, candles in zip(self._subscriptions, fetched, strict=True):
+            if candles is None:
+                continue
+            report.publications += len(candles)
+            for candle in candles:
+                self._store.save(subscription.symbol, [candle], now)
+                await self._on_candle(subscription.symbol, candle, now, report)
+
+    async def _fetch(self, subscription: Subscription, now: datetime) -> list[Candle] | None:
         try:
             candles = await self._market.poll_new([subscription])
         except Exception as error:
-            log.warning("%s not polled: %s", subscription.symbol, error)
+            log.warning("%s %s not polled: %s", subscription.symbol, subscription.timeframe, error)
             await self._alerts.component_failure("market_data", str(error), now)
-            return
+            return None
         await self._alerts.component_recovered("market_data", now)
-        report.publications += len(candles)
-        for candle in candles:
-            self._store.save(subscription.symbol, [candle], now)
-            await self._on_candle(subscription.symbol, candle, now, report)
+        return candles
 
     async def _on_candle(
         self, symbol: str, candle: Candle, now: datetime, report: CycleReport

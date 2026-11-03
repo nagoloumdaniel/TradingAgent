@@ -45,7 +45,7 @@ variable d'environnement `TRADINGAGENT_EA_REPORTS_DIR`. Sans lui, les sections E
 | `/system` | Santé : base de données, Gardiens EA (battement de cœur, connexion, révision, kill switch, journal), fraîcheur des données de marché, latences d'exécution mesurées, dernières erreurs, télémétrie |
 | `/reports` | Rapports enregistrés et exports CSV / JSON / SVG |
 | `/events` | Flux SSE (`positions`, `alerts`). `?cycles=N` borne le flux à N cycles puis ferme — pratique pour `curl` et pour les tests |
-| `/healthz` | Sonde JSON : base joignable, mode lecture seule, arrêt en cours |
+| `/healthz` | Sonde JSON (toujours ouverte) : base joignable, mode lecture seule, arrêt en cours |
 | `/export/trades.csv`, `/export/trades.json`, `/export/performance.json`, `/export/equity.svg`, `/export/reports/{id}.txt` | Exports, produits par le paquet `reporting` |
 
 Les pages sont responsives (piles de cartes et tableaux à défilement horizontal) et pensées
@@ -79,11 +79,10 @@ mises en forme par Python et le navigateur ne fait qu'insérer des nœuds texte.
 
 ## Sécurité
 
-- **Écoute locale par défaut** : `127.0.0.1:8787`. Passer `--host 0.0.0.0` est un choix
-  explicite de l'opérateur et doit s'accompagner d'un reverse proxy TLS et d'une
-  authentification.
-- **Pas d'authentification en v1** : l'application est supposée n'être joignable que depuis
-  la machine de l'agent. Ne l'exposez pas telle quelle sur Internet.
+- **Écoute locale uniquement** : `127.0.0.1:8787`. Tout autre `--host` fait refuser le
+  démarrage.
+- **Code à 4 chiffres** : choisi dans le navigateur à la première visite, redemandé après
+  30 jours ou après « Déconnexion ». Détails et limites : [SECURITE.md](SECURITE.md).
 - **Aucune écriture possible, aucune authentification d'écriture à voler** : toutes les
   routes sont `GET`, il n'existe aucun endpoint de trading, et `web/queries.py` n'exécute que
   des `SELECT`. Trois preuves dans `tests/web/test_read_only.py` :

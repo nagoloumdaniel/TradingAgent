@@ -121,7 +121,7 @@ def manifest(
         {
             "strategy_id": strategy_id,
             "version": "1.0.0",
-            "max_mode": "SIGNAL",
+            "max_mode": "DEMO",
             "allowed_symbols": list(symbols),
             "timeframes": list(timeframes),
             "history_bars": history_bars,

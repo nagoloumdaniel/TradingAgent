@@ -102,7 +102,7 @@ c'est un signal délibéré.
 | `..._test` | quelconque | accepté |
 | autre nom, hôte différent | `db.production...` | accepté — c'est une autre base |
 | même hôte **et** même nom | `db.production...` | **refusé** : ces tests détruisent tout |
-| `TRADING_MODE` | `OBSERVATION`, `SIGNAL`, `PAPER` ou `DEMO` | `LIVE` ne peut pas être posé ici seul |
+| `TRADING_MODE` | `DEMO` (défaut) ou `LIVE` (réel) | `LIVE` ne peut pas être posé ici seul |
 | `LIVE_TRADING_ENABLED` | Moitié serveur de la double condition du mode réel | Rester `false` hors phase 9 |
 
 Variables propres à l'exploitation (lues par les scripts et le tableau de bord, pas par
@@ -111,7 +111,6 @@ l'agent) :
 | Variable | Utilisée par | Rôle |
 |---|---|---|
 | `BACKUP_PASSPHRASE` | `scripts/backup.ps1`, `scripts/restore.ps1` | Mot de passe de chiffrement des sauvegardes. **À générer** et à garder hors du serveur |
-| `TRADINGAGENT_WEB_TOKEN` | `tradingagent-web` | Protection optionnelle du tableau de bord (§43), 16 caractères minimum. Absente : écoute locale sans authentification |
 | `BACKUP_DIR` | `scripts/backup.ps1` | Répertoire des sauvegardes (défaut : `<dépôt>\backups`) |
 | `TRADINGAGENT_ROOT` | tous les scripts | Racine du dépôt si elle diffère du dossier des scripts |
 
@@ -125,11 +124,8 @@ uv run python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 | Mode | Ce qui se passe | Argent engagé |
 |---|---|---|
-| `OBSERVATION` | Aucun signal envoyé, aucun ordre | Non |
-| `SIGNAL` | Signaux notifiés, aucun ordre | Non |
-| `PAPER` | Ordres simulés | Non |
-| `DEMO` | Ordres sur le compte de démonstration | Non |
-| `LIVE` | Ordres réels | **Oui** |
+| `DEMO` (Démo) | Ordres sur le compte de démonstration | Non |
+| `LIVE` (Réel) | Ordres réels | **Oui** |
 
 Le passage en `LIVE` exige **les deux** conditions simultanées (RM-000) :
 `TRADING_MODE=LIVE` **et** `LIVE_TRADING_ENABLED=true`. Si l'une manque, le démarrage est

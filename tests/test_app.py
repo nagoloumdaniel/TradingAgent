@@ -1,6 +1,7 @@
 """The composition root: wiring decisions that can be checked without a terminal."""
 
 import asyncio
+import contextlib
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -73,11 +74,17 @@ def test_each_market_gets_its_own_strategy() -> None:
         SHIPPED_AGENT,
         known_symbols=BROKER_SYMBOLS,
         strategies={ref: loaded.manifest for ref, loaded in catalog.current().items()},
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
     )
     subscriptions = _subscriptions(config, catalog)
     assert {subscription.symbol for subscription in subscriptions} == BROKER_SYMBOLS
-    assert all(subscription.timeframe.value == "M15" for subscription in subscriptions)
+    # Scalping: M1, M5, M15 and M30 are scanned in parallel (M15 also learns the calendar).
+    assert {subscription.timeframe.value for subscription in subscriptions} == {
+        "M1",
+        "M5",
+        "M15",
+        "M30",
+    }
     assert len({market.strategy for market in config.markets}) == 1
 
 
@@ -100,7 +107,7 @@ def test_only_the_declared_versions_reach_the_generator() -> None:
         SHIPPED_AGENT,
         known_symbols=BROKER_SYMBOLS,
         strategies={ref: loaded.manifest for ref, loaded in catalog.current().items()},
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
     )
 
     declared = _declared_strategies(config, catalog)
@@ -128,7 +135,7 @@ def test_a_declared_strategy_that_does_not_exist_stops_the_start_up() -> None:
         SHIPPED_AGENT,
         known_symbols=BROKER_SYMBOLS,
         strategies={ref: loaded.manifest for ref, loaded in catalog.current().items()},
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
     )
     ghost = config.markets[0].model_copy(update={"strategy": "witness@9.9.9"})
 
@@ -184,7 +191,7 @@ def _configured(tmp_path):
         SHIPPED_AGENT,
         known_symbols=BROKER_SYMBOLS,
         strategies={ref: loaded.manifest for ref, loaded in catalog.current().items()},
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
     )
     return engine, config
 
@@ -199,11 +206,21 @@ def _refs(config) -> dict[str, str]:
     return {market.symbol: market.strategy for market in config.markets}
 
 
+def _seed(engine, config, now) -> None:
+    """Register the configured strategies (as DISCOVERED) the way a first start-up does.
+
+    DEMO refuses a DISCOVERED version, but only after registering it: the refusal is the
+    expected end of a first start-up, so the seeding swallows it.
+    """
+    with contextlib.suppress(ConfigError):
+        _register_configured_strategies(engine, config, TradingMode.DEMO, now)
+
+
 def test_the_configured_strategies_are_registered_once(tmp_path) -> None:
     engine, config = _configured(tmp_path)
     now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
-    _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)
-    _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)  # idempotent
+    _seed(engine, config, now)
+    _seed(engine, config, now)  # idempotent
 
     refs = _refs(config)
     registry = StrategyRegistry(engine, clock=now)
@@ -216,37 +233,38 @@ def test_the_configured_strategies_are_registered_once(tmp_path) -> None:
 def test_a_deprecated_strategy_stops_the_start_up(tmp_path) -> None:
     engine, config = _configured(tmp_path)
     now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
-    _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)
+    _seed(engine, config, now)
     refs = _refs(config)
     registry = StrategyRegistry(engine, clock=now)
     registry.transition(
         "XAUUSD", refs["XAUUSD"], StrategyStatus.DEPRECATED, "operator", "retired", now()
     )
     with pytest.raises(ConfigError) as caught:
-        _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)
+        _register_configured_strategies(engine, config, TradingMode.DEMO, now)
     assert "DEPRECATED" in str(caught.value)
     assert f"{refs['XAUUSD']} on XAUUSD" in str(caught.value)
     engine.dispose()
 
 
-def test_an_executing_mode_requires_the_matching_rung(tmp_path) -> None:
-    """§14: DEMO executes only a LIVE version, and a DISCOVERED one is refused with why."""
+def test_demo_starts_with_a_freshly_registered_strategy_but_live_refuses_it(tmp_path) -> None:
+    """DEMO is the default mode: a DISCOVERED version runs there. LIVE refuses it with why."""
     engine, config = _configured(tmp_path)
     now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
+    _register_configured_strategies(engine, config, TradingMode.DEMO, now)
     with pytest.raises(ConfigError) as caught:
-        _register_configured_strategies(engine, config, TradingMode.DEMO, now)
+        _register_configured_strategies(engine, config, TradingMode.LIVE, now)
     message = str(caught.value)
-    assert "cannot execute in DEMO" in message
+    assert "cannot execute in LIVE" in message
     assert "live" in message
     engine.dispose()
 
 
-def test_paper_mode_only_requires_the_paper_rung(tmp_path) -> None:
+def test_a_paper_version_runs_in_demo_and_not_in_live(tmp_path) -> None:
     engine, config = _configured(tmp_path)
     now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
     refs = _refs(config)
     registry = StrategyRegistry(engine, clock=now)
-    _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)
+    _seed(engine, config, now)
     for status, reason in (
         (StrategyStatus.EXPERIMENTAL, "candidate"),
         (StrategyStatus.BACKTESTING, "measured"),
@@ -256,21 +274,18 @@ def test_paper_mode_only_requires_the_paper_rung(tmp_path) -> None:
         registry.transition("XAUUSD", refs["XAUUSD"], status, "operator", reason, now())
     with pytest.raises(ConfigError):
         _register_configured_strategies(engine, config, TradingMode.LIVE, now)
-    # PAPER and DEMO accept the same rung: both are venues without real money, and the
-    # environment ladder of §44 puts the demo rehearsal before real trading, not after it.
-    _register_configured_strategies(engine, config, TradingMode.PAPER, now)
     _register_configured_strategies(engine, config, TradingMode.DEMO, now)
     engine.dispose()
 
 
-def test_demo_and_paper_accept_the_same_rung_but_live_does_not(tmp_path) -> None:
+def test_demo_accepts_the_paper_rung_but_live_does_not(tmp_path) -> None:
     """The one distinction that matters: real money needs the top rung, a demo account does
     not. Requiring it there would make the rehearsal available only after the decision it
     exists to inform."""
     engine, config = _configured(tmp_path)
     now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
     registry = StrategyRegistry(engine, clock=now)
-    _register_configured_strategies(engine, config, TradingMode.SIGNAL, now)
+    _seed(engine, config, now)
     for market, ref in _refs(config).items():
         for status in (
             StrategyStatus.EXPERIMENTAL,
@@ -445,7 +460,7 @@ def write_manifest(path: Path, *, version: str, symbol: str = MARKET) -> Path:
             [
                 "strategy_id: witness",
                 f"version: {version}",
-                "max_mode: SIGNAL",
+                "max_mode: DEMO",
                 f"allowed_symbols: [{symbol}]",
                 "timeframes: [M15]",
                 "history_bars: 300",

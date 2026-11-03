@@ -24,8 +24,8 @@ def manifest(strategy_id: str, symbols: list[str], max_mode: str) -> StrategyMan
     )
 
 
-GOLD_TREND = manifest("gold_trend", ["frxXAUUSD"], "PAPER")
-FX_BREAKOUT = manifest("fx_breakout", ["frxEURUSD", "frxGBPUSD"], "SIGNAL")
+GOLD_TREND = manifest("gold_trend", ["frxXAUUSD"], "DEMO")
+FX_BREAKOUT = manifest("fx_breakout", ["frxEURUSD", "frxGBPUSD"], "DEMO")
 STRATEGIES = {m.ref: m for m in (GOLD_TREND, FX_BREAKOUT)}
 
 VALID = """\
@@ -61,13 +61,13 @@ def write(tmp_path: Path, text: str) -> Path:
     return path
 
 
-def load(tmp_path: Path, text: str, mode: TradingMode = TradingMode.SIGNAL) -> AgentConfig:
+def load(tmp_path: Path, text: str, mode: TradingMode = TradingMode.DEMO) -> AgentConfig:
     return load_agent_config(
         write(tmp_path, text), known_symbols=KNOWN_SYMBOLS, strategies=STRATEGIES, mode=mode
     )
 
 
-def error_of(tmp_path: Path, text: str, mode: TradingMode = TradingMode.SIGNAL) -> str:
+def error_of(tmp_path: Path, text: str, mode: TradingMode = TradingMode.DEMO) -> str:
     with pytest.raises(ConfigError) as caught:
         load(tmp_path, text, mode)
     return str(caught.value)
@@ -130,21 +130,19 @@ def test_strategy_is_refused_on_a_symbol_it_does_not_allow(tmp_path: Path) -> No
     assert "RM-003" in message
 
 
-@pytest.mark.parametrize("mode", [TradingMode.OBSERVATION, TradingMode.SIGNAL])
-def test_mode_within_every_strategy_ceiling_is_accepted(tmp_path: Path, mode: TradingMode) -> None:
-    assert len(load(tmp_path, VALID, mode).markets) == 2
+def test_mode_within_every_strategy_ceiling_is_accepted(tmp_path: Path) -> None:
+    assert len(load(tmp_path, VALID, TradingMode.DEMO).markets) == 2
 
 
-@pytest.mark.parametrize("mode", [TradingMode.PAPER, TradingMode.DEMO, TradingMode.LIVE])
-def test_mode_above_a_strategy_ceiling_blocks_startup(tmp_path: Path, mode: TradingMode) -> None:
-    # RM-016: fx_breakout is capped at SIGNAL; promotion needs a new manifest version.
-    message = error_of(tmp_path, VALID, mode)
+def test_mode_above_a_strategy_ceiling_blocks_startup(tmp_path: Path) -> None:
+    # RM-016: fx_breakout is capped at DEMO; promotion needs a new manifest version.
+    message = error_of(tmp_path, VALID, TradingMode.LIVE)
     assert "agent.yaml:5" in message
     assert "RM-016" in message
 
 
 def test_every_market_above_its_ceiling_is_reported(tmp_path: Path) -> None:
-    message = error_of(tmp_path, VALID, TradingMode.DEMO)
+    message = error_of(tmp_path, VALID, TradingMode.LIVE)
     assert "agent.yaml:3" in message
     assert "agent.yaml:5" in message
 
@@ -152,7 +150,7 @@ def test_every_market_above_its_ceiling_is_reported(tmp_path: Path) -> None:
 def test_disabled_market_above_its_ceiling_still_blocks_startup(tmp_path: Path) -> None:
     # It could be re-enabled from Telegram later, running above its validated mode.
     text = VALID.replace("  - symbol: frxEURUSD\n", "  - symbol: frxEURUSD\n    enabled: false\n")
-    assert "RM-016" in error_of(tmp_path, text, TradingMode.PAPER)
+    assert "RM-016" in error_of(tmp_path, text, TradingMode.LIVE)
 
 
 def test_timeframes_are_no_longer_declared_per_market(tmp_path: Path) -> None:
@@ -217,7 +215,7 @@ def test_missing_file_is_rejected(tmp_path: Path) -> None:
             tmp_path / "agent.yaml",
             known_symbols=KNOWN_SYMBOLS,
             strategies=STRATEGIES,
-            mode=TradingMode.SIGNAL,
+            mode=TradingMode.DEMO,
         )
 
 

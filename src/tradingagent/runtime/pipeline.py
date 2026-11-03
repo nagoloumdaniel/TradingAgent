@@ -69,7 +69,7 @@ NOTABLE_REFUSALS = frozenset(
 )
 SEND_ATTEMPTS = 3
 SEND_BACKOFF_SECONDS = 2.0
-EXECUTING_MODES = frozenset({TradingMode.PAPER, TradingMode.DEMO, TradingMode.LIVE})
+EXECUTING_MODES = frozenset({TradingMode.DEMO, TradingMode.LIVE})
 
 
 @dataclass(frozen=True)
@@ -313,6 +313,7 @@ class SignalPipeline:
                 entry_high=Decimal(str(detail.entry_high)),
                 stop_loss=stop,
                 take_profit=(Decimal(str(detail.take_profits[0])) if detail.take_profits else None),
+                timeframe=detail.timeframe,
             ),
             account=account,
             spec=spec,

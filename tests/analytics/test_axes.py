@@ -48,14 +48,14 @@ def test_each_axis_groups_by_its_own_field() -> None:
         a_trade(ref="trend@2.0.0"),
         a_trade(direction=Direction.SELL),
         a_trade(timeframe=Timeframe.H1),
-        a_trade(mode=TradingMode.PAPER),
+        a_trade(mode=TradingMode.LIVE),
     ]
 
     assert set(group(trades, Axis.MARKET)) == {"XAUUSD", "EURUSD"}
     assert set(group(trades, Axis.STRATEGY)) == {"witness@1.0.0", "trend@2.0.0"}
     assert set(group(trades, Axis.DIRECTION)) == {"BUY", "SELL"}
     assert set(group(trades, Axis.TIMEFRAME)) == {"M15", "H1"}
-    assert set(group(trades, Axis.MODE)) == {"DEMO", "PAPER"}
+    assert set(group(trades, Axis.MODE)) == {"DEMO", "LIVE"}
 
 
 def test_calendar_axes_come_from_the_closing_time() -> None:
@@ -68,7 +68,7 @@ def test_calendar_axes_come_from_the_closing_time() -> None:
 
 
 def test_every_trade_falls_in_exactly_one_bucket_per_axis() -> None:
-    trades = [a_trade(), a_trade(symbol="EURUSD"), a_trade(mode=TradingMode.PAPER)]
+    trades = [a_trade(), a_trade(symbol="EURUSD"), a_trade(mode=TradingMode.LIVE)]
 
     for axis in Axis:
         buckets = group(trades, axis)

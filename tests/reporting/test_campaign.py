@@ -62,8 +62,9 @@ def _chain(
     ref: str,
     closed_at: datetime,
     pnl: Decimal,
-    mode: TradingMode = TradingMode.PAPER,
+    mode: TradingMode = TradingMode.DEMO,
     risk: Decimal = RISK,
+    timeframe: Timeframe = Timeframe.H1,
 ) -> None:
     """One signal → order → position → closed trade, the same chain production writes."""
     with Session(engine) as session:
@@ -84,7 +85,7 @@ def _chain(
             idempotency_key=f"sig:{index}",
             strategy_version_id=version.id,
             symbol=market,
-            timeframe=Timeframe.H1,
+            timeframe=timeframe,
             direction=Direction.BUY,
             mode=mode,
             observed_price=2650.0,
@@ -190,7 +191,7 @@ def test_an_empty_campaign_has_not_started(engine: Engine) -> None:
     assert state.verdict is Verdict.EN_COURS
     text = render(state)
     assert "EN COURS" in text
-    assert "Aucune opération de campagne (PAPER ou DEMO) enregistrée" in text
+    assert "Aucune opération de campagne (DEMO) enregistrée" in text
 
 
 # --- a campaign that just started -------------------------------------------------
@@ -358,7 +359,7 @@ def test_each_market_and_strategy_is_measured_separately(engine: Engine) -> None
     by_key = {(s.market, s.strategy_ref): s for s in state.strategies}
     assert by_key[(XAU, WITNESS)].trades == 3, "two paper trades and one demo trade"
     assert by_key[(XAU, WITNESS)].net_profit == Decimal("115.00")
-    assert by_key[(XAU, WITNESS)].venues == ("DEMO", "PAPER")
+    assert by_key[(XAU, WITNESS)].venues == ("DEMO",)
     assert by_key[(EUR, BREAKOUT)].trades == 1
     assert by_key[(EUR, BREAKOUT)].net_profit == Decimal("-4.00")
 

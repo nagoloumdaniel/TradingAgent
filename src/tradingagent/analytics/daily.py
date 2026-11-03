@@ -172,7 +172,7 @@ def daily_result(
     snapshot = AccountStore(engine).latest_before(end)
     return DailyResult(
         day=start,
-        mode=mode if mode is not None else TradingMode.SIGNAL,
+        mode=mode if mode is not None else TradingMode.DEMO,
         performance=compute_performance(trades),
         balance=snapshot.balance if snapshot is not None else None,
         equity=snapshot.equity if snapshot is not None else None,

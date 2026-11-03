@@ -15,11 +15,12 @@
     <div class="value">{{ data.halted_markets | length }}</div>
     {% if data.halted_markets %}<div class="note">{{ data.halted_markets | join(', ') }}</div>{% endif %}</div>
   {% if daily_stop %}
-  <div class="card" title="Après {{ daily_stop.limit }} pertes consécutives dans la journée UTC, les nouveaux trades s'arrêtent jusqu'à 00:00 UTC">
+  <div class="card" title="Après {{ daily_stop.limit }} pertes consécutives dans la journée UTC sur une unité de temps, cette unité s'arrête jusqu'à 00:00 UTC ; les autres continuent">
     {% if daily_stop.triggered %}{{ dot("bad", "Arrêt journalier déclenché") }}{% else %}{{ dot("ok", "Arrêt journalier actif, non déclenché") }}{% endif %}
     <div class="label">{{ icon("timer") }}Arrêt après pertes</div>
     <div class="value">{{ daily_stop.losses }} / {{ daily_stop.limit }}</div>
-    <div class="note">{% if daily_stop.triggered %}déclenché, reprise à 00:00 UTC{% else %}règle active, pertes consécutives du jour{% endif %}</div></div>
+    <div class="note">{% if daily_stop.triggered %}{{ daily_stop.stopped | join(', ') }} arrêtée(s), reprise à 00:00 UTC{% else %}règle active par unité de temps, pertes consécutives du jour{% endif %}</div>
+    {% if daily_stop.timeframes %}<dl class="facts">{% for name, count in daily_stop.timeframes %}<div><dt>{{ name }}</dt><dd>{{ count }} / {{ daily_stop.limit }}</dd></div>{% endfor %}</dl>{% endif %}</div>
   {% endif %}
   <div class="card" title="Stratégie × marché suspendues"><div class="label">{{ icon("alert-triangle") }}Paires en quarantaine</div>
     <div class="value">{{ data.halted_pairs | length }}</div></div>
@@ -44,7 +45,6 @@
 </div>
 
 <form class="filters" method="get" action="/risk" role="search">
-  {% if markets %}{{ market_select(data.events, markets) }}{% endif %}
   {{ search_field("risk-q", "Recherche", data.events.query,
                   "type, marché, gravité, portée, motif") }}
   <div><button type="submit">{{ icon("search") }}Rechercher</button></div>

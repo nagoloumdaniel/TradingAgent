@@ -110,6 +110,15 @@ class StrategyManifest(BaseModel):
     allowed_symbols: tuple[str, ...] = Field(min_length=1)
     timeframes: tuple[Timeframe, ...] = Field(min_length=1)
     history_bars: int = Field(ge=1, le=10_000)
+    #: Scalping : la stratégie est évaluée séparément, en parallèle, à la clôture de chaque
+    #: unité listée ici (une série à la fois, comme `primary_timeframe` seul). Vide : seule
+    #: `primary_timeframe` déclenche une évaluation.
+    scan_timeframes: tuple[Timeframe, ...] = ()
+    #: Réglage propre à une unité de temps de `scan_timeframes` : les paramètres listés ici
+    #: remplacent ceux de `parameters` pour cette unité seulement. Absent, chaque unité garde
+    #: la stratégie de base, à l'identique. C'est ainsi qu'on ajuste une unité d'après ses
+    #: propres pertes sans toucher aux autres ni mélanger leurs séries.
+    timeframe_parameters: dict[Timeframe, dict[str, Any]] = Field(default_factory=dict)
     expiry_bars: int = Field(default=1, ge=1)
     ai_filter: AiFilter = AiFilter.SHADOW
     parameters: dict[str, Any] = Field(default_factory=dict)
@@ -122,7 +131,7 @@ class StrategyManifest(BaseModel):
     #: Absent, le filtre est inerte : `evaluate` rend exactement ce qu'il rendait avant.
     entry_filter: EntryFilterRule | None = None
 
-    @field_validator("allowed_symbols", "timeframes")
+    @field_validator("allowed_symbols", "timeframes", "scan_timeframes")
     @classmethod
     def _no_duplicates(cls, value: tuple[Any, ...]) -> tuple[Any, ...]:
         if len(set(value)) != len(value):
@@ -150,6 +159,27 @@ class StrategyManifest(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _timeframe_parameters_target_a_scanned_timeframe(self) -> "StrategyManifest":
+        for timeframe, overrides in self.timeframe_parameters.items():
+            if timeframe not in self.scan_timeframes:
+                raise ValueError(
+                    f"timeframe_parameters.{timeframe} targets a timeframe absent from "
+                    "scan_timeframes: it would never be evaluated"
+                )
+            declared = overrides.get("atr_period")
+            if declared is not None and declared != self.atr_period:
+                raise ValueError(
+                    f"timeframe_parameters.{timeframe}.atr_period {declared} contradicts "
+                    f"atr_period {self.atr_period}: the volatility filter and the strategy "
+                    "must measure the same ATR"
+                )
+        return self
+
+    def parameters_for(self, timeframe: Timeframe) -> dict[str, Any]:
+        """The base parameters, overridden by this timeframe's own adjustments if any."""
+        return {**self.parameters, **self.timeframe_parameters.get(timeframe, {})}
+
     @property
     def ref(self) -> str:
         return f"{self.strategy_id}@{self.version}"
@@ -157,6 +187,24 @@ class StrategyManifest(BaseModel):
     @property
     def primary_timeframe(self) -> Timeframe:
         return self.timeframes[0]
+
+    @property
+    def trigger_timeframes(self) -> tuple[Timeframe, ...]:
+        """Every timeframe whose candle close starts an evaluation."""
+        return self.scan_timeframes or (self.primary_timeframe,)
+
+    def for_timeframe(self, timeframe: Timeframe) -> "StrategyManifest":
+        """The same manifest reading a single series: the scan timeframe that just closed."""
+        if timeframe not in self.trigger_timeframes:
+            raise ValueError(f"{timeframe} is not a trigger timeframe of {self.ref}")
+        return self.model_copy(
+            update={
+                "timeframes": (timeframe,),
+                "scan_timeframes": (),
+                "parameters": self.parameters_for(timeframe),
+                "timeframe_parameters": {},
+            }
+        )
 
     def entry_policy(self) -> EntryFilter:
         """La porte compilée, avec l'ATR que la stratégie utilise déjà.

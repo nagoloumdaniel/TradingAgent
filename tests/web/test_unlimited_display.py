@@ -53,7 +53,7 @@ def test_the_daily_stop_rule_is_a_gauge_when_it_is_on(engine: Engine, populated:
 
     stop = gauges["Pertes consécutives du jour"]
     assert stop["unlimited"] is False
-    assert stop["limit"] == 3.0
+    assert stop["limit"] == 4.0
 
 
 def test_the_risk_page_prints_illimite_never_none(seeded_client: TestClient) -> None:
@@ -67,7 +67,7 @@ def test_the_risk_page_shows_the_daily_stop_rule(seeded_client: TestClient) -> N
     body = seeded_client.get("/risk").text
 
     assert "Arrêt après pertes" in body
-    assert re.search(r"Arrêt après pertes</div>\s*<div class=\"value\">\d+ / 3<", body)
+    assert re.search(r"Arrêt après pertes</div>\s*<div class=\"value\">\d+ / 4<", body)
     assert "règle active" in body
 
 
@@ -77,8 +77,8 @@ def test_the_daily_stop_counts_only_todays_losing_streak(engine: Engine, populat
     stop = queries.daily_stop(engine, NOW, view)
 
     assert stop is not None
-    assert stop.limit == 3
-    assert stop.triggered is (stop.losses >= 3)
+    assert stop.limit == 4
+    assert stop.triggered is (stop.losses >= 4)
 
 
 def test_the_halt_banner_is_drawn_once_per_page(engine: Engine, seed_halt: None) -> None:

@@ -37,11 +37,12 @@ def test_every_required_setting_is_documented() -> None:
 
 
 def test_the_catalogue_documents_keys_settings_does_not_know() -> None:
-    """BACKUP_PASSPHRASE and the web token are used by the backup scripts and the dashboard
-    — the agent never reads them, and they still belong in the report."""
-    for name in ("BACKUP_PASSPHRASE", "TRADINGAGENT_WEB_TOKEN"):
-        assert name in SPECS
-        assert name not in Settings.model_fields
+    """BACKUP_PASSPHRASE is used by the backup scripts — the agent never reads it, and it
+    still belongs in the report. The dashboard has no key at all: its PIN is chosen in the
+    browser and lives in a git-ignored file."""
+    assert "BACKUP_PASSPHRASE" in SPECS
+    assert "BACKUP_PASSPHRASE" not in Settings.model_fields
+    assert not any("WEB" in name for name in SPECS)
 
 
 def test_a_missing_file_is_an_empty_configuration_not_an_error(tmp_path: Path) -> None:

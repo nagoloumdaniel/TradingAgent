@@ -42,7 +42,7 @@ PROBE_SECRET = "Vv7bN2mK9qL4xR8t"  # pragma: allowlist secret - a deliberate fak
 @pytest.fixture
 def service(engine: Engine) -> CommandService:
     router = CommandRouter()
-    router.register("status", "état", status_handler(HaltStore(engine), TradingMode.SIGNAL))
+    router.register("status", "état", status_handler(HaltStore(engine), TradingMode.DEMO))
     router.register("mode", "mode", mode_handler(engine))
     return CommandService(AccessGate({OPERATOR}), router, AuditStore(engine), now=lambda: NOW)
 

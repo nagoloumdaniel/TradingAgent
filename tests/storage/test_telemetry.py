@@ -116,7 +116,7 @@ def test_totals_over_a_window_filter_by_market(engine: Engine) -> None:
     for market, pnl in (("XAUUSD", "10.00"), ("EURUSD", "-4.00")):
         store.apply_trade(
             day=NOW,
-            mode=TradingMode.PAPER,
+            mode=TradingMode.DEMO,
             market=market,
             ref=f"ref-{market}",
             pnl=Decimal(pnl),
@@ -154,8 +154,8 @@ def test_the_same_day_is_the_utc_calendar_day(engine: Engine) -> None:
 def test_the_pipeline_writes_its_execution_events(engine: Engine) -> None:
     from tests.runtime.test_pipeline import Parts, record_signal
 
-    parts = Parts(engine, mode=TradingMode.PAPER)
-    parts.run(record_signal(engine, mode=TradingMode.PAPER))
+    parts = Parts(engine, mode=TradingMode.DEMO)
+    parts.run(record_signal(engine, mode=TradingMode.DEMO))
     kinds = {event.kind for event in ExecutionEventStore(engine).recent()}
     assert ExecutionEventKind.ORDER_SENT in kinds
     assert ExecutionEventKind.FILLED in kinds

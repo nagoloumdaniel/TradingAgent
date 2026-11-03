@@ -103,7 +103,7 @@ def test_the_charged_costs_are_the_documented_ones() -> None:
     assert config.costs.spread == round(price * DEFAULT_SPREAD_FRACTION, 8)
     assert config.costs.slippage_fixed == round(price * DEFAULT_SLIPPAGE_FRACTION, 8)
     assert config.costs.commission_per_trade == DEFAULT_COMMISSION_EUR
-    assert config.mode is TradingMode.SIGNAL, "a statistics report never executes"
+    assert config.mode is TradingMode.DEMO, "a statistics report never executes"
     assert config.max_concurrent_positions == 1
 
 

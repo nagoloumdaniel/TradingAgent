@@ -62,7 +62,7 @@ def connected_client() -> MarketDataClient:
     return MarketDataClient(
         terminal,
         creds,
-        TradingMode.OBSERVATION,
+        TradingMode.DEMO,
         expected_server_offset=offset,
         clock_probe_symbol=CLOCK_PROBE,
     )

@@ -27,7 +27,12 @@ from tradingagent.ai.layer import (
     PRICES_EUR_PER_MTOK,
     AiClient,
 )
-from tradingagent.ai.upcoming import UpcomingEvents, read_upcoming, upcoming_block
+from tradingagent.ai.upcoming import (
+    UpcomingEvents,
+    read_upcoming,
+    refusals_block,
+    upcoming_block,
+)
 from tradingagent.core.states import AnalysisKind
 from tradingagent.storage.ai_calls import AiReply
 
@@ -244,13 +249,19 @@ def _cost_eur(reply: AiReply) -> Decimal:
     return (cost / Decimal(1_000_000)).quantize(Decimal("0.000001"))
 
 
-def _prompt(evidence: BacktestEvidence, drafts: Sequence[Hypothesis], upcoming: str = "") -> str:
+def _prompt(
+    evidence: BacktestEvidence,
+    drafts: Sequence[Hypothesis],
+    upcoming: str = "",
+    refusals: str = "",
+) -> str:
     return (
         "Hypothèses déterministes déjà calculées :\n"
         f"{json.dumps([draft.proposed_change for draft in drafts], sort_keys=True, default=str)}\n"
         f"Stratégie : {evidence.ref} sur {evidence.market}\n"
         f"Jeu de données : {evidence.dataset_id}\n"
         f"{upcoming_block(upcoming)}"
+        f"{refusals_block(refusals)}"
         "Commente ces hypothèses en une à trois phrases."
     )
 
@@ -266,12 +277,14 @@ class StrategyResearcher:
         model: str = "deterministic",
         thresholds: ResearchThresholds = DEFAULT_THRESHOLDS,
         upcoming: UpcomingEvents | None = None,
+        refusals: UpcomingEvents | None = None,
     ) -> None:
         self._store = store
         self._client = client
         self._model = model
         self._thresholds = thresholds
         self._upcoming = upcoming
+        self._refusals = refusals
 
     async def research(self, evidence: BacktestEvidence, *, at: datetime) -> tuple[Hypothesis, ...]:
         analyses = self._store.recent_analyses(
@@ -281,7 +294,10 @@ class StrategyResearcher:
         if not drafts:
             return ()
         note = await asyncio.to_thread(read_upcoming, self._upcoming)
-        response, overruns, model, error, cost = await self._commentary(evidence, drafts, note)
+        refused = await asyncio.to_thread(read_upcoming, self._refusals)
+        response, overruns, model, error, cost = await self._commentary(
+            evidence, drafts, note, refused
+        )
         findings: dict[str, Any] = {
             "hypotheses": [draft.proposed_change for draft in drafts],
             "overrun_attempts": list(overruns),
@@ -303,7 +319,7 @@ class StrategyResearcher:
                 market=evidence.market,
                 ref=evidence.ref,
                 model=model,
-                request={"prompt": _prompt(evidence, drafts, note)},
+                request={"prompt": _prompt(evidence, drafts, note, refused)},
                 response=response,
                 findings=findings,
                 cost_eur=cost,
@@ -328,14 +344,18 @@ class StrategyResearcher:
         return tuple(stored)
 
     async def _commentary(
-        self, evidence: BacktestEvidence, drafts: Sequence[Hypothesis], upcoming: str = ""
+        self,
+        evidence: BacktestEvidence,
+        drafts: Sequence[Hypothesis],
+        upcoming: str = "",
+        refusals: str = "",
     ) -> tuple[str | None, tuple[str, ...], str, str | None, Decimal | None]:
         """The model only comments; the hypotheses and their values stay deterministic."""
         if self._client is None:
             return None, (), self._model, None, None
         try:
             reply: AiReply = await self._client.complete(
-                SYSTEM_PROMPT, _prompt(evidence, drafts, upcoming)
+                SYSTEM_PROMPT, _prompt(evidence, drafts, upcoming, refusals)
             )
         except Exception as error:  # timeout, network, provider: the proposals still stand
             return None, (), self._model, str(error), None

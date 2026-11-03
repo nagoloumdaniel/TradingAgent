@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # Hosted PostgreSQL, required: no silent fallback to a local file. The URL carries the
     # database password, so it is kept secret and redacted from logs.
     database_url: SecretStr
-    trading_mode: TradingMode = TradingMode.SIGNAL
+    trading_mode: TradingMode = TradingMode.DEMO
     live_trading_enabled: bool = False
     # Where the MQL5 Guardian EAs and the agent exchange their JSON files. Point it at
     # `<MT5 data folder>\MQL5\Files\TradingAgent`; unset means "no EA installed".
@@ -98,11 +98,6 @@ class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(frozen=True, extra="ignore")
 
     database_url: SecretStr
-    # Optional access protection for the dashboard (§43). It lives here rather than in
-    # `Settings` because `tradingagent-web` must be startable without MT5 credentials:
-    # reading a database is not trading. Absent or blank leaves the dashboard open, which
-    # is the documented default on 127.0.0.1.
-    tradingagent_web_token: SecretStr | None = None
 
     @field_validator("database_url")
     @classmethod
@@ -117,7 +112,7 @@ class BotSettings(DatabaseSettings):
 
     telegram_bot_token: SecretStr
     telegram_allowed_user_ids: Annotated[tuple[int, ...], NoDecode] = Field(min_length=1)
-    trading_mode: TradingMode = TradingMode.SIGNAL
+    trading_mode: TradingMode = TradingMode.DEMO
 
     @field_validator("telegram_bot_token")
     @classmethod
@@ -137,6 +132,30 @@ class BotSettings(DatabaseSettings):
 def load_bot_settings(env_file: Path | None = None) -> BotSettings:
     try:
         return BotSettings(_env_file=env_file)
+    except ValidationError as error:
+        raise ConfigError(_describe(error)) from None
+
+
+class AiSettings(BaseSettings):
+    """Only the model key, for the dashboard's test button (the web process has no broker)."""
+
+    model_config = SettingsConfigDict(frozen=True, extra="ignore")
+
+    deepseek_api_key: SecretStr | None = None
+    ai_provider: AiProvider = AiProvider.AUTO
+    deepseek_model: str = DEFAULT_DEEPSEEK_MODEL
+
+    @field_validator("deepseek_api_key", mode="before")
+    @classmethod
+    def _blank_key_is_absent(cls, value: Any) -> Any:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+
+def load_ai_settings(env_file: Path | None = None) -> AiSettings:
+    try:
+        return AiSettings(_env_file=env_file)
     except ValidationError as error:
         raise ConfigError(_describe(error)) from None
 

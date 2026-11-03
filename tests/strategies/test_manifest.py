@@ -10,7 +10,7 @@ from tradingagent.strategies.manifest import StrategyManifest, parse_ref
 VALID: dict[str, Any] = {
     "strategy_id": "gold_trend",
     "version": "1.2.0",
-    "max_mode": "SIGNAL",
+    "max_mode": "DEMO",
     "allowed_symbols": ["frxXAUUSD"],
     "timeframes": ["M15", "H1"],
     "history_bars": 300,
@@ -23,7 +23,7 @@ def manifest(**overrides: Any) -> StrategyManifest:
 
 def test_valid_manifest_and_defaults() -> None:
     loaded = manifest()
-    assert loaded.max_mode is TradingMode.SIGNAL
+    assert loaded.max_mode is TradingMode.DEMO
     assert loaded.timeframes == (Timeframe.M15, Timeframe.H1)
     assert loaded.expiry_bars == 1
     assert loaded.ai_filter is AiFilter.SHADOW
@@ -76,3 +76,28 @@ def test_parse_ref() -> None:
 def test_parse_ref_rejects_malformed_references(ref: str) -> None:
     with pytest.raises(ValueError, match="reference"):
         parse_ref(ref)
+
+
+def test_scan_timeframes_trigger_one_isolated_series_each() -> None:
+    scalper = manifest(timeframes=["M15"], scan_timeframes=["M1", "M5", "M15", "M30"])
+    assert scalper.trigger_timeframes == (
+        Timeframe.M1,
+        Timeframe.M5,
+        Timeframe.M15,
+        Timeframe.M30,
+    )
+    one = scalper.for_timeframe(Timeframe.M5)
+    assert one.timeframes == (Timeframe.M5,)
+    assert one.primary_timeframe is Timeframe.M5
+    assert one.scan_timeframes == ()
+    with pytest.raises(ValueError, match="not a trigger timeframe"):
+        scalper.for_timeframe(Timeframe.H1)
+
+
+def test_without_scan_timeframes_only_the_primary_triggers() -> None:
+    assert manifest().trigger_timeframes == (Timeframe.M15,)
+
+
+def test_scan_timeframes_must_be_unique() -> None:
+    with pytest.raises(ValidationError):
+        manifest(scan_timeframes=["M1", "M1"])

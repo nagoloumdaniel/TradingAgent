@@ -39,6 +39,7 @@ from tradingagent.analytics.scalping import (
     by_session,
     by_size,
     by_spread,
+    by_timeframe,
     by_weekday,
     cost_summary,
 )
@@ -67,6 +68,7 @@ from tradingagent.ea.bridge import (
     read_reports,
 )
 from tradingagent.ea.health import ea_health
+from tradingagent.risk.explain import explain_refusal, refusal_causes
 from tradingagent.risk.streak import longest_loss_run_today
 from tradingagent.storage.account import AccountStore, RefusedRisk, ReportData, Snapshot
 from tradingagent.storage.daily import DailyPerformance, DailyPerformanceStore
@@ -1953,12 +1955,26 @@ def ai_call_health(
     """
     window = _window(AiCallRow.called_at, day)
     with Session(engine) as session:
+        # A call without a verdict is a failure only if it recorded an error: news and calendar
+        # scans answer with data, not approve/reject, and succeeded. Every real failure writes
+        # its error (unavailable provider, unparsable reply).
+        did_not_succeed = AiCallRow.error.is_not(None)
         counts: dict[str | None, int] = {
             verdict: int(total)
             for verdict, total in session.execute(
-                select(AiCallRow.verdict, func.count()).where(*window).group_by(AiCallRow.verdict)
+                select(AiCallRow.verdict, func.count())
+                .where(*window, or_(AiCallRow.verdict.is_not(None), did_not_succeed))
+                .group_by(AiCallRow.verdict)
             ).all()
         }
+        informative = int(
+            session.scalar(
+                select(func.count())
+                .select_from(AiCallRow)
+                .where(*window, AiCallRow.verdict.is_(None), ~did_not_succeed)
+            )
+            or 0
+        )
         history_calls = (
             -1
             if day is None or day.is_history
@@ -1976,7 +1992,7 @@ def ai_call_health(
         )
         unanswered = session.scalars(
             select(AiCallRow)
-            .where(AiCallRow.verdict.is_(None), *window)
+            .where(AiCallRow.verdict.is_(None), did_not_succeed, *window)
             .order_by(desc(AiCallRow.called_at), desc(AiCallRow.id))
             .limit(max(0, failures_shown))
         ).all()
@@ -1990,9 +2006,9 @@ def ai_call_health(
             )
             for row in unanswered
         )
-    answered = sum(total for verdict, total in counts.items() if verdict is not None)
+    answered = informative + sum(total for verdict, total in counts.items() if verdict is not None)
     return AiCallHealth(
-        calls=sum(counts.values()),
+        calls=sum(counts.values()) + informative,
         answered=answered,
         approved=counts.get("approved", 0),
         rejected=counts.get("rejected", 0),
@@ -3389,6 +3405,7 @@ class ScalpingView:
     market: str
     trades: int
     hours: Page[Bucket]
+    timeframes: tuple[Bucket, ...]
     sessions: tuple[Bucket, ...]
     weekdays: tuple[Bucket, ...]
     spreads: tuple[Bucket, ...]
@@ -3445,6 +3462,7 @@ def scalping_view(
             noun="découpe horaire",
             feminine=True,
         ),
+        timeframes=by_timeframe(trades),
         sessions=by_session(trades),
         weekdays=by_weekday(trades),
         spreads=by_spread(trades, SPREAD_EDGES),
@@ -3643,6 +3661,7 @@ def watermark(engine: Engine) -> ChartWatermark:
 
 REFUSAL_DAYS = 30
 REASON_LABEL_MAX = 44
+RECENT_REFUSALS = 10
 
 
 def _f(value: Any) -> float | None:
@@ -3654,23 +3673,33 @@ def refusal_history(engine: Engine, at: datetime, days: int = REFUSAL_DAYS) -> d
     since = day_start(at) - timedelta(days=days - 1)
     with Session(engine) as session:
         rows = session.execute(
-            select(RiskDecisionRow.decided_at, RiskDecisionRow.reason).where(
+            select(RiskDecisionRow.decided_at, RiskDecisionRow.reason)
+            .where(
                 RiskDecisionRow.outcome == RiskOutcome.REFUSED,
                 RiskDecisionRow.decided_at >= since,
             )
+            .order_by(desc(RiskDecisionRow.decided_at))
         ).all()
     per_day: dict[int, int] = defaultdict(int)
     per_reason: dict[str, int] = defaultdict(int)
     for decided_at, reason in rows:
         stamp = decided_at if decided_at.tzinfo else decided_at.replace(tzinfo=UTC)
         per_day[int(stamp.timestamp()) // 86400] += 1
-        label = (reason or "motif non enregistré").strip()
-        short = label[:REASON_LABEL_MAX] + ("…" if len(label) > REASON_LABEL_MAX else "")
-        per_reason[short] += 1
+        # Grouped by plain-French cause, not by the raw stored text (numbers differ each time).
+        for cause in refusal_causes(reason):
+            per_reason[cause] += 1
+    recent = [
+        {
+            "at": (d if d.tzinfo else d.replace(tzinfo=UTC)).strftime("%d/%m %H:%M UTC"),
+            "text": explain_refusal(r),
+        }
+        for d, r in rows[:RECENT_REFUSALS]
+    ]
     first = int(since.timestamp()) // 86400
     last = int(at.timestamp()) // 86400
     return {
         "total": len(rows),
+        "recent": recent,
         "days": [{"ts": d * 86400, "value": per_day.get(d, 0)} for d in range(first, last + 1)],
         "reasons": [
             {"name": name, "value": count}
@@ -3752,19 +3781,31 @@ def risk_gauges(
     )
     gauges.append(_count_gauge("Trades du jour", day.trades, limits.max_trades_per_day))
     if limits.stop_after_losses_per_day is not None:
-        streak = _losses_today(engine, at)
+        per_timeframe = _losses_today_by_timeframe(engine, at)
         gauges.append(
-            _count_gauge("Pertes consécutives du jour", streak, limits.stop_after_losses_per_day)
+            _count_gauge(
+                "Pertes consécutives du jour",
+                max((count for _, count in per_timeframe), default=0),
+                limits.stop_after_losses_per_day,
+                parts=per_timeframe,
+            )
         )
     return gauges
 
 
 @dataclass(frozen=True)
 class DailyStop:
-    """The "N losses in a day, stop until 00:00 UTC" rule and where today stands against it."""
+    """The "N losses in a row on one timeframe, that timeframe stops until 00:00 UTC" rule
+    and where today stands against it."""
 
     losses: int
     limit: int
+    #: Longest loss run today per timeframe traded today, shortest timeframe first.
+    timeframes: tuple[tuple[str, int], ...] = ()
+
+    @property
+    def stopped(self) -> tuple[str, ...]:
+        return tuple(name for name, count in self.timeframes if count >= self.limit)
 
     @property
     def triggered(self) -> bool:
@@ -3775,15 +3816,23 @@ def daily_stop(engine: Engine, at: datetime, view: RiskView) -> DailyStop | None
     """The first profile's daily-loss-streak stop, or ``None`` when the rule is off."""
     if not view.limits or view.limits[0].stop_after_losses_per_day is None:
         return None
-    return DailyStop(_losses_today(engine, at), view.limits[0].stop_after_losses_per_day)
+    per_timeframe = _losses_today_by_timeframe(engine, at)
+    return DailyStop(
+        max((count for _, count in per_timeframe), default=0),
+        view.limits[0].stop_after_losses_per_day,
+        tuple(per_timeframe),
+    )
 
 
-def _losses_today(engine: Engine, at: datetime) -> int:
-    """The longest run of losses reached today (UTC): the figure the daily lock is read on."""
-    closed = [
-        (trade.pnl_eur, trade.closed_at) for trade in trades_between(engine, day_start(at), at)
+def _losses_today_by_timeframe(engine: Engine, at: datetime) -> list[tuple[str, int]]:
+    """The longest run of losses reached today (UTC) on each timeframe: the daily lock's figure."""
+    grouped: dict[Timeframe, list[tuple[Decimal, datetime]]] = defaultdict(list)
+    for trade in trades_between(engine, day_start(at), at):
+        grouped[trade.timeframe].append((trade.pnl_eur, trade.closed_at))
+    return [
+        (timeframe.value, longest_loss_run_today(grouped[timeframe], at).longest)
+        for timeframe in sorted(grouped, key=lambda tf: tf.seconds)
     ]
-    return longest_loss_run_today(closed, at).longest
 
 
 def positions_chart(positions: Sequence[OpenPositionView]) -> dict[str, Any]:
@@ -3835,6 +3884,7 @@ def scalping_chart(view: ScalpingView) -> dict[str, list[dict[str, Any]]]:
         ]
 
     sets = {
+        "Unité": items(view.timeframes),
         "Heure": items(view.hours.rows),
         "Session": items(view.sessions),
         "Jour": items(view.weekdays),

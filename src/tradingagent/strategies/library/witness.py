@@ -32,7 +32,7 @@ class WitnessParameters(BaseModel):
 
 class Witness(Strategy[WitnessParameters]):
     """Reference strategy proving the mechanics end to end. Not meant to be traded:
-    its manifest is capped at SIGNAL.
+    its manifest is capped at DEMO.
 
     Buys when the fast EMA crosses above the slow one on the last closed candle, sells on
     the opposite cross. Stop and target are ATR multiples measured from the close.

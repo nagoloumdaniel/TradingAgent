@@ -398,3 +398,51 @@ def test_a_ledger_that_is_down_never_turns_a_review_into_an_error(engine: Engine
     outcome = asyncio.run(layer.review(a_context(), T0))
 
     assert outcome.verdict == "approved"
+
+
+# --- the provider's message is journalled, whatever the failure ---------------
+
+
+def test_a_timeout_is_journalled_with_a_readable_message(engine: Engine) -> None:
+    """A bare TimeoutError has an empty str(): the dashboard showed "aucun message"."""
+    asyncio.run(
+        a_layer(
+            engine, FakeClient(answer(), seconds=2.0), timeout=timedelta(milliseconds=50)
+        ).review(a_context(), T0)
+    )
+
+    (row,) = outcome_rows(engine)
+    assert row.error is not None
+    assert "TimeoutError" in row.error
+
+
+def test_a_refusal_keeps_the_provider_message_and_status(engine: Engine) -> None:
+    asyncio.run(
+        a_layer(engine, FakeClient(ProviderError(402, "Insufficient Balance"))).review(
+            a_context(), T0
+        )
+    )
+
+    (row,) = outcome_rows(engine)
+    assert row.error is not None
+    assert "402" in row.error
+    assert "Insufficient Balance" in row.error
+
+
+def test_a_skipped_review_keeps_the_original_provider_message(engine: Engine) -> None:
+    layer = a_layer(engine, FakeClient(ProviderError(402, "Insufficient Balance")))
+    asyncio.run(layer.review(a_context(), T0))
+    asyncio.run(layer.review(a_context(), T0 + timedelta(minutes=15)))
+
+    skipped = outcome_rows(engine)[1]
+    assert skipped.error is not None
+    assert "Insufficient Balance" in skipped.error
+
+
+def test_a_non_conforming_answer_is_journalled_as_an_error(engine: Engine) -> None:
+    asyncio.run(a_layer(engine, FakeClient("not json at all")).review(a_context(), T0))
+
+    (row,) = outcome_rows(engine)
+    assert row.verdict is None
+    assert row.error
+    assert row.response == "not json at all"

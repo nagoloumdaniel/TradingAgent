@@ -60,7 +60,7 @@ class Clock:
 def client(
     terminal: Any,
     credentials: Credentials,
-    mode: TradingMode = TradingMode.SIGNAL,
+    mode: TradingMode = TradingMode.DEMO,
     offset: timedelta = timedelta(0),
     clock: Clock | None = None,
     delays: list[float] | None = None,
@@ -92,7 +92,7 @@ def test_connect_on_a_demo_account(terminal: Any, credentials: Credentials) -> N
 
 
 @pytest.mark.parametrize(
-    "mode", [TradingMode.OBSERVATION, TradingMode.SIGNAL, TradingMode.PAPER, TradingMode.DEMO]
+    "mode", [TradingMode.DEMO, TradingMode.DEMO, TradingMode.DEMO, TradingMode.DEMO]
 )
 def test_real_account_outside_live_mode_is_fatal(
     terminal: Any, credentials: Credentials, mode: TradingMode

@@ -142,14 +142,14 @@ def test_mode_refuses_an_unknown_mode(engine: Engine) -> None:
 
 
 def test_mode_records_a_valid_change_with_its_author(engine: Engine) -> None:
-    send(service(engine), "/mode PAPER")
+    send(service(engine), "/mode DEMO")
 
     with Session(engine) as session:
         events = session.scalars(
             select(SystemEventRow).where(SystemEventRow.kind == "mode_command")
         ).all()
     assert len(events) == 1
-    assert events[0].detail["requested"] == TradingMode.PAPER.value
+    assert events[0].detail["requested"] == TradingMode.DEMO.value
     assert events[0].detail["actor"] == f"telegram:{OPERATOR}"
 
 

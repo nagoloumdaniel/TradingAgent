@@ -53,7 +53,7 @@ def witness_manifest() -> StrategyManifest:
         {
             "strategy_id": "witness",
             "version": "1.0.0",
-            "max_mode": "SIGNAL",
+            "max_mode": "DEMO",
             "allowed_symbols": ["frxXAUUSD", "EURUSD"],
             "timeframes": ["M15"],
             "history_bars": 100,
@@ -165,7 +165,7 @@ def config_for(market: str, one_dataset: CandleDataset) -> BacktestConfig:
             slippage_fixed=round(price * 0.00002, 6),
             commission_per_trade=Decimal("0.5"),
         ),
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         max_concurrent_positions=1,
     )
 
@@ -567,7 +567,7 @@ def performance_of(pnls: list[float]) -> Performance:
             strategy_ref="witness@1.0.0",
             direction=Direction.BUY,
             timeframe=M15,
-            mode=TradingMode.SIGNAL,
+            mode=TradingMode.DEMO,
             opened_at=base + timedelta(minutes=index),
             closed_at=base + timedelta(minutes=index + 1),
             pnl_eur=Decimal(str(pnl)),

@@ -40,7 +40,7 @@ def _page(**overrides: object) -> Page[str]:
         "query": "",
         "market": "XAUUSD",
         "path": "/trades",
-        "filters": (("mode", "PAPER"),),
+        "filters": (("mode", "LIVE"),),
         "noun": "trade",
     }
     values.update(overrides)
@@ -53,7 +53,7 @@ def test_a_page_link_keeps_every_filter() -> None:
     assert url.startswith("/trades?")
     assert "page=2" in url
     assert "market=XAUUSD" in url
-    assert "mode=PAPER" in url
+    assert "mode=LIVE" in url
 
 
 def test_a_page_link_keeps_the_search() -> None:

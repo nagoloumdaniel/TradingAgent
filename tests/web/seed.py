@@ -96,7 +96,7 @@ _CLOSED_CHAINS: tuple[tuple[Any, ...], ...] = (
         timedelta(days=1, hours=2),
         Decimal("12.50"),
         Decimal("5.00"),
-        TradingMode.PAPER,
+        TradingMode.LIVE,
     ),
     (
         EUR,
@@ -116,7 +116,7 @@ _CLOSED_CHAINS: tuple[tuple[Any, ...], ...] = (
         timedelta(hours=3),
         Decimal("-4.00"),
         Decimal("5.00"),
-        TradingMode.PAPER,
+        TradingMode.LIVE,
     ),
     (
         EUR,
@@ -126,7 +126,7 @@ _CLOSED_CHAINS: tuple[tuple[Any, ...], ...] = (
         timedelta(days=6, hours=7),
         Decimal("-2.00"),
         Decimal("6.00"),
-        TradingMode.PAPER,
+        TradingMode.LIVE,
     ),
     (
         XAU,
@@ -136,7 +136,7 @@ _CLOSED_CHAINS: tuple[tuple[Any, ...], ...] = (
         timedelta(days=17, hours=-2),
         Decimal("3.00"),
         Decimal("5.00"),
-        TradingMode.PAPER,
+        TradingMode.LIVE,
     ),
 )
 
@@ -205,7 +205,7 @@ def seed(engine: Engine) -> Seeded:
             None,
             None,
             Decimal("5.00"),
-            TradingMode.PAPER,
+            TradingMode.LIVE,
             volume=Decimal("0.02"),
             open_price=2650.0,
         )
@@ -218,7 +218,7 @@ def seed(engine: Engine) -> Seeded:
             None,
             None,
             Decimal("6.00"),
-            TradingMode.PAPER,
+            TradingMode.LIVE,
             volume=Decimal("7.00"),
             open_price=1.1,
         )
@@ -271,7 +271,7 @@ def add_chain(
     generated_at: datetime,
     closed: bool = True,
     with_execution: bool = True,
-    mode: TradingMode = TradingMode.PAPER,
+    mode: TradingMode = TradingMode.LIVE,
     exit_reason: str = "take_profit",
 ) -> int:
     """Append one more signal chain to an already-seeded database, and return its signal id.
@@ -355,10 +355,10 @@ def _daily(engine: Engine) -> None:
     """
     store = DailyPerformanceStore(engine)
     for days_ago, mode, market, ref, pnl, risk in (
-        (17, TradingMode.PAPER, XAU, WITNESS, Decimal("3.00"), Decimal("5.00")),
-        (6, TradingMode.PAPER, EUR, BREAKOUT, Decimal("-2.00"), Decimal("6.00")),
-        (1, TradingMode.PAPER, XAU, WITNESS, Decimal("12.50"), Decimal("5.00")),
-        (0, TradingMode.PAPER, XAU, WITNESS, Decimal("-4.00"), Decimal("5.00")),
+        (17, TradingMode.LIVE, XAU, WITNESS, Decimal("3.00"), Decimal("5.00")),
+        (6, TradingMode.LIVE, EUR, BREAKOUT, Decimal("-2.00"), Decimal("6.00")),
+        (1, TradingMode.LIVE, XAU, WITNESS, Decimal("12.50"), Decimal("5.00")),
+        (0, TradingMode.LIVE, XAU, WITNESS, Decimal("-4.00"), Decimal("5.00")),
         (0, TradingMode.DEMO, EUR, BREAKOUT, Decimal("7.25"), Decimal("6.00")),
     ):
         store.apply_trade(
@@ -476,7 +476,7 @@ def _signal(
         symbol=symbol,
         timeframe=Timeframe.H1,
         direction=direction,
-        mode=TradingMode.PAPER,
+        mode=TradingMode.LIVE,
         observed_price=2650.0,
         entry_low=2648.0,
         entry_high=2652.0,

@@ -387,7 +387,7 @@ class ScalpTripleFilter(Strategy[ScalpTripleFilterParameters]):
     falling knife.
 
     A candidate of the research laboratory: it is never registered, never promoted, and
-    its manifest is capped at SIGNAL by `build_proposal`.
+    its manifest is capped at DEMO by `build_proposal`.
     """
 
     strategy_id = "scalp_triple_filter"
@@ -690,7 +690,7 @@ def build_proposal(
     manifest = StrategyManifest(
         strategy_id=strategy_id,
         version=scope.version,
-        max_mode=TradingMode.SIGNAL,
+        max_mode=TradingMode.DEMO,
         allowed_symbols=scope.symbols,
         timeframes=timeframes,
         history_bars=_history_bars(lookback),
@@ -972,7 +972,7 @@ def breakout_only_template(scope: TemplateScope, grid: Grid) -> Iterator[Candida
         manifest = StrategyManifest(
             strategy_id=BreakoutOnly.strategy_id,
             version=scope.version,
-            max_mode=TradingMode.SIGNAL,
+            max_mode=TradingMode.DEMO,
             allowed_symbols=scope.symbols,
             timeframes=(scope.timeframe,),
             history_bars=_history_bars(lookback),
@@ -1030,7 +1030,7 @@ def breakout_only_neighbourhood_template(
         manifest = StrategyManifest(
             strategy_id=BreakoutOnly.strategy_id,
             version=scope.version,
-            max_mode=TradingMode.SIGNAL,
+            max_mode=TradingMode.DEMO,
             allowed_symbols=scope.symbols,
             timeframes=(scope.timeframe,),
             history_bars=_history_bars(lookback),
@@ -1196,7 +1196,7 @@ class DiscoveryProtocol:
                 commission_per_trade=self.commission,
             ),
             risk_eur=self.risk_eur,
-            mode=TradingMode.SIGNAL,
+            mode=TradingMode.DEMO,
         )
 
 

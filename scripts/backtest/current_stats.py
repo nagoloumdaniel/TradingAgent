@@ -13,7 +13,7 @@ Four things are therefore *resolved*, never assumed, and each one is printed wit
 * the timeframe — the manifest declares it, and the frozen dataset must be the same one, or
   the measurement stops rather than answering a different question;
 * the costs — identical to `run_campaign.py` and `improve.py`: spread at 0.5 bp of the first
-  close, slippage at 0.2 bp, 0.50 EUR per trade, `mode=SIGNAL`, one position at a time.
+  close, slippage at 0.2 bp, 0.50 EUR per trade, `mode=DEMO`, one position at a time.
 
 Read-only on production: nothing is promoted, nothing is written under `config/strategies/`.
 The report lands in `docs/research/stats/`, one JSON per market, and on standard output.
@@ -110,7 +110,7 @@ def config_for(market: str, dataset: CandleDataset) -> BacktestConfig:
     return BacktestConfig(
         symbol=market,
         costs=campaign_costs(price),
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         max_concurrent_positions=1,
     )
 
@@ -239,7 +239,7 @@ def market_block(
                 config_for(market, dataset).costs.slippage_fixed
             ),
             "commission_per_trade_eur": 0.5,
-            "mode": TradingMode.SIGNAL.value,
+            "mode": TradingMode.DEMO.value,
             "max_concurrent_positions": 1,
         },
         "result": candidate_stats(measured),

@@ -1,13 +1,12 @@
-"""Exécuteurs (paper et MT5), suivi des positions, réconciliation. Seul `risk` y accède.
+"""Exécuteur MT5, suivi des positions, réconciliation. Seul `risk` y accède.
 
-The composition root writes `from tradingagent.execution import MT5Broker, PaperBroker`;
-the agent loop type-hints against `runtime.ports.BrokerPort`, which these satisfy
-structurally. Both concrete brokers expose `async def initialize(self) -> None` and build
+The composition root writes `from tradingagent.execution import MT5Broker`;
+the agent loop type-hints against `runtime.ports.BrokerPort`, which it satisfies
+structurally. The concrete broker exposes `async def initialize(self) -> None` and build
 no connection in their constructor.
 """
 
 from tradingagent.execution.mt5_broker import MT5Broker, key_comment
-from tradingagent.execution.paper_broker import PaperBroker
 from tradingagent.execution.ports import (
     Alert,
     Broker,
@@ -34,7 +33,6 @@ __all__ = [
     "MT5Broker",
     "OrderRefusedError",
     "OrderSnapshot",
-    "PaperBroker",
     "PositionTracker",
     "Reconciler",
     "Reconciliation",

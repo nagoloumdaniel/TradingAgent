@@ -6,7 +6,7 @@ promise made to the operator, not to the code:
   * /help groups the whole palette by usage and says, in one sentence, what each command
     is for — the operator understands the palette at a glance, on a phone;
   * a command that offers a choice first states the consequence of every option
-    (/mode: PAPER simulates, DEMO trades a demo account, LIVE is real money);
+    (/mode: DEMO trades a demo account, LIVE is real money);
   * a click runs the *same* audited path as the typed command, revalidates what the
     button names at the moment of the click, and never acts on an outdated message.
 
@@ -342,17 +342,13 @@ def test_mode_explains_every_consequence_before_offering_the_choice(engine: Engi
 
     assert answer is not None
     assert_readable(answer)
-    # What each mode does, in the operator's words: simulated, demo money, real money.
-    assert "PAPER" in answer and "simul" in answer and "courtier" in answer
+    # What each mode does, in the operator's words: demo money, real money.
     assert "DÉMO" in answer and "démonstration" in answer and "fictif" in answer
     assert "RÉEL" in answer and "argent réel" in answer and "9 portes" in answer
-    assert "OBSERVATION" in answer and "SIGNAL" in answer
+    assert "OBSERVATION" not in answer and "PAPER" not in answer
     # The explanation and the buttons travel in the same message: nothing to choose
     # before the consequences have been read.
     assert [button.label for button in buttons(answer)] == [
-        "OBSERVATION",
-        "SIGNAL",
-        "PAPER",
         "DÉMO",
         "RÉEL",
     ]
@@ -692,14 +688,12 @@ def test_a_keyboard_becomes_an_inline_keyboard() -> None:
     from tradingagent.notify.telegram_app import to_markup
 
     assert to_markup(None) is None
-    keyboard = Keyboard(
-        ((Button("OBSERVATION", "c1:1:mode:OBSERVATION"), Button("SIGNAL", "c1:1:mode:SIGNAL")),)
-    )
+    keyboard = Keyboard(((Button("DEMO", "c1:1:mode:DEMO"), Button("LIVE", "c1:1:mode:LIVE")),))
     markup = to_markup(keyboard)
 
     assert isinstance(markup, InlineKeyboardMarkup)
-    assert [button.text for button in markup.inline_keyboard[0]] == ["OBSERVATION", "SIGNAL"]
-    assert markup.inline_keyboard[0][0].callback_data == "c1:1:mode:OBSERVATION"
+    assert [button.text for button in markup.inline_keyboard[0]] == ["DEMO", "LIVE"]
+    assert markup.inline_keyboard[0][0].callback_data == "c1:1:mode:DEMO"
     assert not hasattr(markup, "resize_keyboard"), "a reply keyboard would stick to the screen"
 
 

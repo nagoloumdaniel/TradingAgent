@@ -77,7 +77,7 @@ from tradingagent.data.market_calendar import MarketCalendar
 from tradingagent.data.market_data import MarketDataClient, Subscription
 from tradingagent.data.mt5_terminal import Mt5Terminal
 from tradingagent.data.terminal import MAGIC as BROKER_MAGIC
-from tradingagent.execution import MT5Broker, PaperBroker, PositionTracker, TradeLog
+from tradingagent.execution import MT5Broker, PositionTracker, TradeLog
 from tradingagent.news.analyst import NewsAnalyst
 from tradingagent.news.config import NewsConfig
 from tradingagent.news.faireconomy import NEXT_WEEK_URL, FaireconomySource
@@ -127,7 +127,6 @@ from tradingagent.research.campaign import CandidateReport, CandidateSpec, run_c
 from tradingagent.research.improvement import ImprovementOutcome, search_improvement
 from tradingagent.research.versioning import CandidateVersion, build_candidate, write_candidate
 from tradingagent.resilience import one_line, retry_transient
-from tradingagent.risk.model import AccountState, InstrumentSpec
 from tradingagent.runtime.loop import AgentLoop
 from tradingagent.runtime.pipeline import SignalPipeline
 from tradingagent.runtime.portfolio import PortfolioBuilder
@@ -140,6 +139,7 @@ from tradingagent.storage.events import SystemEventStore
 from tradingagent.storage.halts import HaltStore
 from tradingagent.storage.migrate import upgrade
 from tradingagent.storage.news import NewsStore
+from tradingagent.storage.risk_decisions import RiskDecisionStore
 from tradingagent.storage.signals import SignalRepository
 from tradingagent.strategies.manifest import StrategyManifest
 from tradingagent.strategies.registry import REGISTRY
@@ -152,7 +152,6 @@ ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = ROOT / ".env"
 AGENT_CONFIG = ROOT / "config" / "agent.yaml"
 STRATEGY_DIR = ROOT / "config" / "strategies"
-PAPER_STARTING_CAPITAL = Decimal(1000)
 #: Set by `scripts/supervise_agent.ps1` in the environment of the agent it launches. It changes
 #: one sentence of one Telegram answer: telling an operator "it comes back on its own" when
 #: nothing will relaunch it is a costly lie. Read here rather than from `.env`, where it could
@@ -162,23 +161,13 @@ SUPERVISED_ENV = "TRADINGAGENT_SUPERVISED"
 #: service on any exit code; this one says, in its journal, that the stop was asked for.
 RESTART_EXIT_CODE = 75
 # Section 14: the ladder gates the mode, so a strategy cannot trade a rung it never climbed.
-# OBSERVATION and SIGNAL are absent on purpose: they execute nothing, and that is where a
-# candidate earns its evidence.
 #
-# PAPER and DEMO ask for the same rung, and that is deliberate. Both are venues without real
-# money; what separates them is the fill — simulated against a demo account, real against a
-# live account. Requiring `live` for DEMO, as an earlier version did, inverted the
-# environment ladder of §44 (DEV → BACKTEST → PAPER → DEMO → LIVE_SMALL → PROD): it made the
-# rehearsal available only once the decision it exists to inform had already been taken.
-# LIVE keeps the top rung: real money is the one thing that must never be spent on a
-# version nobody validated.
+# Only two modes exist: DEMO is the default, LIVE comes once a strategy is confirmed in DEMO.
+# DEMO therefore has no rung requirement (any version that is not DEPRECATED may run): it is
+# the venue where a version earns its promotion, so demanding the promotion first would be
+# circular. LIVE keeps the top rung: real money is the one thing that must never be spent on
+# a version nobody validated.
 MODE_REQUIRED_STATUS: dict[TradingMode, frozenset[StrategyStatus]] = {
-    TradingMode.PAPER: frozenset(
-        {StrategyStatus.PAPER, StrategyStatus.CANDIDATE, StrategyStatus.LIVE}
-    ),
-    TradingMode.DEMO: frozenset(
-        {StrategyStatus.PAPER, StrategyStatus.CANDIDATE, StrategyStatus.LIVE}
-    ),
     TradingMode.LIVE: frozenset({StrategyStatus.LIVE}),
 }
 # The demo server is measured at UTC with no daylight saving (TASK-003); the live server
@@ -238,14 +227,6 @@ class TelegramNotifier:
             return False
 
 
-class SilentNotifier:
-    """Used when no bot is wired, so the pipeline keeps a single code path."""
-
-    async def send(self, text: str, *, parse_mode: str | None = None) -> bool:
-        del text, parse_mode
-        return True
-
-
 @dataclass
 class Components:
     engine: Engine
@@ -274,8 +255,7 @@ def _declared_strategies(
     `allowed_symbols`. Comme le catalogue porte toutes les versions, `trend_breakout@1.0.0` et
     `@1.0.1` produisaient **deux signaux pour la même bougie sur le même marché**, et
     `witness@1.0.0`, `@1.1.0` et `@1.1.1` en produisaient trois sur l'or. L'opérateur recevait
-    deux alertes Telegram par bougie, et la version SIGNAL partait vers un exécuteur DEMO qui la
-    refusait : `order carries mode SIGNAL, this executor runs in DEMO`.
+    deux alertes Telegram par bougie, et l'une d'elles partait vers un exécuteur qui la refusait.
 
     `agent.yaml` nomme déjà la version à faire tourner par marché. C'est cette déclaration qui
     décide, et rien d'autre : une version qu'on ne déclare pas ne produit pas de signal.
@@ -295,10 +275,9 @@ def _subscriptions(config: AgentConfig, catalog: StrategyCatalog) -> tuple[Subsc
         if not market.enabled:
             continue
         manifest = loaded[market.strategy].manifest
-        subscriptions += [
-            Subscription(market.symbol, timeframe) for timeframe in manifest.timeframes
-        ]
-    return tuple(subscriptions)
+        timeframes = dict.fromkeys((*manifest.timeframes, *manifest.scan_timeframes))
+        subscriptions += [Subscription(market.symbol, timeframe) for timeframe in timeframes]
+    return tuple(dict.fromkeys(subscriptions))
 
 
 async def _known_symbols(terminal: Mt5Terminal, declared: Sequence[str]) -> set[str]:
@@ -321,18 +300,6 @@ async def _known_symbols(terminal: Mt5Terminal, declared: Sequence[str]) -> set[
             + ", ".join(sorted(unknown))
         )
     return verified
-
-
-def _instrument(spec: Any, symbol: str) -> InstrumentSpec:
-    return InstrumentSpec(
-        symbol=symbol,
-        contract_size=Decimal(str(spec.contract_size)),
-        volume_min=Decimal(str(spec.volume_min)),
-        volume_step=Decimal(str(spec.volume_step)),
-        volume_max=Decimal(str(spec.volume_max)),
-        point=Decimal(str(spec.point)),
-        stops_level=int(spec.stops_level),
-    )
 
 
 def _build_command_service(
@@ -541,10 +508,18 @@ def _build_lab(
     upcoming = (
         (lambda: news.upcoming_summary(now(), hours=72, limit=10)) if news is not None else None
     )
+    decisions = RiskDecisionStore(engine)
+
+    def refusals() -> str:
+        end = now()
+        return decisions.refusal_digest(end - timedelta(days=30), end)
+
     return DailyLab(
         engine,
-        analyst=TradeAnalyst(store, client, model=model, upcoming=upcoming),
-        researcher=StrategyResearcher(store, client, model=model, upcoming=upcoming),
+        analyst=TradeAnalyst(store, client, model=model, upcoming=upcoming, refusals=refusals),
+        researcher=StrategyResearcher(
+            store, client, model=model, upcoming=upcoming, refusals=refusals
+        ),
         notifier=notifier,
         cycle=DailyImprovement(engine),
         now=now,
@@ -724,15 +699,15 @@ def _candidate_spec(ref: str, variant: Variant) -> CandidateSpec:
 
 
 def _replay_config(market: str, evidence: MarketEvidence) -> BacktestConfig:
-    """The simulation a variant is replayed in: SIGNAL mode, and the recorded costs.
+    """The simulation a variant is replayed in: the recorded costs, and nothing executed.
 
-    `mode=SIGNAL` because a candidate executes nothing: it earns its evidence in research,
-    and the environment ladder of §14 decides when it may touch an account.
+    A candidate earns its evidence in research; the environment ladder of §14 decides when it
+    may touch an account.
     """
     return BacktestConfig(
         symbol=market,
         costs=_recorded_costs(evidence),
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         max_concurrent_positions=1,
     )
 
@@ -911,31 +886,28 @@ async def _build(
     _register_configured_strategies(engine, config, mode, now)
 
     tracker = PositionTracker(engine, now=now)
-    broker = await _build_broker(terminal, tracker, settings, config, mode, halts)
+    broker = _build_broker(terminal, tracker, settings, mode, halts)
     await broker.initialize()
 
     calendars: dict[str, MarketCalendar] = {}
     notifier: Any
     application: Application | None = None
-    if mode is TradingMode.OBSERVATION:
-        notifier = SilentNotifier()
-    else:
-        service = _build_command_service(
-            engine,
-            settings,
-            halts,
-            candles,
-            tuple((market_.symbol, market_.enabled) for market_ in config.markets),
-            now,
-            calendars,
-            connection=terminal.is_connected,
-        )
-        application = _build_telegram(settings, service)
-        operator_id = settings.telegram_allowed_user_ids[0]
-        # The console is a second reader of the same text, never a second source: the
-        # signal still goes to Telegram exactly as before. A human watching the terminal
-        # gets the message the operator was always meant to receive.
-        notifier = ConsoleNotifier(TelegramNotifier(application, operator_id))
+    service = _build_command_service(
+        engine,
+        settings,
+        halts,
+        candles,
+        tuple((market_.symbol, market_.enabled) for market_ in config.markets),
+        now,
+        calendars,
+        connection=terminal.is_connected,
+    )
+    application = _build_telegram(settings, service)
+    operator_id = settings.telegram_allowed_user_ids[0]
+    # The console is a second reader of the same text, never a second source: the
+    # signal still goes to Telegram exactly as before. A human watching the terminal
+    # gets the message the operator was always meant to receive.
+    notifier = ConsoleNotifier(TelegramNotifier(application, operator_id))
 
     async def alert_sender(text: str) -> None:
         await notifier.send(text)
@@ -1011,10 +983,8 @@ def _register_configured_strategies(
     """Make every configured market visible to the registry, and enforce §14.
 
     The registry is the deployment record. Two rules are checked before anything connects:
-    a deprecated ref stops the start-up, and an executing mode requires the strategy to have
-    climbed far enough up the ladder — PAPER accepts `paper`, `candidate` or `live`, while
-    DEMO and LIVE accept only `live`. In OBSERVATION and SIGNAL nothing is executed, so any
-    non-deprecated status is accepted: that is how a candidate earns its evidence.
+    a deprecated ref stops the start-up, and LIVE requires the strategy to be `live`. DEMO
+    has no rung requirement: a new version runs there to be confirmed, then gets promoted.
     """
     registry = StrategyRegistry(engine, clock=now)
     refused: list[str] = []
@@ -1063,36 +1033,13 @@ def _register_configured_strategies(
         )
 
 
-async def _build_broker(
+def _build_broker(
     terminal: Mt5Terminal,
     log_: TradeLog,
     settings: Settings,
-    config: AgentConfig,
     mode: TradingMode,
     halts: HaltStore,
 ) -> Any:
-    if mode is TradingMode.PAPER:
-        specs = {}
-        for market in config.markets:
-            raw = await asyncio.to_thread(terminal.symbol_spec, market.symbol)
-            if raw is not None:
-                specs[market.symbol] = _instrument(raw, market.symbol)
-        account = AccountState(
-            settings.mt5_login,
-            True,
-            "EUR",
-            PAPER_STARTING_CAPITAL,
-            PAPER_STARTING_CAPITAL,
-        )
-        return PaperBroker(
-            terminal,
-            log_,
-            specs=specs,
-            account=account,
-            mode=TradingMode.PAPER,
-            status=halts.status,
-            alert=lambda message: log.critical("paper: %s", message),
-        )
     return MT5Broker(
         terminal,
         log_,

@@ -41,7 +41,7 @@ def manifest(history_bars: int = HISTORY) -> StrategyManifest:
         {
             "strategy_id": "witness",
             "version": "1.0.0",
-            "max_mode": "SIGNAL",
+            "max_mode": "DEMO",
             "allowed_symbols": [GOLD],
             "timeframes": ["M15"],
             "history_bars": history_bars,

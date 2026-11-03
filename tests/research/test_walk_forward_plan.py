@@ -44,7 +44,7 @@ def a_manifest(history_bars: int) -> StrategyManifest:
         {
             "strategy_id": "witness",
             "version": "1.1.1",
-            "max_mode": "SIGNAL",
+            "max_mode": "DEMO",
             "allowed_symbols": [MARKET],
             "timeframes": ["M15"],
             "history_bars": history_bars,
@@ -70,7 +70,7 @@ def a_config() -> BacktestConfig:
     return BacktestConfig(
         symbol=MARKET,
         costs=CostModel(spread=0.1, slippage_fixed=0.04, commission_per_trade=Decimal("0.5")),
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         max_concurrent_positions=1,
     )
 

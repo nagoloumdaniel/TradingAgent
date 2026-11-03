@@ -20,10 +20,12 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import TypeDecorator
 
 from tradingagent.core.market import Direction
-from tradingagent.core.mode import AiFilter, TradingMode
+from tradingagent.core.mode import LEGACY_MODE_VALUES, AiFilter, TradingMode
 from tradingagent.core.states import (
     AnalysisKind,
     ExecutionEventKind,
@@ -61,6 +63,24 @@ def enum_type(enum_class: type[StrEnum]) -> Enum:
         values_callable=lambda members: [member.value for member in members],
         validate_strings=True,
     )
+
+
+class TradingModeType(TypeDecorator[TradingMode]):
+    """`TradingMode` column that still reads rows written before the mode list was cut.
+
+    Only DEMO and LIVE exist now. Older databases may hold OBSERVATION, SIGNAL or PAPER in the
+    append-only history (immutable, so it is not rewritten); they are read back as DEMO.
+    """
+
+    impl = enum_type(TradingMode)
+    cache_ok = True
+
+    def process_result_value(self, value: Any, dialect: Dialect) -> TradingMode | None:
+        if value is None:
+            return None
+        if value in LEGACY_MODE_VALUES:
+            return TradingMode.DEMO
+        return TradingMode(value)
 
 
 class Base(DeclarativeBase):
@@ -118,7 +138,7 @@ class SignalRow(Base):
     symbol: Mapped[str] = mapped_column(String(32))
     timeframe: Mapped[Timeframe] = mapped_column(enum_type(Timeframe))
     direction: Mapped[Direction] = mapped_column(enum_type(Direction))
-    mode: Mapped[TradingMode] = mapped_column(enum_type(TradingMode))
+    mode: Mapped[TradingMode] = mapped_column(TradingModeType())
     observed_price: Mapped[float]
     entry_low: Mapped[float]
     entry_high: Mapped[float]
@@ -192,7 +212,7 @@ class OrderRow(Base):
     requested_price: Mapped[float]
     stop_loss: Mapped[float]
     take_profit: Mapped[float | None]
-    mode: Mapped[TradingMode] = mapped_column(enum_type(TradingMode))
+    mode: Mapped[TradingMode] = mapped_column(TradingModeType())
     state: Mapped[OrderState] = mapped_column(enum_type(OrderState))
     broker_order_ticket: Mapped[int | None] = mapped_column(BigInteger, unique=True)
     retcode: Mapped[int | None]
@@ -232,7 +252,7 @@ class PositionRow(Base):
     open_price: Mapped[float]
     stop_loss: Mapped[float]
     take_profit: Mapped[float | None]
-    mode: Mapped[TradingMode] = mapped_column(enum_type(TradingMode))
+    mode: Mapped[TradingMode] = mapped_column(TradingModeType())
     state: Mapped[PositionState] = mapped_column(enum_type(PositionState))
     opened_at: Mapped[datetime]
     updated_at: Mapped[datetime]
@@ -248,7 +268,7 @@ class TradeRow(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     position_id: Mapped[int] = mapped_column(ForeignKey("positions.id"), unique=True)
-    mode: Mapped[TradingMode] = mapped_column(enum_type(TradingMode))
+    mode: Mapped[TradingMode] = mapped_column(TradingModeType())
     closed_at: Mapped[datetime] = mapped_column(index=True)
     close_price: Mapped[float]
     pnl_eur: Mapped[Decimal]
@@ -484,7 +504,7 @@ class DailyPerformanceRow(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     day: Mapped[datetime]
-    mode: Mapped[TradingMode] = mapped_column(enum_type(TradingMode))
+    mode: Mapped[TradingMode] = mapped_column(TradingModeType())
     market: Mapped[str] = mapped_column(String(32))
     ref: Mapped[str] = mapped_column(String(80))
     trades: Mapped[int]

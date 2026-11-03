@@ -105,7 +105,7 @@ def test_the_checks_record_keeps_every_verdict() -> None:
     ("mode", "is_demo", "login"),
     [
         (TradingMode.DEMO, False, LOGIN),
-        (TradingMode.PAPER, False, LOGIN),
+        (TradingMode.DEMO, False, LOGIN),
         (TradingMode.LIVE, True, LOGIN),
         (TradingMode.DEMO, True, 99999999),
     ],

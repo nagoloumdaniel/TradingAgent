@@ -1,10 +1,9 @@
 """Où en est la campagne de trente jours (cahier v3 §44, §53 ; Q-15 ; TASK-071).
 
-Elle compte les deux lieux où aucun argent réel n'est engagé : **PAPER** (remplissages
-simulés sur le flux réel) et **DEMO** (remplissages réels sur un compte de démonstration).
+Elle compte le lieu où aucun argent réel n'est engagé : **DEMO** (remplissages réels sur un
+compte de démonstration).
 Le mode RÉEL n'en fait jamais partie (R-14) : c'est un objet distinct, jugé sur ses propres
-chiffres. Le rapport nomme les lieux mesurés pour chaque stratégie, afin qu'un mélange soit
-visible plutôt que silencieux.
+chiffres. Le rapport nomme le lieu mesuré pour chaque stratégie.
 
 À lancer chaque semaine pendant les trente jours de la campagne, sur la même base que
 l'agent (voir `docs/operations/campagne-paper.md`) :

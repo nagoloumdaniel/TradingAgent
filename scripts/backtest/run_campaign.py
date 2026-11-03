@@ -93,7 +93,7 @@ def witness_manifest(symbols: Sequence[str]) -> StrategyManifest:
         {
             "strategy_id": "witness",
             "version": "1.0.0",
-            "max_mode": "SIGNAL",
+            "max_mode": "DEMO",
             "allowed_symbols": list(symbols),
             "timeframes": [TIMEFRAME.value],
             "history_bars": 100,
@@ -172,7 +172,7 @@ def config_for(market: str, dataset: CandleDataset) -> BacktestConfig:
     return BacktestConfig(
         symbol=market,
         costs=costs,
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         max_concurrent_positions=1,
     )
 

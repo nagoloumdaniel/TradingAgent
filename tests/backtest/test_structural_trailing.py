@@ -71,7 +71,7 @@ def manifest() -> StrategyManifest:
     return StrategyManifest(
         strategy_id="once",
         version="0.1.0",
-        max_mode=TradingMode.SIGNAL,
+        max_mode=TradingMode.DEMO,
         allowed_symbols=("XAUUSD",),
         timeframes=(Timeframe.M15,),
         history_bars=2,
@@ -108,7 +108,7 @@ def config(**kwargs: object) -> BacktestConfig:
     return BacktestConfig(
         symbol="XAUUSD",
         costs=CostModel(),
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         max_concurrent_positions=1,
         **kwargs,  # type: ignore[arg-type]
     )

@@ -2,9 +2,10 @@
 
 **Pourquoi ce script, et pourquoi il n'est pas un raccourci.** `config/agent.yaml` designe une
 version ; le registre dit ce qu'elle a le droit de faire. Une version fraichement referencee est
-`discovered`, et un mode qui execute (PAPER, DEMO, LIVE) exige au moins `paper` : l'agent refuse
-de demarrer tant que la version n'a pas gravi les echelons. C'est la garde du §14, et elle doit
-rester : elle empeche qu'une reference ecrite dans un fichier devienne executante par accident.
+`discovered`, et le mode LIVE exige `live` (DEMO n'exige plus rien depuis le 2026-11-04) : l'agent
+refuse de demarrer en LIVE tant que la version n'a pas gravi les echelons. C'est la garde du §14,
+et elle doit rester : elle empeche qu'une reference ecrite dans un fichier devienne executante
+par accident.
 
 Ce script ne contourne pas la garde, il **parcourt** l'echelle autorisee — `discovered` ->
 `experimental` -> `backtesting` -> `validating` -> `paper` — en passant par la seule API

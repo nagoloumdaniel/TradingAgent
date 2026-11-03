@@ -80,7 +80,7 @@ def manifest(**overrides: Any) -> StrategyManifest:
     base: dict[str, Any] = {
         "strategy_id": "always",
         "version": "1.0.0",
-        "max_mode": "SIGNAL",
+        "max_mode": "DEMO",
         "allowed_symbols": [GOLD],
         "timeframes": ["M15"],
         "history_bars": 10,
