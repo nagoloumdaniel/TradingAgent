@@ -1363,3 +1363,8 @@ button.is-loading::after {
 button.is-loading:not(:has(*)) { color: transparent; }
 @keyframes ta-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { button.is-loading::after { animation-duration: 1.6s; } }
+
+.ai-test { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 16px; }
+.ai-test p { margin: 0; flex: 1 1 260px; }
+.ai-test-ok { color: var(--ok, #3ecf8e); }
+.ai-test-bad { color: var(--bad, #ff8a80); }

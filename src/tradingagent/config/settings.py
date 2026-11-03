@@ -136,6 +136,30 @@ def load_bot_settings(env_file: Path | None = None) -> BotSettings:
         raise ConfigError(_describe(error)) from None
 
 
+class AiSettings(BaseSettings):
+    """Only the model key, for the dashboard's test button (the web process has no broker)."""
+
+    model_config = SettingsConfigDict(frozen=True, extra="ignore")
+
+    deepseek_api_key: SecretStr | None = None
+    ai_provider: AiProvider = AiProvider.AUTO
+    deepseek_model: str = DEFAULT_DEEPSEEK_MODEL
+
+    @field_validator("deepseek_api_key", mode="before")
+    @classmethod
+    def _blank_key_is_absent(cls, value: Any) -> Any:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+
+def load_ai_settings(env_file: Path | None = None) -> AiSettings:
+    try:
+        return AiSettings(_env_file=env_file)
+    except ValidationError as error:
+        raise ConfigError(_describe(error)) from None
+
+
 def load_database_settings(env_file: Path | None = None) -> DatabaseSettings:
     try:
         return DatabaseSettings(_env_file=env_file)

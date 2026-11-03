@@ -395,21 +395,24 @@ def test_an_oversized_form_is_not_buffered_and_is_refused(chosen: TestClient) ->
     assert response.status_code == 401
 
 
-def test_the_only_post_routes_are_the_two_session_routes(
+AI_PROBE = "/ai-lab/test"  # the test button: one model call, no database write
+
+
+def test_the_only_post_routes_are_the_two_session_routes_and_the_ai_probe(
     engine: Engine, pin_file: Path, clock: Clock
 ) -> None:
-    """The PIN adds two POST routes and no more. Neither touches the trading database."""
+    """The PIN adds two POST routes, the AI test button a third. None writes to the database."""
     app = create_app(engine, now=clock, pin_file=pin_file)
     posts = {
         route.path
         for route in app.routes
         if isinstance(route, APIRoute) and "POST" in (route.methods or set())
     }
-    assert posts == {"/login", "/logout"}
+    assert posts == {"/login", "/logout", AI_PROBE}
     for route in app.routes:
         if isinstance(route, APIRoute):
             assert set(route.methods or set()) <= {"GET", "HEAD", "POST"}
-            if route.path not in {"/login", "/logout"}:
+            if route.path not in {"/login", "/logout", AI_PROBE}:
                 assert set(route.methods or set()) <= {"GET", "HEAD"}, route.path
 
 
@@ -464,3 +467,9 @@ def test_a_post_from_another_origin_is_refused(chosen: TestClient) -> None:
 def test_a_cookie_with_a_huge_timestamp_is_a_refusal_not_a_500(chosen: TestClient) -> None:
     response = chosen.get("/", headers={"Cookie": f"{SESSION_COOKIE}={'9' * 5000}.ab"})
     assert response.status_code == 303
+
+
+def test_the_ai_probe_needs_a_session(engine: Engine, pin_file: Path, clock: Clock) -> None:
+    app = create_app(engine, now=clock, pin_file=pin_file)
+    with TestClient(app) as client:
+        assert client.post(AI_PROBE).status_code == 401

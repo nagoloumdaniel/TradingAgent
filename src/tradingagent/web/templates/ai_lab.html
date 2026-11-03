@@ -52,6 +52,11 @@
 {% endif %}
 
 {# Les verdicts (approuvés / refusés) vivent dans le donut ci-dessous : une seule fois. #}
+<div class="ai-test">
+  <button type="button" id="ai-test-btn" data-url="/ai-lab/test">{{ icon("zap") }}<span>Tester l'appel IA</span></button>
+  <p id="ai-test-result" class="muted" role="status" aria-live="polite">Envoie une vraie requête au modèle et affiche la réponse ou l'erreur du fournisseur. Rien n'est enregistré.</p>
+</div>
+
 <div class="cards">
   <div class="card"><div class="label">{{ icon("check-circle") }}Réponses exploitables</div><div class="value">{{ ai_calls.answered }}</div>
     {% if ai_calls.calls and not ai_calls.answered %}<div class="note">Aucune réponse exploitable</div>{% endif %}</div>

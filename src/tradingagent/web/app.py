@@ -42,9 +42,12 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.types import Scope
 
+from tradingagent.ai.model_client import ModelClient
+from tradingagent.ai.probe import ProbeClient, run_probe
+from tradingagent.ai.provider import resolve_target
 from tradingagent.analytics import Trade, compute_performance
 from tradingagent.config.errors import ConfigError
-from tradingagent.config.settings import load_database_settings
+from tradingagent.config.settings import load_ai_settings, load_database_settings
 from tradingagent.core.mode import TradingMode
 from tradingagent.core.states import Severity
 from tradingagent.reporting.exports import (
@@ -185,6 +188,7 @@ def create_app(
     ea_reports_dir: Path | None = None,
     stream_cycles: int | None = None,
     pin_file: Path | None = None,
+    ai_client: ProbeClient | None = None,
 ) -> FastAPI:
     """Build the read-only dashboard around an already-migrated database engine.
 
@@ -544,6 +548,20 @@ def create_app(
             # laboratory and a filter that never answered look exactly the same. Deliberately
             # not scoped by market — a refused key or an empty balance is not an instrument.
             ai_calls=calls,
+        )
+
+    @app.post("/ai-lab/test")
+    async def ai_lab_test() -> JSONResponse:
+        """One real call to the model, answered as JSON. Writes nothing; the key stays here."""
+        result = await run_probe(ai_client)
+        return JSONResponse(
+            {
+                "ok": result.ok,
+                "detail": result.detail,
+                "model": result.model,
+                "latency_ms": result.latency_ms,
+            },
+            headers={"Cache-Control": "no-store"},
         )
 
     @app.get("/calendar", response_class=HTMLResponse)
@@ -1047,6 +1065,24 @@ def _parse(argv: Sequence[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _build_ai_client() -> ProbeClient | None:
+    """The model client for the test button, or None when no key is configured."""
+    try:
+        ai = load_ai_settings(ENV_FILE)
+    except ConfigError as error:
+        log.warning("AI test button disabled: %s", error)
+        return None
+    key = ai.deepseek_api_key
+    target = resolve_target(
+        provider=ai.ai_provider,
+        deepseek_key=key.get_secret_value() if key is not None else None,
+        deepseek_model=ai.deepseek_model,
+    )
+    if target is None:
+        return None
+    return ModelClient(target.api_key, target.model, base_url=target.base_url)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point of ``uv run tradingagent-web``. Reads the database, never the broker."""
     args = _parse(argv)
@@ -1064,6 +1100,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(exposure, file=sys.stderr)
         return 2
     engine = create_database_engine(settings.database_url.get_secret_value())
+    ai_client = _build_ai_client()
     reports_dir = resolve_ea_reports_dir(
         Path(args.ea_reports_dir) if args.ea_reports_dir else None, env_file=ENV_FILE
     )
@@ -1074,6 +1111,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 interval_seconds=args.interval,
                 ea_reports_dir=reports_dir,
                 pin_file=PIN_FILE,
+                ai_client=ai_client,
             ),
             host=args.host,
             port=args.port,
