@@ -24,7 +24,7 @@ def trade(pnl: float, minutes: int) -> Trade:
         strategy_ref="witness@1.0.0",
         direction=Direction.BUY,
         timeframe=Timeframe.M15,
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         opened_at=START,
         closed_at=START.replace(minute=minutes),
         pnl_eur=Decimal(str(pnl)),

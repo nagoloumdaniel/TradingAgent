@@ -30,7 +30,7 @@ class TrendBreakoutParameters(BaseModel):
 
 class TrendBreakout(Strategy[TrendBreakoutParameters]):
     """Donchian breakout filtered by a long EMA. Not meant to be traded yet: its manifest
-    is capped at SIGNAL until TASK-064/TASK-065 validate it out of sample.
+    is capped at DEMO until TASK-064/TASK-065 validate it out of sample.
 
     Buys when the last closed candle closes above the highest high of the previous
     `channel_period` candles and above the trend EMA; sells on the symmetric break below.

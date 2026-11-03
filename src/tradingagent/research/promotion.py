@@ -264,7 +264,7 @@ class ManifestSpec:
     parameters: Mapping[str, Any]
     expiry_bars: int = 1
     ai_filter: AiFilter = AiFilter.SHADOW
-    max_mode: TradingMode = TradingMode.SIGNAL
+    max_mode: TradingMode = TradingMode.DEMO
 
 
 def write_manifest(target_dir: Path, spec: ManifestSpec, *, provenance: str = "") -> Path:

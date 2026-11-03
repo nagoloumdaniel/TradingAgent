@@ -92,18 +92,18 @@ def test_a_late_evening_instant_still_belongs_to_its_own_day() -> None:
 
 
 def test_the_compact_form_is_signed_and_carries_the_currency() -> None:
-    result = DailyResult(day=DAY, mode=TradingMode.SIGNAL, performance=_performance())
+    result = DailyResult(day=DAY, mode=TradingMode.DEMO, performance=_performance())
     assert result.compact == "+12.50 EUR"
 
 
 def test_a_loss_is_shown_with_its_minus_sign() -> None:
-    result = DailyResult(day=DAY, mode=TradingMode.SIGNAL, performance=_performance(net="-17.50"))
+    result = DailyResult(day=DAY, mode=TradingMode.DEMO, performance=_performance(net="-17.50"))
     assert result.compact == "-17.50 EUR"
 
 
 def test_an_unknown_balance_is_said_rather_than_shown_as_zero() -> None:
     """A zero would be acted on; "unknown" sends the operator to look."""
-    result = DailyResult(day=DAY, mode=TradingMode.SIGNAL, performance=_performance())
+    result = DailyResult(day=DAY, mode=TradingMode.DEMO, performance=_performance())
     assert result.balance is None
     assert result.balance_text == "solde inconnu"
     assert "0.00" not in result.summary()
@@ -112,7 +112,7 @@ def test_an_unknown_balance_is_said_rather_than_shown_as_zero() -> None:
 def test_the_summary_names_the_shape_of_the_day_and_the_balance() -> None:
     result = DailyResult(
         day=DAY,
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         performance=_performance(),
         balance=Decimal("1012.50"),
     )
@@ -126,7 +126,7 @@ def test_the_summary_names_the_shape_of_the_day_and_the_balance() -> None:
 def test_a_day_with_no_trade_says_so_plainly() -> None:
     empty = compute_performance([])
     result = DailyResult(
-        day=DAY, mode=TradingMode.SIGNAL, performance=empty, balance=Decimal("1000.00")
+        day=DAY, mode=TradingMode.DEMO, performance=empty, balance=Decimal("1000.00")
     )
     assert "Aucun trade" in result.summary()
     assert "solde 1000.00 EUR" in result.summary()
@@ -138,7 +138,7 @@ def test_the_detail_aligns_its_values_in_a_column() -> None:
 
     result = DailyResult(
         day=DAY,
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         performance=_performance(),
         balance=Decimal("1012.50"),
     )
@@ -156,7 +156,7 @@ def test_the_detail_aligns_its_values_in_a_column() -> None:
 def test_the_absolute_drawdown_never_carries_a_sign() -> None:
     result = DailyResult(
         day=DAY,
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         performance=_performance(),
         balance=Decimal("1012.50"),
     )
@@ -262,23 +262,23 @@ def _seed(engine: Engine, *, pnl: str, closed_at: datetime, mode: TradingMode) -
 
 
 def test_the_day_sums_only_its_own_trades(db_engine: Engine) -> None:
-    _seed(db_engine, pnl="10.00", closed_at=DAY + timedelta(hours=9), mode=TradingMode.SIGNAL)
-    _seed(db_engine, pnl="-4.00", closed_at=DAY + timedelta(hours=11), mode=TradingMode.SIGNAL)
-    _seed(db_engine, pnl="99.00", closed_at=DAY - timedelta(hours=2), mode=TradingMode.SIGNAL)
-    _seed(db_engine, pnl="50.00", closed_at=DAY + timedelta(days=1), mode=TradingMode.SIGNAL)
+    _seed(db_engine, pnl="10.00", closed_at=DAY + timedelta(hours=9), mode=TradingMode.DEMO)
+    _seed(db_engine, pnl="-4.00", closed_at=DAY + timedelta(hours=11), mode=TradingMode.DEMO)
+    _seed(db_engine, pnl="99.00", closed_at=DAY - timedelta(hours=2), mode=TradingMode.DEMO)
+    _seed(db_engine, pnl="50.00", closed_at=DAY + timedelta(days=1), mode=TradingMode.DEMO)
 
-    result = daily_result(db_engine, DAY, mode=TradingMode.SIGNAL)
+    result = daily_result(db_engine, DAY, mode=TradingMode.DEMO)
 
     assert result.net == Decimal("6.00")
     assert result.trades == 2
 
 
-def test_paper_results_are_never_added_to_real_ones(db_engine: Engine) -> None:
-    """A rehearsal is not money at risk: folding them together invents a result."""
-    _seed(db_engine, pnl="10.00", closed_at=DAY + timedelta(hours=9), mode=TradingMode.SIGNAL)
-    _seed(db_engine, pnl="500.00", closed_at=DAY + timedelta(hours=10), mode=TradingMode.PAPER)
+def test_demo_results_are_never_added_to_real_ones(db_engine: Engine) -> None:
+    """A demo rehearsal is not money at risk: folding them together invents a result."""
+    _seed(db_engine, pnl="10.00", closed_at=DAY + timedelta(hours=9), mode=TradingMode.DEMO)
+    _seed(db_engine, pnl="500.00", closed_at=DAY + timedelta(hours=10), mode=TradingMode.LIVE)
 
-    result = daily_result(db_engine, DAY, mode=TradingMode.SIGNAL)
+    result = daily_result(db_engine, DAY, mode=TradingMode.DEMO)
 
     assert result.net == Decimal("10.00")
     assert result.trades == 1
@@ -289,33 +289,33 @@ def test_the_balance_comes_from_the_snapshot_not_from_the_trades(db_engine: Engi
     AccountStore(db_engine).record(
         equity=Decimal("1500.00"), balance=Decimal("1490.00"), at=DAY + timedelta(hours=8)
     )
-    _seed(db_engine, pnl="10.00", closed_at=DAY + timedelta(hours=9), mode=TradingMode.SIGNAL)
+    _seed(db_engine, pnl="10.00", closed_at=DAY + timedelta(hours=9), mode=TradingMode.DEMO)
 
-    result = daily_result(db_engine, DAY, mode=TradingMode.SIGNAL)
+    result = daily_result(db_engine, DAY, mode=TradingMode.DEMO)
 
     assert result.balance == Decimal("1490.00")
     assert result.equity == Decimal("1500.00")
 
 
 def test_without_a_snapshot_the_balance_is_unknown(db_engine: Engine) -> None:
-    _seed(db_engine, pnl="10.00", closed_at=DAY + timedelta(hours=9), mode=TradingMode.SIGNAL)
+    _seed(db_engine, pnl="10.00", closed_at=DAY + timedelta(hours=9), mode=TradingMode.DEMO)
 
-    result = daily_result(db_engine, DAY, mode=TradingMode.SIGNAL)
+    result = daily_result(db_engine, DAY, mode=TradingMode.DEMO)
 
     assert result.balance is None
     assert result.balance_text == "solde inconnu"
 
 
 def test_no_trade_means_no_division_by_zero(db_engine: Engine) -> None:
-    result = daily_result(db_engine, DAY, mode=TradingMode.SIGNAL)
+    result = daily_result(db_engine, DAY, mode=TradingMode.DEMO)
     assert result.trades == 0
     assert result.net == Decimal("0")
 
 
 def test_closed_trades_carries_the_strategy_reference(db_engine: Engine) -> None:
     """`SignalRow` has no ref of its own: it lives on the version row."""
-    _seed(db_engine, pnl="10.00", closed_at=DAY + timedelta(hours=9), mode=TradingMode.SIGNAL)
+    _seed(db_engine, pnl="10.00", closed_at=DAY + timedelta(hours=9), mode=TradingMode.DEMO)
 
-    trades = closed_trades(db_engine, *day_bounds(DAY), mode=TradingMode.SIGNAL)
+    trades = closed_trades(db_engine, *day_bounds(DAY), mode=TradingMode.DEMO)
 
     assert [trade.strategy_ref for trade in trades] == ["witness@1.1.0"]

@@ -71,7 +71,7 @@ risk:
 # `fail_closed_when_blind` flips that for real money only: with it true AND trading_mode LIVE, a
 # calendar the gate cannot see (never fetched, older than max_staleness_minutes, or an empty
 # weekday export) REFUSES new signals with a motif instead of letting them through. It stays
-# reject-only (it never creates or loosens a signal). In SIGNAL/PAPER/DEMO it changes nothing:
+# reject-only (it never creates or loosens a signal). In DEMO it changes nothing:
 # the gate keeps failing open and says so with a `news_gate_degraded` warning (once per episode).
 # news:
 #   enabled: true

@@ -92,7 +92,7 @@ les indicateurs, le régime de volatilité et la session, eux, sont affichés de
 | 40 Architecture du code | ✅ | `docs/v3/ARCHITECTURE.md` |
 | 41 Stack technique | ✅ avec une déviation documentée | dashboard en Python plutôt que Next.js (raison dans le même document) |
 | 42 Temps réel | ✅ | `web/sse.py` |
-| 43 Sécurité | ✅ | secrets hors dépôt, masquage, RM-017, jeton d'accès optionnel au dashboard, RLS Supabase |
+| 43 Sécurité | ✅ | secrets hors dépôt, masquage, RM-017, code à 4 chiffres (30 jours) devant le dashboard, RLS Supabase |
 
 **Reste (37)** : l'envoi réel des alertes sur Telegram n'a pas été exercé de bout en bout — le
 jeton du bot est renseigné, la livraison reste à confirmer depuis le poste d'exploitation.
@@ -131,8 +131,9 @@ signature de conformité.
    sur le drawdown). Un échec renvoie à
    TASK-064, sans promotion. `scripts/paper_campaign.py` la mesure.
 4. **Opérateur, clés** : `DEEPSEEK_API_KEY` (optionnelle, seul fournisseur du filtre IA). Plus de
-   `TEST_DATABASE_URL` ni de clé Anthropic dans `.env` (décision du 2026-11-03). `BACKUP_PASSPHRASE` et `TRADINGAGENT_WEB_TOKEN` sont
-   désormais générés et renseignés.
+   `TEST_DATABASE_URL` ni de clé Anthropic dans `.env` (décision du 2026-11-03). `BACKUP_PASSPHRASE` est
+   générée et renseignée. Le dashboard n'utilise plus de jeton : un code à 4 chiffres se choisit
+   dans le navigateur à la première visite (`data/web_pin.json`).
 5. ~~Opérateur, terminal : installer l'EA~~ — fait par l'opérateur (2026-11-03). Le serveur
    Windows est reporté (point 2).
 6. **Fait mais à confirmer par un tiers** : restauration sur machine vierge, validation de la

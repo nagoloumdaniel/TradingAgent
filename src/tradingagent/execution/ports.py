@@ -7,7 +7,7 @@ only adds what is internal to the executors: the errors they raise, the log they
 and the reconciliation report.
 
 `Broker` is structural: the composition root and the loop type against it, never against a
-concrete executor, so PAPER never needs the MetaTrader5 package.
+concrete executor.
 """
 
 from collections.abc import Awaitable, Callable, Iterable
@@ -81,7 +81,7 @@ class TradeLog(Protocol):
     """Persistence the executors depend on: orders, fills, positions and closed trades.
 
     Implemented by `execution.tracking.PositionTracker`. The executor is the single writer
-    of `orders`, `positions`, `executions` and `trades`, so PAPER and DEMO write the same
+    of `orders`, `positions`, `executions` and `trades`, so DEMO and LIVE write the same
     rows and are told apart by `mode` alone (F-015). Every method is synchronous and runs
     in the caller's thread.
     """

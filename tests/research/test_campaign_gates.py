@@ -44,7 +44,7 @@ def performance_of(pnls: list[float]) -> Performance:
             strategy_ref="witness@1.0.0",
             direction=Direction.BUY,
             timeframe=M15,
-            mode=TradingMode.SIGNAL,
+            mode=TradingMode.DEMO,
             opened_at=base + timedelta(minutes=index),
             closed_at=base + timedelta(minutes=index + 1),
             pnl_eur=Decimal(str(pnl)),

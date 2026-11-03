@@ -46,7 +46,7 @@
 # l'escalade silencieuse est impossible (voir docs/decisions/2026-10-08-mode-ceiling-derogation.md).
 #
 # Production manifest for gold. Supersedes 1.0.0, which referenced the inexistent
-# `frxXAUUSD` (see ROADMAP.md, Project Context). max_mode stays SIGNAL until a strategy
+# `frxXAUUSD` (see ROADMAP.md, Project Context). max_mode stays DEMO until a strategy
 # is validated out of sample and promoted through TASK-065 (RM-016).
 strategy_id: witness
 version: 1.1.1

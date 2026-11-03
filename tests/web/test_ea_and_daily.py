@@ -126,7 +126,7 @@ def test_daily_aggregates_are_read_from_their_own_table(
     assert sum(row.trades for row in today) == 2
     assert sum((row.pnl for row in today), Decimal(0)) == seed.DAY_PNL
     assert {row.market for row in today} == {seed.XAU, seed.EUR}
-    assert all(row.mode in {TradingMode.PAPER, TradingMode.DEMO} for row in rows)
+    assert all(row.mode in {TradingMode.DEMO, TradingMode.LIVE} for row in rows)
 
 
 def test_daily_window_covers_whole_days(engine: Engine) -> None:

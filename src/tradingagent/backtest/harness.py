@@ -67,7 +67,7 @@ class BacktestConfig:
     symbol: str
     costs: CostModel = field(default_factory=CostModel)
     risk_eur: Decimal = DEFAULT_RISK_EUR
-    mode: TradingMode = TradingMode.SIGNAL
+    mode: TradingMode = TradingMode.DEMO
     atr_period: int = DEFAULT_ATR_PERIOD
     max_concurrent_positions: int = 1
     partial_exit_fractions: tuple[float, ...] = ()

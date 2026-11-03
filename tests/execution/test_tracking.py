@@ -154,7 +154,7 @@ def test_local_positions_are_filtered_by_mode(engine: Engine) -> None:
     instance.record_fill(order_id, order, result(), deal_ticket=9001, at=NOW)
 
     assert len(instance.local_positions(TradingMode.DEMO)) == 1
-    assert instance.local_positions(TradingMode.PAPER) == ()
+    assert instance.local_positions(TradingMode.LIVE) == ()
     found = instance.position_for_ticket(5001)
     assert found is not None and found.signal_id == signal_id
 

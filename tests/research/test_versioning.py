@@ -16,7 +16,7 @@ from tradingagent.research.versioning import (
 
 INCUMBENT = {
     "strategy_id": "witness",
-    "max_mode": "SIGNAL",
+    "max_mode": "DEMO",
     "allowed_symbols": ["XAUUSD"],
     "timeframes": ["M15"],
     "history_bars": 300,
@@ -78,7 +78,7 @@ def test_a_candidate_copies_everything_but_the_version_and_the_parameters() -> N
 
     assert candidate.ref == "witness@1.1.1"
     assert candidate.supersedes == "witness@1.1.0"
-    assert candidate.manifest["max_mode"] == "SIGNAL"
+    assert candidate.manifest["max_mode"] == "DEMO"
     assert candidate.manifest["timeframes"] == ["M15"]
     assert candidate.manifest["history_bars"] == 300
     assert candidate.parameters == {"ema_fast": 20, "atr_period": 18}
@@ -179,7 +179,7 @@ def test_an_empty_manifest_still_produces_a_valid_document() -> None:
         strategy_id="x",
         parameters={},
         manifest={
-            "max_mode": "SIGNAL",
+            "max_mode": "DEMO",
             "timeframes": ["M15"],
             "history_bars": 300,
             "expiry_bars": 1,

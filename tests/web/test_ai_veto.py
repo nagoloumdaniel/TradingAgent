@@ -270,7 +270,7 @@ def test_the_untouched_check_would_notice_a_write(engine: Engine, populated: See
                 symbol="XAUUSD",
                 timeframe=Timeframe.M15,
                 direction=Direction.BUY,
-                mode=TradingMode.PAPER,
+                mode=TradingMode.DEMO,
                 observed_price=2650.0,
                 entry_low=2649.0,
                 entry_high=2651.0,

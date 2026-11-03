@@ -275,7 +275,13 @@ class AiFilterLayer:
             elapsed = int((time.monotonic() - started) * 1000)
             self._note_failure(error, at)
             return await self._unavailable(
-                context, at, signal_id, str(error), effective, elapsed, quiet=self._circuit_opened
+                context,
+                at,
+                signal_id,
+                one_line(error),  # never empty: a bare TimeoutError has str() == ""
+                effective,
+                elapsed,
+                quiet=self._circuit_opened,
             )
 
         latency_ms = int((time.monotonic() - started) * 1000)
@@ -305,7 +311,7 @@ class AiFilterLayer:
                 request={"prompt": request, "system": SYSTEM_PROMPT},
                 response=reply.text,
                 verdict=outcome.verdict if outcome.verdict != "unavailable" else None,
-                error=None,
+                error=reason if decision is None else None,
                 latency_ms=latency_ms,
                 cost_eur=cost,
                 called_at=at,
@@ -331,7 +337,7 @@ class AiFilterLayer:
 
     def _open(self, until: datetime, error: BaseException, label: str) -> None:
         self._open_until = until
-        self._open_reason = label
+        self._open_reason = f"{label}: {one_line(error)}"
         self._consecutive_failures = 0
         self._circuit_opened = True
         log.warning(

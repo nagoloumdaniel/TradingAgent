@@ -283,7 +283,7 @@ def test_performance_sums_the_closed_trades(engine: Engine) -> None:
         version = seed_version(session)
         closed = PositionState.CLOSED
         first = seed_position(session, version, 1, state=closed)
-        second = seed_position(session, version, 2, state=closed, mode=TradingMode.PAPER)
+        second = seed_position(session, version, 2, state=closed, mode=TradingMode.LIVE)
         third = seed_position(session, version, 3, state=closed)
         seed_trade(session, first, Decimal("10.00"), T0 - timedelta(hours=3))
         seed_trade(session, second, Decimal("-4.00"), T0 - timedelta(hours=2))
@@ -295,7 +295,7 @@ def test_performance_sums_the_closed_trades(engine: Engine) -> None:
     assert "3" in answer  # trades
     assert "66.7" in answer  # win rate
     assert "8.50" in answer  # total pnl
-    assert "PAPER" in answer  # the losing mode is identified
+    assert "LIVE" in answer  # the losing mode is identified
 
 
 # --- /status ----------------------------------------------------------------

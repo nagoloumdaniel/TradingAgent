@@ -84,7 +84,7 @@ def test_filters_select_on_market_strategy_and_mode(populated: seed.Seeded, engi
     assert (
         len(
             queries.TradeFilters(
-                market=seed.XAU, strategy=seed.WITNESS, mode=TradingMode.PAPER
+                market=seed.XAU, strategy=seed.WITNESS, mode=TradingMode.LIVE
             ).apply_entries(entries)
         )
         == 3

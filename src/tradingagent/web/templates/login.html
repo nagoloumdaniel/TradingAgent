@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="/static/nexagold.png">
+<title>{% if setup %}Choisir un code{% else %}Code d'accès{% endif %} - NexaGold TradingAgent</title>
+{# Page autonome : aucune navigation, aucun chiffre, aucun filigrane. Un visiteur sans session
+   n'apprend rien du tableau de bord. #}
+<style>
+  :root { color-scheme: dark light; --bg: #0a0a0b; --panel: #141416; --line: rgba(255,255,255,.12);
+          --text: #f4f4f5; --muted: #a9a9b1; --accent: #f4f4f5; --ink: #0a0a0b; --bad: #ff8a80; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #fafafa; --panel: #fff; --line: rgba(10,10,14,.14); --text: #0e0e10;
+            --muted: #55555c; --accent: #0e0e10; --ink: #fafafa; --bad: #b3261e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center;
+         align-content: center; padding: 24px;
+         background: var(--bg); color: var(--text);
+         font: 15px/1.5 ui-sans-serif, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+  main { width: min(100%, 360px); padding: 28px 24px; border: 1px solid var(--line);
+         border-radius: 16px; background: var(--panel); }
+  .brand { display: flex; align-items: center; gap: 10px; margin: 0 0 20px; font-weight: 600; }
+  .brand img { width: 28px; height: 28px; }
+  h1 { margin: 0 0 6px; font-size: 18px; }
+  p { margin: 0 0 16px; color: var(--muted); }
+  label { display: block; margin: 0 0 6px; font-size: 13px; color: var(--muted); }
+  .pin { display: flex; gap: 10px; margin: 0 0 16px; }
+  .pin[hidden] { display: none; }
+  .pin input { flex: 1; width: 0; min-width: 0; height: 56px; padding: 0; text-align: center;
+               font: 600 24px ui-monospace, Consolas, monospace; color: var(--text);
+               background: transparent; border: 1px solid var(--line); border-radius: 10px; }
+  .pin input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pin input.filled { border-color: var(--accent); }
+  .pin-fallback { width: 100%; height: 48px; margin: 0 0 14px; padding: 0 14px; text-align: center;
+                  letter-spacing: .6em; font: 600 22px ui-monospace, Consolas, monospace;
+                  color: var(--text); background: transparent; border: 1px solid var(--line);
+                  border-radius: 10px; }
+  button { width: 100%; height: 48px; border: 0; border-radius: 10px; cursor: pointer;
+           background: var(--accent); color: var(--ink); font-family: inherit;
+           font-size: 15px; font-weight: 600; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  button:active { transform: scale(.98); }
+  .error { margin: 0 0 14px; color: var(--bad); font-size: 14px; }
+  button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+  button.loading { position: relative; color: transparent; cursor: progress; }
+  button.loading::after { content: ""; position: absolute; inset: 0; margin: auto; width: 20px; height: 20px;
+                          border: 2px solid var(--ink); border-right-color: transparent; border-radius: 50%;
+                          animation: spin .7s linear infinite; }
+  .pin.busy input { opacity: .5; pointer-events: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { button:active { transform: none; } button.loading::after { animation-duration: 1.6s; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><img src="/static/nexagold.png" alt="" width="28" height="28">NexaGold TradingAgent</div>
+  <h1>{% if setup %}Choisissez votre code{% else %}Code d'accès{% endif %}</h1>
+  <p>
+    {% if setup %}
+      {{ pin_length }} chiffres. Il vous sera redemandé après 30 jours ou si vous vous déconnectez.
+    {% else %}
+      Saisissez votre code à {{ pin_length }} chiffres.
+    {% endif %}
+  </p>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/login" autocomplete="off">
+    {% macro pin_field(name, label, autocomplete) %}
+      <label id="{{ name }}-label">{{ label }}</label>
+      <div class="pin" data-pin="{{ name }}" role="group" aria-labelledby="{{ name }}-label" hidden>
+        {% for i in range(pin_length) %}
+          <input type="password" inputmode="numeric" maxlength="1" pattern="[0-9]"
+                 autocomplete="{{ autocomplete if i == 0 else 'off' }}"
+                 aria-label="Chiffre {{ i + 1 }} sur {{ pin_length }}"{% if name == 'pin' and i == 0 %} autofocus{% endif %}>
+        {% endfor %}
+        <input type="hidden" name="{{ name }}" value="">
+      </div>
+      <noscript>
+        <input class="pin-fallback" name="{{ name }}" type="password" inputmode="numeric"
+               pattern="{{ pin_pattern }}" maxlength="{{ pin_length }}" minlength="{{ pin_length }}"
+               aria-label="{{ label }}" required autocomplete="{{ autocomplete }}">
+      </noscript>
+    {% endmacro %}
+    {{ pin_field("pin", "Nouveau code" if setup else "Code", "new-password" if setup else "current-password") }}
+    {% if setup %}{{ pin_field("confirm", "Confirmer le code", "new-password") }}{% endif %}
+    <button type="submit"{% if retry_after %} disabled{% endif %}>{% if setup %}Enregistrer{% else %}Entrer{% endif %}</button>
+  </form>
+</main>
+<script>
+(function () {
+  var groups = document.querySelectorAll(".pin");
+  var form = document.querySelector("form");
+  var button = form.querySelector("button[type=submit]");
+  var sent = false;
+  function complete() {
+    var ok = true;
+    groups.forEach(function (g) {
+      if (g.querySelector("input[type=hidden]").value.length !== g.querySelectorAll("input[type=password]").length) ok = false;
+    });
+    return ok;
+  }
+  function autoSubmit() {
+    if (!sent && !button.disabled && complete()) form.requestSubmit();
+  }
+  window.addEventListener("pageshow", function (e) {
+    if (e.persisted) { sent = false; button.disabled = false; button.classList.remove("loading"); groups.forEach(function (g) { g.classList.remove("busy"); }); }
+  });
+  groups.forEach(function (group) {
+    group.hidden = false;
+    var boxes = Array.prototype.slice.call(group.querySelectorAll("input[type=password]"));
+    var hidden = group.querySelector("input[type=hidden]");
+    function sync() {
+      hidden.value = boxes.map(function (b) { return b.value; }).join("");
+      boxes.forEach(function (b) { b.classList.toggle("filled", b.value !== ""); });
+    }
+    function fill(from, text) {
+      var digits = text.replace(/[^0-9]/g, "").split("");
+      for (var k = 0; k < digits.length && from + k < boxes.length; k++) boxes[from + k].value = digits[k];
+      sync();
+      var next = Math.min(from + digits.length, boxes.length - 1);
+      boxes[next].focus();
+      autoSubmit();
+    }
+    boxes.forEach(function (box, i) {
+      box.addEventListener("input", function () {
+        var v = box.value.replace(/[^0-9]/g, "");
+        box.value = "";
+        if (v) fill(i, v); else sync();
+      });
+      box.addEventListener("keydown", function (e) {
+        if (e.key === "Backspace" && box.value === "" && i > 0) {
+          boxes[i - 1].value = ""; boxes[i - 1].focus(); sync(); e.preventDefault();
+        } else if (e.key === "ArrowLeft" && i > 0) { boxes[i - 1].focus(); }
+        else if (e.key === "ArrowRight" && i < boxes.length - 1) { boxes[i + 1].focus(); }
+      });
+      box.addEventListener("paste", function (e) {
+        e.preventDefault();
+        fill(i, (e.clipboardData || window.clipboardData).getData("text"));
+      });
+      box.addEventListener("focus", function () { box.select(); });
+    });
+  });
+  form.addEventListener("submit", function (e) {
+    var ok = true;
+    groups.forEach(function (g) {
+      var h = g.querySelector("input[type=hidden]");
+      if (h.value.length !== g.querySelectorAll("input[type=password]").length) {
+        ok = false; g.querySelector("input[type=password]:not(.filled)").focus();
+      }
+    });
+    if (!ok || sent) { e.preventDefault(); return; }
+    sent = true;
+    button.classList.add("loading");
+    button.setAttribute("aria-busy", "true");
+    groups.forEach(function (g) { g.classList.add("busy"); });
+    setTimeout(function () { button.disabled = true; }, 0);
+  });
+})();
+</script>
+</body>
+</html>

@@ -17,7 +17,7 @@ def test_construction_validates_and_indexes_by_reference(tmp_path: Path) -> None
     catalog = a_catalog(tmp_path)
 
     assert "trend@1.0.0" in catalog.current()
-    assert catalog.current()["trend@1.0.0"].manifest.max_mode is TradingMode.SIGNAL
+    assert catalog.current()["trend@1.0.0"].manifest.max_mode is TradingMode.DEMO
 
 
 def test_a_new_version_is_picked_up_without_touching_the_running_one(tmp_path: Path) -> None:
@@ -66,9 +66,9 @@ def test_reload_never_changes_a_state_the_files_do_not_carry(tmp_path: Path) -> 
     catalog = a_catalog(tmp_path)
 
     manifest = catalog.current()["trend@1.0.0"].manifest
-    assert manifest.max_mode is TradingMode.SIGNAL
+    assert manifest.max_mode is TradingMode.DEMO
     write(tmp_path, "trend@2.0.0.yaml", VALID.replace("1.0.0", "2.0.0"))
     catalog.reload()
 
-    assert catalog.current()["trend@1.0.0"].manifest.max_mode is TradingMode.SIGNAL
-    assert catalog.current()["trend@2.0.0"].manifest.max_mode is TradingMode.SIGNAL
+    assert catalog.current()["trend@1.0.0"].manifest.max_mode is TradingMode.DEMO
+    assert catalog.current()["trend@2.0.0"].manifest.max_mode is TradingMode.DEMO

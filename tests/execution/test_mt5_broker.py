@@ -180,16 +180,11 @@ def test_a_halted_agent_sends_nothing() -> None:
     assert terminal.calls.count("order_send") == 0
 
 
-def test_paper_mode_must_not_use_the_terminal() -> None:
-    with pytest.raises(ValueError, match="PaperBroker"):
-        MT5Broker(demo_terminal(), FakeLog(), login=NOW_LOGIN, mode=TradingMode.PAPER)
-
-
 def test_an_order_carrying_another_mode_is_refused() -> None:
     terminal, log = demo_terminal(), FakeLog()
 
     with pytest.raises(OrderRefusedError):
-        asyncio.run(broker(terminal, log).place(request(key="p", mode=TradingMode.PAPER)))
+        asyncio.run(broker(terminal, log).place(request(key="p", mode=TradingMode.LIVE)))
 
     assert terminal.calls.count("order_send") == 0
 

@@ -129,7 +129,7 @@ def manifest(strategy_id: str, history_bars: int = 2, expiry_bars: int = 1) -> S
         {
             "strategy_id": strategy_id,
             "version": "1.0.0",
-            "max_mode": "SIGNAL",
+            "max_mode": "DEMO",
             "allowed_symbols": [GOLD],
             "timeframes": ["M15"],
             "history_bars": history_bars,

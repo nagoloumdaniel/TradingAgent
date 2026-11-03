@@ -48,7 +48,7 @@ def test_reads_closed_utc_candles_from_the_demo_account() -> None:
         market = MarketDataClient(
             Mt5Terminal(),
             credentials,
-            TradingMode.SIGNAL,
+            TradingMode.DEMO,
             expected_server_offset=timedelta(0),
             clock_probe_symbol="XAUUSD",
         )

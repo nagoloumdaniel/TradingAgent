@@ -184,6 +184,8 @@ la parité est donc structurelle et non testée après coup.
 
 ### 4.6 Exposition du dashboard — 38 cas, aucun écart
 
+> Note du 2026-11-03 : `TRADINGAGENT_WEB_TOKEN` a été supprimé ; `exposure_problem(host)` refuse désormais tout hôte hors boucle locale, sans exception. Le paragraphe ci-dessous est conservé comme trace historique.
+
 `web/auth.py::exposure_problem`, attaqué par un script indépendant (38 cas, `RESULT: ALL OK`) :
 acceptés `127.0.0.1`, `127.0.0.2`, `127.255.255.255`, `::1`, `0:0:0:0:0:0:0:1`, `localhost`,
 `LOCALHOST`, `LocalHost`, `localhost.`, `::ffff:127.0.0.1`, `::1%0` ; refusés `0.0.0.0`, `::`,

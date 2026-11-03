@@ -125,7 +125,7 @@ class DailyPerformanceStore:
         ref = rows[0].ref if len(rows) == 1 else "all"
         return DailyPerformance(
             day=start,
-            mode=mode or TradingMode.SIGNAL,
+            mode=mode or TradingMode.DEMO,
             market=market or "all",
             ref=ref,
             trades=sum(entry.trades for entry in rows),

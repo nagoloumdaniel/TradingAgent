@@ -28,7 +28,7 @@ CLOSE = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)
 MANIFEST = StrategyManifest(
     strategy_id="witness",
     version="1.0.0",
-    max_mode=TradingMode.SIGNAL,
+    max_mode=TradingMode.DEMO,
     allowed_symbols=("XAUUSD",),
     timeframes=(Timeframe.M15,),
     history_bars=20,
@@ -42,7 +42,7 @@ def record(**changes: object) -> SignalRecord:
         symbol="XAUUSD",
         timeframe=Timeframe.M15,
         direction=Direction.BUY,
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         observed_price=2400.5,
         entry_low=2400.0,
         entry_high=2401.0,

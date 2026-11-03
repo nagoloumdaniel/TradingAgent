@@ -39,7 +39,7 @@ def witness_manifest(history_bars: int = 40) -> StrategyManifest:
         {
             "strategy_id": "witness",
             "version": "1.0.0",
-            "max_mode": "SIGNAL",
+            "max_mode": "DEMO",
             "allowed_symbols": ["frxXAUUSD", "EURUSD"],
             "timeframes": ["M15"],
             "history_bars": history_bars,
@@ -120,7 +120,7 @@ def trades_from(pnls, month: int = 1) -> list[Trade]:
             strategy_ref="witness@1.0.0",
             direction=Direction.BUY,
             timeframe=M15,
-            mode=TradingMode.SIGNAL,
+            mode=TradingMode.DEMO,
             opened_at=base + timedelta(minutes=index),
             closed_at=base + timedelta(minutes=index + 1),
             pnl_eur=Decimal(str(pnl)),

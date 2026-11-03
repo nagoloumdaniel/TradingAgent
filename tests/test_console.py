@@ -41,7 +41,7 @@ def a_signal(direction: Direction = Direction.BUY) -> str:
             strategy_ref="witness@1.1.0",
             generated_at=NOW,
             expires_at=NOW,
-            mode=TradingMode.SIGNAL,
+            mode=TradingMode.DEMO,
             market_state="série saine",
             reason="croisement haussier",
         )

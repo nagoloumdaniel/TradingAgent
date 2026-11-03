@@ -97,7 +97,7 @@ def manifest() -> StrategyManifest:
     return StrategyManifest(
         strategy_id="one_shot",
         version="0.1.0",
-        max_mode=TradingMode.SIGNAL,
+        max_mode=TradingMode.DEMO,
         allowed_symbols=("XAUUSD",),
         timeframes=(Timeframe.M15,),
         history_bars=2,
@@ -152,7 +152,7 @@ def run(prices: list[float], candidate: SignalCandidate, at: int = 1) -> Trade:
     config = BacktestConfig(
         symbol="XAUUSD",
         costs=CostModel(),
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         max_concurrent_positions=1,
     )
     result = run_backtest(OneShot(at, candidate), manifest(), {Timeframe.M15: bars(prices)}, config)
@@ -262,7 +262,7 @@ def test_a_signal_the_price_never_comes_back_to_opens_nothing() -> None:
     """Le prix part sous la zone d'entrée sans jamais y revenir : aucun trade, donc aucune
     excursion — et surtout pas une excursion mesurée sur un trade qui n'a pas existé."""
     config = BacktestConfig(
-        symbol="XAUUSD", costs=CostModel(), mode=TradingMode.SIGNAL, max_concurrent_positions=1
+        symbol="XAUUSD", costs=CostModel(), mode=TradingMode.DEMO, max_concurrent_positions=1
     )
 
     result = run_backtest(

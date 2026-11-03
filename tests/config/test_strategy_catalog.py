@@ -29,7 +29,7 @@ REGISTRY = build_registry(Trend)
 VALID = """\
 strategy_id: trend
 version: 1.0.0
-max_mode: SIGNAL
+max_mode: DEMO
 allowed_symbols: [frxXAUUSD]
 timeframes: [M15, H1]
 history_bars: 300

@@ -96,7 +96,7 @@ def test_a_side_drift_is_a_divergence() -> None:
 
 def test_another_mode_is_not_compared() -> None:
     log = seeded_log()
-    assert reconcile_state(log, TradingMode.PAPER, ()) == ()
+    assert reconcile_state(log, TradingMode.LIVE, ()) == ()
 
 
 def test_a_divergence_halts_the_agent_and_alerts(engine: Engine) -> None:

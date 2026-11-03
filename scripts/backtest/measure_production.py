@@ -122,7 +122,7 @@ def measure(ref: str, symbol: str, catalogue, swap_per_day: float = 0.0) -> None
         config = BacktestConfig(
             symbol=symbol,
             costs=costs,
-            mode=TradingMode.SIGNAL,
+            mode=TradingMode.DEMO,
             max_concurrent_positions=1,
         )
         try:
@@ -153,7 +153,7 @@ def main() -> int:
     for symbol, ref in selected.items():
         measure(ref, symbol, catalogue, args.swap_per_day)
     print(
-        "\nRappel : aucune de ces mesures n'est une promotion. Le plafond reste SIGNAL ou DEMO "
+        "\nRappel : aucune de ces mesures n'est une promotion. Le plafond reste DEMO "
         "selon la derogation du manifeste, et les 9 portes n'ont pas ete franchies."
     )
     return 0

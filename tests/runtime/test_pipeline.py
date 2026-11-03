@@ -39,7 +39,7 @@ MANIFEST = StrategyManifest.model_validate(
     {
         "strategy_id": "witness",
         "version": "1.1.0",
-        "max_mode": "SIGNAL",
+        "max_mode": "DEMO",
         "allowed_symbols": [GOLD],
         "timeframes": ["M15"],
         "history_bars": 300,
@@ -59,7 +59,7 @@ class Parts:
     def __init__(
         self,
         engine: Engine,
-        mode: TradingMode = TradingMode.SIGNAL,
+        mode: TradingMode = TradingMode.DEMO,
         calendar_for: Callable[[str], MarketCalendar | None] = open_calendar,
         now: Callable[[], datetime] = lambda: NOW,
     ) -> None:
@@ -89,7 +89,7 @@ class Parts:
 def record_signal(
     engine: Engine,
     *,
-    mode: TradingMode = TradingMode.SIGNAL,
+    mode: TradingMode = TradingMode.DEMO,
     symbol: str = GOLD,
     direction: Direction = Direction.BUY,
     stop_loss: float = 2387.8927,
@@ -138,8 +138,8 @@ def test_a_validated_signal_is_sent_once_with_every_required_field(engine: Engin
     signal_id = record_signal(engine)
     outcome = parts.run(signal_id)
 
-    assert outcome.kind == "notified"
-    assert len(parts.notifier.messages) == 1
+    assert outcome.kind == "executed"
+    assert len(parts.notifier.messages) == 2  # the signal, then the execution confirmation
     message = parts.notifier.messages[0]
     for required in (
         "XAUUSD",
@@ -152,14 +152,14 @@ def test_a_validated_signal_is_sent_once_with_every_required_field(engine: Engin
         "Mode",
     ):
         assert required in message, required
-    assert state_of(engine, signal_id) is SignalState.SENT
+    assert state_of(engine, signal_id) is SignalState.POSITION_OPEN
     with Session(engine) as session:
         decisions = session.scalars(
             select(RiskDecisionRow).where(RiskDecisionRow.signal_id == signal_id)
         ).all()
     assert len(decisions) == 1
     assert decisions[0].outcome is RiskOutcome.AUTHORIZED
-    assert parts.broker.placed == []
+    assert parts.broker.placed
 
 
 def test_a_halt_refuses_the_signal_and_persists_the_reason(engine: Engine) -> None:
@@ -195,11 +195,11 @@ def test_a_shadow_rejection_does_not_block_the_signal(engine: Engine) -> None:
     signal_id = record_signal(engine, ai_filter=AiFilter.SHADOW)
     outcome = parts.run(signal_id)
 
-    assert outcome.kind == "notified"
+    assert outcome.kind == "executed"
     assert parts.ai.calls == 1
     assert parts.ai.contexts[0].stop_loss == pytest.approx(2387.8927)
-    assert len(parts.notifier.messages) == 1
-    assert state_of(engine, signal_id) is SignalState.SENT
+    assert len(parts.notifier.messages) == 2
+    assert state_of(engine, signal_id) is SignalState.POSITION_OPEN
 
 
 def test_an_advisory_rejection_blocks_the_signal(engine: Engine) -> None:
@@ -219,8 +219,8 @@ def test_the_ai_can_only_reject_and_never_reach_the_risk_levels(engine: Engine) 
     signal_id = record_signal(engine)
     outcome = parts.run(signal_id)
 
-    assert outcome.kind == "notified"
-    assert state_of(engine, signal_id) is SignalState.SENT
+    assert outcome.kind == "executed"
+    assert state_of(engine, signal_id) is SignalState.POSITION_OPEN
     with Session(engine) as session:
         decision = session.scalars(
             select(RiskDecisionRow).where(RiskDecisionRow.signal_id == signal_id)
@@ -247,8 +247,8 @@ def test_the_telegram_outage_delays_the_signal_then_the_retry_sends_it(engine: E
 
 
 def test_paper_mode_places_the_order_and_opens_the_position(engine: Engine) -> None:
-    parts = Parts(engine, mode=TradingMode.PAPER)
-    signal_id = record_signal(engine, mode=TradingMode.PAPER)
+    parts = Parts(engine, mode=TradingMode.DEMO)
+    signal_id = record_signal(engine, mode=TradingMode.DEMO)
     outcome = parts.run(signal_id)
 
     assert outcome.kind == "executed"
@@ -263,9 +263,9 @@ def test_paper_mode_places_the_order_and_opens_the_position(engine: Engine) -> N
 
 
 def test_a_position_without_its_stop_is_closed_immediately(engine: Engine) -> None:
-    parts = Parts(engine, mode=TradingMode.PAPER)
+    parts = Parts(engine, mode=TradingMode.DEMO)
     parts.broker.stop_present = False
-    signal_id = record_signal(engine, mode=TradingMode.PAPER)
+    signal_id = record_signal(engine, mode=TradingMode.DEMO)
     outcome = parts.run(signal_id)
 
     assert outcome.kind == "stop_missing"
@@ -293,10 +293,10 @@ def test_an_account_that_contradicts_the_mode_never_trades(engine: Engine) -> No
 def test_a_known_signal_is_never_processed_twice(engine: Engine) -> None:
     parts = Parts(engine)
     signal_id = record_signal(engine)
-    assert parts.run(signal_id).kind == "notified"
+    assert parts.run(signal_id).kind == "executed"
     second = parts.run(signal_id)
     assert second.kind == "already_processed"
-    assert len(parts.notifier.messages) == 1
+    assert len(parts.notifier.messages) == 2
 
 
 def test_an_unknown_signal_is_reported_not_crashed(engine: Engine) -> None:
@@ -337,7 +337,7 @@ def test_an_unmeasurable_exposure_is_none_and_blocks_the_order(engine: Engine) -
         open_price=Decimal("1.1000"),
         stop_loss=Decimal("1.0900"),
         take_profit=None,
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
     )
     outcome = parts.run(signal_id)
     assert outcome.kind == "refused"
@@ -362,8 +362,8 @@ def test_a_closed_gold_market_never_stops_another_market(engine: Engine) -> None
     assert gold_outcome.kind == "refused"
     assert "trading_hours" in gold_outcome.detail
     assert state_of(engine, gold_id) is SignalState.RISK_REJECTED
-    assert other_outcome.kind == "notified"
-    assert state_of(engine, other_id) is SignalState.SENT
+    assert other_outcome.kind == "executed"
+    assert state_of(engine, other_id) is SignalState.POSITION_OPEN
     assert any(OTHER in message for message in parts.notifier.messages)
 
 
@@ -379,7 +379,7 @@ def test_the_model_is_never_called_without_a_candidate_signal(engine: Engine) ->
 def test_a_signal_already_processed_is_not_reviewed_again(engine: Engine) -> None:
     parts = Parts(engine)
     signal_id = record_signal(engine)
-    assert parts.run(signal_id).kind == "notified"
+    assert parts.run(signal_id).kind == "executed"
     assert parts.ai.calls == 1
 
     assert parts.run(signal_id).kind == "already_processed"

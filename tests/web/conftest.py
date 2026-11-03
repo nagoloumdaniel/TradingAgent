@@ -23,21 +23,9 @@ from tradingagent.storage.engine import create_database_engine
 from tradingagent.storage.migrate import downgrade, upgrade
 from tradingagent.storage.models import ExecutionEventRow, HaltCommandRow, OrderRow
 from tradingagent.web.app import create_app
-from tradingagent.web.auth import ACCESS_ENV_VAR
 
 # DEFAULT_HEARTBEAT_TIMEOUT_SECONDS: a heartbeat older than this is OFFLINE.
 HEARTBEAT_TIMEOUT = 15.0
-
-
-@pytest.fixture(autouse=True)
-def _no_ambient_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No test inherits a real ``TRADINGAGENT_WEB_TOKEN`` from the developer's shell.
-
-    Access protection is opt-in (§43): a test that wants it declares the token itself, via
-    ``monkeypatch.setenv`` or ``create_app(..., access_token=...)``. Without this guard a
-    protected shell would turn every page test into a 401.
-    """
-    monkeypatch.delenv(ACCESS_ENV_VAR, raising=False)
 
 
 @pytest.fixture

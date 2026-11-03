@@ -2,7 +2,7 @@
 
 The executor is the single writer of `orders`, `positions`, `executions` and `trades`, and
 `OrderJournal` satisfies `ports.TradeLog` on its own, so the composition root can hand it
-straight to a broker. PAPER and DEMO write the very same rows and are told apart by `mode`
+straight to a broker. DEMO and LIVE write the very same rows and are told apart by `mode`
 alone, so the analytics code reads one stream and cannot tell the difference (F-015).
 
 The *intent* is stored before anything leaves the process: a crash between the two leaves a

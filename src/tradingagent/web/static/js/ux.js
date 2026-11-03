@@ -96,29 +96,6 @@
       });
     });
 
-    /* filter: only worth a field when there is something to search through */
-    if (real().length >= 8) {
-      var tools = el("div", "tbl-tools");
-      wrap.parentNode.insertBefore(tools, wrap);
-      var input = el("input", null, null, tools);
-      input.type = "search";
-      input.placeholder = "Filtrer les lignes affichées";
-      input.setAttribute("aria-label", "Filtrer les lignes affichées du tableau");
-      input.autocomplete = "off";
-      var count = el("span", "tbl-count", null, tools);
-      count.setAttribute("aria-live", "polite");
-      input.addEventListener("input", function () {
-        var needle = input.value.trim().toLowerCase();
-        var shown = 0, rows = real();
-        rows.forEach(function (row) {
-          var hit = !needle || row.textContent.toLowerCase().indexOf(needle) !== -1;
-          row.hidden = !hit;
-          if (hit) { shown += 1; }
-        });
-        count.textContent = needle ? shown + " / " + rows.length + " ligne(s)" : "";
-      });
-    }
-
     /* copy: identifiers get a one-click button */
     Array.prototype.forEach.call(headRow.cells, function (th, index) {
       if (!COPY_HEADER.test(th.textContent)) { return; }
@@ -359,4 +336,33 @@
       bar.classList.toggle("on", gone);
     }, { rootMargin: "-56px 0px 0px 0px" }).observe(strip);
   })();
+})();
+
+
+/* Formulaires : au premier envoi, les boutons d'action sont grisés et affichent un état de
+   chargement, pour qu'un double clic ne rejoue pas l'action. Le retour arrière du navigateur
+   (pageshow) rend les boutons. */
+(function () {
+  document.addEventListener("submit", function (event) {
+    if (event.defaultPrevented) { return; }
+    var form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.dataset.busy === "1") { return; }
+    form.dataset.busy = "1";
+    var buttons = form.querySelectorAll("button:not([type=button])");
+    var submitter = event.submitter;
+    buttons.forEach(function (b) {
+      b.setAttribute("aria-busy", "true");
+      if (b === submitter || buttons.length === 1) { b.classList.add("is-loading"); }
+    });
+    setTimeout(function () { buttons.forEach(function (b) { b.disabled = true; }); }, 0);
+  });
+  window.addEventListener("pageshow", function (event) {
+    if (!event.persisted) { return; }
+    document.querySelectorAll("form[data-busy]").forEach(function (f) {
+      delete f.dataset.busy;
+      f.querySelectorAll("button").forEach(function (b) {
+        b.disabled = false; b.removeAttribute("aria-busy"); b.classList.remove("is-loading");
+      });
+    });
+  });
 })();

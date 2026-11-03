@@ -40,7 +40,7 @@ propositions qui passent obligatoirement par le protocole de validation.
 | 31, 32 | Statistiques globales et de scalping | `analytics/performance.py`, `analytics/scalping.py` |
 | 35 | Entités de base | `storage/models.py`, migration `0006` |
 | 36, 37 | Logs, observabilité, alertes | `observability.py`, `notify/` |
-| 38, 43 | Contrôle humain, sécurité | `control/`, `config/redaction.py`, `notify/access.py`, `web/` (jeton d'accès) |
+| 38, 43 | Contrôle humain, sécurité | `control/`, `config/redaction.py`, `notify/access.py`, `web/` (code à 4 chiffres) |
 | 42 | Temps réel | `web/sse.py` |
 | 44 | Environnements progressifs | `core/mode.py`, `control/live.py`, `reporting/campaign.py` |
 | 45, 46 | Santé du système, anomalies | `web/` (page system), `control/guardian.py`, `ea/health.py` |

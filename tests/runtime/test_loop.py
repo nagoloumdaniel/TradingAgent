@@ -196,7 +196,7 @@ def build_loop(
         SHIPPED_AGENT,
         known_symbols=BROKER_SYMBOLS,
         strategies={ref: loaded.manifest for ref, loaded in _catalog().items()},
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
     )
     pipeline = SignalPipeline(
         engine=engine,
@@ -206,7 +206,7 @@ def build_loop(
         portfolio=PortfolioBuilder(engine),
         risk_config=RISK,
         expected_login=LOGIN,
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         calendar_for=learned.get,
         now=moment,
     )
@@ -218,7 +218,7 @@ def build_loop(
         generator=(
             generator
             if generator is not None
-            else SignalGenerator((), store, SignalRepository(engine), TradingMode.SIGNAL)
+            else SignalGenerator((), store, SignalRepository(engine), TradingMode.DEMO)
         ),
         pipeline=pipeline,
         broker=broker,
@@ -229,7 +229,7 @@ def build_loop(
         reports=ReportService(engine, sender=sent),
         portfolio=PortfolioBuilder(engine),
         config=config,
-        mode=TradingMode.SIGNAL,
+        mode=TradingMode.DEMO,
         expected_login=LOGIN,
         subscriptions=(
             subscriptions if subscriptions is not None else (Subscription("XAUUSD", Timeframe.M15),)

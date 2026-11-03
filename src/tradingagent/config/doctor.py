@@ -110,8 +110,8 @@ KEYS: tuple[KeySpec, ...] = (
     ),
     KeySpec(
         "TRADING_MODE",
-        "mode de démarrage : OBSERVATION, SIGNAL, PAPER ou DEMO",
-        "Défaut SIGNAL. LIVE ne peut pas être posé ici seul (RM-000)",
+        "mode de démarrage : DEMO (démo) ou LIVE (réel)",
+        "Défaut DEMO. LIVE ne peut pas être posé ici seul (RM-000)",
         required=False,
     ),
     KeySpec(
@@ -137,13 +137,6 @@ KEYS: tuple[KeySpec, ...] = (
         "BACKUP_PASSPHRASE",
         "chiffrement des sauvegardes",
         f"À générer et à garder HORS du serveur : {GENERATE_WITH}",
-        required=False,
-    ),
-    KeySpec(
-        "TRADINGAGENT_WEB_TOKEN",
-        "protection de l'accès au tableau de bord",
-        f"À générer (16 caractères minimum) : {GENERATE_WITH}. Sans elle, le dashboard "
-        "écoute en local sans authentification",
         required=False,
     ),
 )

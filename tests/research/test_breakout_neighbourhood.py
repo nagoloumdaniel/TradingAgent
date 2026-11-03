@@ -60,7 +60,7 @@ def test_every_proposal_declares_the_breakout_strategy_and_a_signal_ceiling() ->
     """Aucun candidat de recherche ne doit pouvoir prétendre à un plafond supérieur."""
     for item in proposals():
         assert item.strategy_id == "breakout_only"
-        assert item.manifest.max_mode is TradingMode.SIGNAL
+        assert item.manifest.max_mode is TradingMode.DEMO
         assert item.manifest.timeframes == (Timeframe.M15,)
         assert item.manifest.allowed_symbols == ("XAUUSD",)
 

@@ -69,7 +69,7 @@ class Rig:
             portfolio=PortfolioBuilder(engine),
             risk_config=RISK,
             expected_login=LOGIN,
-            mode=TradingMode.SIGNAL,
+            mode=TradingMode.DEMO,
             calendar_for=open_calendar,
             ai=self.ai,
             news=news,
@@ -106,7 +106,7 @@ def test_a_candidate_inside_the_window_is_refused_with_its_motif(engine: Engine)
 def test_a_clear_calendar_lets_the_signal_through_and_feeds_the_model(engine: Engine) -> None:
     rig = Rig(engine, FakeNews())
     signal_id = record_signal(engine)
-    assert rig.run(signal_id).kind == "notified"
+    assert rig.run(signal_id).kind == "executed"
     assert rig.news.checked == ["XAUUSD"]
     assert "Core CPI m/m" in rig.ai.contexts[0].upcoming_events
 
@@ -116,7 +116,7 @@ def test_a_blind_calendar_does_not_block_and_leaves_a_trace(engine: Engine) -> N
         engine, FakeNews(BlackoutDecision(blocked=False, degraded="calendrier jamais rafraîchi"))
     )
     signal_id = record_signal(engine)
-    assert rig.run(signal_id).kind == "notified"
+    assert rig.run(signal_id).kind == "executed"
     [event] = events_of(engine, "news_gate_degraded")
     assert "jamais" in event.detail["reason"]
 
@@ -124,8 +124,8 @@ def test_a_blind_calendar_does_not_block_and_leaves_a_trace(engine: Engine) -> N
 def test_a_broken_calendar_never_stops_the_pipeline(engine: Engine) -> None:
     rig = Rig(engine, FakeNews(broken=True))
     signal_id = record_signal(engine)
-    assert rig.run(signal_id).kind == "notified"
-    assert state_of(engine, signal_id) is SignalState.SENT
+    assert rig.run(signal_id).kind == "executed"
+    assert state_of(engine, signal_id) is SignalState.POSITION_OPEN
     assert rig.ai.contexts[0].upcoming_events == ""
 
 
