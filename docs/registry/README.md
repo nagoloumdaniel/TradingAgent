@@ -22,6 +22,12 @@ DISCOVERED → EXPERIMENTAL → BACKTESTING → VALIDATING → PAPER → CANDIDA
 Depuis n'importe quel statut non terminal, `DEPRECATED` reste accessible ; `DEPRECATED` est
 terminal. Toute autre arête est refusée par `IllegalStrategyTransition`.
 
+**Modes d'exécution : DEMO et LIVE uniquement** (règle du 2026-11-04). DEMO est le mode par
+défaut et **n'exige aucun statut** : toute version non `DEPRECATED` y démarre, y compris une
+version `DISCOVERED` fraîchement référencée dans `config/agent.yaml`, car DEMO est l'endroit où
+une version se confirme. LIVE exige `LIVE` (`MODE_REQUIRED_STATUS` dans `app.py`) : on n'y
+passe qu'après confirmation en DEMO, par `promote()` et ses neuf portes.
+
 ## Fichiers
 
 | Fichier | Rôle |

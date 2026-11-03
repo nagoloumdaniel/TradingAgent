@@ -246,19 +246,20 @@ def test_a_deprecated_strategy_stops_the_start_up(tmp_path) -> None:
     engine.dispose()
 
 
-def test_an_executing_mode_requires_the_matching_rung(tmp_path) -> None:
-    """§14: DEMO executes only a LIVE version, and a DISCOVERED one is refused with why."""
+def test_demo_starts_with_a_freshly_registered_strategy_but_live_refuses_it(tmp_path) -> None:
+    """DEMO is the default mode: a DISCOVERED version runs there. LIVE refuses it with why."""
     engine, config = _configured(tmp_path)
     now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
+    _register_configured_strategies(engine, config, TradingMode.DEMO, now)
     with pytest.raises(ConfigError) as caught:
-        _register_configured_strategies(engine, config, TradingMode.DEMO, now)
+        _register_configured_strategies(engine, config, TradingMode.LIVE, now)
     message = str(caught.value)
-    assert "cannot execute in DEMO" in message
+    assert "cannot execute in LIVE" in message
     assert "live" in message
     engine.dispose()
 
 
-def test_paper_mode_only_requires_the_paper_rung(tmp_path) -> None:
+def test_a_paper_version_runs_in_demo_and_not_in_live(tmp_path) -> None:
     engine, config = _configured(tmp_path)
     now = lambda: datetime(2026, 10, 7, tzinfo=UTC)  # noqa: E731
     refs = _refs(config)
@@ -273,8 +274,6 @@ def test_paper_mode_only_requires_the_paper_rung(tmp_path) -> None:
         registry.transition("XAUUSD", refs["XAUUSD"], status, "operator", reason, now())
     with pytest.raises(ConfigError):
         _register_configured_strategies(engine, config, TradingMode.LIVE, now)
-    # DEMO accepts the `paper` rung: a venue without real money, and the environment ladder
-    # of §44 puts the demo rehearsal before real trading, not after it.
     _register_configured_strategies(engine, config, TradingMode.DEMO, now)
     engine.dispose()
 
