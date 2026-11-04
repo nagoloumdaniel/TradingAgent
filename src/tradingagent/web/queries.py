@@ -68,6 +68,7 @@ from tradingagent.ea.bridge import (
     read_reports,
 )
 from tradingagent.ea.health import ea_health
+from tradingagent.risk.explain import explain_refusal, refusal_causes
 from tradingagent.risk.streak import longest_loss_run_today
 from tradingagent.storage.account import AccountStore, RefusedRisk, ReportData, Snapshot
 from tradingagent.storage.daily import DailyPerformance, DailyPerformanceStore
@@ -1954,12 +1955,26 @@ def ai_call_health(
     """
     window = _window(AiCallRow.called_at, day)
     with Session(engine) as session:
+        # A call without a verdict is a failure only if it recorded an error: news and calendar
+        # scans answer with data, not approve/reject, and succeeded. Every real failure writes
+        # its error (unavailable provider, unparsable reply).
+        did_not_succeed = AiCallRow.error.is_not(None)
         counts: dict[str | None, int] = {
             verdict: int(total)
             for verdict, total in session.execute(
-                select(AiCallRow.verdict, func.count()).where(*window).group_by(AiCallRow.verdict)
+                select(AiCallRow.verdict, func.count())
+                .where(*window, or_(AiCallRow.verdict.is_not(None), did_not_succeed))
+                .group_by(AiCallRow.verdict)
             ).all()
         }
+        informative = int(
+            session.scalar(
+                select(func.count())
+                .select_from(AiCallRow)
+                .where(*window, AiCallRow.verdict.is_(None), ~did_not_succeed)
+            )
+            or 0
+        )
         history_calls = (
             -1
             if day is None or day.is_history
@@ -1977,7 +1992,7 @@ def ai_call_health(
         )
         unanswered = session.scalars(
             select(AiCallRow)
-            .where(AiCallRow.verdict.is_(None), *window)
+            .where(AiCallRow.verdict.is_(None), did_not_succeed, *window)
             .order_by(desc(AiCallRow.called_at), desc(AiCallRow.id))
             .limit(max(0, failures_shown))
         ).all()
@@ -1991,9 +2006,9 @@ def ai_call_health(
             )
             for row in unanswered
         )
-    answered = sum(total for verdict, total in counts.items() if verdict is not None)
+    answered = informative + sum(total for verdict, total in counts.items() if verdict is not None)
     return AiCallHealth(
-        calls=sum(counts.values()),
+        calls=sum(counts.values()) + informative,
         answered=answered,
         approved=counts.get("approved", 0),
         rejected=counts.get("rejected", 0),
@@ -3646,6 +3661,7 @@ def watermark(engine: Engine) -> ChartWatermark:
 
 REFUSAL_DAYS = 30
 REASON_LABEL_MAX = 44
+RECENT_REFUSALS = 10
 
 
 def _f(value: Any) -> float | None:
@@ -3657,23 +3673,33 @@ def refusal_history(engine: Engine, at: datetime, days: int = REFUSAL_DAYS) -> d
     since = day_start(at) - timedelta(days=days - 1)
     with Session(engine) as session:
         rows = session.execute(
-            select(RiskDecisionRow.decided_at, RiskDecisionRow.reason).where(
+            select(RiskDecisionRow.decided_at, RiskDecisionRow.reason)
+            .where(
                 RiskDecisionRow.outcome == RiskOutcome.REFUSED,
                 RiskDecisionRow.decided_at >= since,
             )
+            .order_by(desc(RiskDecisionRow.decided_at))
         ).all()
     per_day: dict[int, int] = defaultdict(int)
     per_reason: dict[str, int] = defaultdict(int)
     for decided_at, reason in rows:
         stamp = decided_at if decided_at.tzinfo else decided_at.replace(tzinfo=UTC)
         per_day[int(stamp.timestamp()) // 86400] += 1
-        label = (reason or "motif non enregistré").strip()
-        short = label[:REASON_LABEL_MAX] + ("…" if len(label) > REASON_LABEL_MAX else "")
-        per_reason[short] += 1
+        # Grouped by plain-French cause, not by the raw stored text (numbers differ each time).
+        for cause in refusal_causes(reason):
+            per_reason[cause] += 1
+    recent = [
+        {
+            "at": (d if d.tzinfo else d.replace(tzinfo=UTC)).strftime("%d/%m %H:%M UTC"),
+            "text": explain_refusal(r),
+        }
+        for d, r in rows[:RECENT_REFUSALS]
+    ]
     first = int(since.timestamp()) // 86400
     last = int(at.timestamp()) // 86400
     return {
         "total": len(rows),
+        "recent": recent,
         "days": [{"ts": d * 86400, "value": per_day.get(d, 0)} for d in range(first, last + 1)],
         "reasons": [
             {"name": name, "value": count}

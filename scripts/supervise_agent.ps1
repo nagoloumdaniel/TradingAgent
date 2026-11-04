@@ -170,6 +170,7 @@ $script:StartedAt = (Get-Date).ToUniversalTime()
 $script:AgentProcesses = @()
 $script:StatusExitCode = 0
 $script:Services = @()
+$script:LastWeekendCheck = [DateTime]::MinValue
 
 function Write-Journal {
     param([string]$Level, [string]$Message, [string]$LogFile)
@@ -612,6 +613,24 @@ function Stop-EveryService {
     Stop-Terminal
 }
 
+function Test-WeekendClosed {
+    <# Vrai pendant le week-end (fenetre definie dans tradingagent.data.weekend). En cas de doute
+       (interpreteur absent, erreur), faux: un week-end rate vaut mieux qu'un arret en pleine seance. #>
+    $guard = Join-Path $ProjectRoot 'scripts\weekend_guard.py'
+    if (-not (Test-Path -LiteralPath $guard)) { return $false }
+    try {
+        & $PythonPath $guard check *> $null
+        return ($LASTEXITCODE -eq 0)
+    }
+    catch { return $false }
+}
+
+function Send-WeekendNotice {
+    try { & $PythonPath (Join-Path $ProjectRoot 'scripts\weekend_guard.py') notify *> $null }
+    catch { Write-Journal 'WARN' "avis Telegram de fermeture non envoye : $($_.Exception.Message)" $supervisorLog }
+    if ($LASTEXITCODE -ne 0) { Write-Journal 'WARN' 'avis Telegram de fermeture non envoye' $supervisorLog }
+}
+
 function Stop-RecordedServices {
     $state = Read-ExistingState
     if ($null -eq $state) {
@@ -777,6 +796,13 @@ try {
     Assert-Installation
 
     Write-Journal 'INFO' ("démarrage du superviseur (PID {0}) dans {1}" -f $PID, $ProjectRoot) $supervisorLog
+    # PC allume pendant le week-end: rien ne demarre (ni terminal, ni agent, ni tableau de bord).
+    if (-not $DryRun -and -not $Once -and (Test-WeekendClosed)) {
+        Write-Journal 'INFO' 'marche ferme (week-end) : rien n est demarre' $supervisorLog
+        Stop-EveryService
+        Send-WeekendNotice
+        exit 0
+    }
     if ($IgnoreRunningAgent) {
         Write-Journal 'WARN' 'IgnoreRunningAgent : un agent deja en marche ne bloquera pas ce demarrage' $supervisorLog
     }
@@ -853,6 +879,20 @@ try {
             $exitCode = 0
             $script:Stopping = $true
             break
+        }
+
+        # Le vendredi soir, tout se ferme, meme ce qui a ete ouvert a la main; le superviseur
+        # s'arrete aussi. Verifie toutes les 30 s seulement (un appel Python par controle).
+        if (-not $Once -and ($now - $script:LastWeekendCheck).TotalSeconds -ge 30) {
+            $script:LastWeekendCheck = $now
+            if (Test-WeekendClosed) {
+                Write-Journal 'INFO' 'marche ferme (week-end) : arret de toute la pile' $supervisorLog
+                Send-WeekendNotice
+                Stop-EveryService
+                $exitCode = 0
+                $script:Stopping = $true
+                break
+            }
         }
 
         foreach ($service in $script:Services) {

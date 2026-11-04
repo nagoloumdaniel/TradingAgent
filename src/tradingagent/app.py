@@ -139,6 +139,7 @@ from tradingagent.storage.events import SystemEventStore
 from tradingagent.storage.halts import HaltStore
 from tradingagent.storage.migrate import upgrade
 from tradingagent.storage.news import NewsStore
+from tradingagent.storage.risk_decisions import RiskDecisionStore
 from tradingagent.storage.signals import SignalRepository
 from tradingagent.strategies.manifest import StrategyManifest
 from tradingagent.strategies.registry import REGISTRY
@@ -161,14 +162,12 @@ SUPERVISED_ENV = "TRADINGAGENT_SUPERVISED"
 RESTART_EXIT_CODE = 75
 # Section 14: the ladder gates the mode, so a strategy cannot trade a rung it never climbed.
 #
-# DEMO asks for the validated rungs (`paper`, `candidate` or `live`): it is a venue without real
-# money, and the rehearsal must be available before the decision it exists to inform is taken.
-# LIVE keeps the top rung: real money is the one thing that must never be spent on a
-# version nobody validated.
+# Only two modes exist: DEMO is the default, LIVE comes once a strategy is confirmed in DEMO.
+# DEMO therefore has no rung requirement (any version that is not DEPRECATED may run): it is
+# the venue where a version earns its promotion, so demanding the promotion first would be
+# circular. LIVE keeps the top rung: real money is the one thing that must never be spent on
+# a version nobody validated.
 MODE_REQUIRED_STATUS: dict[TradingMode, frozenset[StrategyStatus]] = {
-    TradingMode.DEMO: frozenset(
-        {StrategyStatus.PAPER, StrategyStatus.CANDIDATE, StrategyStatus.LIVE}
-    ),
     TradingMode.LIVE: frozenset({StrategyStatus.LIVE}),
 }
 # The demo server is measured at UTC with no daylight saving (TASK-003); the live server
@@ -509,10 +508,18 @@ def _build_lab(
     upcoming = (
         (lambda: news.upcoming_summary(now(), hours=72, limit=10)) if news is not None else None
     )
+    decisions = RiskDecisionStore(engine)
+
+    def refusals() -> str:
+        end = now()
+        return decisions.refusal_digest(end - timedelta(days=30), end)
+
     return DailyLab(
         engine,
-        analyst=TradeAnalyst(store, client, model=model, upcoming=upcoming),
-        researcher=StrategyResearcher(store, client, model=model, upcoming=upcoming),
+        analyst=TradeAnalyst(store, client, model=model, upcoming=upcoming, refusals=refusals),
+        researcher=StrategyResearcher(
+            store, client, model=model, upcoming=upcoming, refusals=refusals
+        ),
         notifier=notifier,
         cycle=DailyImprovement(engine),
         now=now,
@@ -976,9 +983,8 @@ def _register_configured_strategies(
     """Make every configured market visible to the registry, and enforce §14.
 
     The registry is the deployment record. Two rules are checked before anything connects:
-    a deprecated ref stops the start-up, and an executing mode requires the strategy to have
-    climbed far enough up the ladder — DEMO accepts `paper`, `candidate` or `live`, while
-    LIVE accepts only `live`.
+    a deprecated ref stops the start-up, and LIVE requires the strategy to be `live`. DEMO
+    has no rung requirement: a new version runs there to be confirmed, then gets promoted.
     """
     registry = StrategyRegistry(engine, clock=now)
     refused: list[str] = []
