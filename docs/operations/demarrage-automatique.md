@@ -209,3 +209,13 @@ le terminal comme tâches planifiées sur une machine dédiée. Sur un poste de 
 `install_autostart.ps1` : il supervise, il journalise, et il ne demande pas les droits
 administrateur. **N'utilisez pas les deux** — le verrou du superviseur empêche le double agent,
 mais deux voies de démarrage rendent le diagnostic inutilement confus.
+
+## Arrêt du week-end
+
+Le marché de l'or est fermé du vendredi 21:00 UTC (15 minutes après la dernière cotation) au dimanche 22:00 UTC. Pendant cette fenêtre (`src/tradingagent/data/weekend.py`), rien ne doit tourner.
+
+- Le superviseur contrôle la fenêtre toutes les 30 secondes. Au passage de vendredi soir, il envoie un avis Telegram « Marché fermé », arrête l'agent, le tableau de bord, MetaTrader 5 (même ouverts à la main) puis s'arrête lui-même. Un PC resté allumé du vendredi au samedi matin est donc déjà éteint côté application.
+- Si le PC est allumé ou la session ouverte pendant le week-end, le superviseur refuse de démarrer : rien n'est lancé, un seul avis Telegram est envoyé par week-end (marqueur `logs/weekend_notified.txt`).
+- La tâche planifiée a trois déclencheurs : ouverture de session, et dimanche 22:05 et 23:05 UTC (converti en heure locale à l'installation, relancer `install_autostart.ps1` après un changement d'heure) pour la reprise. Le verrou du superviseur évite les doublons.
+- Contrôle manuel : `uv run python scripts/weekend_guard.py check` (code 0 = fermé, 10 = ouvert).
+- Les bornes sont des constantes de `WeekendWindow`. Elles ne lisent pas le calendrier appris du courtier.

@@ -237,7 +237,15 @@ if ($useTask) {
     $action = New-ScheduledTaskAction -Execute $shell -Argument $taskArguments -WorkingDirectory $ProjectRoot
     # Ouverture de session, pas démarrage : le terminal MT5 refuse la session 0, et un agent
     # sans terminal n'est qu'un processus qui échoue poliment toutes les vingt secondes.
-    $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+    $logonTrigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+    # Reprise du dimanche soir sans ouvrir de session: 22:05 et 23:05 UTC, en heure locale (la
+    # seconde couvre l'heure d'ete). Le superviseur refuse de demarrer tant que la garde du
+    # week-end dit « ferme », et le verrou evite les doublons.
+    $sundayTriggers = foreach ($utcHour in 22, 23) {
+        $local = ([DateTime]::SpecifyKind([DateTime]::Today.AddHours($utcHour).AddMinutes(5), 'Utc')).ToLocalTime()
+        New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At $local
+    }
+    $trigger = @($logonTrigger) + @($sundayTriggers)
     $settings = New-ScheduledTaskSettingsSet `
         -AllowStartIfOnBatteries `
         -DontStopIfGoingOnBatteries `
