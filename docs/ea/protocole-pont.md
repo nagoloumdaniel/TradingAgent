@@ -252,7 +252,7 @@ chaque cycle de la boucle d'exécution. Republier sans rien changer est utile : 
 | Situation | Ce que fait l'EA | Ce que voit l'agent | Comment on repart |
 |---|---|---|---|
 | **Backend muet** (état jamais rafraîchi depuis plus de 30 s) | **Arrêt local persistant** : plus aucun nouvel ordre. Les positions ouvertes ne sont pas fermées (RM-015) ; la protection des stops reste active | `local_halt: true`, `halt_reason` explicite, `state_age_seconds` qui grimpe | réparer le backend, puis **supprimer `control\<SYMBOLE>_halt.txt`** et redémarrer l'EA |
-| **Fichier d'état disparu ou illisible** après avoir été lu | même arrêt local | `local_halt: true` | idem |
+| **Fichier d'état disparu ou illisible** après avoir été lu, en continu pendant 5 s (8 lectures espacées de 25 ms à chaque cycle, pour absorber le remplacement du fichier) | même arrêt local | `local_halt: true` | idem |
 | **Aucun état encore publié** (première installation) | l'EA reste simplement inactif : il n'a aucun ordre à exécuter, donc rien à faire | `applied_revision: -1` | publier un état |
 | **Terminal déconnecté** | aucun ordre n'est envoyé ; les ordres ne sont **pas** marqués appliqués, ils repartiront à la reconnexion | `connected: false` | attendre la reconnexion |
 | **Algo Trading désactivé / compte non autorisé** | aucun ordre n'est envoyé ; ordre signalé une fois en `ORDER_REFUSED` | `trade_allowed: false` | activer Algo Trading |
